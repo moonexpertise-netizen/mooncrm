@@ -39,12 +39,30 @@ type TallyPayload = {
   };
 };
 
+// Valeurs valides des enums DB (côté supabase/migrations/0001_schema.sql + ajouts).
+const ACTIVITE_VALUES = new Set([
+  "STARTUP", "COMMERCE", "FORMATION", "HOLDING", "LMNP", "INFLUENCEUR",
+  "COACHING SPORTIF", "ARCHITECTE", "SANTE", "ENERGIES", "CONSULTANT",
+  "E-COMMERCE", "PHOTOGRAPHE", "ARTISAN", "AVOCAT", "INFORMATIQUE",
+]);
+const FORME_VALUES = new Set([
+  "ASSO", "SA", "SCI", "EI", "SARL", "SAS", "SELARL", "SELAS",
+  "SCM", "SC", "EURL", "SASU", "INDIV", "AARPI", "LMNP",
+]);
+
+/** Normalise une valeur d'enum : trim + uppercase. Renvoie null si pas dans la whitelist. */
+function normalizeEnum(value: string, allowed: Set<string>): string | null {
+  const up = value.trim().toUpperCase();
+  return allowed.has(up) ? up : null;
+}
+
 /**
  * Mapping des labels Tally vers les colonnes CRM. Le matching est insensible
  * à la casse et tolérant aux accents/espaces. Ajoute des entrées au fur et
  * à mesure que tu identifies les champs dans tes formulaires.
  *
  * Pattern : { regex de match sur label, colonne DB, transformation optionnelle }
+ * Si transform renvoie null → on saute le champ (au lieu de planter le webhook).
  */
 const FIELD_MAP: Array<{
   re: RegExp;
@@ -53,18 +71,17 @@ const FIELD_MAP: Array<{
 }> = [
   // Identité client
   { re: /(nom|d[ée]nomination).*soci[ée]t[ée]|raison.?sociale/i, field: "denomination" },
-  { re: /^siren$|num[ée]ro.*siren/i, field: "siren" },
-  { re: /forme.?juridique/i, field: "forme" },
-  { re: /activit[ée]/i, field: "activite" },
-  { re: /^email$|adresse.?mail|courriel/i, field: "email" },
+  { re: /^siren$|num[ée]ro.*siren/i, field: "siren", transform: (v) => v.replace(/\D/g, "") || null },
+  { re: /forme.?juridique/i, field: "forme", transform: (v) => normalizeEnum(v, FORME_VALUES) },
+  { re: /activit[ée]/i, field: "activite", transform: (v) => normalizeEnum(v, ACTIVITE_VALUES) },
+  { re: /^email$|adresse.?mail|courriel/i, field: "email", transform: (v) => v.toLowerCase().trim() },
 
   // Adresse siège
   { re: /adresse.*si[èe]ge|adresse.*social/i, field: "adresse_siege" },
-  { re: /code.?postal|^cp$/i, field: "code_postal" },
+  { re: /code.?postal|^cp$/i, field: "code_postal", transform: (v) => v.replace(/\D/g, "").slice(0, 5) || null },
   { re: /^ville$|commune/i, field: "ville" },
 
   // Dirigeant — stockés sur le contact, traités séparément dans le handler
-  // (matche "Nom du dirigeant", "Prénom du dirigeant", "Titre/Civilité")
 ];
 
 /**
@@ -156,13 +173,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 2. Construit le patch à appliquer au client
+  // 2. Construit le patch à appliquer au client. Si transform renvoie null
+  //    (valeur invalide pour un enum), on saute le champ avec un log warning.
   const patch: Record<string, string | null> = {};
+  const skipped: string[] = [];
   for (const { re, field, transform } of FIELD_MAP) {
-    const v = findFieldValue(fields, re);
-    if (v !== null && v !== "") {
-      patch[field] = transform ? transform(v) : v;
+    const raw = findFieldValue(fields, re);
+    if (raw === null || raw === "") continue;
+    const normalized = transform ? transform(raw) : raw;
+    if (normalized === null) {
+      skipped.push(`${field}="${raw}" (valeur non reconnue)`);
+      continue;
     }
+    patch[field] = normalized;
+  }
+  if (skipped.length) {
+    console.warn(`[tally webhook] champs ignorés pour client ${clientId}:`, skipped.join("; "));
   }
 
   // 3. Met à jour le client
