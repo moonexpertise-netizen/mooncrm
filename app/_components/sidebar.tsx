@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ClipboardList,
   GitBranch,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Settings2,
@@ -62,6 +63,7 @@ function buildProductionChildren(): ChildItem[] {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: GitBranch, matchPrefix: "/pipeline" },
+  { href: "/inbox", label: "Inbox Tally", icon: Inbox, matchPrefix: "/inbox" },
   { href: "/clients", label: "Clients", icon: Users, matchPrefix: "/clients" },
   { href: "/parametrage", label: "Paramétrage", icon: Settings2, matchPrefix: "/parametrage" },
   {
