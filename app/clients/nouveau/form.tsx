@@ -521,14 +521,13 @@ export default function NouveauClientForm() {
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Activité">
-          <select
+          <input
+            type="text"
             value={activite}
             onChange={(e) => setActivite(e.target.value)}
+            placeholder="Texte libre · auto-rempli depuis l'annuaire si dossier existant"
             className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(activite))}
-          >
-            <option value="">À renseigner</option>
-            {ACTIVITES.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
+          />
         </Field>
         <Field label="Origine">
           <select

@@ -5,10 +5,8 @@ export type FormeJuridique =
   | "ASSO" | "SA" | "SCI" | "EI" | "SARL" | "SAS" | "SELARL" | "SELAS"
   | "SCM" | "SC" | "EURL" | "SASU" | "INDIV" | "AARPI" | "LMNP";
 
-export type Activite =
-  | "STARTUP" | "COMMERCE" | "FORMATION" | "HOLDING" | "LMNP" | "INFLUENCEUR"
-  | "COACHING SPORTIF" | "ARCHITECTE" | "SANTE" | "ENERGIES" | "CONSULTANT"
-  | "E-COMMERCE" | "PHOTOGRAPHE" | "ARTISAN" | "AVOCAT";
+/** Activité : texte libre (plus un enum depuis migration 0022). */
+export type Activite = string;
 
 export type Origine =
   | "1 - Création"

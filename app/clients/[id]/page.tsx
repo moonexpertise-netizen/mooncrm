@@ -386,12 +386,11 @@ export default async function ClientFiche({
             label="Forme juridique"
             options={FORME_VALUES}
           />
-          <EditableSelect
+          <EditableText
             clientId={id}
             field="activite"
             value={client.activite}
             label="Activité"
-            options={ACTIVITE_VALUES}
           />
           <EditableSelect
             clientId={id}

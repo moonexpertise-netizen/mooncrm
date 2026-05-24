@@ -40,11 +40,7 @@ type TallyPayload = {
 };
 
 // Valeurs valides des enums DB (côté supabase/migrations/0001_schema.sql + ajouts).
-const ACTIVITE_VALUES = new Set([
-  "STARTUP", "COMMERCE", "FORMATION", "HOLDING", "LMNP", "INFLUENCEUR",
-  "COACHING SPORTIF", "ARCHITECTE", "SANTE", "ENERGIES", "CONSULTANT",
-  "E-COMMERCE", "PHOTOGRAPHE", "ARTISAN", "AVOCAT", "INFORMATIQUE",
-]);
+// `activite` n'est plus un enum (champ texte libre depuis migration 0022).
 const FORME_VALUES = new Set([
   "ASSO", "SA", "SCI", "EI", "SARL", "SAS", "SELARL", "SELAS",
   "SCM", "SC", "EURL", "SASU", "INDIV", "AARPI", "LMNP",
@@ -73,7 +69,7 @@ const FIELD_MAP: Array<{
   { re: /(nom|d[ée]nomination).*soci[ée]t[ée]|raison.?sociale/i, field: "denomination" },
   { re: /^siren$|num[ée]ro.*siren/i, field: "siren", transform: (v) => v.replace(/\D/g, "") || null },
   { re: /forme.?juridique/i, field: "forme", transform: (v) => normalizeEnum(v, FORME_VALUES) },
-  { re: /activit[ée]/i, field: "activite", transform: (v) => normalizeEnum(v, ACTIVITE_VALUES) },
+  { re: /activit[ée]/i, field: "activite" }, // text libre
   { re: /^email$|adresse.?mail|courriel/i, field: "email", transform: (v) => v.toLowerCase().trim() },
 
   // Adresse siège
