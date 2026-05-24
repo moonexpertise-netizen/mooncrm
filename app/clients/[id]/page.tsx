@@ -435,7 +435,7 @@ export default async function ClientFiche({
             clientId={id}
             field="fin_mission_date"
             value={client.fin_mission_date}
-            label="Fin de mission"
+            label="Clôture 1ère mission"
           />
         </Card>
       </div>
@@ -467,15 +467,22 @@ export default async function ClientFiche({
             clientId={id}
             field="type_honos_bilans"
             value={client.type_honos_bilans}
-            label="Type honos bilans"
+            label="Honos bilans"
             options={["Inclus", "Facturés"]}
+          />
+          <EditableSelect
+            clientId={id}
+            field="type_honos_jur"
+            value={client.type_honos_jur}
+            label="Honos juridique"
+            options={["Facturés", "Inclus", "Non souscrit"]}
           />
           <EditableSelect
             clientId={id}
             field="tdb_periode"
             value={client.tdb_periode}
             label="TDB période"
-            options={["Mensuel", "Trimestriel"]}
+            options={["Mensuel", "Trimestriel", "Non souscrit"]}
           />
           <EditableNumber
             clientId={id}

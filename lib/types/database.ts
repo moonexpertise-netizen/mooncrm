@@ -90,7 +90,8 @@ export interface Client {
   honoraires_creation: number; // One-shot création
   exceptionnel: number;
   type_honos_bilans: "Inclus" | "Facturés" | null;
-  tdb_periode: "Mensuel" | "Trimestriel" | null;
+  type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
+  tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;
   mrr: number;                 // GENERATED · compta + pilotage + (bilan + jur)/12
   arr: number;                 // GENERATED · (compta + pilotage) * 12 + bilan + jur

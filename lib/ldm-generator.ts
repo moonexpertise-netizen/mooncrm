@@ -50,7 +50,8 @@ export type LDMClientData = {
   honoraires_reprise: number;             // one-shot
   honoraires_creation: number;            // one-shot
   type_honos_bilans: "Inclus" | "Facturés" | null;
-  tdb_periode: "Mensuel" | "Trimestriel" | null;
+  type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
+  tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;
 };
 
@@ -79,6 +80,7 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
 
   const ctx: LDMContext = {
     type_honos_bilans: client.type_honos_bilans,
+    type_honos_jur: client.type_honos_jur,
     tdb_periode: client.tdb_periode,
     tdb_honos_periode: client.tdb_honos_periode,
     honoraires_jur: client.honoraires_jur,

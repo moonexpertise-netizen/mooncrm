@@ -27,7 +27,7 @@ export async function GET(
   const { data: client, error: cliErr } = await sb
     .from("clients")
     .select(
-      "denomination, activite, origine, adresse_siege, code_postal, ville, fin_mission_date, honoraires_compta, forfait_pilotage, forfait_bilan, honoraires_jur, honoraires_reprise, honoraires_creation, type_honos_bilans, tdb_periode, tdb_honos_periode, vitesse_tva"
+      "denomination, activite, origine, adresse_siege, code_postal, ville, fin_mission_date, honoraires_compta, forfait_pilotage, forfait_bilan, honoraires_jur, honoraires_reprise, honoraires_creation, type_honos_bilans, type_honos_jur, tdb_periode, tdb_honos_periode, vitesse_tva"
     )
     .eq("id", id)
     .single();
@@ -70,7 +70,8 @@ export async function GET(
     honoraires_reprise: Number(client.honoraires_reprise ?? 0),
     honoraires_creation: Number(client.honoraires_creation ?? 0),
     type_honos_bilans: (client.type_honos_bilans ?? null) as "Inclus" | "Facturés" | null,
-    tdb_periode: (client.tdb_periode ?? null) as "Mensuel" | "Trimestriel" | null,
+    type_honos_jur: (client.type_honos_jur ?? null) as "Facturés" | "Inclus" | "Non souscrit" | null,
+    tdb_periode: (client.tdb_periode ?? null) as "Mensuel" | "Trimestriel" | "Non souscrit" | null,
     tdb_honos_periode: Number(client.tdb_honos_periode ?? 0),
   };
 

@@ -3,17 +3,20 @@
  * Texte EXACT issu de `LDM PRESENTATION.xlsx` (Publipostage Benjamin) — formules
  * répliquées en TypeScript.
  *
- * Limitations connues (à brancher si besoin) :
- *   · phraseHonosBilan : Excel a un flag "Type honos bilans ?" (Inclus / Facturés).
- *     Ici on déduit "Inclus" = forfait_bilan == 0 et "Facturés" = > 0.
- *   · phraseTdb : Excel a un flag "Tableau de bord ?" (Mensuel / Trimestriel / N/A)
- *     + un montant "TDB honos période". On utilise forfait_pilotage en mensuel
- *     par défaut. Pour la version trimestrielle, ajouter une colonne `tdb_periode`.
+ * Drapeaux explicites en DB (un dossier doit avoir une décision claire,
+ * pas une déduction d'un montant à 0) :
+ *   · type_honos_bilans : Inclus / Facturés / null
+ *   · type_honos_jur    : Facturés / Inclus / Non souscrit / null
+ *   · tdb_periode       : Mensuel / Trimestriel / Non souscrit / null
+ *
+ * Pour Création / Reprise : pas de flag dédié, on dérive du montant > 0
+ * (un montant signifie qu'on facture).
  */
 
 export type LDMContext = {
   type_honos_bilans: "Inclus" | "Facturés" | null;
-  tdb_periode: "Mensuel" | "Trimestriel" | null;
+  type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
+  tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;      // montant par période
   honoraires_jur: number;         // annuel
   honoraires_reprise: number;     // one-shot
@@ -52,12 +55,17 @@ export function phraseReprise(ctx: LDMContext): string {
 }
 
 /**
- * Excel :
- *   IF(Juridique_annuel = "" OR "Non", "",
- *      "Les travaux juridiques annuels (AGO + Dépôt des comptes au greffe) seront
- *       facturés " & Honos_juridiques & " € HT hors frais de greffe, chaque année.")
+ * 3 cas selon type_honos_jur :
+ *   · "Non souscrit" / null → phrase vide (rien de juridique)
+ *   · "Inclus"             → "Les travaux juridiques annuels (...) sont inclus."
+ *   · "Facturés"           → "(...) seront facturés X € HT hors frais de greffe."
  */
 export function phraseJuridique(ctx: LDMContext): string {
+  if (ctx.type_honos_jur === "Non souscrit" || ctx.type_honos_jur === null) return "";
+  if (ctx.type_honos_jur === "Inclus") {
+    return "Les travaux juridiques annuels (AGO + Dépôt des comptes au greffe) sont inclus.";
+  }
+  // Facturés : on a besoin d'un montant > 0
   if (ctx.honoraires_jur <= 0) return "";
   return `Les travaux juridiques annuels (AGO + Dépôt des comptes au greffe) seront facturés ${eur(ctx.honoraires_jur)} € HT hors frais de greffe, chaque année.`;
 }
@@ -67,9 +75,11 @@ export function phraseJuridique(ctx: LDMContext): string {
  *   IF(TDB = "" OR "N/A", "Pas de souscription.",
  *      "Souscription du forfait pilotage, avec présentation d'un tableau de bord "
  *       & LOWER(TDB) & ". Chaque période sera facturée " & TDB_honos_periode & " € HT.")
+ *
+ * tdb_periode = null OU "Non souscrit" → "Pas de souscription."
  */
 export function phraseTdb(ctx: LDMContext): string {
-  if (ctx.tdb_periode === null) {
+  if (ctx.tdb_periode === null || ctx.tdb_periode === "Non souscrit") {
     return "Pas de souscription.";
   }
   const periodeLower = ctx.tdb_periode.toLowerCase(); // "mensuel" | "trimestriel"
