@@ -70,15 +70,36 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
   const [editingField, setEditingField] = useState<"prenom" | "nom" | "email" | "telephone" | "role" | null>(null);
   const [, startTransition] = useTransition();
 
+  // Optimistic display : on garde un état local de la row qui prime sur la prop
+  // jusqu'au prochain revalidate. La saisie semble instantanée.
+  const [display, setDisplay] = useState<ContactRow>(row);
+  useEffect(() => setDisplay(row), [row]);
+
   function commit(field: "prenom" | "nom" | "email" | "telephone" | "role", value: string) {
     setEditingField(null);
     const v = value.trim();
+    // Optimistic update local + rollback si erreur
+    const previous = display;
+    const next: ContactRow = { ...display };
+    if (field === "nom") {
+      if (!v) return;
+      next.nom = v;
+    } else if (field === "prenom") {
+      next.prenom = v || null;
+    } else if (field === "email") {
+      next.email = v || null;
+    } else if (field === "telephone") {
+      next.telephone = v || null;
+    } else if (field === "role") {
+      next.role = v || null;
+    }
+    setDisplay(next);
+
     startTransition(async () => {
       try {
         if (field === "role") {
           await updateContactRole(clientId, row.contactId, v || null);
         } else if (field === "nom") {
-          if (!v) return;
           await updateContact(row.contactId, { nom: v });
         } else if (field === "prenom") {
           await updateContact(row.contactId, { prenom: v || null });
@@ -88,13 +109,14 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
           await updateContact(row.contactId, { telephone: v || null });
         }
       } catch (e) {
+        setDisplay(previous); // rollback
         alert((e as Error).message);
       }
     });
   }
 
   function onRemove() {
-    if (!confirm(`Détacher ${row.nom} de ce dossier ?`)) return;
+    if (!confirm(`Détacher ${display.nom} de ce dossier ?`)) return;
     startTransition(async () => {
       try {
         await removeContactFromClient(clientId, row.contactId);
@@ -105,10 +127,13 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
   }
 
   function commitCivilite(v: "M." | "Mme" | "Mlle" | null) {
+    const previous = display;
+    setDisplay({ ...display, civilite: v });
     startTransition(async () => {
       try {
         await updateContact(row.contactId, { civilite: v });
       } catch (e) {
+        setDisplay(previous); // rollback
         alert((e as Error).message);
       }
     });
@@ -116,9 +141,9 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
 
   return (
     <li className="flex flex-wrap items-center gap-2 py-1.5 px-2 -mx-2 rounded hover:bg-zinc-50 group">
-      <CivilitePicker value={row.civilite} onChange={commitCivilite} />
+      <CivilitePicker value={display.civilite} onChange={commitCivilite} />
       <InlineField
-        value={row.prenom ?? ""}
+        value={display.prenom ?? ""}
         placeholder="Prénom"
         editing={editingField === "prenom"}
         onEdit={() => setEditingField("prenom")}
@@ -126,7 +151,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         className="text-sm min-w-[80px]"
       />
       <InlineField
-        value={row.nom}
+        value={display.nom}
         placeholder="Nom"
         editing={editingField === "nom"}
         onEdit={() => setEditingField("nom")}
@@ -134,7 +159,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         className="font-medium min-w-[80px]"
       />
       <InlineField
-        value={row.role ?? ""}
+        value={display.role ?? ""}
         placeholder="Rôle"
         editing={editingField === "role"}
         onEdit={() => setEditingField("role")}
@@ -142,7 +167,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         className="text-xs text-zinc-500"
       />
       <InlineField
-        value={row.email ?? ""}
+        value={display.email ?? ""}
         placeholder="Email"
         editing={editingField === "email"}
         onEdit={() => setEditingField("email")}
@@ -151,7 +176,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         type="email"
       />
       <InlineField
-        value={row.telephone ?? ""}
+        value={display.telephone ?? ""}
         placeholder="Téléphone"
         editing={editingField === "telephone"}
         onEdit={() => setEditingField("telephone")}

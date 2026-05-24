@@ -7,49 +7,70 @@ import { setClientGroupe, updateClient } from "./actions";
 
 /**
  * Composants d'édition inline (click-to-edit) pour la fiche client.
- * - EditableText : input texte, sauvegarde sur blur ou Enter
- * - EditableNumber : input numérique
- * - EditableDate : input date HTML5
- * - EditableSelect : dropdown avec valeurs prédéfinies
- * - EditableGroupe : autocomplete avec création à la volée
  *
- * Le parent passe le clientId, le nom du champ et la valeur courante. On gère
- * l'état local d'édition + l'appel server action + le refresh.
+ * Stratégie de fluidité (UX) :
+ *  - Optimistic UI : la valeur saisie s'affiche INSTANTANÉMENT, sans attendre
+ *    le serveur. L'utilisateur peut enchaîner les champs sans latence perçue.
+ *  - Aucun signal visuel pendant le pending : pas d'opacity, pas de disabled,
+ *    pas de spinner. Le revalidatePath se passe en arrière-plan.
+ *  - Si l'écriture échoue, on rollback à la valeur serveur et on affiche une
+ *    petite erreur rouge sous le champ. Sinon, la prop value finit par
+ *    rejoindre la valeur locale après le revalidate (resync silencieux).
  */
+
+/**
+ * Synchronise une valeur locale avec la prop serveur. Quand le serveur push
+ * une nouvelle valeur (après revalidate), la locale suit.
+ */
+function useOptimistic<T>(serverValue: T): [T, (v: T) => void, () => void] {
+  const [local, setLocal] = useState<T>(serverValue);
+  useEffect(() => {
+    setLocal(serverValue);
+  }, [serverValue]);
+  return [local, setLocal, () => setLocal(serverValue)];
+}
 
 function useSaver(clientId: string, field: string) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function save(value: string | number | null) {
+  function save(value: string | number | null, onError?: () => void) {
     setError(null);
     startTransition(async () => {
       try {
         await updateClient(clientId, { [field]: value });
       } catch (e) {
-        // On n'utilise PAS throw → ça remonterait à l'error boundary global et
-        // ferait planter toute la page. On affiche l'erreur localement.
         setError(e instanceof Error ? e.message : String(e));
+        onError?.();
       }
     });
   }
-  return { save, isPending, error };
+  return { save, error };
 }
 
 function FieldShell({
   label,
   children,
+  error,
   className,
 }: {
   label: string;
   children: React.ReactNode;
+  error?: string | null;
   className?: string;
 }) {
   return (
-    <div className={cn("grid grid-cols-[140px_1fr] gap-2 py-1 text-sm items-center", className)}>
-      <div className="text-muted-foreground">{label}</div>
-      <div className="min-w-0">{children}</div>
+    <div className={cn("py-1 text-sm", className)}>
+      <div className="grid grid-cols-[140px_1fr] gap-2 items-center">
+        <div className="text-muted-foreground">{label}</div>
+        <div className="min-w-0">{children}</div>
+      </div>
+      {error && (
+        <div className="text-[11px] text-rose-600 mt-0.5 ml-[148px]">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
@@ -68,32 +89,36 @@ export function EditableText({
   placeholder?: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
-  const { save, isPending } = useSaver(clientId, field);
+  const { save, error } = useSaver(clientId, field);
   const ref = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
 
   useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
 
+  function startEdit() {
+    setDraft(display ?? "");
+    setEditing(true);
+  }
+
   function commit() {
     setEditing(false);
     const trimmed = draft.trim();
-    if (trimmed === (value ?? "")) return;
-    save(trimmed === "" ? null : trimmed);
+    const newValue = trimmed === "" ? null : trimmed;
+    if (newValue === (display ?? null)) return;
+    setDisplay(newValue); // optimistic
+    save(newValue, rollback);
   }
 
   function cancel() {
-    setDraft(value ?? "");
+    setDraft(display ?? "");
     setEditing(false);
   }
 
   return (
-    <FieldShell label={label}>
+    <FieldShell label={label} error={error}>
       {editing ? (
         <input
           ref={ref}
@@ -108,15 +133,13 @@ export function EditableText({
         />
       ) : (
         <button
-          onClick={() => setEditing(true)}
-          disabled={isPending}
+          onClick={startEdit}
           className={cn(
             "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !value && "bg-amber-50 text-amber-700 hover:bg-amber-100",
-            isPending && "opacity-60"
+            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
           )}
         >
-          {value || placeholder}
+          {display || placeholder}
         </button>
       )}
     </FieldShell>
@@ -139,41 +162,49 @@ export function EditableNumber({
   placeholder?: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value != null ? String(value) : "");
-  const { save, isPending } = useSaver(clientId, field);
+  const { save, error } = useSaver(clientId, field);
   const ref = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setDraft(value != null ? String(value) : "");
-  }, [value]);
 
   useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
 
+  function startEdit() {
+    setDraft(display != null ? String(display) : "");
+    setEditing(true);
+  }
+
   function commit() {
     setEditing(false);
     const trimmed = draft.trim().replace(",", ".");
     if (trimmed === "") {
-      if (value != null) save(null);
+      if (display != null) {
+        setDisplay(null); // optimistic
+        save(null, rollback);
+      }
       return;
     }
     const n = parseFloat(trimmed);
     if (Number.isNaN(n)) {
-      setDraft(value != null ? String(value) : "");
+      setDraft(display != null ? String(display) : "");
       return;
     }
-    if (n !== value) save(n);
+    if (n !== display) {
+      setDisplay(n); // optimistic
+      save(n, rollback);
+    }
   }
 
   let displayed: string = placeholder;
-  if (value != null) {
-    if (unit === "eur") displayed = fmtEuro(value) ?? String(value);
-    else displayed = String(value);
+  if (display != null) {
+    if (unit === "eur") displayed = fmtEuro(display) ?? String(display);
+    else displayed = String(display);
   }
 
   return (
-    <FieldShell label={label}>
+    <FieldShell label={label} error={error}>
       {editing ? (
         <input
           ref={ref}
@@ -185,7 +216,7 @@ export function EditableNumber({
           onKeyDown={(e) => {
             if (e.key === "Enter") commit();
             else if (e.key === "Escape") {
-              setDraft(value != null ? String(value) : "");
+              setDraft(display != null ? String(display) : "");
               setEditing(false);
             }
           }}
@@ -193,12 +224,10 @@ export function EditableNumber({
         />
       ) : (
         <button
-          onClick={() => setEditing(true)}
-          disabled={isPending}
+          onClick={startEdit}
           className={cn(
             "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition tabular-nums",
-            value == null && "bg-amber-50 text-amber-700 hover:bg-amber-100",
-            isPending && "opacity-60"
+            display == null && "bg-amber-50 text-amber-700 hover:bg-amber-100"
           )}
         >
           {displayed}
@@ -220,30 +249,34 @@ export function EditableDate({
   label: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
-  const { save, isPending } = useSaver(clientId, field);
+  const { save, error } = useSaver(clientId, field);
   const ref = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
 
   useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
 
-  const displayed = value
-    ? new Intl.DateTimeFormat("fr-FR").format(new Date(value))
+  function startEdit() {
+    setDraft(display ?? "");
+    setEditing(true);
+  }
+
+  const displayed = display
+    ? new Intl.DateTimeFormat("fr-FR").format(new Date(display))
     : "·";
 
   function commit() {
     setEditing(false);
-    if (draft === (value ?? "")) return;
-    save(draft || null);
+    const newValue = draft || null;
+    if (newValue === (display ?? null)) return;
+    setDisplay(newValue); // optimistic
+    save(newValue, rollback);
   }
 
   return (
-    <FieldShell label={label}>
+    <FieldShell label={label} error={error}>
       {editing ? (
         <input
           ref={ref}
@@ -254,7 +287,7 @@ export function EditableDate({
           onKeyDown={(e) => {
             if (e.key === "Enter") commit();
             else if (e.key === "Escape") {
-              setDraft(value ?? "");
+              setDraft(display ?? "");
               setEditing(false);
             }
           }}
@@ -262,12 +295,10 @@ export function EditableDate({
         />
       ) : (
         <button
-          onClick={() => setEditing(true)}
-          disabled={isPending}
+          onClick={startEdit}
           className={cn(
             "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !value && "text-zinc-400",
-            isPending && "opacity-60"
+            !display && "text-zinc-400"
           )}
         >
           {displayed}
@@ -293,7 +324,8 @@ export function EditableSelect({
   placeholder?: string;
 }) {
   const [editing, setEditing] = useState(false);
-  const { save, isPending } = useSaver(clientId, field);
+  const [display, setDisplay, rollback] = useOptimistic(value);
+  const { save, error } = useSaver(clientId, field);
   const ref = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
@@ -302,15 +334,18 @@ export function EditableSelect({
 
   function onChange(v: string) {
     setEditing(false);
-    save(v || null);
+    const newValue = v || null;
+    if (newValue === (display ?? null)) return;
+    setDisplay(newValue); // optimistic
+    save(newValue, rollback);
   }
 
   return (
-    <FieldShell label={label}>
+    <FieldShell label={label} error={error}>
       {editing ? (
         <select
           ref={ref}
-          value={value ?? ""}
+          value={display ?? ""}
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => setEditing(false)}
           className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
@@ -325,14 +360,12 @@ export function EditableSelect({
       ) : (
         <button
           onClick={() => setEditing(true)}
-          disabled={isPending}
           className={cn(
             "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !value && "bg-amber-50 text-amber-700 hover:bg-amber-100",
-            isPending && "opacity-60"
+            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
           )}
         >
-          {value || placeholder}
+          {display || placeholder}
         </button>
       )}
     </FieldShell>
@@ -351,32 +384,42 @@ export function EditableGroupe({
   options: string[];
 }) {
   const [editing, setEditing] = useState(false);
+  const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
 
   useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
 
+  function startEdit() {
+    setDraft(display ?? "");
+    setEditing(true);
+  }
+
   function commit() {
     setEditing(false);
     const trimmed = draft.trim();
-    if (trimmed === (value ?? "")) return;
+    const newValue = trimmed === "" ? null : trimmed;
+    if (newValue === (display ?? null)) return;
+    setDisplay(newValue); // optimistic
+    setError(null);
     startTransition(async () => {
-      await setClientGroupe(clientId, trimmed || null);
+      try {
+        await setClientGroupe(clientId, newValue);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        rollback();
+      }
     });
   }
 
   const datalistId = `groupes-${clientId}`;
 
   return (
-    <FieldShell label={label}>
+    <FieldShell label={label} error={error}>
       {editing ? (
         <>
           <input
@@ -388,7 +431,7 @@ export function EditableGroupe({
             onKeyDown={(e) => {
               if (e.key === "Enter") commit();
               else if (e.key === "Escape") {
-                setDraft(value ?? "");
+                setDraft(display ?? "");
                 setEditing(false);
               }
             }}
@@ -403,15 +446,13 @@ export function EditableGroupe({
         </>
       ) : (
         <button
-          onClick={() => setEditing(true)}
-          disabled={isPending}
+          onClick={startEdit}
           className={cn(
             "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !value && "text-zinc-400",
-            isPending && "opacity-60"
+            !display && "text-zinc-400"
           )}
         >
-          {value || "·"}
+          {display || "·"}
         </button>
       )}
     </FieldShell>
@@ -429,23 +470,30 @@ export function EditableHeading({
   value: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value);
-  const { save, isPending } = useSaver(clientId, "denomination");
+  const { save } = useSaver(clientId, "denomination");
   const ref = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setDraft(value), [value]);
+  useEffect(() => setDraft(display), [display]);
   useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
 
+  function startEdit() {
+    setDraft(display);
+    setEditing(true);
+  }
+
   function commit() {
     setEditing(false);
     const trimmed = draft.trim();
-    if (!trimmed || trimmed === value) {
-      setDraft(value);
+    if (!trimmed || trimmed === display) {
+      setDraft(display);
       return;
     }
-    save(trimmed);
+    setDisplay(trimmed); // optimistic
+    save(trimmed, rollback);
   }
 
   if (editing) {
@@ -458,7 +506,7 @@ export function EditableHeading({
         onKeyDown={(e) => {
           if (e.key === "Enter") commit();
           else if (e.key === "Escape") {
-            setDraft(value);
+            setDraft(display);
             setEditing(false);
           }
         }}
@@ -468,14 +516,10 @@ export function EditableHeading({
   }
   return (
     <button
-      onClick={() => setEditing(true)}
-      disabled={isPending}
-      className={cn(
-        "text-3xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded hover:bg-zinc-100 transition text-left",
-        isPending && "opacity-60"
-      )}
+      onClick={startEdit}
+      className="text-3xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded hover:bg-zinc-100 transition text-left"
     >
-      {value}
+      {display}
     </button>
   );
 }
