@@ -36,23 +36,24 @@ export async function GET(
   }
 
   // 2. Dirigeant : on prend le premier contact lié au client.
-  //    civilite + tente de splitter le nom en prénom/nom.
+  //    Prénom + nom sont stockés séparément en DB depuis la migration 0027.
   const { data: links } = await sb
     .from("client_contacts")
-    .select("role, contact_id, contacts(nom, civilite)")
+    .select("role, contact_id, contacts(nom, prenom, civilite)")
     .eq("client_id", id)
     .limit(1);
 
   let dirigeant: LDMDirigeantData = { civilite: null, prenom: null, nom: null };
   const link = links?.[0];
   if (link) {
-    const c = (link as unknown as { contacts: { nom: string | null; civilite: string | null } }).contacts;
-    const fullName = (c?.nom ?? "").trim();
-    // Heuristique simple : "Prénom Nom" → split sur premier espace
-    const sp = fullName.indexOf(" ");
-    const prenom = sp > 0 ? fullName.slice(0, sp) : null;
-    const nom = sp > 0 ? fullName.slice(sp + 1) : fullName || null;
-    dirigeant = { civilite: c?.civilite ?? null, prenom, nom };
+    const c = (link as unknown as {
+      contacts: { nom: string | null; prenom: string | null; civilite: string | null };
+    }).contacts;
+    dirigeant = {
+      civilite: c?.civilite ?? null,
+      prenom: c?.prenom ?? null,
+      nom: c?.nom ?? null,
+    };
   }
 
   const clientData: LDMClientData = {

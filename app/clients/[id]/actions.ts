@@ -407,6 +407,7 @@ export async function addContactToClient(
   clientId: string,
   data: {
     nom: string;
+    prenom?: string | null;
     email: string | null;
     telephone: string | null;
     role: string | null;
@@ -419,6 +420,7 @@ export async function addContactToClient(
     .from("contacts")
     .insert({
       nom: data.nom.trim(),
+      prenom: data.prenom?.trim() || null,
       email: data.email?.trim() || null,
       telephone: data.telephone?.trim() || null,
       civilite: data.civilite ?? null,
@@ -442,6 +444,7 @@ export async function updateContact(
   contactId: string,
   patch: {
     nom?: string;
+    prenom?: string | null;
     email?: string | null;
     telephone?: string | null;
     civilite?: "M." | "Mme" | "Mlle" | null;
@@ -453,6 +456,7 @@ export async function updateContact(
     if (!patch.nom.trim()) throw new Error("Nom obligatoire");
     clean.nom = patch.nom.trim();
   }
+  if (patch.prenom !== undefined) clean.prenom = patch.prenom?.trim() || null;
   if (patch.email !== undefined) clean.email = patch.email?.trim() || null;
   if (patch.telephone !== undefined) clean.telephone = patch.telephone?.trim() || null;
   if (patch.civilite !== undefined) clean.civilite = patch.civilite;
@@ -516,11 +520,34 @@ export async function deleteClient(clientId: string) {
  * automatiquement toutes les subs dont l'année est antérieure (évite les
  * résidus historiques en /parametrage et dans la matrice).
  */
+/**
+ * Colonnes numériques `NOT NULL DEFAULT 0` côté DB. Si l'UI envoie null
+ * (l'utilisateur a effacé le champ), on force à 0 pour ne pas casser la
+ * contrainte not-null. Sémantiquement « vide » = « 0 € » pour ces honoraires.
+ */
+const NUMERIC_NOT_NULL = new Set([
+  "honoraires_compta",
+  "forfait_bilan",
+  "honoraires_jur",
+  "tdb_honos_periode",
+  "honoraires_reprise",
+  "honoraires_creation",
+  "exceptionnel",
+]);
+
 export async function updateClient(
   clientId: string,
   patch: Record<string, string | number | null>
 ) {
   const sb = await createClient();
+
+  // Defense : convertit null → 0 pour les colonnes numeric NOT NULL.
+  for (const key of Object.keys(patch)) {
+    if (NUMERIC_NOT_NULL.has(key) && patch[key] === null) {
+      patch[key] = 0;
+    }
+  }
+
   const { error } = await sb.from("clients").update(patch).eq("id", clientId);
   if (error) throw new Error(error.message);
 

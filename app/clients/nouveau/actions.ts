@@ -27,8 +27,8 @@ type Payload = {
   type_honos_jur?: "Facturés" | "Inclus" | "Non souscrit" | null;
   tdb_periode?: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   /**
-   * Dirigeant à rattacher comme contact. `prenom` + `nom` sont concaténés en DB
-   * (contacts.nom = "Prénom NOM"). `civilite` requise pour générer la LDM.
+   * Dirigeant à rattacher comme contact. `prenom` et `nom` sont stockés
+   * séparément en DB depuis la migration 0027. `civilite` requise pour la LDM.
    */
   interlocuteur?: {
     civilite: "M." | "Mme" | "Mlle" | null;
@@ -119,18 +119,16 @@ export async function createClientFromSiren(payload: Payload) {
   // Lien contact si fourni
   if (payload.interlocuteur?.nom?.trim()) {
     const nomFamille = payload.interlocuteur.nom.trim();
-    const prenom = payload.interlocuteur.prenom?.trim() ?? "";
-    // Format DB : "Prénom NOM" en un seul champ. Le générateur LDM split
-    // sur le premier espace pour retrouver prénom / nom.
-    const nomComplet = prenom ? `${prenom} ${nomFamille}` : nomFamille;
+    const prenom = payload.interlocuteur.prenom?.trim() || null;
     const civilite = payload.interlocuteur.civilite ?? null;
     const role = payload.interlocuteur.qualite ?? null;
 
-    // Réutilise le contact s'il existe déjà (même nom complet)
+    // Réutilise le contact s'il existe déjà (match exact prénom + nom)
     const { data: existing } = await sb
       .from("contacts")
       .select("id, civilite")
-      .eq("nom", nomComplet)
+      .eq("nom", nomFamille)
+      .eq("prenom", prenom ?? "")
       .maybeSingle();
 
     let contactId: string;
@@ -143,7 +141,7 @@ export async function createClientFromSiren(payload: Payload) {
     } else {
       const { data: inserted, error: e2 } = await sb
         .from("contacts")
-        .insert({ nom: nomComplet, civilite })
+        .insert({ nom: nomFamille, prenom, civilite })
         .select("id")
         .single();
       if (e2) throw new Error(e2.message);

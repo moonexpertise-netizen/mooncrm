@@ -12,6 +12,7 @@ import {
 export type ContactRow = {
   contactId: string;
   nom: string;
+  prenom: string | null;
   email: string | null;
   telephone: string | null;
   civilite: "M." | "Mme" | "Mlle" | null;
@@ -66,10 +67,10 @@ export default function ContactsCard({
 }
 
 function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }) {
-  const [editingField, setEditingField] = useState<"nom" | "email" | "telephone" | "role" | null>(null);
+  const [editingField, setEditingField] = useState<"prenom" | "nom" | "email" | "telephone" | "role" | null>(null);
   const [, startTransition] = useTransition();
 
-  function commit(field: "nom" | "email" | "telephone" | "role", value: string) {
+  function commit(field: "prenom" | "nom" | "email" | "telephone" | "role", value: string) {
     setEditingField(null);
     const v = value.trim();
     startTransition(async () => {
@@ -79,6 +80,8 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         } else if (field === "nom") {
           if (!v) return;
           await updateContact(row.contactId, { nom: v });
+        } else if (field === "prenom") {
+          await updateContact(row.contactId, { prenom: v || null });
         } else if (field === "email") {
           await updateContact(row.contactId, { email: v || null });
         } else if (field === "telephone") {
@@ -115,12 +118,20 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
     <li className="flex flex-wrap items-center gap-2 py-1.5 px-2 -mx-2 rounded hover:bg-zinc-50 group">
       <CivilitePicker value={row.civilite} onChange={commitCivilite} />
       <InlineField
+        value={row.prenom ?? ""}
+        placeholder="Prénom"
+        editing={editingField === "prenom"}
+        onEdit={() => setEditingField("prenom")}
+        onCommit={(v) => commit("prenom", v)}
+        className="text-sm min-w-[80px]"
+      />
+      <InlineField
         value={row.nom}
         placeholder="Nom"
         editing={editingField === "nom"}
         onEdit={() => setEditingField("nom")}
         onCommit={(v) => commit("nom", v)}
-        className="font-medium min-w-[100px]"
+        className="font-medium min-w-[80px]"
       />
       <InlineField
         value={row.role ?? ""}
@@ -303,6 +314,7 @@ function NewContactForm({
   onCancel: () => void;
 }) {
   const [civilite, setCivilite] = useState<"M." | "Mme" | "Mlle" | null>(null);
+  const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
@@ -320,6 +332,7 @@ function NewContactForm({
       try {
         await addContactToClient(clientId, {
           nom: nom.trim(),
+          prenom: prenom.trim() || null,
           email: email.trim() || null,
           telephone: telephone.trim() || null,
           role: role.trim() || null,
@@ -356,9 +369,16 @@ function NewContactForm({
         <input
           autoFocus
           type="text"
+          value={prenom}
+          onChange={(e) => setPrenom(e.target.value)}
+          placeholder="Prénom"
+          className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+        />
+        <input
+          type="text"
           value={nom}
           onChange={(e) => setNom(e.target.value)}
-          placeholder="Prénom NOM *"
+          placeholder="Nom *"
           className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
         />
         <input

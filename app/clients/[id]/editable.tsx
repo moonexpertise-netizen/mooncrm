@@ -20,13 +20,21 @@ import { setClientGroupe, updateClient } from "./actions";
 function useSaver(clientId: string, field: string) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function save(value: string | number | null) {
+    setError(null);
     startTransition(async () => {
-      await updateClient(clientId, { [field]: value });
+      try {
+        await updateClient(clientId, { [field]: value });
+      } catch (e) {
+        // On n'utilise PAS throw → ça remonterait à l'error boundary global et
+        // ferait planter toute la page. On affiche l'erreur localement.
+        setError(e instanceof Error ? e.message : String(e));
+      }
     });
   }
-  return { save, isPending };
+  return { save, isPending, error };
 }
 
 function FieldShell({
