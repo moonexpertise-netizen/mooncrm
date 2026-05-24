@@ -268,6 +268,20 @@ export default function NouveauClientForm() {
   const [dirigeantQualite, setDirigeantQualite] = useState<string>("");
   const [addDirigeantAsContact, setAddDirigeantAsContact] = useState(true);
 
+  // Date de clôture 1ère mission (= fin_mission_date) — par défaut 31/12 année en cours
+  const [clotureMission, setClotureMission] = useState<string>(
+    `${now.getFullYear()}-12-31`
+  );
+
+  // Honoraires LDM
+  const [honosCompta, setHonosCompta] = useState<string>("");
+  const [typeHonosBilans, setTypeHonosBilans] = useState<"" | "Inclus" | "Facturés">("");
+  const [forfaitBilan, setForfaitBilan] = useState<string>("");
+  const [typeHonosJur, setTypeHonosJur] = useState<"" | "Facturés" | "Inclus" | "Non souscrit">("");
+  const [honosJur, setHonosJur] = useState<string>("");
+  const [tdbPeriode, setTdbPeriode] = useState<"" | "Mensuel" | "Trimestriel" | "Non souscrit">("");
+  const [tdbHonosPeriode, setTdbHonosPeriode] = useState<string>("");
+
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [usedFallback, setUsedFallback] = useState<string | null>(null);
@@ -389,6 +403,13 @@ export default function NouveauClientForm() {
     setOpen(false);
   }
 
+  function parseMontant(s: string): number | null {
+    const trimmed = s.trim().replace(",", ".");
+    if (!trimmed) return null;
+    const n = parseFloat(trimmed);
+    return Number.isNaN(n) ? null : n;
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -397,6 +418,16 @@ export default function NouveauClientForm() {
       return;
     }
     const debut = debutDate || null;
+
+    // Logique métier honoraires : un montant n'a de sens que si le flag = "Facturés"
+    // (bilan/juridique) ou si une période est définie (pilotage). Sinon on force 0.
+    const finalBilan =
+      typeHonosBilans === "Facturés" ? parseMontant(forfaitBilan) ?? 0 : 0;
+    const finalJur =
+      typeHonosJur === "Facturés" ? parseMontant(honosJur) ?? 0 : 0;
+    const isSouscritTdb = tdbPeriode === "Mensuel" || tdbPeriode === "Trimestriel";
+    const finalTdb = isSouscritTdb ? parseMontant(tdbHonosPeriode) ?? 0 : 0;
+
     startTransition(async () => {
       try {
         const { id } = await createClientFromSiren({
@@ -410,9 +441,17 @@ export default function NouveauClientForm() {
           jour_cloture: jourCloture ? parseInt(jourCloture, 10) : null,
           mois_cloture: moisCloture ? parseInt(moisCloture, 10) : null,
           debut_obligations: debut,
+          fin_mission_date: clotureMission || null,
           adresse_siege: adresseSiege.trim() || null,
           code_postal: codePostal.trim() || null,
           ville: ville.trim() || null,
+          honoraires_compta: parseMontant(honosCompta) ?? 0,
+          forfait_bilan: finalBilan,
+          honoraires_jur: finalJur,
+          tdb_honos_periode: finalTdb,
+          type_honos_bilans: typeHonosBilans || null,
+          type_honos_jur: typeHonosJur || null,
+          tdb_periode: tdbPeriode || null,
           interlocuteur:
             addDirigeantAsContact && dirigeantNomFamille.trim()
               ? {
@@ -502,86 +541,116 @@ export default function NouveauClientForm() {
         </div>
       </div>
 
-      <div className="h-px bg-zinc-200" />
+      {/* ====================================================================
+          SECTION 1 — INFOS DE BASE (pour la lettre de mission)
+      ==================================================================== */}
+      <SectionTitle
+        n={1}
+        title="Infos de base"
+        sub="Identité du dossier et du dirigeant · alimentent la lettre de mission"
+      />
 
-      {/* Champs */}
-      <Field label="Dénomination" required>
+      <Field label="Nom du dossier" required>
         <input
           type="text"
           value={denomination}
           onChange={(e) => setDenomination(e.target.value)}
           required
           className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(denomination))}
+          placeholder="ex. MOON Expertise"
         />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="SIREN">
+      <div className="rounded-md border bg-zinc-50/60 px-3 py-3 space-y-2.5">
+        <label className="flex items-center gap-2 cursor-pointer">
           <input
-            type="text"
-            value={siren}
-            onChange={(e) => setSiren(e.target.value.replace(/\D/g, ""))}
-            maxLength={9}
-            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(siren))}
-            placeholder="9 chiffres"
+            type="checkbox"
+            checked={addDirigeantAsContact}
+            onChange={(e) => setAddDirigeantAsContact(e.target.checked)}
+            className="accent-[hsl(var(--gold))]"
           />
-        </Field>
-        <Field label="Forme juridique">
-          <select
-            value={forme}
-            onChange={(e) => setForme(e.target.value)}
-            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(forme))}
-          >
-            <option value="">À renseigner</option>
-            {FORMES.map((f) => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </Field>
+          <span className="text-xs font-medium text-zinc-700">
+            Dirigeant (contact rattaché)
+            <span className="text-zinc-400 font-normal"> · pour la civilité de la lettre de mission</span>
+          </span>
+        </label>
+
+        {addDirigeantAsContact && (
+          <div className="space-y-2.5">
+            <div>
+              <span className="text-xs font-medium text-zinc-700 mb-1 block">Sexe</span>
+              <div className="flex gap-1">
+                {(["M.", "Mme"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setDirigeantCivilite(c)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md text-sm font-medium border transition",
+                      dirigeantCivilite === c
+                        ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
+                        : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
+                    )}
+                  >
+                    {c === "M." ? "Monsieur" : "Madame"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Prénom">
+                <input
+                  type="text"
+                  value={dirigeantPrenom}
+                  onChange={(e) => setDirigeantPrenom(e.target.value)}
+                  placeholder="ex. Benjamin"
+                  className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(dirigeantPrenom))}
+                />
+              </Field>
+              <Field label="Nom">
+                <input
+                  type="text"
+                  value={dirigeantNomFamille}
+                  onChange={(e) => setDirigeantNomFamille(e.target.value)}
+                  placeholder="ex. PEREZ"
+                  className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(dirigeantNomFamille))}
+                />
+              </Field>
+            </div>
+
+            {dirigeantQualite && (
+              <div className="text-[11px] text-zinc-500">
+                Qualité détectée · {dirigeantQualite}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Activité">
-          <input
-            type="text"
-            value={activite}
-            onChange={(e) => setActivite(e.target.value)}
-            placeholder="Texte libre · auto-rempli depuis l'annuaire si dossier existant"
-            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(activite))}
-          />
-        </Field>
-        <Field label="Origine">
-          <select
-            value={origine}
-            onChange={(e) => setOrigine(e.target.value)}
-            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(origine))}
-          >
-            <option value="">À renseigner</option>
-            {ORIGINES.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </Field>
-      </div>
+      <Field label="Activité">
+        <input
+          type="text"
+          value={activite}
+          onChange={(e) => setActivite(e.target.value)}
+          placeholder="Texte libre · auto-rempli depuis l'annuaire si dossier existant"
+          className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(activite))}
+        />
+      </Field>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Email">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="contact@…"
-            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(email))}
-          />
-        </Field>
-        <Field label="Pipeline">
-          <select
-            value={pipeline}
-            onChange={(e) => setPipeline(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30"
-          >
-            {PIPELINES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </Field>
-      </div>
+      <Field label="Date de clôture 1ère mission">
+        <input
+          type="date"
+          value={clotureMission}
+          onChange={(e) => setClotureMission(e.target.value)}
+          className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(clotureMission))}
+        />
+        <div className="text-[11px] text-zinc-500 mt-1">
+          Date de fin du premier exercice traité par MOON
+        </div>
+      </Field>
 
-      <Field label="Adresse du siège">
+      <Field label="Adresse ligne 1">
         <input
           type="text"
           value={adresseSiege}
@@ -612,8 +681,173 @@ export default function NouveauClientForm() {
         </div>
       </div>
 
+      {/* ====================================================================
+          SECTION 2 — HONORAIRES (pour la lettre de mission)
+      ==================================================================== */}
+      <SectionTitle
+        n={2}
+        title="Honoraires"
+        sub="Forfaits qui apparaîtront dans la lettre de mission"
+      />
+
+      <Field label="Forfait comptable">
+        <div className="relative">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={honosCompta}
+            onChange={(e) => setHonosCompta(e.target.value)}
+            placeholder="0"
+            className={cn("w-full pl-3 pr-20 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(honosCompta))}
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">€ HT / mois</span>
+        </div>
+      </Field>
+
+      <div>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait bilan</span>
+        <RadioChips
+          options={["Facturés", "Inclus"]}
+          value={typeHonosBilans}
+          onChange={(v) => setTypeHonosBilans(v as "" | "Inclus" | "Facturés")}
+        />
+        {typeHonosBilans === "Facturés" && (
+          <div className="mt-2 relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={forfaitBilan}
+              onChange={(e) => setForfaitBilan(e.target.value)}
+              placeholder="0"
+              className={cn("w-full pl-3 pr-20 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(forfaitBilan))}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">€ HT / an</span>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait juridique</span>
+        <RadioChips
+          options={["Facturés", "Inclus", "Non souscrit"]}
+          value={typeHonosJur}
+          onChange={(v) => setTypeHonosJur(v as "" | "Facturés" | "Inclus" | "Non souscrit")}
+        />
+        {typeHonosJur === "Facturés" && (
+          <div className="mt-2 relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={honosJur}
+              onChange={(e) => setHonosJur(e.target.value)}
+              placeholder="0"
+              className={cn("w-full pl-3 pr-20 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(honosJur))}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">€ HT / an</span>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait pilotage</span>
+        <RadioChips
+          options={["Mensuel", "Trimestriel", "Non souscrit"]}
+          value={tdbPeriode}
+          onChange={(v) => setTdbPeriode(v as "" | "Mensuel" | "Trimestriel" | "Non souscrit")}
+        />
+        {(tdbPeriode === "Mensuel" || tdbPeriode === "Trimestriel") && (
+          <div className="mt-2 relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={tdbHonosPeriode}
+              onChange={(e) => setTdbHonosPeriode(e.target.value)}
+              placeholder="0"
+              className={cn("w-full pl-3 pr-28 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(tdbHonosPeriode))}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">
+              € HT / {tdbPeriode === "Mensuel" ? "mois" : "trimestre"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ====================================================================
+          SECTION 3 — DÉTAILS CRM (pas dans la LDM, mais utiles au suivi)
+      ==================================================================== */}
+      <SectionTitle
+        n={3}
+        title="Détails CRM"
+        sub="Suivi interne · n'apparaît pas dans la lettre de mission"
+      />
+
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Jour de clôture">
+        <Field label="SIREN">
+          <input
+            type="text"
+            value={siren}
+            onChange={(e) => setSiren(e.target.value.replace(/\D/g, ""))}
+            maxLength={9}
+            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(siren))}
+            placeholder="9 chiffres"
+          />
+        </Field>
+        <Field label="Forme juridique">
+          <select
+            value={forme}
+            onChange={(e) => setForme(e.target.value)}
+            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(forme))}
+          >
+            <option value="">À renseigner</option>
+            {FORMES.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Origine">
+          <select
+            value={origine}
+            onChange={(e) => setOrigine(e.target.value)}
+            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(origine))}
+          >
+            <option value="">À renseigner</option>
+            {ORIGINES.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </Field>
+        <Field label="Email">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="contact@…"
+            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(email))}
+          />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Pipeline">
+          <select
+            value={pipeline}
+            onChange={(e) => setPipeline(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30"
+          >
+            {PIPELINES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </Field>
+        <Field label="Reprise à partir de">
+          <input
+            type="date"
+            value={debutDate}
+            onChange={(e) => setDebutDate(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums"
+          />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Jour de clôture (exercice)">
           <select
             value={jourCloture}
             onChange={(e) => setJourCloture(e.target.value)}
@@ -625,7 +859,7 @@ export default function NouveauClientForm() {
             ))}
           </select>
         </Field>
-        <Field label="Mois de clôture">
+        <Field label="Mois de clôture (exercice)">
           <select
             value={moisCloture}
             onChange={(e) => setMoisCloture(e.target.value)}
@@ -637,98 +871,6 @@ export default function NouveauClientForm() {
             ))}
           </select>
         </Field>
-      </div>
-
-      <div>
-        <label className="block">
-          <span className="text-xs font-medium text-zinc-700 mb-1 block">
-            Reprise à partir de <span className="text-zinc-400 font-normal">· à partir de quand MOON suit ce dossier</span>
-          </span>
-          <input
-            type="date"
-            value={debutDate}
-            onChange={(e) => setDebutDate(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums"
-          />
-        </label>
-      </div>
-
-      {/* Dirigeant — toujours visible : on a besoin de la civilité pour la LDM.
-          Sur reprise : prénom + nom pré-remplis depuis l'annuaire. Sur création :
-          tout est saisi à la main. */}
-      <div className="rounded-md border bg-zinc-50/60 px-3 py-3 space-y-2.5">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={addDirigeantAsContact}
-            onChange={(e) => setAddDirigeantAsContact(e.target.checked)}
-            className="accent-[hsl(var(--gold))]"
-          />
-          <span className="text-xs font-medium text-zinc-700">
-            Rattacher un dirigeant (contact)
-            <span className="text-zinc-400 font-normal"> · pour la lettre de mission</span>
-          </span>
-        </label>
-
-        {addDirigeantAsContact && (
-          <div className="space-y-2">
-            <div>
-              <span className="text-xs font-medium text-zinc-700 mb-1 block">
-                Civilité
-              </span>
-              <div className="flex gap-1">
-                {(["M.", "Mme"] as const).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setDirigeantCivilite(c)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-md text-sm font-medium border transition",
-                      dirigeantCivilite === c
-                        ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
-                        : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
-                    )}
-                  >
-                    {c === "M." ? "Monsieur" : "Madame"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Prénom">
-                <input
-                  type="text"
-                  value={dirigeantPrenom}
-                  onChange={(e) => setDirigeantPrenom(e.target.value)}
-                  placeholder="ex. Benjamin"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
-                    inputFill(dirigeantPrenom)
-                  )}
-                />
-              </Field>
-              <Field label="Nom">
-                <input
-                  type="text"
-                  value={dirigeantNomFamille}
-                  onChange={(e) => setDirigeantNomFamille(e.target.value)}
-                  placeholder="ex. PEREZ"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
-                    inputFill(dirigeantNomFamille)
-                  )}
-                />
-              </Field>
-            </div>
-
-            {dirigeantQualite && (
-              <div className="text-[11px] text-zinc-500">
-                Qualité détectée · {dirigeantQualite}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {siren.length === 9 && (
@@ -807,5 +949,64 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+
+/** Séparateur de section · titre numéroté + sous-titre, ligne dorée. */
+function SectionTitle({
+  n,
+  title,
+  sub,
+}: {
+  n: number;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <div className="pt-3 pb-1">
+      <div className="flex items-baseline gap-2">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[hsl(var(--gold))]/15 text-[hsl(var(--gold-dark))] text-xs font-semibold">
+          {n}
+        </span>
+        <h3 className="text-base font-semibold tracking-tight text-zinc-900">
+          {title}
+        </h3>
+      </div>
+      <p className="text-[11px] text-zinc-500 ml-8 mt-0.5">{sub}</p>
+      <div className="h-px bg-zinc-200 mt-2" />
+    </div>
+  );
+}
+
+/** Sélecteur radio en chips · vide si rien sélectionné (ambre), gold si actif. */
+function RadioChips({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => onChange(value === opt ? "" : opt)}
+          className={cn(
+            "px-3 py-1.5 rounded-md text-sm font-medium border transition",
+            value === opt
+              ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
+              : value === ""
+              ? "bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100"
+              : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
+          )}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
   );
 }

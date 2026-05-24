@@ -14,9 +14,18 @@ type Payload = {
   jour_cloture?: number | null;
   mois_cloture?: number | null;
   debut_obligations?: string | null;
+  fin_mission_date?: string | null;
   adresse_siege?: string | null;
   code_postal?: string | null;
   ville?: string | null;
+  // Honoraires LDM — saisis à la création pour préparer la lettre de mission
+  honoraires_compta?: number | null;
+  forfait_bilan?: number | null;
+  honoraires_jur?: number | null;
+  tdb_honos_periode?: number | null;
+  type_honos_bilans?: "Inclus" | "Facturés" | null;
+  type_honos_jur?: "Facturés" | "Inclus" | "Non souscrit" | null;
+  tdb_periode?: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   /**
    * Dirigeant à rattacher comme contact. `prenom` + `nom` sont concaténés en DB
    * (contacts.nom = "Prénom NOM"). `civilite` requise pour générer la LDM.
@@ -89,9 +98,18 @@ export async function createClientFromSiren(payload: Payload) {
       jour_cloture: payload.jour_cloture ?? null,
       mois_cloture: payload.mois_cloture ?? null,
       debut_obligations: payload.debut_obligations ?? undefined,
+      fin_mission_date: payload.fin_mission_date ?? null,
       adresse_siege: payload.adresse_siege ?? null,
       code_postal: payload.code_postal ?? null,
       ville: payload.ville ?? null,
+      // Honoraires (null = ne pas écrire, garde la valeur par défaut 0)
+      ...(payload.honoraires_compta != null && { honoraires_compta: payload.honoraires_compta }),
+      ...(payload.forfait_bilan != null && { forfait_bilan: payload.forfait_bilan }),
+      ...(payload.honoraires_jur != null && { honoraires_jur: payload.honoraires_jur }),
+      ...(payload.tdb_honos_periode != null && { tdb_honos_periode: payload.tdb_honos_periode }),
+      ...(payload.type_honos_bilans && { type_honos_bilans: payload.type_honos_bilans }),
+      ...(payload.type_honos_jur && { type_honos_jur: payload.type_honos_jur }),
+      ...(payload.tdb_periode && { tdb_periode: payload.tdb_periode }),
     })
     .select("id")
     .single();

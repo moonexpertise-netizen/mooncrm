@@ -512,17 +512,17 @@ export default async function ClientFiche({
           />
           <EditableNumber
             clientId={id}
-            field="forfait_pilotage"
-            value={client.forfait_pilotage}
-            label="Forfait pilotage (mensuel)"
-            unit="eur"
-          />
-          <EditableNumber
-            clientId={id}
             field="honoraires_jur"
             value={client.honoraires_jur}
             label="Forfait juridique (annuel)"
             unit="eur"
+          />
+          {/* forfait_pilotage est désormais DÉRIVÉ de tdb_honos_periode + tdb_periode.
+              On l'affiche en read-only pour info, mais la saisie se fait via
+              les champs TDB dans la carte "LDM — Options". */}
+          <FieldReadonly
+            label="Forfait pilotage (mensuel)"
+            value={fmtEuro(client.forfait_pilotage ?? 0) ?? "·"}
           />
           {/* Calculs automatiques */}
           <div className="border-t pt-2 mt-2 space-y-1">
