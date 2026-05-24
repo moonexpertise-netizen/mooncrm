@@ -405,7 +405,13 @@ export async function reconduireAnnee(clientId: string, fromYear: number, toYear
  */
 export async function addContactToClient(
   clientId: string,
-  data: { nom: string; email: string | null; telephone: string | null; role: string | null }
+  data: {
+    nom: string;
+    email: string | null;
+    telephone: string | null;
+    role: string | null;
+    civilite?: "M." | "Mme" | "Mlle" | null;
+  }
 ) {
   if (!data.nom?.trim()) throw new Error("Nom obligatoire");
   const sb = await createClient();
@@ -415,6 +421,7 @@ export async function addContactToClient(
       nom: data.nom.trim(),
       email: data.email?.trim() || null,
       telephone: data.telephone?.trim() || null,
+      civilite: data.civilite ?? null,
     })
     .select("id")
     .single();
@@ -433,7 +440,12 @@ export async function addContactToClient(
  */
 export async function updateContact(
   contactId: string,
-  patch: { nom?: string; email?: string | null; telephone?: string | null }
+  patch: {
+    nom?: string;
+    email?: string | null;
+    telephone?: string | null;
+    civilite?: "M." | "Mme" | "Mlle" | null;
+  }
 ) {
   const sb = await createClient();
   const clean: Record<string, string | null> = {};
@@ -443,6 +455,7 @@ export async function updateContact(
   }
   if (patch.email !== undefined) clean.email = patch.email?.trim() || null;
   if (patch.telephone !== undefined) clean.telephone = patch.telephone?.trim() || null;
+  if (patch.civilite !== undefined) clean.civilite = patch.civilite;
   const { error } = await sb.from("contacts").update(clean).eq("id", contactId);
   if (error) throw new Error(error.message);
 

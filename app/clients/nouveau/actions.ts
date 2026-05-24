@@ -17,7 +17,16 @@ type Payload = {
   adresse_siege?: string | null;
   code_postal?: string | null;
   ville?: string | null;
-  interlocuteur?: { nom: string; qualite: string | null } | null;
+  /**
+   * Dirigeant à rattacher comme contact. `prenom` + `nom` sont concaténés en DB
+   * (contacts.nom = "Prénom NOM"). `civilite` requise pour générer la LDM.
+   */
+  interlocuteur?: {
+    civilite: "M." | "Mme" | "Mlle" | null;
+    prenom: string | null;
+    nom: string;
+    qualite: string | null;
+  } | null;
 };
 
 /**
@@ -91,23 +100,32 @@ export async function createClientFromSiren(payload: Payload) {
 
   // Lien contact si fourni
   if (payload.interlocuteur?.nom?.trim()) {
-    const nom = payload.interlocuteur.nom.trim();
+    const nomFamille = payload.interlocuteur.nom.trim();
+    const prenom = payload.interlocuteur.prenom?.trim() ?? "";
+    // Format DB : "Prénom NOM" en un seul champ. Le générateur LDM split
+    // sur le premier espace pour retrouver prénom / nom.
+    const nomComplet = prenom ? `${prenom} ${nomFamille}` : nomFamille;
+    const civilite = payload.interlocuteur.civilite ?? null;
     const role = payload.interlocuteur.qualite ?? null;
 
-    // Réutilise le contact s'il existe déjà (même nom)
+    // Réutilise le contact s'il existe déjà (même nom complet)
     const { data: existing } = await sb
       .from("contacts")
-      .select("id")
-      .eq("nom", nom)
+      .select("id, civilite")
+      .eq("nom", nomComplet)
       .maybeSingle();
 
     let contactId: string;
     if (existing) {
       contactId = existing.id;
+      // Si la civilité n'était pas connue, on la met à jour avec celle saisie
+      if (!existing.civilite && civilite) {
+        await sb.from("contacts").update({ civilite }).eq("id", contactId);
+      }
     } else {
       const { data: inserted, error: e2 } = await sb
         .from("contacts")
-        .insert({ nom })
+        .insert({ nom: nomComplet, civilite })
         .select("id")
         .single();
       if (e2) throw new Error(e2.message);

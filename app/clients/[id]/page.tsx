@@ -131,7 +131,7 @@ export default async function ClientFiche({
     supabase.from("clients").select("*, groupes(nom)").eq("id", id).single(),
     supabase
       .from("client_contacts")
-      .select("role, contacts(id, nom, email, telephone)")
+      .select("role, contacts(id, nom, email, telephone, civilite)")
       .eq("client_id", id),
     supabase
       .from("onboarding_tasks")
@@ -578,9 +578,17 @@ export default async function ClientFiche({
             nom: string;
             email: string | null;
             telephone: string | null;
+            civilite: "M." | "Mme" | "Mlle" | null;
           } | null;
           return c
-            ? { contactId: c.id, nom: c.nom, email: c.email, telephone: c.telephone, role: cc.role ?? null }
+            ? {
+                contactId: c.id,
+                nom: c.nom,
+                email: c.email,
+                telephone: c.telephone,
+                civilite: c.civilite,
+                role: cc.role ?? null,
+              }
             : null;
         }).filter(Boolean) as ContactRow[]}
       />

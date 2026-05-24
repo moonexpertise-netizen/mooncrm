@@ -14,6 +14,7 @@ export type ContactRow = {
   nom: string;
   email: string | null;
   telephone: string | null;
+  civilite: "M." | "Mme" | "Mlle" | null;
   role: string | null;
 };
 
@@ -100,8 +101,19 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
     });
   }
 
+  function commitCivilite(v: "M." | "Mme" | "Mlle" | null) {
+    startTransition(async () => {
+      try {
+        await updateContact(row.contactId, { civilite: v });
+      } catch (e) {
+        alert((e as Error).message);
+      }
+    });
+  }
+
   return (
     <li className="flex flex-wrap items-center gap-2 py-1.5 px-2 -mx-2 rounded hover:bg-zinc-50 group">
+      <CivilitePicker value={row.civilite} onChange={commitCivilite} />
       <InlineField
         value={row.nom}
         placeholder="Nom"
@@ -143,6 +155,81 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         ✕
       </button>
     </li>
+  );
+}
+
+/** Sélecteur compact de civilité — chip M./Mme cliquable qui cycle. */
+function CivilitePicker({
+  value,
+  onChange,
+}: {
+  value: "M." | "Mme" | "Mlle" | null;
+  onChange: (v: "M." | "Mme" | "Mlle" | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
+
+  const opts: Array<"M." | "Mme" | "Mlle"> = ["M.", "Mme", "Mlle"];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "px-1.5 py-0.5 rounded text-xs font-medium border transition shrink-0",
+          value
+            ? "bg-white border-zinc-300 text-zinc-700 hover:border-zinc-400"
+            : "bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
+        )}
+        title="Civilité"
+      >
+        {value ?? "Civ."}
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full left-0 mt-1 bg-white border rounded-md shadow-lg py-0.5 min-w-[80px]">
+          {opts.map((o) => (
+            <button
+              key={o}
+              type="button"
+              onClick={() => {
+                onChange(o);
+                setOpen(false);
+              }}
+              className={cn(
+                "w-full text-left px-2 py-1 text-xs hover:bg-zinc-100 transition",
+                value === o && "font-medium text-[hsl(var(--gold-dark))]"
+              )}
+            >
+              {o}
+            </button>
+          ))}
+          {value && (
+            <>
+              <div className="h-px bg-zinc-200 my-0.5" />
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 transition"
+              >
+                · (vide)
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -215,6 +302,7 @@ function NewContactForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const [civilite, setCivilite] = useState<"M." | "Mme" | "Mlle" | null>(null);
   const [nom, setNom] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
@@ -235,6 +323,7 @@ function NewContactForm({
           email: email.trim() || null,
           telephone: telephone.trim() || null,
           role: role.trim() || null,
+          civilite,
         });
         onDone();
       } catch (e) {
@@ -245,13 +334,31 @@ function NewContactForm({
 
   return (
     <div className="mt-3 p-3 rounded-md border border-[hsl(var(--gold))]/30 bg-[hsl(var(--gold))]/5 space-y-2 animate-slide-up-fade">
+      <div className="flex items-center gap-1">
+        {(["M.", "Mme", "Mlle"] as const).map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setCivilite(civilite === c ? null : c)}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium border transition",
+              civilite === c
+                ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
+                : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
+            )}
+          >
+            {c}
+          </button>
+        ))}
+        <span className="text-[11px] text-zinc-500 ml-1">civilité</span>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <input
           autoFocus
           type="text"
           value={nom}
           onChange={(e) => setNom(e.target.value)}
-          placeholder="Nom *"
+          placeholder="Prénom NOM *"
           className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
         />
         <input

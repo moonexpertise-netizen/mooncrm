@@ -77,19 +77,25 @@ type Suggestion = {
   } | null;
 };
 
-/** Formate un dirigeant : "Benjamin PEREZ" (1er prénom + nom). */
-function formatDirigeant(d: Dirigeant | undefined | null): string | null {
+/** Met en forme une chaîne en Title Case en respectant les traits d'union. */
+function toTitleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .split(/(\s|-)/)
+    .map((p) => (p.match(/[\s-]/) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join("");
+}
+
+/** Extrait prénom + nom de famille d'un dirigeant (personne physique). */
+function extractDirigeantParts(
+  d: Dirigeant | undefined | null
+): { prenom: string; nom: string } | null {
   if (!d || d.type_dirigeant !== "personne physique") return null;
-  const nom = (d.nom ?? "").trim();
-  const prenom = (d.prenoms ?? "").trim().split(/\s+/)[0] ?? "";
+  const nom = (d.nom ?? "").trim().toUpperCase();
+  const prenomBrut = (d.prenoms ?? "").trim().split(/\s+/)[0] ?? "";
+  const prenom = prenomBrut ? toTitleCase(prenomBrut) : "";
   if (!nom && !prenom) return null;
-  const titled = (s: string) =>
-    s
-      .toLowerCase()
-      .split(/(\s|-)/)
-      .map((p) => (p.match(/[\s-]/) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
-      .join("");
-  return `${titled(prenom)} ${nom.toUpperCase()}`.trim();
+  return { prenom, nom };
 }
 
 /**
@@ -253,7 +259,12 @@ export default function NouveauClientForm() {
   const [debutDate, setDebutDate] = useState<string>(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
   );
-  const [dirigeantNom, setDirigeantNom] = useState<string>("");
+  // Dirigeant (contact rattaché). Pré-rempli depuis l'annuaire (cas reprise),
+  // sinon saisi à la main (cas création). Civilité obligatoire pour la LDM —
+  // l'annuaire ne la donne pas, donc toujours à choisir manuellement.
+  const [dirigeantCivilite, setDirigeantCivilite] = useState<"M." | "Mme" | "">("");
+  const [dirigeantPrenom, setDirigeantPrenom] = useState<string>("");
+  const [dirigeantNomFamille, setDirigeantNomFamille] = useState<string>("");
   const [dirigeantQualite, setDirigeantQualite] = useState<string>("");
   const [addDirigeantAsContact, setAddDirigeantAsContact] = useState(true);
 
@@ -347,14 +358,17 @@ export default function NouveauClientForm() {
     const inferredActivite = activiteFromNaf(naf);
     if (inferredActivite) setActivite(inferredActivite);
 
-    // Dirigeant : premier dirigeant personne physique
+    // Dirigeant : premier dirigeant personne physique. On remplit prénom et
+    // nom séparément ; civilité reste vide (l'annuaire ne la donne pas).
     const d = (s.dirigeants ?? []).find((x) => x.type_dirigeant === "personne physique");
-    if (d) {
-      const formatted = formatDirigeant(d);
-      if (formatted) setDirigeantNom(formatted);
-      if (d.qualite) setDirigeantQualite(d.qualite);
+    const parts = extractDirigeantParts(d);
+    if (parts) {
+      setDirigeantPrenom(parts.prenom);
+      setDirigeantNomFamille(parts.nom);
+      if (d?.qualite) setDirigeantQualite(d.qualite);
     } else {
-      setDirigeantNom("");
+      setDirigeantPrenom("");
+      setDirigeantNomFamille("");
       setDirigeantQualite("");
     }
 
@@ -400,8 +414,13 @@ export default function NouveauClientForm() {
           code_postal: codePostal.trim() || null,
           ville: ville.trim() || null,
           interlocuteur:
-            addDirigeantAsContact && dirigeantNom.trim()
-              ? { nom: dirigeantNom.trim(), qualite: dirigeantQualite || null }
+            addDirigeantAsContact && dirigeantNomFamille.trim()
+              ? {
+                  civilite: dirigeantCivilite || null,
+                  prenom: dirigeantPrenom.trim() || null,
+                  nom: dirigeantNomFamille.trim(),
+                  qualite: dirigeantQualite || null,
+                }
               : null,
         });
         router.push(`/clients/${id}`);
@@ -634,27 +653,83 @@ export default function NouveauClientForm() {
         </label>
       </div>
 
-      {dirigeantNom && (
-        <div className="rounded-md border bg-zinc-50 px-3 py-2.5 text-sm">
-          <label className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={addDirigeantAsContact}
-              onChange={(e) => setAddDirigeantAsContact(e.target.checked)}
-              className="mt-0.5 accent-[hsl(var(--gold))]"
-            />
-            <div className="flex-1">
-              <div className="font-medium">Dirigeant détecté · {dirigeantNom}</div>
-              {dirigeantQualite && (
-                <div className="text-xs text-zinc-500">{dirigeantQualite}</div>
-              )}
-              <div className="text-[11px] text-zinc-400 mt-0.5">
-                Sera ajouté comme contact rattaché au dossier.
+      {/* Dirigeant — toujours visible : on a besoin de la civilité pour la LDM.
+          Sur reprise : prénom + nom pré-remplis depuis l'annuaire. Sur création :
+          tout est saisi à la main. */}
+      <div className="rounded-md border bg-zinc-50/60 px-3 py-3 space-y-2.5">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={addDirigeantAsContact}
+            onChange={(e) => setAddDirigeantAsContact(e.target.checked)}
+            className="accent-[hsl(var(--gold))]"
+          />
+          <span className="text-xs font-medium text-zinc-700">
+            Rattacher un dirigeant (contact)
+            <span className="text-zinc-400 font-normal"> · pour la lettre de mission</span>
+          </span>
+        </label>
+
+        {addDirigeantAsContact && (
+          <div className="space-y-2">
+            <div>
+              <span className="text-xs font-medium text-zinc-700 mb-1 block">
+                Civilité
+              </span>
+              <div className="flex gap-1">
+                {(["M.", "Mme"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setDirigeantCivilite(c)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md text-sm font-medium border transition",
+                      dirigeantCivilite === c
+                        ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
+                        : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
+                    )}
+                  >
+                    {c === "M." ? "Monsieur" : "Madame"}
+                  </button>
+                ))}
               </div>
             </div>
-          </label>
-        </div>
-      )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Prénom">
+                <input
+                  type="text"
+                  value={dirigeantPrenom}
+                  onChange={(e) => setDirigeantPrenom(e.target.value)}
+                  placeholder="ex. Benjamin"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
+                    inputFill(dirigeantPrenom)
+                  )}
+                />
+              </Field>
+              <Field label="Nom">
+                <input
+                  type="text"
+                  value={dirigeantNomFamille}
+                  onChange={(e) => setDirigeantNomFamille(e.target.value)}
+                  placeholder="ex. PEREZ"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
+                    inputFill(dirigeantNomFamille)
+                  )}
+                />
+              </Field>
+            </div>
+
+            {dirigeantQualite && (
+              <div className="text-[11px] text-zinc-500">
+                Qualité détectée · {dirigeantQualite}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {siren.length === 9 && (
         <div className="rounded-md border bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600 space-x-3">
