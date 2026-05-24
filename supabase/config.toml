@@ -1,0 +1,28 @@
+# Configuration Supabase CLI minimale.
+# Le projet est hébergé sur app.supabase.com — Docker local n'est pas requis.
+# Pour pousser les migrations : `npx supabase link --project-ref <ref>` puis `npx supabase db push`.
+
+project_id = "mooncrm"
+
+[api]
+enabled = true
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+enable_signup = false
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = true
+secure_password_change = false

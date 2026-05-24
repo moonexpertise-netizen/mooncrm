@@ -1,0 +1,49 @@
+{
+  "name": "mooncrm",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "import-notion": "node --env-file=.env.local --import tsx scripts/import-notion.ts",
+    "backfill-echeances": "node --env-file=.env.local --import tsx scripts/backfill-echeances.ts",
+    "cleanup-legacy": "node --env-file=.env.local --import tsx scripts/cleanup-legacy.ts",
+    "sync-mandatory": "node --env-file=.env.local --import tsx scripts/sync-mandatory.ts",
+    "backfill-forfaits": "node --env-file=.env.local --import tsx scripts/backfill-forfaits.ts",
+    "convert-ldm-templates": "node --import tsx scripts/convert-ldm-templates.ts"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@supabase/ssr": "^0.5.1",
+    "@supabase/supabase-js": "^2.45.4",
+    "@tanstack/react-table": "^8.20.5",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "docxtemplater": "^3.68.7",
+    "lucide-react": "^0.460.0",
+    "next": "^15.5.4",
+    "pizzip": "^3.2.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^2.5.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "csv-parse": "^6.2.1",
+    "eslint": "^9.14.0",
+    "eslint-config-next": "^15.5.4",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.14",
+    "tsx": "^4.22.3",
+    "typescript": "^5.6.3"
+  }
+}

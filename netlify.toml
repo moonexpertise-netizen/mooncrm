@@ -1,0 +1,13 @@
+# Netlify config — Next.js 15 App Router est auto-détecté via @netlify/plugin-nextjs.
+# Ce fichier sert juste à fixer la version de Node et à documenter le build.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Pin Node 24 (cohérent avec la version locale)
+  NODE_VERSION = "24"
+
+# Le plugin Next.js gère automatiquement le rendu SSR + API routes + middleware.
+# Pas besoin de le déclarer explicitement, Netlify le détecte.

@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Palette MOON Expertise */
+    --background: 60 8% 92%;            /* #ebebe7 papier */
+    --foreground: 226 45% 10%;          /* #0D1122 encre */
+    --card: 0 0% 100%;                  /* blanc */
+    --card-foreground: 226 45% 10%;
+    --primary: 226 45% 10%;             /* #0D1122 */
+    --primary-foreground: 60 8% 96%;
+    --muted: 60 8% 88%;
+    --muted-foreground: 226 10% 35%;
+    --accent: 36 35% 58%;               /* doré clair */
+    --accent-foreground: 226 45% 10%;
+    --border: 226 12% 86%;
+
+    --gold: 34 32% 52%;                 /* doré principal #A88962 */
+    --gold-soft: 36 40% 88%;            /* doré pâle (fond) */
+    --gold-dark: 32 30% 32%;            /* doré foncé (hover) */
+  }
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: hsl(var(--foreground));
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01";
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  color: hsl(var(--foreground));
+}
+
+/* Couleurs MOON exposées comme classes utilitaires */
+.text-ink { color: hsl(var(--foreground)); }
+.text-gold { color: hsl(var(--gold)); }
+.bg-gold { background-color: hsl(var(--gold)); }
+.bg-gold-soft { background-color: hsl(var(--gold-soft)); }
+.border-gold { border-color: hsl(var(--gold)); }
+.hover\:text-gold:hover { color: hsl(var(--gold)); }
+.hover\:bg-gold-soft:hover { background-color: hsl(var(--gold-soft)); }
+.hover\:border-gold:hover { border-color: hsl(var(--gold)); }
+.ring-gold { --tw-ring-color: hsl(var(--gold)); }
+
+/* Animations utilitaires */
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-slide-up-fade {
+  animation: slide-up-fade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scale-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Focus ring (ardoise/doré selon contexte) */
+:focus-visible {
+  outline: 2px solid hsl(var(--gold));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline-offset: 1px;
+}
+
+/* Smooth transition par défaut sur les interactifs */
+button, a, select, input[type="checkbox"], input[type="radio"] {
+  transition-property: background-color, border-color, color, box-shadow, transform, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scrollbar discrète */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--foreground) / 0.3);
+  background-clip: content-box;
+}
+
+/* Sélection de texte (couleur dorée) */
+::selection {
+  background: hsl(var(--gold) / 0.4);
+  color: hsl(var(--foreground));
+}
