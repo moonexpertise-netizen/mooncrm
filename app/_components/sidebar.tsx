@@ -13,12 +13,14 @@ import {
   LayoutDashboard,
   LogOut,
   Settings2,
+  ShieldCheck,
   TrendingUp,
   Users,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { TRACKERS, TRACKER_GROUPS } from "@/app/obligations/trackers";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 export const SIDEBAR_STORAGE_KEY = "moon.sidebar.collapsed";
@@ -97,6 +99,26 @@ export function Sidebar() {
   const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
   // Année Production mémorisée (localStorage)
   const [persistedObligationsYear, setPersistedObligationsYear] = useState<number | null>(null);
+  // Profile du user logué : sert à afficher email dans le footer + lien
+  // Admin → Utilisateurs si is_admin. Fetch une seule fois au mount.
+  const [me, setMe] = useState<{ email: string; isAdmin: boolean } | null>(null);
+
+  useEffect(() => {
+    const sb = createClient();
+    (async () => {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      const { data: prof } = await sb
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+      setMe({
+        email: user.email ?? "",
+        isAdmin: prof?.is_admin === true,
+      });
+    })();
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
@@ -386,9 +408,28 @@ export function Sidebar() {
       <div className="border-t border-white/5 shrink-0">
         {!collapsed ? (
           <div className="px-3 py-3">
-            <div className="text-xs text-zinc-100 font-medium truncate">Benjamin Perez</div>
-            <div className="text-[11px] text-zinc-500 truncate">MOON Expertise</div>
-            <form action="/auth/logout" method="post" className="mt-2">
+            <div className="text-xs text-zinc-100 font-medium truncate" title={me?.email}>
+              {me?.email ?? "…"}
+            </div>
+            <div className="text-[11px] text-zinc-500 truncate">
+              {me?.isAdmin ? "Administrateur" : "MOON Expertise"}
+            </div>
+            {me?.isAdmin && (
+              <Link
+                href="/admin/users"
+                className={cn(
+                  "mt-2 w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
+                  pathname.startsWith("/admin")
+                    ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold))]"
+                    : "text-zinc-400 hover:text-[hsl(var(--gold))] hover:bg-white/5"
+                )}
+                title="Gestion des utilisateurs"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Utilisateurs
+              </Link>
+            )}
+            <form action="/auth/logout" method="post" className="mt-1">
               <button
                 type="submit"
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-zinc-400 hover:text-[hsl(var(--gold))] hover:bg-white/5 transition-colors"

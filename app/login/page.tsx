@@ -21,6 +21,14 @@ export default function LoginPage() {
     setError(null);
     setInfo(null);
 
+    // Validation côté client : feedback immédiat. La sécurité réelle est
+    // côté DB via le trigger handle_new_user() (impossible à contourner).
+    if (mode === "signup" && !email.toLowerCase().endsWith("@moonexpertise.fr")) {
+      setLoading(false);
+      setError("Seuls les emails @moonexpertise.fr peuvent créer un compte.");
+      return;
+    }
+
     const supabase = createClient();
     if (mode === "signin") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -39,19 +47,14 @@ export default function LoginPage() {
       if (error) {
         setError(translateError(error.message));
       } else {
-        // Si "Confirm email" est désactivé côté Supabase, la session est
-        // créée immédiatement → on redirige. Sinon on demande à l'utilisateur
-        // de vérifier sa boîte.
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          router.refresh();
-          router.replace("/");
-        } else {
-          setInfo(
-            "Compte créé. Vérifie tes mails pour confirmer ton adresse, puis connecte-toi."
-          );
-          setMode("signin");
-        }
+        // Sécurité : le compte est créé en `approved = false`. Le middleware
+        // côté serveur redirigera vers /en-attente jusqu'à approbation par
+        // un admin (Benjamin).
+        setInfo(
+          "Compte créé. Un administrateur doit l'approuver avant que tu puisses accéder à l'app. Tu peux te connecter dès maintenant pour voir l'état."
+        );
+        setMode("signin");
+        setPassword("");
       }
     }
   }
@@ -151,5 +154,8 @@ function translateError(msg: string): string {
     return "Mot de passe trop court (6 caractères minimum).";
   if (m.includes("weak password"))
     return "Mot de passe trop faible. Mets-en un plus complexe.";
+  // Erreur custom remontée par notre trigger DB handle_new_user()
+  if (m.includes("@moonexpertise.fr"))
+    return "Seuls les emails @moonexpertise.fr peuvent créer un compte.";
   return msg;
 }

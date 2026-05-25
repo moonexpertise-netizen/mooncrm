@@ -30,7 +30,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const hideShell = pathname === "/login" || pathname.startsWith("/auth/");
+  const hideShell =
+    pathname === "/login" ||
+    pathname === "/en-attente" ||
+    pathname.startsWith("/auth/");
 
   if (hideShell) {
     return <>{children}</>;
