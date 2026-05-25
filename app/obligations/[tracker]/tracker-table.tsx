@@ -2,13 +2,14 @@
 
 import { memo, useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { MessageSquare } from "lucide-react";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 import {
   bulkUpdateObligationStatus,
-  updateObligationNote,
   updateObligationStatus,
 } from "../actions";
+import CommentsPanel from "./comments-panel";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
@@ -45,15 +46,26 @@ export default function TrackerTable({
   cols,
   statusOptions,
   focus,
+  initialCommentCounts,
+  currentUserEmail,
 }: {
   rows: TrackerRow[];
   cols: Array<{ key: string; label: string; type: string; periode: string }>;
   statusOptions: Record<string, StatusOption[]>;
   focus?: string | null;
+  initialCommentCounts: Record<string, number>;
+  currentUserEmail: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [openCellId, setOpenCellId] = useState<string | null>(null);
   const [highlightedCellId, setHighlightedCellId] = useState<string | null>(null);
+  // Commentaires : compteur par obligation_id (server-loaded initial, MAJ
+  // optimiste via panel). + ID de l'obligation pour laquelle le panel est ouvert.
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    initialCommentCounts ?? {}
+  );
+  const [openCommentsObligId, setOpenCommentsObligId] = useState<string | null>(null);
+  const [openCommentsLabel, setOpenCommentsLabel] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<Set<StatutFilter>>(new Set());
   const [periodFilter, setPeriodFilter] = useState<Set<string>>(new Set());
   // Largeur auto-fit pour les colonnes (sinon min-w-[120px] par défaut)
@@ -760,20 +772,34 @@ export default function TrackerTable({
     [applyOptimistic]
   );
 
-  const onSaveNote = useCallback(
-    (obligationId: string, note: string | null) => {
-      startTransition(async () => {
-        applyOptimistic({ obligationId, note });
-        await updateObligationNote(obligationId, note);
-      });
-    },
-    [applyOptimistic]
-  );
+  // (Le système de notes legacy est remplacé par les commentaires latéraux.)
 
   // Stables : ouverture/fermeture du picker. StatusCell les appelle avec
   // son propre cellId en paramètre.
   const handleOpen = useCallback((cellId: string) => setOpenCellId(cellId), []);
   const handleClose = useCallback(() => setOpenCellId(null), []);
+
+  // Ouverture du panel commentaires latéral (depuis l'indicateur 💬 d'une cellule).
+  const handleOpenComments = useCallback(
+    (obligationId: string, label: string) => {
+      setOpenCommentsObligId(obligationId);
+      setOpenCommentsLabel(label);
+      // Si le picker statut est ouvert, on le ferme pour ne pas avoir 2 popovers.
+      setOpenCellId(null);
+    },
+    []
+  );
+
+  const handleCloseComments = useCallback(() => {
+    setOpenCommentsObligId(null);
+  }, []);
+
+  const handleCommentCountChange = useCallback(
+    (obligationId: string, count: number) => {
+      setCommentCounts((prev) => ({ ...prev, [obligationId]: count }));
+    },
+    []
+  );
 
   return (
     <div className="space-y-3">
@@ -993,11 +1019,13 @@ export default function TrackerTable({
                         isOpen={openCellId === cellId}
                         isSelected={isSelected}
                         options={statusOptions[c.type] ?? []}
+                        commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
+                        rowLabel={`${r.denomination} · ${cols.find((col) => col.key === c.colKey)?.label ?? c.type}`}
                         onOpen={handleOpen}
                         onClose={handleClose}
                         onPick={onPick}
                         onReset={onReset}
-                        onSaveNote={onSaveNote}
+                        onOpenComments={handleOpenComments}
                       />
                     </td>
                   );
@@ -1105,6 +1133,20 @@ export default function TrackerTable({
           </div>
         </div>
       )}
+
+      {/* Panel commentaires latéral (style Notion). Affiché en overlay,
+          slide-in depuis la droite. */}
+      {openCommentsObligId && (
+        <CommentsPanel
+          obligationId={openCommentsObligId}
+          obligationLabel={openCommentsLabel}
+          currentUserEmail={currentUserEmail}
+          onClose={handleCloseComments}
+          onCountChange={(count) =>
+            handleCommentCountChange(openCommentsObligId, count)
+          }
+        />
+      )}
     </div>
   );
 }
@@ -1135,10 +1177,17 @@ function StatusFilterPill({
   );
 }
 
-// Memoized : skip si la cellule n'a pas changé (statut, note, open, etc.).
-// Sinon, taper "Tally" dans le champ recherche re-render 790 instances.
-// Les callbacks parent sont stables (useCallback) → on les appelle avec
-// les params propres à cette cellule (obligationId, type, cellId).
+// Picker statut style Notion : sections groupées par statut_logique (À faire,
+// En cours, Terminé, N/A), compact + fluide. La gestion de note libre est
+// remplacée par le panel commentaires latéral (cliquable via icône 💬).
+const STATUT_GROUP_ORDER: StatutLogique[] = ["A_FAIRE", "EN_COURS", "TERMINE", "NON_APPLICABLE"];
+const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
+  A_FAIRE: "À faire",
+  EN_COURS: "En cours",
+  TERMINE: "Terminé",
+  NON_APPLICABLE: "N/A",
+};
+
 const StatusCell = memo(function StatusCell({
   cell,
   cellId,
@@ -1147,9 +1196,11 @@ const StatusCell = memo(function StatusCell({
   onOpen,
   onClose,
   options,
+  commentCount,
+  rowLabel,
   onPick,
   onReset,
-  onSaveNote,
+  onOpenComments,
 }: {
   cell: TrackerCell;
   cellId: string;
@@ -1158,18 +1209,14 @@ const StatusCell = memo(function StatusCell({
   onOpen: (cellId: string) => void;
   onClose: () => void;
   options: StatusOption[];
+  commentCount: number;
+  rowLabel: string;
   onPick: (obligationId: string, libelle: string, type: string) => void;
   onReset: (obligationId: string) => void;
-  onSaveNote: (obligationId: string, note: string | null) => void;
+  onOpenComments: (obligationId: string, label: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [noteDraft, setNoteDraft] = useState(cell.note ?? "");
-  // Position du popover en `fixed` (échappe au clip de overflow-auto).
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-
-  useEffect(() => {
-    setNoteDraft(cell.note ?? "");
-  }, [cell.note]);
 
   useEffect(() => {
     if (!isOpen || !ref.current) {
@@ -1179,7 +1226,7 @@ const StatusCell = memo(function StatusCell({
     const btn = ref.current.querySelector("button[data-cell-button]");
     if (!btn) return;
     const rect = (btn as HTMLElement).getBoundingClientRect();
-    const POPOVER_ESTIMATED_HEIGHT = 340;
+    const POPOVER_ESTIMATED_HEIGHT = 280;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const openUp = spaceBelow < POPOVER_ESTIMATED_HEIGHT && spaceAbove > spaceBelow;
@@ -1190,7 +1237,6 @@ const StatusCell = memo(function StatusCell({
     });
   }, [isOpen]);
 
-  // Ferme le popover si on scroll (sinon il reste collé alors que la cellule défile).
   useEffect(() => {
     if (!isOpen) return;
     function onScroll() {
@@ -1202,25 +1248,12 @@ const StatusCell = memo(function StatusCell({
 
   useEffect(() => {
     if (!isOpen) return;
-    const oblId = cell.obligationId;
-    function commitNoteIfChanged() {
-      if (!oblId) return;
-      const cleaned = noteDraft.trim();
-      const current = cell.note ?? "";
-      if (cleaned !== current) {
-        onSaveNote(oblId, cleaned === "" ? null : cleaned);
-      }
-    }
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        commitNoteIfChanged();
-        onClose();
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
-        commitNoteIfChanged();
         onClose();
       }
     }
@@ -1230,24 +1263,32 @@ const StatusCell = memo(function StatusCell({
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [isOpen, onClose, noteDraft, cell.note, cell.obligationId, onSaveNote]);
+  }, [isOpen, onClose]);
+
+  // Groupes d'options par statut_logique pour le picker Notion-like.
+  const grouped = useMemo(() => {
+    const groups: Record<StatutLogique, StatusOption[]> = {
+      A_FAIRE: [],
+      EN_COURS: [],
+      TERMINE: [],
+      NON_APPLICABLE: [],
+    };
+    for (const opt of options) groups[opt.statut_logique].push(opt);
+    return groups;
+  }, [options]);
 
   if (!cell.obligationId) {
     return <span className="text-zinc-300 text-xs">·</span>;
   }
 
-  // Si le libellé actuel a une couleur custom dans status_options, on l'utilise
   const matchedOption = options.find((o) => o.libelle === cell.statut_detail);
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
-
-  const hasNote = !!cell.note;
   const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "·";
 
   return (
-    <div className="relative inline-block" ref={ref}>
+    <div className="relative inline-flex items-center gap-1" ref={ref}>
       <button
         onClick={(e) => {
-          // Si modifier key, ne pas ouvrir (la sélection est gérée par le parent)
           if (e.shiftKey || e.metaKey || e.ctrlKey) {
             e.preventDefault();
             return;
@@ -1260,23 +1301,29 @@ const StatusCell = memo(function StatusCell({
           "relative inline-block px-2 py-1 rounded-md text-[11px] font-medium border max-w-[110px] truncate hover:opacity-80 hover:shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
           colorClass
         )}
-        title={
-          [
-            cell.echeance ? `Échéance : ${fmtDateFr(cell.echeance)}` : null,
-            cell.note ? `Note : ${cell.note}` : null,
-          ]
-            .filter(Boolean)
-            .join("\n") || undefined
-        }
+        title={cell.echeance ? `Échéance : ${fmtDateFr(cell.echeance)}` : undefined}
       >
         {cell.statut_detail ?? defaultLibelle}
-        {hasNote && (
-          <span
-            className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white"
-            aria-label="Note présente"
-          />
-        )}
       </button>
+
+      {/* Bulle commentaires (style Notion : 💬 N à droite de la pastille).
+          Cliquable → ouvre le panel latéral. Affichée seulement si N > 0,
+          sinon discrètement disponible via le picker (footer). */}
+      {commentCount > 0 && cell.obligationId && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (cell.obligationId) onOpenComments(cell.obligationId, rowLabel);
+          }}
+          className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 transition-colors shrink-0"
+          title={`${commentCount} commentaire${commentCount > 1 ? "s" : ""}`}
+          aria-label={`${commentCount} commentaire${commentCount > 1 ? "s" : ""}`}
+        >
+          <MessageSquare className="h-2.5 w-2.5" />
+          <span className="tabular-nums">{commentCount}</span>
+        </button>
+      )}
+
       {isOpen && pos && (
         <div
           style={{
@@ -1288,96 +1335,116 @@ const StatusCell = memo(function StatusCell({
               : "translate(-50%, 8px)",
             zIndex: 1000,
           }}
-          className="bg-white border rounded-lg shadow-xl min-w-[260px] text-left animate-slide-up-fade"
+          className="bg-white border rounded-lg shadow-xl min-w-[240px] text-left animate-slide-up-fade overflow-hidden"
         >
           {cell.echeance && (
-            <div className="px-3 py-2 text-[11px] text-muted-foreground border-b bg-zinc-50/50">
-              Échéance : <span className="font-medium text-zinc-700">{fmtDateFr(cell.echeance)}</span>
+            <div className="px-3 py-1.5 text-[10px] text-zinc-500 border-b bg-zinc-50/50">
+              Échéance : <span className="font-medium text-zinc-700 tabular-nums">{fmtDateFr(cell.echeance)}</span>
             </div>
           )}
-          <div className="py-1">
-            {options.length === 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
+
+          {/* Statut courant en gros (style Notion) */}
+          <div className="px-3 py-2 border-b">
+            <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Statut actuel</div>
+            <span
+              className={cn(
+                "inline-block px-2 py-0.5 rounded-md text-[11px] font-medium border",
+                colorClass
+              )}
+            >
+              {cell.statut_detail ?? defaultLibelle}
+            </span>
+          </div>
+
+          {/* Sections par statut_logique (style Notion) */}
+          <div className="max-h-[300px] overflow-y-auto py-1">
+            {options.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-zinc-500">
                 Pas de libellés disponibles.
               </div>
+            ) : (
+              STATUT_GROUP_ORDER.map((groupKey) => {
+                const groupOpts = grouped[groupKey];
+                if (groupOpts.length === 0) return null;
+                return (
+                  <div key={groupKey} className="py-0.5">
+                    <div className="px-3 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wide text-zinc-400 font-medium">
+                      {STATUT_GROUP_LABEL[groupKey]}
+                    </div>
+                    {groupOpts.map((opt) => (
+                      <button
+                        key={opt.libelle}
+                        onClick={() => cell.obligationId && onPick(cell.obligationId, opt.libelle, cell.type)}
+                        className={cn(
+                          "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
+                          cell.statut_detail === opt.libelle && "bg-zinc-50"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
+                            statutColorClass(opt.statut_logique, opt.color)
+                          )}
+                        >
+                          {opt.libelle}
+                        </span>
+                        {cell.statut_detail === opt.libelle && (
+                          <span className="text-zinc-400 ml-auto text-xs">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })
             )}
-            {options.map((opt) => (
-              <button
-                key={opt.libelle}
-                onClick={() => cell.obligationId && onPick(cell.obligationId, opt.libelle, cell.type)}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
-                  cell.statut_detail === opt.libelle && "bg-zinc-50"
-                )}
-              >
-                <span
-                  className={cn(
-                    "inline-block px-1.5 py-0.5 rounded text-[10px] border",
-                    statutColorClass(opt.statut_logique, opt.color)
-                  )}
-                >
-                  {opt.libelle}
-                </span>
-                {cell.statut_detail === opt.libelle && (
-                  <span className="text-zinc-400 ml-auto">✓</span>
-                )}
-              </button>
-            ))}
+          </div>
+
+          {/* Footer : actions secondaires (commentaires + reset) */}
+          <div className="border-t bg-zinc-50/50">
+            <button
+              onClick={() => {
+                if (!cell.obligationId) return;
+                onOpenComments(cell.obligationId, rowLabel);
+                onClose();
+              }}
+              className="w-full px-3 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+            >
+              <MessageSquare className="h-3 w-3 text-zinc-500" />
+              <span>
+                {commentCount > 0
+                  ? `Commentaires (${commentCount})`
+                  : "Ajouter un commentaire"}
+              </span>
+            </button>
             {cell.statut_detail && (
               <button
                 onClick={() => cell.obligationId && onReset(cell.obligationId)}
-                className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors border-t mt-1"
+                className="w-full px-3 py-2 text-left text-xs text-zinc-500 hover:bg-zinc-100 transition-colors border-t"
               >
                 Réinitialiser le statut
               </button>
             )}
-          </div>
-          <div className="px-3 py-2 border-t bg-zinc-50/50">
-            <label className="text-[10px] uppercase tracking-wide text-zinc-500 font-medium block mb-1">
-              Note
-            </label>
-            <textarea
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              onBlur={() => {
-                if (!cell.obligationId) return;
-                const cleaned = noteDraft.trim();
-                const current = cell.note ?? "";
-                if (cleaned !== current) {
-                  onSaveNote(cell.obligationId, cleaned === "" ? null : cleaned);
-                }
-              }}
-              placeholder="Note libre…"
-              rows={2}
-              className="w-full text-xs px-2 py-1.5 border border-zinc-300 bg-white rounded resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            />
-            <div className="text-[10px] text-zinc-400 mt-0.5">
-              Sauvegardée à la perte de focus
-            </div>
           </div>
         </div>
       )}
     </div>
   );
 }, (prev, next) => {
-  // Comparaison shallow custom : on évite le re-render si rien n'a changé.
-  // cell est recréé à chaque render parent, donc on compare ses primitives.
   return (
     prev.cell.obligationId === next.cell.obligationId &&
     prev.cell.statut_logique === next.cell.statut_logique &&
     prev.cell.statut_detail === next.cell.statut_detail &&
     prev.cell.echeance === next.cell.echeance &&
-    prev.cell.note === next.cell.note &&
     prev.cell.type === next.cell.type &&
     prev.isOpen === next.isOpen &&
     prev.isSelected === next.isSelected &&
     prev.options === next.options &&
-    // Les callbacks sont recréés à chaque render parent → on les compare par
-    // référence, mais comme on les mémoize côté parent ils restent stables.
+    prev.commentCount === next.commentCount &&
+    prev.rowLabel === next.rowLabel &&
     prev.onOpen === next.onOpen &&
     prev.onClose === next.onClose &&
     prev.onPick === next.onPick &&
     prev.onReset === next.onReset &&
-    prev.onSaveNote === next.onSaveNote
+    prev.onOpenComments === next.onOpenComments
   );
 });

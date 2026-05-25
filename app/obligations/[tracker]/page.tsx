@@ -3,6 +3,7 @@ import { Lock } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getTracker } from "../trackers";
+import { countCommentsByObligation } from "../comments-actions";
 import TrackerTable, { type StatusOption, type TrackerRow } from "./tracker-table";
 
 export const dynamic = "force-dynamic";
@@ -123,6 +124,14 @@ export default async function ObligationsPage({
     a.denomination.localeCompare(b.denomination, "fr")
   );
 
+  // Counts de commentaires pour les indicateurs 💬 dans les cellules
+  const allObligationIds = obligations.map((o) => o.id);
+  const [commentCounts, { data: { user } }] = await Promise.all([
+    countCommentsByObligation(allObligationIds),
+    supabase.auth.getUser(),
+  ]);
+  const currentUserEmail = user?.email ?? null;
+
   const rows: TrackerRow[] = clientsSorted.map((c) => ({
     clientId: c.id,
     clientSlug: c.slug,
@@ -169,7 +178,14 @@ export default async function ObligationsPage({
         <YearSelector slug={trackerSlug} year={year} />
       </div>
 
-      <TrackerTable rows={rows} cols={cols} statusOptions={statusOptions} focus={focus} />
+      <TrackerTable
+        rows={rows}
+        cols={cols}
+        statusOptions={statusOptions}
+        focus={focus}
+        initialCommentCounts={commentCounts}
+        currentUserEmail={currentUserEmail}
+      />
     </div>
   );
 }
