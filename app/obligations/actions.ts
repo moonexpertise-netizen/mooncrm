@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -42,8 +41,7 @@ export async function updateObligationStatus(
       .update({ statut_logique: "A_FAIRE", statut_detail: defaultLibelle })
       .eq("id", obligationId);
     if (error) throw new Error(error.message);
-    revalidatePath("/obligations/suivi");
-    if (obl) revalidatePath(`/clients/${obl.client_id}`);
+    // Perf : optimistic update côté tracker. Pas de revalidatePath.
     return;
   }
 
@@ -71,9 +69,7 @@ export async function updateObligationStatus(
     .update({ statut_logique, statut_detail: libelle })
     .eq("id", obligationId);
   if (error) throw new Error(error.message);
-
-  revalidatePath("/obligations/suivi");
-  revalidatePath(`/clients/${obl.client_id}`);
+  // Perf : optimistic update côté tracker. Pas de revalidatePath.
 }
 
 /**
@@ -151,9 +147,8 @@ export async function bulkUpdateObligationStatus(
     }
   }
 
-  revalidatePath("/obligations/suivi");
-  const clientIds = [...new Set(obls.map((o) => o.client_id))];
-  for (const cid of clientIds) revalidatePath(`/clients/${cid}`);
+  // Perf : optimistic update côté tracker. Pas de revalidatePath (le bulk
+  // touchait potentiellement N pages clients, c'était le pire offender).
   return { updated };
 }
 
@@ -175,7 +170,5 @@ export async function updateObligationNote(obligationId: string, note: string | 
     .update({ note: cleaned })
     .eq("id", obligationId);
   if (error) throw new Error(error.message);
-
-  revalidatePath("/obligations/suivi");
-  if (obl) revalidatePath(`/clients/${obl.client_id}`);
+  // Perf : optimistic update côté tracker. Pas de revalidatePath.
 }

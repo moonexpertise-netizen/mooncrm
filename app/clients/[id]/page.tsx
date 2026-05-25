@@ -12,7 +12,9 @@ import YearSwitcher from "./year-switcher";
 import EcheancierCard from "./echeancier-card";
 import DeleteClientButton from "./delete-button";
 import LDMButton from "./ldm-button";
+import SignatureButton from "./signature-button";
 import TallyButton from "./tally-button";
+import AnnuaireButton from "./annuaire-button";
 import ObligationsMatrix, { type Sub as MatrixSub, type YearConfig as MatrixYC } from "./obligations-matrix";
 import ContactsCard, { type ContactRow } from "./contacts-card";
 import FicheTabs from "./fiche-tabs";
@@ -156,13 +158,15 @@ export default async function ClientFiche({
   const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
 
   // Dirigeant principal = 1er contact rattaché. Affiché directement dans
-  // "Infos de base" pour avoir Sexe / Prénom / Nom à portée. La carte Contacts
+  // "Infos de base" pour avoir Civilité / Prénom / Nom à portée. La carte Contacts
   // en bas permet la gestion multi-contacts.
   const dirigeantContact = (contactsLink?.[0]?.contacts as unknown as {
     id: string;
     nom: string;
     prenom: string | null;
     civilite: "M." | "Mme" | "Mlle" | null;
+    email: string | null;
+    telephone: string | null;
   } | null) ?? null;
 
   const yearsSet = new Set<number>((allSubs ?? []).map((s) => s.annee));
@@ -361,6 +365,22 @@ export default async function ClientFiche({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              <AnnuaireButton
+                clientId={id}
+                siren={client.siren}
+                current={{
+                  adresse_siege: client.adresse_siege,
+                  code_postal: client.code_postal,
+                  ville: client.ville,
+                  activite: client.activite,
+                  forme: client.forme,
+                  jour_cloture: client.jour_cloture,
+                  mois_cloture: client.mois_cloture,
+                  dirigeant: dirigeantContact
+                    ? { prenom: dirigeantContact.prenom, nom: dirigeantContact.nom }
+                    : null,
+                }}
+              />
               <TallyButton
                 clientId={id}
                 email={client.email}
@@ -368,7 +388,36 @@ export default async function ClientFiche({
                 siren={client.siren}
                 origine={client.origine}
               />
-              <LDMButton clientId={id} />
+              <LDMButton
+                clientId={id}
+                dirigeant={
+                  dirigeantContact
+                    ? {
+                        civilite: dirigeantContact.civilite,
+                        prenom: dirigeantContact.prenom,
+                        nom: dirigeantContact.nom,
+                        email: dirigeantContact.email,
+                        telephone: dirigeantContact.telephone,
+                      }
+                    : null
+                }
+              />
+              <SignatureButton
+                clientId={id}
+                denomination={client.denomination}
+                finMissionDate={client.fin_mission_date}
+                dirigeant={
+                  dirigeantContact
+                    ? {
+                        civilite: dirigeantContact.civilite,
+                        prenom: dirigeantContact.prenom,
+                        nom: dirigeantContact.nom,
+                        email: dirigeantContact.email,
+                        telephone: dirigeantContact.telephone,
+                      }
+                    : null
+                }
+              />
               <DeleteClientButton clientId={id} denomination={client.denomination} />
             </div>
           </div>
@@ -405,7 +454,7 @@ export default async function ClientFiche({
             <EditableContactCivilite
               contactId={dirigeantContact.id}
               value={dirigeantContact.civilite}
-              label="Sexe dirigeant"
+              label="Civilité dirigeant"
             />
             <EditableContactText
               contactId={dirigeantContact.id}
@@ -873,11 +922,18 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   );
 }
 
+/**
+ * Champ en lecture seule (valeur calculée : MRR, ARR, équivalent mensuel…).
+ * Visuellement distinct des champs saisissables : fond gris pastel + bordure
+ * grise, texte gris moyen. Pas de hover (non cliquable).
+ */
 function FieldReadonly({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 py-1 text-sm">
+    <div className="grid grid-cols-[140px_minmax(0,360px)] gap-2 py-1 text-sm items-center">
       <div className="text-muted-foreground">{label}</div>
-      <div className="px-2 -mx-2 text-zinc-700 tabular-nums">{value}</div>
+      <div className="px-2 py-1 -mx-2 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 tabular-nums">
+        {value}
+      </div>
     </div>
   );
 }

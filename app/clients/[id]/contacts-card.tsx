@@ -67,7 +67,6 @@ export default function ContactsCard({
 }
 
 function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }) {
-  const [editingField, setEditingField] = useState<"prenom" | "nom" | "email" | "telephone" | "role" | null>(null);
   const [, startTransition] = useTransition();
 
   // Optimistic display : on garde un état local de la row qui prime sur la prop
@@ -76,7 +75,6 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
   useEffect(() => setDisplay(row), [row]);
 
   function commit(field: "prenom" | "nom" | "email" | "telephone" | "role", value: string) {
-    setEditingField(null);
     const v = value.trim();
     // Optimistic update local + rollback si erreur
     const previous = display;
@@ -145,43 +143,33 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
       <InlineField
         value={display.prenom ?? ""}
         placeholder="Prénom"
-        editing={editingField === "prenom"}
-        onEdit={() => setEditingField("prenom")}
         onCommit={(v) => commit("prenom", v)}
         className="text-sm min-w-[80px]"
       />
       <InlineField
         value={display.nom}
         placeholder="Nom"
-        editing={editingField === "nom"}
-        onEdit={() => setEditingField("nom")}
         onCommit={(v) => commit("nom", v)}
         className="font-medium min-w-[80px]"
       />
       <InlineField
         value={display.role ?? ""}
         placeholder="Rôle"
-        editing={editingField === "role"}
-        onEdit={() => setEditingField("role")}
         onCommit={(v) => commit("role", v)}
-        className="text-xs text-zinc-500"
+        className="text-xs"
       />
       <InlineField
         value={display.email ?? ""}
         placeholder="Email"
-        editing={editingField === "email"}
-        onEdit={() => setEditingField("email")}
         onCommit={(v) => commit("email", v)}
-        className="text-xs text-blue-600"
+        className="text-xs"
         type="email"
       />
       <InlineField
         value={display.telephone ?? ""}
         placeholder="Téléphone"
-        editing={editingField === "telephone"}
-        onEdit={() => setEditingField("telephone")}
         onCommit={(v) => commit("telephone", v)}
-        className="text-xs text-zinc-500 tabular-nums"
+        className="text-xs tabular-nums"
       />
       <button
         onClick={onRemove}
@@ -223,7 +211,7 @@ function CivilitePicker({
         className={cn(
           "px-1.5 py-0.5 rounded text-xs font-medium border transition shrink-0",
           value
-            ? "bg-white border-zinc-300 text-zinc-700 hover:border-zinc-400"
+            ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 hover:border-emerald-400"
             : "bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
         )}
         title="Civilité"
@@ -259,7 +247,7 @@ function CivilitePicker({
                 }}
                 className="w-full text-left px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 transition"
               >
-                · (vide)
+                - à renseigner
               </button>
             </>
           )}
@@ -269,63 +257,44 @@ function CivilitePicker({
   );
 }
 
+/**
+ * Input natif toujours visible (plus de click-to-edit). Save au blur.
+ */
 function InlineField({
   value,
   placeholder,
-  editing,
-  onEdit,
   onCommit,
   className,
   type = "text",
 }: {
   value: string;
   placeholder: string;
-  editing: boolean;
-  onEdit: () => void;
   onCommit: (v: string) => void;
   className?: string;
   type?: string;
 }) {
   const [draft, setDraft] = useState(value);
-  const ref = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editing) {
-      setDraft(value);
-      requestAnimationFrame(() => ref.current?.focus());
-    }
-  }, [editing, value]);
-
-  if (editing) {
-    return (
-      <input
-        ref={ref}
-        type={type}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => onCommit(draft)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onCommit(draft);
-          else if (e.key === "Escape") onCommit(value);
-        }}
-        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
-        placeholder={placeholder}
-        style={{ minWidth: "120px" }}
-      />
-    );
-  }
+  useEffect(() => setDraft(value), [value]);
 
   return (
-    <button
-      onClick={onEdit}
+    <input
+      type={type}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onCommit(draft)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      placeholder={placeholder}
       className={cn(
-        "px-1.5 py-0.5 rounded hover:bg-zinc-100 transition text-left",
-        !value && "bg-amber-50/60 text-amber-700/70",
+        "px-1.5 py-0.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 transition",
+        draft.trim()
+          ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
+          : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400",
         className
       )}
-    >
-      {value || placeholder}
-    </button>
+      style={{ minWidth: "120px" }}
+    />
   );
 }
 
@@ -348,8 +317,15 @@ function NewContactForm({
   const [isPending, startTransition] = useTransition();
 
   function submit() {
-    if (!nom.trim()) {
-      setError("Nom obligatoire");
+    // Validation : civilité + prénom + nom obligatoires (alimentent la lettre
+    // de mission). Email + tel nécessaires pour la signature électronique mais
+    // pas bloquants à la création.
+    const missing: string[] = [];
+    if (!civilite) missing.push("Civilité");
+    if (!prenom.trim()) missing.push("Prénom");
+    if (!nom.trim()) missing.push("Nom");
+    if (missing.length > 0) {
+      setError(`Champ${missing.length > 1 ? "s" : ""} obligatoire${missing.length > 1 ? "s" : ""} : ${missing.join(", ")}.`);
       return;
     }
     setError(null);
@@ -371,78 +347,135 @@ function NewContactForm({
   }
 
   return (
-    <div className="mt-3 p-3 rounded-md border border-[hsl(var(--gold))]/30 bg-[hsl(var(--gold))]/5 space-y-2 animate-slide-up-fade">
-      <div className="flex items-center gap-1">
-        {(["M.", "Mme", "Mlle"] as const).map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setCivilite(civilite === c ? null : c)}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-xs font-medium border transition",
-              civilite === c
-                ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
-                : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
-            )}
-          >
-            {c}
-          </button>
-        ))}
-        <span className="text-[11px] text-zinc-500 ml-1">civilité</span>
+    <div className="mt-3 p-4 rounded-md border border-[hsl(var(--gold))]/30 bg-[hsl(var(--gold))]/5 space-y-3 animate-slide-up-fade">
+      {/* Identité — obligatoire pour la lettre de mission */}
+      <div className="space-y-2">
+        <div className="text-[11px] uppercase tracking-wide font-medium text-zinc-600">
+          Identité <span className="text-rose-500 normal-case font-normal">· obligatoire pour la LDM</span>
+        </div>
+        <div>
+          <label className="text-[11px] text-zinc-600 mb-1 block">
+            Civilité <span className="text-rose-500">*</span>
+          </label>
+          <div className="flex items-center gap-1">
+            {(["M.", "Mme", "Mlle"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCivilite(civilite === c ? null : c)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium border transition",
+                  civilite === c
+                    ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
+                    : civilite === null
+                    ? "bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100"
+                    : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
+                )}
+              >
+                {c === "M." ? "Monsieur" : c === "Mme" ? "Madame" : "Mademoiselle"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-[11px] text-zinc-600 mb-1 block">
+              Prénom <span className="text-rose-500">*</span>
+            </span>
+            <input
+              autoFocus
+              type="text"
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+              placeholder="ex. Benjamin"
+              className={cn(
+                "w-full px-2 py-1.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60",
+                prenom.trim() ? "border-zinc-300 bg-white" : "border-amber-300 bg-amber-50"
+              )}
+            />
+          </label>
+          <label className="block">
+            <span className="text-[11px] text-zinc-600 mb-1 block">
+              Nom <span className="text-rose-500">*</span>
+            </span>
+            <input
+              type="text"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="ex. PEREZ"
+              className={cn(
+                "w-full px-2 py-1.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60",
+                nom.trim() ? "border-zinc-300 bg-white" : "border-amber-300 bg-amber-50"
+              )}
+            />
+          </label>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          autoFocus
-          type="text"
-          value={prenom}
-          onChange={(e) => setPrenom(e.target.value)}
-          placeholder="Prénom"
-          className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
-        />
-        <input
-          type="text"
-          value={nom}
-          onChange={(e) => setNom(e.target.value)}
-          placeholder="Nom *"
-          className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
-        />
-        <input
-          type="text"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          placeholder="Rôle (ex. Président, Comptable…)"
-          className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
-        />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
-        />
-        <input
-          type="tel"
-          value={telephone}
-          onChange={(e) => setTelephone(e.target.value)}
-          placeholder="Téléphone"
-          className="px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
-        />
+
+      {/* Coordonnées — requises pour la signature électronique JeSignExpert */}
+      <div className="space-y-2 pt-2 border-t border-[hsl(var(--gold))]/20">
+        <div className="text-[11px] uppercase tracking-wide font-medium text-zinc-600">
+          Coordonnées <span className="text-zinc-400 normal-case font-normal">· pour la signature électronique</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-[11px] text-zinc-600 mb-1 block">Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="contact@…"
+              className="w-full px-2 py-1.5 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[11px] text-zinc-600 mb-1 block">Téléphone</span>
+            <input
+              type="tel"
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+              placeholder="06…"
+              className="w-full px-2 py-1.5 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 tabular-nums"
+            />
+          </label>
+        </div>
       </div>
-      {error && <div className="text-xs text-rose-700">{error}</div>}
-      <div className="flex items-center gap-2 justify-end">
+
+      {/* Rôle — facultatif */}
+      <div className="space-y-2 pt-2 border-t border-[hsl(var(--gold))]/20">
+        <label className="block">
+          <span className="text-[11px] text-zinc-600 mb-1 block">
+            Rôle <span className="text-zinc-400">· facultatif</span>
+          </span>
+          <input
+            type="text"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="ex. Président, Dirigeant, Comptable…"
+            className="w-full px-2 py-1.5 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+          />
+        </label>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-900">
+          {error}
+        </div>
+      )}
+      <div className="flex items-center gap-2 justify-end pt-1">
         <button
           onClick={onCancel}
           disabled={isPending}
-          className="text-xs px-2.5 py-1 rounded-md text-zinc-600 hover:text-zinc-900 transition"
+          className="text-xs px-2.5 py-1.5 rounded-md text-zinc-600 hover:text-zinc-900 transition"
         >
           Annuler
         </button>
         <button
           onClick={submit}
           disabled={isPending}
-          className="text-xs px-3 py-1 rounded-md bg-[#0D1122] text-white hover:bg-[#0D1122]/85 transition"
+          className="text-xs px-4 py-1.5 rounded-md bg-[#0D1122] text-white hover:bg-[#0D1122]/85 transition font-medium"
         >
-          {isPending ? "Ajout…" : "Ajouter"}
+          {isPending ? "Ajout…" : "Ajouter le contact"}
         </button>
       </div>
     </div>

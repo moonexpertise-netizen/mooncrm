@@ -235,6 +235,34 @@ function fixTemplate(templateName: string): { changed: boolean; notes: string[] 
   } // end step 5
 
   // ---------------------------------------------------------------------------
+  // 7) Nettoyer les paragraphes orphelins de saut de page (`<w:br w:type=
+  //    "page"/>`) qui héritaient d'un `<w:u w:val="single"/>` parasite —
+  //    cet underline dessinait un trait noir en haut de la page suivante.
+  //
+  //    /!\ On NE SUPPRIME PAS le paragraphe entier : le saut de page lui-même
+  //    sert à démarrer une nouvelle section (ex. "Cette mission s'appuie
+  //    sur :" doit commencer sur une nouvelle page).
+  // ---------------------------------------------------------------------------
+  if (!doStep("7")) {
+    notes.push("  · SKIP étape 7 (underline parasites)");
+  } else {
+    const emptyBreakRe =
+      /<w:p [^>]*>(?:<w:pPr>(?:(?!<\/w:pPr>)[\s\S])*<\/w:pPr>)?<w:r[^>]*>(?:<w:rPr>(?:(?!<\/w:rPr>)[\s\S])*<\/w:rPr>)?<w:br w:type="page"\/><\/w:r><\/w:p>/g;
+    let cleaned = 0;
+    xml = xml.replace(emptyBreakRe, (match) => {
+      const before = match;
+      const after = match.replace(/<w:u w:val="single"\/>/g, "");
+      if (after !== before) cleaned++;
+      return after;
+    });
+    if (cleaned > 0) {
+      notes.push(`  ✓ ${cleaned} underline parasite(s) retiré(s) (sauts de page conservés)`);
+    } else {
+      notes.push("  · pas d'underline parasite");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // 6) BNC SEULEMENT : retirer entièrement le bullet "Travaux juridiques
   //    annuels" — les BNC n'ont pas de juridique.
   // ---------------------------------------------------------------------------
@@ -250,6 +278,7 @@ function fixTemplate(templateName: string): { changed: boolean; notes: string[] 
         notes.push("  · bullet juridique déjà retiré (BNC)");
       }
     }
+
   }
 
   // ---------------------------------------------------------------------------

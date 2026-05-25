@@ -6,22 +6,40 @@ import { cn, fmtEuro } from "@/lib/utils";
 import { setClientGroupe, updateClient, updateContact } from "./actions";
 
 /**
- * Composants d'édition inline (click-to-edit) pour la fiche client.
+ * Composants d'édition pour la fiche client.
  *
- * Stratégie de fluidité (UX) :
- *  - Optimistic UI : la valeur saisie s'affiche INSTANTANÉMENT, sans attendre
- *    le serveur. L'utilisateur peut enchaîner les champs sans latence perçue.
- *  - Aucun signal visuel pendant le pending : pas d'opacity, pas de disabled,
- *    pas de spinner. Le revalidatePath se passe en arrière-plan.
- *  - Si l'écriture échoue, on rollback à la valeur serveur et on affiche une
- *    petite erreur rouge sous le champ. Sinon, la prop value finit par
- *    rejoindre la valeur locale après le revalidate (resync silencieux).
+ * UX : champs natifs (input/select) toujours visibles, comme dans un formulaire
+ * web standard. Plus de mode "click-to-edit" qui transformait un bouton en
+ * input — c'était source de décalage visuel quand on hover/clique.
+ *
+ * Save côté serveur :
+ *  - inputs : déclenché au blur (sortie du champ) ou Enter
+ *  - selects : déclenché à chaque change
+ *  - update optimistic immédiate (state local) puis revalidate en background
  */
 
-/**
- * Synchronise une valeur locale avec la prop serveur. Quand le serveur push
- * une nouvelle valeur (après revalidate), la locale suit.
+// ============================================================================
+//  Helpers de style — uniformes partout sur la fiche
+// ============================================================================
+
+/** Classe d'un input/select.
+ *  - Vide    : fond jaune pastel + bordure amber (signale qu'il faut remplir)
+ *  - Rempli  : fond vert pastel + bordure emerald (signale "OK, saisi")
  */
+function fieldInputClass(filled: boolean, extra = ""): string {
+  return cn(
+    "w-full px-2 py-1 rounded border text-sm transition focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
+    filled
+      ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
+      : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400",
+    extra
+  );
+}
+
+// ============================================================================
+//  Hooks internes
+// ============================================================================
+
 function useOptimistic<T>(serverValue: T): [T, (v: T) => void, () => void] {
   const [local, setLocal] = useState<T>(serverValue);
   useEffect(() => {
@@ -62,7 +80,7 @@ function FieldShell({
 }) {
   return (
     <div className={cn("py-1 text-sm", className)}>
-      <div className="grid grid-cols-[140px_1fr] gap-2 items-center">
+      <div className="grid grid-cols-[140px_minmax(0,360px)] gap-2 items-center">
         <div className="text-muted-foreground">{label}</div>
         <div className="min-w-0">{children}</div>
       </div>
@@ -75,12 +93,16 @@ function FieldShell({
   );
 }
 
+// ============================================================================
+//  EditableText
+// ============================================================================
+
 export function EditableText({
   clientId,
   field,
   value,
   label,
-  placeholder = "·",
+  placeholder = "- à renseigner",
 }: {
   clientId: string;
   field: string;
@@ -88,63 +110,42 @@ export function EditableText({
   label: string;
   placeholder?: string;
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const { save, error } = useSaver(clientId, field);
-  const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
-
-  function startEdit() {
-    setDraft(display ?? "");
-    setEditing(true);
-  }
+    setDraft(value ?? "");
+  }, [value]);
 
   function commit() {
-    setEditing(false);
     const trimmed = draft.trim();
     const newValue = trimmed === "" ? null : trimmed;
     if (newValue === (display ?? null)) return;
-    setDisplay(newValue); // optimistic
+    setDisplay(newValue);
     save(newValue, rollback);
-  }
-
-  function cancel() {
-    setDraft(display ?? "");
-    setEditing(false);
   }
 
   return (
     <FieldShell label={label} error={error}>
-      {editing ? (
-        <input
-          ref={ref}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            else if (e.key === "Escape") cancel();
-          }}
-          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
-        />
-      ) : (
-        <button
-          onClick={startEdit}
-          className={cn(
-            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
-          )}
-        >
-          {display || placeholder}
-        </button>
-      )}
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        placeholder={placeholder}
+        className={fieldInputClass(draft.trim() !== "")}
+      />
     </FieldShell>
   );
 }
+
+// ============================================================================
+//  EditableNumber
+// ============================================================================
 
 export function EditableNumber({
   clientId,
@@ -152,7 +153,7 @@ export function EditableNumber({
   value,
   label,
   unit,
-  placeholder = "·",
+  placeholder = "- à renseigner",
 }: {
   clientId: string;
   field: string;
@@ -161,81 +162,69 @@ export function EditableNumber({
   unit?: "eur" | "plain";
   placeholder?: string;
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
-  const [draft, setDraft] = useState(value != null ? String(value) : "");
+  const [draft, setDraft] = useState(formatDraft(value, unit));
   const { save, error } = useSaver(clientId, field);
-  const ref = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
-
-  function startEdit() {
-    setDraft(display != null ? String(display) : "");
-    setEditing(true);
-  }
+    if (!focused) setDraft(formatDraft(value, unit));
+  }, [value, unit, focused]);
 
   function commit() {
-    setEditing(false);
-    const trimmed = draft.trim().replace(",", ".");
+    setFocused(false);
+    const trimmed = draft.trim().replace(/[€\s]/g, "").replace(",", ".");
     if (trimmed === "") {
       if (display != null) {
-        setDisplay(null); // optimistic
+        setDisplay(null);
         save(null, rollback);
       }
+      setDraft(formatDraft(null, unit));
       return;
     }
     const n = parseFloat(trimmed);
     if (Number.isNaN(n)) {
-      setDraft(display != null ? String(display) : "");
+      setDraft(formatDraft(display, unit));
       return;
     }
     if (n !== display) {
-      setDisplay(n); // optimistic
+      setDisplay(n);
       save(n, rollback);
     }
-  }
-
-  let displayed: string = placeholder;
-  if (display != null) {
-    if (unit === "eur") displayed = fmtEuro(display) ?? String(display);
-    else displayed = String(display);
+    setDraft(formatDraft(n, unit));
   }
 
   return (
     <FieldShell label={label} error={error}>
-      {editing ? (
-        <input
-          ref={ref}
-          type="text"
-          inputMode="decimal"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            else if (e.key === "Escape") {
-              setDraft(display != null ? String(display) : "");
-              setEditing(false);
-            }
-          }}
-          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400 tabular-nums"
-        />
-      ) : (
-        <button
-          onClick={startEdit}
-          className={cn(
-            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition tabular-nums",
-            display == null && "bg-amber-50 text-amber-700 hover:bg-amber-100"
-          )}
-        >
-          {displayed}
-        </button>
-      )}
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={() => {
+          setFocused(true);
+          setDraft(display != null ? String(display) : "");
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        placeholder={placeholder}
+        className={fieldInputClass(display != null, "tabular-nums")}
+      />
     </FieldShell>
   );
 }
+
+function formatDraft(v: number | null, unit?: "eur" | "plain"): string {
+  if (v == null) return "";
+  if (unit === "eur") return fmtEuro(v) ?? String(v);
+  return String(v);
+}
+
+// ============================================================================
+//  EditableDate
+// ============================================================================
 
 export function EditableDate({
   clientId,
@@ -248,65 +237,39 @@ export function EditableDate({
   value: string | null;
   label: string;
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const { save, error } = useSaver(clientId, field);
-  const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
+    setDraft(value ?? "");
+  }, [value]);
 
-  function startEdit() {
-    setDraft(display ?? "");
-    setEditing(true);
-  }
-
-  const displayed = display
-    ? new Intl.DateTimeFormat("fr-FR").format(new Date(display))
-    : "·";
-
-  function commit() {
-    setEditing(false);
-    const newValue = draft || null;
+  function commit(next: string) {
+    const newValue = next || null;
     if (newValue === (display ?? null)) return;
-    setDisplay(newValue); // optimistic
+    setDisplay(newValue);
     save(newValue, rollback);
   }
 
   return (
     <FieldShell label={label} error={error}>
-      {editing ? (
-        <input
-          ref={ref}
-          type="date"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            else if (e.key === "Escape") {
-              setDraft(display ?? "");
-              setEditing(false);
-            }
-          }}
-          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
-        />
-      ) : (
-        <button
-          onClick={startEdit}
-          className={cn(
-            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !display && "text-zinc-400"
-          )}
-        >
-          {displayed}
-        </button>
-      )}
+      <input
+        type="date"
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          commit(e.target.value);
+        }}
+        className={fieldInputClass(draft !== "")}
+      />
     </FieldShell>
   );
 }
+
+// ============================================================================
+//  EditableSelect — <select> natif toujours visible
+// ============================================================================
 
 export function EditableSelect({
   clientId,
@@ -314,7 +277,6 @@ export function EditableSelect({
   value,
   label,
   options,
-  placeholder = "·",
 }: {
   clientId: string;
   field: string;
@@ -323,54 +285,37 @@ export function EditableSelect({
   options: readonly string[];
   placeholder?: string;
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const { save, error } = useSaver(clientId, field);
-  const ref = useRef<HTMLSelectElement>(null);
-
-  useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
 
   function onChange(v: string) {
-    setEditing(false);
     const newValue = v || null;
     if (newValue === (display ?? null)) return;
-    setDisplay(newValue); // optimistic
+    setDisplay(newValue);
     save(newValue, rollback);
   }
 
   return (
     <FieldShell label={label} error={error}>
-      {editing ? (
-        <select
-          ref={ref}
-          value={display ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => setEditing(false)}
-          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
-        >
-          <option value="">· (vide)</option>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className={cn(
-            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
-          )}
-        >
-          {display || placeholder}
-        </button>
-      )}
+      <select
+        value={display ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className={fieldInputClass(!!display)}
+      >
+        <option value="">- à renseigner</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
     </FieldShell>
   );
 }
+
+// ============================================================================
+//  EditableGroupe — input texte avec datalist (autocomplete) toujours visible
+// ============================================================================
 
 export function EditableGroupe({
   clientId,
@@ -383,28 +328,20 @@ export function EditableGroupe({
   label: string;
   options: string[];
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
-
-  function startEdit() {
-    setDraft(display ?? "");
-    setEditing(true);
-  }
+    setDraft(value ?? "");
+  }, [value]);
 
   function commit() {
-    setEditing(false);
     const trimmed = draft.trim();
     const newValue = trimmed === "" ? null : trimmed;
     if (newValue === (display ?? null)) return;
-    setDisplay(newValue); // optimistic
+    setDisplay(newValue);
     setError(null);
     startTransition(async () => {
       try {
@@ -420,55 +357,37 @@ export function EditableGroupe({
 
   return (
     <FieldShell label={label} error={error}>
-      {editing ? (
-        <>
-          <input
-            ref={ref}
-            list={datalistId}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commit();
-              else if (e.key === "Escape") {
-                setDraft(display ?? "");
-                setEditing(false);
-              }
-            }}
-            className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            placeholder="Nom du groupe (ou nouveau)"
-          />
-          <datalist id={datalistId}>
-            {options.map((o) => (
-              <option key={o} value={o} />
-            ))}
-          </datalist>
-        </>
-      ) : (
-        <button
-          onClick={startEdit}
-          className={cn(
-            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !display && "text-zinc-400"
-          )}
-        >
-          {display || "·"}
-        </button>
-      )}
+      <input
+        type="text"
+        list={datalistId}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        placeholder="- à renseigner"
+        className={fieldInputClass(draft.trim() !== "")}
+      />
+      <datalist id={datalistId}>
+        {options.map((o) => (
+          <option key={o} value={o} />
+        ))}
+      </datalist>
     </FieldShell>
   );
 }
 
-/**
- * Édition inline d'un champ texte d'un contact (prénom, nom, email, téléphone).
- * Identique à EditableText, mais cible la table contacts via updateContact.
- */
+// ============================================================================
+//  EditableContactText (édite contacts.{prenom|nom|email|telephone})
+// ============================================================================
+
 export function EditableContactText({
   contactId,
   field,
   value,
   label,
-  placeholder = "·",
+  placeholder = "- à renseigner",
   required = false,
 }: {
   contactId: string;
@@ -478,33 +397,24 @@ export function EditableContactText({
   placeholder?: string;
   required?: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
-
-  function startEdit() {
-    setDraft(display ?? "");
-    setEditing(true);
-  }
+    setDraft(value ?? "");
+  }, [value]);
 
   function commit() {
-    setEditing(false);
     const trimmed = draft.trim();
     if (required && !trimmed) {
-      // Nom obligatoire : on reset au draft précédent sans push
       setDraft(display ?? "");
       return;
     }
     const newValue = trimmed === "" ? null : trimmed;
     if (newValue === (display ?? null)) return;
-    setDisplay(newValue); // optimistic
+    setDisplay(newValue);
     setError(null);
     startTransition(async () => {
       try {
@@ -516,52 +426,26 @@ export function EditableContactText({
     });
   }
 
-  function cancel() {
-    setDraft(display ?? "");
-    setEditing(false);
-  }
-
   return (
     <FieldShell label={label} error={error}>
-      {editing ? (
-        <input
-          ref={ref}
-          type={field === "email" ? "email" : "text"}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            else if (e.key === "Escape") cancel();
-          }}
-          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
-        />
-      ) : (
-        <button
-          onClick={startEdit}
-          className={cn(
-            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
-          )}
-        >
-          {display || placeholder}
-        </button>
-      )}
+      <input
+        type={field === "email" ? "email" : "text"}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        placeholder={placeholder}
+        className={fieldInputClass(draft.trim() !== "")}
+      />
     </FieldShell>
   );
 }
 
-/**
- * Sélecteur de civilité (M./Mme/Mlle) pour le dirigeant principal.
- * Affichage des libellés longs (Monsieur / Madame / Mademoiselle) dans la
- * fiche, stockage des codes courts (M./Mme/Mlle) en DB (compat avec le
- * reste du CRM).
- */
-const CIVILITE_LABELS: Record<"M." | "Mme" | "Mlle", string> = {
-  "M.": "Monsieur",
-  Mme: "Madame",
-  Mlle: "Mademoiselle",
-};
+// ============================================================================
+//  EditableContactCivilite — <select> natif toujours visible
+// ============================================================================
 
 export function EditableContactCivilite({
   contactId,
@@ -572,18 +456,11 @@ export function EditableContactCivilite({
   value: "M." | "Mme" | "Mlle" | null;
   label: string;
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLSelectElement>(null);
-
-  useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
 
   function onChange(v: string) {
-    setEditing(false);
     const newValue = (v || null) as "M." | "Mme" | "Mlle" | null;
     if (newValue === (display ?? null)) return;
     setDisplay(newValue);
@@ -600,37 +477,25 @@ export function EditableContactCivilite({
 
   return (
     <FieldShell label={label} error={error}>
-      {editing ? (
-        <select
-          ref={ref}
-          value={display ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => setEditing(false)}
-          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
-        >
-          <option value="">· (vide)</option>
-          <option value="M.">Monsieur</option>
-          <option value="Mme">Madame</option>
-          <option value="Mlle">Mademoiselle</option>
-        </select>
-      ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className={cn(
-            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
-            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
-          )}
-        >
-          {display ? CIVILITE_LABELS[display] : "·"}
-        </button>
-      )}
+      <select
+        value={display ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className={fieldInputClass(!!display)}
+      >
+        <option value="">- à renseigner</option>
+        <option value="M.">Monsieur</option>
+        <option value="Mme">Madame</option>
+        <option value="Mlle">Mademoiselle</option>
+      </select>
     </FieldShell>
   );
 }
 
-/**
- * Version "header" · édition du nom du dossier en gros, en place.
- */
+// ============================================================================
+//  EditableHeading — titre du dossier en gros, en mode "click to edit"
+//  (un input toujours visible serait trop intrusif sur le titre principal)
+// ============================================================================
+
 export function EditableHeading({
   clientId,
   value,
@@ -661,7 +526,7 @@ export function EditableHeading({
       setDraft(display);
       return;
     }
-    setDisplay(trimmed); // optimistic
+    setDisplay(trimmed);
     save(trimmed, rollback);
   }
 

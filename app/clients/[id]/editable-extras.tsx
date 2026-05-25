@@ -47,8 +47,21 @@ export function ClotureSplit({
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
   ];
 
+  // Style commun aux 2 selects natifs.
+  // - Vide   : jaune pastel
+  // - Rempli : vert pastel (cohérent avec les autres champs)
+  function selectClass(filled: boolean, extra = "") {
+    return cn(
+      "px-2 py-1 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 transition",
+      filled
+        ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
+        : "bg-amber-50 border-amber-300 text-amber-900 focus:border-amber-400",
+      extra
+    );
+  }
+
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 py-1 text-sm items-center">
+    <div className="grid grid-cols-[140px_minmax(0,360px)] gap-2 py-1 text-sm items-center">
       <div className="text-muted-foreground">Clôture standard</div>
       <div className="flex gap-2">
         <select
@@ -57,12 +70,7 @@ export function ClotureSplit({
             const v = e.target.value;
             save(v ? parseInt(v, 10) : null, localMois);
           }}
-          className={cn(
-            "px-2 py-1 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400",
-            localJour == null
-              ? "bg-amber-50 text-amber-700 border-amber-200"
-              : "bg-white border-zinc-300"
-          )}
+          className={selectClass(localJour != null)}
         >
           <option value="">jour ·</option>
           {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
@@ -77,12 +85,7 @@ export function ClotureSplit({
             const v = e.target.value;
             save(localJour, v ? parseInt(v, 10) : null);
           }}
-          className={cn(
-            "px-2 py-1 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400 flex-1",
-            localMois == null
-              ? "bg-amber-50 text-amber-700 border-amber-200"
-              : "bg-white border-zinc-300"
-          )}
+          className={selectClass(localMois != null, "flex-1")}
         >
           <option value="">mois ·</option>
           {months.map((m, i) => (
@@ -97,15 +100,14 @@ export function ClotureSplit({
 }
 
 /**
- * Textarea inline. Affiche la valeur en gris cliquable, ouvre un éditeur sur clic.
- * Optimistic UI : la nouvelle valeur s'affiche dès le blur, sans signal d'attente.
+ * Textarea natif toujours visible. Save au blur.
  */
 export function EditableTextArea({
   clientId,
   field,
   value,
   label,
-  placeholder = "Cliquer pour saisir…",
+  placeholder = "- à renseigner",
 }: {
   clientId: string;
   field: string;
@@ -113,68 +115,46 @@ export function EditableTextArea({
   label: string;
   placeholder?: string;
 }) {
-  const [editing, setEditing] = useState(false);
   const [display, setDisplay] = useState(value);
   const [draft, setDraft] = useState(value ?? "");
   const [, startTransition] = useTransition();
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => setDisplay(value), [value]);
 
   useEffect(() => {
-    if (editing) ref.current?.focus();
-  }, [editing]);
-
-  function startEdit() {
-    setDraft(display ?? "");
-    setEditing(true);
-  }
+    setDisplay(value);
+    setDraft(value ?? "");
+  }, [value]);
 
   function commit() {
-    setEditing(false);
     const trimmed = draft.trim();
     const newValue = trimmed === "" ? null : trimmed;
     if (newValue === (display ?? null)) return;
-    setDisplay(newValue); // optimistic
+    setDisplay(newValue);
     startTransition(async () => {
       try {
         await updateClient(clientId, { [field]: newValue });
       } catch {
-        setDisplay(value); // rollback
+        setDisplay(value);
+        setDraft(value ?? "");
       }
     });
   }
 
   return (
-    <div className="py-1 text-sm">
+    <div className="py-1 text-sm max-w-[500px]">
       <div className="text-muted-foreground text-xs mb-1">{label}</div>
-      {editing ? (
-        <textarea
-          ref={ref}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) commit();
-            else if (e.key === "Escape") {
-              setDraft(display ?? "");
-              setEditing(false);
-            }
-          }}
-          rows={3}
-          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
-        />
-      ) : (
-        <button
-          onClick={startEdit}
-          className={cn(
-            "w-full text-left px-2 py-1.5 rounded -mx-2 hover:bg-zinc-100 transition whitespace-pre-wrap min-h-[2.5rem]",
-            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
-          )}
-        >
-          {display || placeholder}
-        </button>
-      )}
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        rows={3}
+        placeholder={placeholder}
+        className={cn(
+          "w-full px-2 py-1 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 transition",
+          draft.trim()
+            ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
+            : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400"
+        )}
+      />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { filterByDebut, generateInstancesForType } from "@/lib/obligations-engine";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -112,9 +111,7 @@ export async function setSubActive(
   }
 
   if (active) await regenForSub(sb, clientId, type, annee);
-
-  revalidatePath("/parametrage");
-  revalidatePath(`/clients/${clientId}`);
+  // Perf : optimistic update côté grid. Pas de revalidatePath.
 }
 
 /**
@@ -153,9 +150,7 @@ export async function setTva(
     }
     await regenForSub(sb, clientId, mode, annee);
   }
-
-  revalidatePath("/parametrage");
-  revalidatePath(`/clients/${clientId}`);
+  // Perf : optimistic update côté grid. Pas de revalidatePath.
 }
 
 /**
@@ -198,9 +193,7 @@ export async function setRegimeAction(
       await regenForSub(sb, clientId, t, annee);
     }
   }
-
-  revalidatePath("/parametrage");
-  revalidatePath(`/clients/${clientId}`);
+  // Perf : optimistic update côté grid. Pas de revalidatePath.
 }
 
 /**
@@ -243,8 +236,7 @@ export async function bulkSetSubActive(
   if (active) {
     await Promise.all(clientIds.map((cid) => regenForSub(sb, cid, type, annee)));
   }
-
-  revalidatePath("/parametrage");
+  // Perf : optimistic update côté grid. Pas de revalidatePath.
   return { updated: clientIds.length };
 }
 
@@ -263,7 +255,7 @@ export async function bulkDeactivateAll(clientIds: string[], annee: number) {
     .eq("actif", true)
     .select("id");
   if (error) throw new Error(error.message);
-  revalidatePath("/parametrage");
+  // Perf : optimistic update côté grid. Pas de revalidatePath.
   return { updated: data?.length ?? 0 };
 }
 
@@ -382,7 +374,7 @@ export async function bulkReconduire(
       regenForSub(sb, s.client_id, s.type as TypeObligation, toYear)
     )
   );
-
-  revalidatePath("/parametrage");
+  // Perf : la reconduction touche l'année N+1, l'utilisateur la verra au
+  // prochain switch d'année (force-dynamic). Pas de revalidatePath.
   return { created: total, deactivated: toDeactivateIds.length };
 }

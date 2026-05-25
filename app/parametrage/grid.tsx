@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 import {
@@ -64,9 +64,34 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   const [regimeFilter, setRegimeFilter] = useState<Set<"IR" | "IS" | "none">>(new Set());
   const [tvaFilter, setTvaFilter] = useState<Set<TvaMode | "none">>(new Set());
   const [colMenu, setColMenu] = useState<SubKey | null>(null);
-  /** Colonne (obligation) survolée — éclaire son header pour repérer la cible */
-  const [hoveredCol, setHoveredCol] = useState<SubKey | null>(null);
+  // Perf : on évite un state React pour la colonne survolée (provoquait
+  // un re-render de TOUTES les cellules à chaque mouvement de souris).
+  // À la place, on mute directement les classes du <th> et des <td> via
+  // querySelectorAll lors du mouseenter/leave d'une cellule.
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const theadRef = useRef<HTMLTableSectionElement>(null);
+  const currentHoverColRef = useRef<SubKey | null>(null);
   const [, startTransition] = useTransition();
+
+  function setHoverCol(key: SubKey | null) {
+    const prev = currentHoverColRef.current;
+    if (prev === key) return;
+    if (prev) {
+      const th = theadRef.current?.querySelector(`th[data-col="${prev}"]`);
+      th?.classList.remove("bg-[hsl(var(--gold))]/15", "text-[hsl(var(--gold-dark))]");
+      tbodyRef.current
+        ?.querySelectorAll(`td[data-col="${prev}"]`)
+        .forEach((el) => el.classList.remove("bg-[hsl(var(--gold))]/5"));
+    }
+    if (key) {
+      const th = theadRef.current?.querySelector(`th[data-col="${key}"]`);
+      th?.classList.add("bg-[hsl(var(--gold))]/15", "text-[hsl(var(--gold-dark))]");
+      tbodyRef.current
+        ?.querySelectorAll(`td[data-col="${key}"]:not([data-sel="1"])`)
+        .forEach((el) => el.classList.add("bg-[hsl(var(--gold))]/5"));
+    }
+    currentHoverColRef.current = key;
+  }
 
   // Optimistic state : patch immédiat de la grille avant le retour serveur.
   type Patch =
@@ -336,7 +361,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
       {/* Table — l'entête se fige en haut quand on scrolle */}
       <div className="rounded-lg border overflow-auto bg-card max-h-[calc(100vh-270px)]">
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-zinc-50 text-zinc-700 text-xs border-b border-zinc-200 sticky top-0 z-20 shadow-[0_1px_0_0_rgb(228_228_231)]">
+          <thead ref={theadRef} className="bg-zinc-50 text-zinc-700 text-xs border-b border-zinc-200 sticky top-0 z-20 shadow-[0_1px_0_0_rgb(228_228_231)]">
             <tr>
               <th className="sticky left-0 z-30 bg-zinc-50 text-left px-0 py-0 font-medium border-r border-zinc-200 min-w-[240px]">
                 <button
@@ -360,10 +385,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
               {COLS.map((c) => (
                 <th
                   key={c.key}
-                  className={cn(
-                    "px-0 py-0 font-medium text-center min-w-[64px] relative transition-colors duration-100",
-                    hoveredCol === c.key && "bg-[hsl(var(--gold))]/15 text-[hsl(var(--gold-dark))]"
-                  )}
+                  data-col={c.key}
+                  className="px-0 py-0 font-medium text-center min-w-[64px] relative transition-colors duration-100"
                 >
                   <button
                     onClick={() => setColMenu(colMenu === c.key ? null : c.key)}
@@ -407,7 +430,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
               </th>
             </tr>
           </thead>
-          <tbody onMouseLeave={() => setHoveredCol(null)}>
+          <tbody ref={tbodyRef} onMouseLeave={() => setHoverCol(null)}>
             {filtered.map((r) => {
               const isSel = selectedClientIds.has(r.id);
               const isIR = r.regime === "IR";
@@ -517,11 +540,10 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                     return (
                       <td
                         key={col.key}
-                        onMouseEnter={() => setHoveredCol(col.key)}
-                        className={cn(
-                          "px-0.5 py-1 text-center align-middle transition-colors duration-100",
-                          hoveredCol === col.key && !isSel && "bg-[hsl(var(--gold))]/5"
-                        )}
+                        data-col={col.key}
+                        data-sel={isSel ? "1" : "0"}
+                        onMouseEnter={() => setHoverCol(col.key)}
+                        className="px-0.5 py-1 text-center align-middle transition-colors duration-100"
                       >
                         <button
                           disabled={disabled}

@@ -92,18 +92,22 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="space-y-4">
-        {/* Étapes actives */}
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-3 min-w-max">
-            {ACTIVE_STAGES.map((s) => (
-              <Column
-                key={s}
-                statut={s}
-                cards={localCards.filter((c) => c.pipeline_statut === s)}
-                activeId={activeId}
-              />
-            ))}
-          </div>
+        {/* Étapes actives — grid auto-fit : les colonnes s'étirent pour
+            remplir la largeur dispo, wrappent sur 2 lignes si trop étroit. */}
+        <div
+          className="grid gap-3 pb-2"
+          style={{
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          }}
+        >
+          {ACTIVE_STAGES.map((s) => (
+            <Column
+              key={s}
+              statut={s}
+              cards={localCards.filter((c) => c.pipeline_statut === s)}
+              activeId={activeId}
+            />
+          ))}
         </div>
 
         {/* Terminaux — visuellement séparés en bas */}
@@ -111,26 +115,28 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
           <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
             Hors pipeline actif
           </div>
-          <div className="overflow-x-auto pb-2">
-            <div className="flex gap-3 min-w-max">
-              {TERMINAL_STAGES.map((s) => (
-                <Column
-                  key={s}
-                  statut={s}
-                  cards={localCards.filter((c) => c.pipeline_statut === s)}
-                  activeId={activeId}
-                  terminal
-                />
-              ))}
-              {/* Colonne pour les non-paramétrés */}
+          <div
+            className="grid gap-3 pb-2"
+            style={{
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            }}
+          >
+            {TERMINAL_STAGES.map((s) => (
               <Column
-                key="__none"
-                statut={null}
-                cards={localCards.filter((c) => c.pipeline_statut === null)}
+                key={s}
+                statut={s}
+                cards={localCards.filter((c) => c.pipeline_statut === s)}
                 activeId={activeId}
                 terminal
               />
-            </div>
+            ))}
+            <Column
+              key="__none"
+              statut={null}
+              cards={localCards.filter((c) => c.pipeline_statut === null)}
+              activeId={activeId}
+              terminal
+            />
           </div>
         </div>
       </div>
@@ -167,8 +173,11 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "shrink-0 w-[260px] rounded-lg border bg-card flex flex-col",
-        terminal ? "max-h-[300px]" : "max-h-[calc(100vh-280px)]",
+        "min-w-0 rounded-lg border bg-card flex flex-col",
+        // Hauteur fixe pour rester compact même quand les colonnes wrap sur
+        // plusieurs lignes (les écrans étroits passent en 2 lignes au lieu
+        // de scroll horizontal).
+        terminal ? "max-h-[280px]" : "max-h-[500px]",
         isOver && "ring-2 ring-[hsl(var(--gold))] ring-offset-1"
       )}
     >
@@ -182,7 +191,7 @@ function Column({
           {cards.length} · {fmtEuro(totalArr)}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+      <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
         {cards.length === 0 ? (
           <div className="text-[11px] text-muted-foreground text-center py-6">
             (vide)
@@ -218,8 +227,9 @@ function Card({
       {...(isOverlay ? {} : attributes)}
       {...(isOverlay ? {} : listeners)}
       className={cn(
-        "rounded-md border bg-white px-2.5 py-2 cursor-grab active:cursor-grabbing select-none",
+        "rounded border bg-white px-2 py-1 cursor-grab active:cursor-grabbing select-none",
         "hover:border-zinc-400 hover:shadow-sm transition",
+        "flex items-center justify-between gap-2",
         muted && "opacity-30",
         isOverlay && "shadow-lg ring-1 ring-zinc-200"
       )}
@@ -228,19 +238,13 @@ function Card({
         href={`/clients/${card.id}`}
         // Empêche le drag de déclencher la navigation
         onPointerDown={(e) => e.stopPropagation()}
-        className="block"
+        className="font-medium text-xs truncate min-w-0 hover:text-[hsl(var(--gold))] transition-colors"
       >
-        <div className="font-medium text-sm truncate hover:text-[hsl(var(--gold))] transition-colors">
-          {card.denomination}
-        </div>
+        {card.denomination}
       </Link>
-      <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-        {card.forme}{card.forme && card.activite ? " · " : ""}{card.activite}
-      </div>
-      <div className="text-[11px] tabular-nums text-zinc-700 mt-1 flex items-center justify-between">
-        <span className="text-muted-foreground">ARR</span>
-        <span className="font-medium">{fmtEuro(card.arr ?? 0)}</span>
-      </div>
+      <span className="text-[11px] tabular-nums text-zinc-700 font-medium shrink-0">
+        {fmtEuro(card.arr ?? 0)}
+      </span>
     </div>
   );
 }

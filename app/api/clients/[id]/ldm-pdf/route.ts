@@ -6,10 +6,14 @@ import {
   type LDMClientData,
   type LDMDirigeantData,
 } from "@/lib/ldm-generator";
+import { docxToPdf, DocxToPdfError } from "@/lib/docx-to-pdf";
 
 /**
- * GET /api/clients/:id/ldm?template=presentation|bnc
- * Génère la LDM, retourne le .docx en téléchargement.
+ * GET /api/clients/:id/ldm-pdf?template=presentation|bnc
+ * Génère la LDM en .docx puis convertit en .pdf via ConvertAPI.
+ * Retourne le PDF en téléchargement.
+ *
+ * Pré-requis : CONVERTAPI_SECRET dans .env.local
  */
 export async function GET(
   request: NextRequest,
@@ -23,7 +27,6 @@ export async function GET(
 
   const sb = await createClient();
 
-  // 1. Client
   const { data: client, error: cliErr } = await sb
     .from("clients")
     .select(
@@ -35,8 +38,7 @@ export async function GET(
     return NextResponse.json({ error: "client introuvable" }, { status: 404 });
   }
 
-  // 2. Dirigeant : on prend le premier contact lié au client.
-  //    Prénom + nom sont stockés séparément en DB depuis la migration 0027.
+  // Dirigeant : 1er contact rattaché
   const { data: links } = await sb
     .from("client_contacts")
     .select("role, contact_id, contacts(nom, prenom, civilite)")
@@ -79,29 +81,37 @@ export async function GET(
   };
 
   try {
-    const buffer = generateLDM(tpl, clientData, dirigeant);
-    // Format : "ADELEX CONSULTING - LDM PRESENTATION 2026 Draft.docx"
-    // L'année est tirée de fin_mission_date (clôture 1ère mission), sinon
-    // année courante en fallback.
+    const docxBuffer = generateLDM(tpl, clientData, dirigeant);
+
+    // Format : "ADELEX CONSULTING - LDM PRESENTATION 2026.pdf" (sans "Draft"
+    // pour le PDF, contrairement au DOCX qui est marqué Draft).
     const denomClean = client.denomination.replace(/[\/\\:*?"<>|]/g, "").trim();
     const tplLabel = tpl === "presentation" ? "PRESENTATION" : "BNC";
     const annee = client.fin_mission_date
       ? new Date(client.fin_mission_date).getFullYear()
       : new Date().getFullYear();
-    const filename = `${denomClean} - LDM ${tplLabel} ${annee} Draft.docx`;
+    const docxName = `${denomClean} - LDM ${tplLabel} ${annee}.docx`;
+
+    const pdfBuffer = await docxToPdf(docxBuffer, docxName);
+    const filename = `${denomClean} - LDM ${tplLabel} ${annee}.pdf`;
     const encoded = encodeURIComponent(filename);
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encoded}`,
       },
     });
   } catch (e) {
-    console.error("LDM generation failed:", e);
+    console.error("LDM PDF generation failed:", e);
+    if (e instanceof DocxToPdfError) {
+      return NextResponse.json(
+        { error: "Conversion PDF impossible", details: e.message },
+        { status: e.status === 401 ? 401 : 500 }
+      );
+    }
     return NextResponse.json(
-      { error: "Erreur de génération LDM", details: String(e) },
+      { error: "Erreur de génération PDF", details: String(e) },
       { status: 500 }
     );
   }

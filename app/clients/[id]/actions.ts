@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { filterByDebut, generateInstancesForType } from "@/lib/obligations-engine";
+import { getInpiCompany, InpiError } from "@/lib/inpi";
 
 export type TypeObligation =
   | "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS"
@@ -207,9 +208,7 @@ export async function setPipelineStatut(
     .update({ pipeline_statut: statut })
     .eq("id", clientId);
   if (error) throw new Error(error.message);
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/clients");
-  revalidatePath("/parametrage");
+  // Perf : pas de revalidatePath, force-dynamic + optimistic UI s'en chargent.
 }
 
 /**
@@ -433,6 +432,10 @@ export async function addContactToClient(
     .from("client_contacts")
     .insert({ client_id: clientId, contact_id: created.id, role: data.role?.trim() || null });
   if (e2) throw new Error(e2.message);
+  // Ajout : la fiche client doit voir le nouveau contact. force-dynamic le
+  // récupère au prochain refetch côté navigation, mais on conserve pour
+  // garantir l'affichage instantané (le caller n'a pas d'optimistic update
+  // côté liste contacts).
   revalidatePath(`/clients/${clientId}`);
 }
 
@@ -462,13 +465,7 @@ export async function updateContact(
   if (patch.civilite !== undefined) clean.civilite = patch.civilite;
   const { error } = await sb.from("contacts").update(clean).eq("id", contactId);
   if (error) throw new Error(error.message);
-
-  // Revalider tous les clients liés
-  const { data: links } = await sb
-    .from("client_contacts")
-    .select("client_id")
-    .eq("contact_id", contactId);
-  for (const l of links ?? []) revalidatePath(`/clients/${l.client_id}`);
+  // Perf : pas de revalidatePath. Saisie inline avec optimistic update côté UI.
 }
 
 /** Met à jour le rôle de l'interlocuteur sur le dossier (lien). */
@@ -484,7 +481,7 @@ export async function updateContactRole(
     .eq("client_id", clientId)
     .eq("contact_id", contactId);
   if (error) throw new Error(error.message);
-  revalidatePath(`/clients/${clientId}`);
+  // Perf : pas de revalidatePath. Saisie inline + optimistic update.
 }
 
 /** Détache un contact d'un dossier (ne supprime pas le contact lui-même). */
@@ -496,6 +493,110 @@ export async function removeContactFromClient(clientId: string, contactId: strin
     .eq("client_id", clientId)
     .eq("contact_id", contactId);
   if (error) throw new Error(error.message);
+  revalidatePath(`/clients/${clientId}`);
+}
+
+/**
+ * Importe des champs depuis l'annuaire des entreprises (post-création).
+ * Le client passe une sélection de champs à écraser. Le dirigeant met à jour
+ * le premier contact rattaché, ou en crée un nouveau si aucun contact n'existe.
+ */
+/**
+ * Récupère la date de clôture d'exercice depuis l'API INPI RNE pour un SIREN.
+ * Renvoie `null` si la donnée n'est pas dispo ou si les credentials INPI ne
+ * sont pas configurés (on ne casse pas le flow Annuaire).
+ *
+ * Cette fonction est appelée par le bouton "Annuaire" côté client après le
+ * fetch recherche-entreprises (qui, lui, n'a pas la date de clôture).
+ */
+export async function fetchInpiCloture(
+  siren: string
+): Promise<{ jour: number; mois: number } | null> {
+  try {
+    const data = await getInpiCompany(siren);
+    return data?.cloture ?? null;
+  } catch (e) {
+    // Log mais ne plante pas — le bouton Annuaire fonctionne sans INPI
+    if (e instanceof InpiError) {
+      console.warn("INPI cloture indisponible :", e.message);
+    } else {
+      console.warn("INPI cloture erreur :", e);
+    }
+    return null;
+  }
+}
+
+export async function importFromAnnuaire(
+  clientId: string,
+  patch: {
+    adresse_siege?: string | null;
+    code_postal?: string | null;
+    ville?: string | null;
+    activite?: string | null;
+    forme?: string | null;
+    jour_cloture?: number | null;
+    mois_cloture?: number | null;
+    dirigeant?: { prenom: string | null; nom: string };
+  }
+) {
+  const sb = await createClient();
+
+  // 1. Champs du client
+  const clientPatch: Record<string, string | number | null> = {};
+  if ("adresse_siege" in patch) clientPatch.adresse_siege = patch.adresse_siege ?? null;
+  if ("code_postal" in patch) clientPatch.code_postal = patch.code_postal ?? null;
+  if ("ville" in patch) clientPatch.ville = patch.ville ?? null;
+  if ("activite" in patch) clientPatch.activite = patch.activite ?? null;
+  if ("forme" in patch) clientPatch.forme = patch.forme ?? null;
+  if ("jour_cloture" in patch) clientPatch.jour_cloture = patch.jour_cloture ?? null;
+  if ("mois_cloture" in patch) clientPatch.mois_cloture = patch.mois_cloture ?? null;
+
+  if (Object.keys(clientPatch).length > 0) {
+    const { error } = await sb
+      .from("clients")
+      .update(clientPatch)
+      .eq("id", clientId);
+    if (error) throw new Error(`Update client : ${error.message}`);
+  }
+
+  // 2. Dirigeant : update du 1er contact, ou création si aucun
+  if (patch.dirigeant && patch.dirigeant.nom) {
+    const { data: links } = await sb
+      .from("client_contacts")
+      .select("contact_id")
+      .eq("client_id", clientId)
+      .limit(1);
+
+    if (links?.[0]) {
+      const { error } = await sb
+        .from("contacts")
+        .update({
+          nom: patch.dirigeant.nom,
+          prenom: patch.dirigeant.prenom,
+        })
+        .eq("id", links[0].contact_id);
+      if (error) throw new Error(`Update dirigeant : ${error.message}`);
+    } else {
+      const { data: created, error } = await sb
+        .from("contacts")
+        .insert({
+          nom: patch.dirigeant.nom,
+          prenom: patch.dirigeant.prenom,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(`Création dirigeant : ${error.message}`);
+      const { error: e2 } = await sb
+        .from("client_contacts")
+        .insert({
+          client_id: clientId,
+          contact_id: created.id,
+          role: "Dirigeant",
+        });
+      if (e2) throw new Error(`Rattachement dirigeant : ${e2.message}`);
+    }
+  }
+
   revalidatePath(`/clients/${clientId}`);
 }
 
@@ -566,9 +667,9 @@ export async function updateClient(
     }
   }
 
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/clients");
-  revalidatePath("/parametrage");
+  // Perf : pas de revalidatePath. Les pages sont force-dynamic + l'UI applique
+  // déjà un optimistic update (useSaver). Revalider 3 paths à chaque keystroke
+  // ralentissait massivement la saisie.
 }
 
 /**
@@ -584,8 +685,6 @@ export async function setClientGroupe(clientId: string, nom: string | null) {
       .update({ groupe_id: null })
       .eq("id", clientId);
     if (error) throw new Error(error.message);
-    revalidatePath(`/clients/${clientId}`);
-    revalidatePath("/clients");
     return;
   }
 
@@ -616,7 +715,5 @@ export async function setClientGroupe(clientId: string, nom: string | null) {
     .update({ groupe_id: groupeId })
     .eq("id", clientId);
   if (e2) throw new Error(e2.message);
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/clients");
 }
 

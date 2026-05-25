@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
@@ -135,30 +135,36 @@ export default function TrackerTable({
     [cols, periodFilter]
   );
 
+  // Set pour lookups O(1) sur les colKey visibles. Évite des
+  // `visibleCols.some(vc => vc.key === c.colKey)` répétés (O(n²) sur 790 cells).
+  const visibleColKeysSet = useMemo(
+    () => new Set(visibleCols.map((c) => c.key)),
+    [visibleCols]
+  );
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const hasStatusFilter = statusFilter.size > 0;
-    const visibleColKeys = new Set(visibleCols.map((c) => c.key));
     return optimisticRows.filter((r) => {
       if (s) {
         const hay = `${r.denomination} ${r.siren ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
-      // Filtre statut : au moins une cellule visible (= dans visibleColKeys)
+      // Filtre statut : au moins une cellule visible (= dans visibleColKeysSet)
       // remplie correspond
       if (hasStatusFilter) {
         const has = r.cells.some(
           (c) =>
             c.obligationId &&
             c.statut_logique &&
-            visibleColKeys.has(c.colKey) &&
+            visibleColKeysSet.has(c.colKey) &&
             statusFilter.has(c.statut_logique as StatutFilter)
         );
         if (!has) return false;
       }
       return true;
     });
-  }, [optimisticRows, search, statusFilter, visibleCols]);
+  }, [optimisticRows, search, statusFilter, visibleColKeysSet]);
 
   // Bornes nav (déclarées tôt pour être dispo dans tous les hooks/handlers)
   const maxRow = filtered.length - 1;
@@ -268,7 +274,7 @@ export default function TrackerTable({
   function visibleCellsOf(rowIndex: number) {
     const r = filtered[rowIndex];
     if (!r) return [];
-    return r.cells.filter((c) => visibleCols.some((vc) => vc.key === c.colKey));
+    return r.cells.filter((c) => visibleColKeysSet.has(c.colKey));
   }
 
   // Capture la sélection courante sous forme de grille (style Excel)
@@ -276,9 +282,7 @@ export default function TrackerTable({
     if (selectedIds.size === 0) return null;
     let minRow = Infinity, maxR = -Infinity, minCol = Infinity, maxC = -Infinity;
     filtered.forEach((row, rowIndex) => {
-      const visCells = row.cells.filter((cc) =>
-        visibleCols.some((vc) => vc.key === cc.colKey)
-      );
+      const visCells = row.cells.filter((cc) => visibleColKeysSet.has(cc.colKey));
       visCells.forEach((cell, colIndex) => {
         if (cell.obligationId && selectedIds.has(cell.obligationId)) {
           if (rowIndex < minRow) minRow = rowIndex;
@@ -379,9 +383,7 @@ export default function TrackerTable({
     if (selectedIds.size === 0) return "";
     let minRow = Infinity, maxR = -Infinity, minCol = Infinity, maxC = -Infinity;
     filtered.forEach((row, rowIndex) => {
-      const visCells = row.cells.filter((cc) =>
-        visibleCols.some((vc) => vc.key === cc.colKey)
-      );
+      const visCells = row.cells.filter((cc) => visibleColKeysSet.has(cc.colKey));
       visCells.forEach((cell, colIndex) => {
         if (cell.obligationId && selectedIds.has(cell.obligationId)) {
           if (rowIndex < minRow) minRow = rowIndex;
@@ -398,9 +400,7 @@ export default function TrackerTable({
     lines.push(header);
     for (let r = minRow; r <= maxR; r++) {
       const row = filtered[r];
-      const visCells = row.cells.filter((cc) =>
-        visibleCols.some((vc) => vc.key === cc.colKey)
-      );
+      const visCells = row.cells.filter((cc) => visibleColKeysSet.has(cc.colKey));
       const rowData: string[] = [row.denomination];
       for (let c = minCol; c <= maxC; c++) {
         const cell = visCells[c];
@@ -417,9 +417,7 @@ export default function TrackerTable({
   const selectedCoords = useMemo(() => {
     const s = new Set<string>();
     filtered.forEach((row, rowIndex) => {
-      const cells = row.cells.filter((c) =>
-        visibleCols.some((vc) => vc.key === c.colKey)
-      );
+      const cells = row.cells.filter((c) => visibleColKeysSet.has(c.colKey));
       cells.forEach((cell, colIndex) => {
         if (cell.obligationId && selectedIds.has(cell.obligationId)) {
           s.add(`${rowIndex}|${colIndex}`);
@@ -427,7 +425,7 @@ export default function TrackerTable({
       });
     });
     return s;
-  }, [filtered, visibleCols, selectedIds]);
+  }, [filtered, visibleColKeysSet, selectedIds]);
 
   function selectAll() {
     const all = new Set<string>();
@@ -729,35 +727,52 @@ export default function TrackerTable({
     return stats;
   }, [filtered, visibleCols]);
 
-  function onPick(obligationId: string, libelle: string, type: string) {
-    const opts = statusOptions[type] ?? [];
-    const opt = opts.find((o) => o.libelle === libelle);
-    const patch: Patch = {
-      obligationId,
-      statut_logique: (opt?.statut_logique as StatutLogique) ?? "A_FAIRE",
-      statut_detail: libelle,
-    };
-    startTransition(async () => {
-      applyOptimistic(patch);
-      setOpenCellId(null);
-      await updateObligationStatus(obligationId, libelle);
-    });
-  }
+  // Callbacks stables (useCallback) pour que StatusCell mémo ne se re-render
+  // pas inutilement. Ils prennent obligationId/type en paramètres au lieu
+  // d'être créés en closure à chaque cellule.
+  const onPick = useCallback(
+    (obligationId: string, libelle: string, type: string) => {
+      const opts = statusOptions[type] ?? [];
+      const opt = opts.find((o) => o.libelle === libelle);
+      const patch: Patch = {
+        obligationId,
+        statut_logique: (opt?.statut_logique as StatutLogique) ?? "A_FAIRE",
+        statut_detail: libelle,
+      };
+      startTransition(async () => {
+        applyOptimistic(patch);
+        setOpenCellId(null);
+        await updateObligationStatus(obligationId, libelle);
+      });
+    },
+    [statusOptions, applyOptimistic]
+  );
 
-  function onReset(obligationId: string) {
-    startTransition(async () => {
-      applyOptimistic({ obligationId, statut_logique: "A_FAIRE", statut_detail: null });
-      setOpenCellId(null);
-      await updateObligationStatus(obligationId, null);
-    });
-  }
+  const onReset = useCallback(
+    (obligationId: string) => {
+      startTransition(async () => {
+        applyOptimistic({ obligationId, statut_logique: "A_FAIRE", statut_detail: null });
+        setOpenCellId(null);
+        await updateObligationStatus(obligationId, null);
+      });
+    },
+    [applyOptimistic]
+  );
 
-  function onSaveNote(obligationId: string, note: string | null) {
-    startTransition(async () => {
-      applyOptimistic({ obligationId, note });
-      await updateObligationNote(obligationId, note);
-    });
-  }
+  const onSaveNote = useCallback(
+    (obligationId: string, note: string | null) => {
+      startTransition(async () => {
+        applyOptimistic({ obligationId, note });
+        await updateObligationNote(obligationId, note);
+      });
+    },
+    [applyOptimistic]
+  );
+
+  // Stables : ouverture/fermeture du picker. StatusCell les appelle avec
+  // son propre cellId en paramètre.
+  const handleOpen = useCallback((cellId: string) => setOpenCellId(cellId), []);
+  const handleClose = useCallback(() => setOpenCellId(null), []);
 
   return (
     <div className="space-y-3">
@@ -928,7 +943,7 @@ export default function TrackerTable({
                   </div>
                 </td>
                 {r.cells
-                  .filter((c) => visibleCols.some((vc) => vc.key === c.colKey))
+                  .filter((c) => visibleColKeysSet.has(c.colKey))
                   .map((c, colIndex) => {
                   const cellId = `${r.clientId}|${c.colKey}`;
                   const isHighlighted = highlightedCellId === cellId;
@@ -976,12 +991,12 @@ export default function TrackerTable({
                         cellId={cellId}
                         isOpen={openCellId === cellId}
                         isSelected={isSelected}
-                        onOpen={() => setOpenCellId(cellId)}
-                        onClose={() => setOpenCellId(null)}
                         options={statusOptions[c.type] ?? []}
-                        onPick={(libelle) => c.obligationId && onPick(c.obligationId, libelle, c.type)}
-                        onReset={() => c.obligationId && onReset(c.obligationId)}
-                        onSaveNote={(note) => c.obligationId && onSaveNote(c.obligationId, note)}
+                        onOpen={handleOpen}
+                        onClose={handleClose}
+                        onPick={onPick}
+                        onReset={onReset}
+                        onSaveNote={onSaveNote}
                       />
                     </td>
                   );
@@ -1119,8 +1134,13 @@ function StatusFilterPill({
   );
 }
 
-function StatusCell({
+// Memoized : skip si la cellule n'a pas changé (statut, note, open, etc.).
+// Sinon, taper "Tally" dans le champ recherche re-render 790 instances.
+// Les callbacks parent sont stables (useCallback) → on les appelle avec
+// les params propres à cette cellule (obligationId, type, cellId).
+const StatusCell = memo(function StatusCell({
   cell,
+  cellId,
   isOpen,
   isSelected,
   onOpen,
@@ -1134,12 +1154,12 @@ function StatusCell({
   cellId: string;
   isOpen: boolean;
   isSelected?: boolean;
-  onOpen: () => void;
+  onOpen: (cellId: string) => void;
   onClose: () => void;
   options: StatusOption[];
-  onPick: (libelle: string) => void;
-  onReset: () => void;
-  onSaveNote: (note: string | null) => void;
+  onPick: (obligationId: string, libelle: string, type: string) => void;
+  onReset: (obligationId: string) => void;
+  onSaveNote: (obligationId: string, note: string | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [noteDraft, setNoteDraft] = useState(cell.note ?? "");
@@ -1181,11 +1201,13 @@ function StatusCell({
 
   useEffect(() => {
     if (!isOpen) return;
+    const oblId = cell.obligationId;
     function commitNoteIfChanged() {
+      if (!oblId) return;
       const cleaned = noteDraft.trim();
       const current = cell.note ?? "";
       if (cleaned !== current) {
-        onSaveNote(cleaned === "" ? null : cleaned);
+        onSaveNote(oblId, cleaned === "" ? null : cleaned);
       }
     }
     function onClickOutside(e: MouseEvent) {
@@ -1207,7 +1229,7 @@ function StatusCell({
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [isOpen, onClose, noteDraft, cell.note, onSaveNote]);
+  }, [isOpen, onClose, noteDraft, cell.note, cell.obligationId, onSaveNote]);
 
   if (!cell.obligationId) {
     return <span className="text-zinc-300 text-xs">·</span>;
@@ -1229,7 +1251,7 @@ function StatusCell({
             e.preventDefault();
             return;
           }
-          onOpen();
+          onOpen(cellId);
         }}
         data-cell-button="1"
         tabIndex={0}
@@ -1281,7 +1303,7 @@ function StatusCell({
             {options.map((opt) => (
               <button
                 key={opt.libelle}
-                onClick={() => onPick(opt.libelle)}
+                onClick={() => cell.obligationId && onPick(cell.obligationId, opt.libelle, cell.type)}
                 className={cn(
                   "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
                   cell.statut_detail === opt.libelle && "bg-zinc-50"
@@ -1302,7 +1324,7 @@ function StatusCell({
             ))}
             {cell.statut_detail && (
               <button
-                onClick={onReset}
+                onClick={() => cell.obligationId && onReset(cell.obligationId)}
                 className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors border-t mt-1"
               >
                 Réinitialiser le statut
@@ -1317,10 +1339,11 @@ function StatusCell({
               value={noteDraft}
               onChange={(e) => setNoteDraft(e.target.value)}
               onBlur={() => {
+                if (!cell.obligationId) return;
                 const cleaned = noteDraft.trim();
                 const current = cell.note ?? "";
                 if (cleaned !== current) {
-                  onSaveNote(cleaned === "" ? null : cleaned);
+                  onSaveNote(cell.obligationId, cleaned === "" ? null : cleaned);
                 }
               }}
               placeholder="Note libre…"
@@ -1335,4 +1358,25 @@ function StatusCell({
       )}
     </div>
   );
-}
+}, (prev, next) => {
+  // Comparaison shallow custom : on évite le re-render si rien n'a changé.
+  // cell est recréé à chaque render parent, donc on compare ses primitives.
+  return (
+    prev.cell.obligationId === next.cell.obligationId &&
+    prev.cell.statut_logique === next.cell.statut_logique &&
+    prev.cell.statut_detail === next.cell.statut_detail &&
+    prev.cell.echeance === next.cell.echeance &&
+    prev.cell.note === next.cell.note &&
+    prev.cell.type === next.cell.type &&
+    prev.isOpen === next.isOpen &&
+    prev.isSelected === next.isSelected &&
+    prev.options === next.options &&
+    // Les callbacks sont recréés à chaque render parent → on les compare par
+    // référence, mais comme on les mémoize côté parent ils restent stables.
+    prev.onOpen === next.onOpen &&
+    prev.onClose === next.onClose &&
+    prev.onPick === next.onPick &&
+    prev.onReset === next.onReset &&
+    prev.onSaveNote === next.onSaveNote
+  );
+});
