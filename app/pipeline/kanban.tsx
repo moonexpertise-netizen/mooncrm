@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { memo, useState, useTransition } from "react";
 import Link from "next/link";
+import { GripVertical } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -63,12 +64,12 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   // État local optimiste : appliqué immédiatement, puis revalidate côté serveur
   const [localCards, setLocalCards] = useState<PipelineCard[]>(cards);
 
-  // Pointer (souris) : démarre dès 8px de déplacement.
-  // Touch (mobile) : delay 200ms avant drag → pas de conflit avec le scroll
-  // vertical natif. Sinon, tout swipe verticale lance un drag.
+  // Avec un drag handle dédié (grip à gauche), on peut être plus permissif
+  // sur l'activation : 4px souris (réactif), delay court touch (220ms).
+  // Le link au milieu de la card a son propre clic, plus de conflit.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } })
   );
 
   function onDragStart(e: DragStartEvent) {
@@ -147,14 +148,25 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         </div>
       </div>
 
-      <DragOverlay>
-        {activeCard ? <Card card={activeCard} isOverlay /> : null}
+      {/* Overlay visuel pendant le drag : version "ghost" légère de la card,
+          sans Link interne (pas besoin de naviguer pendant un drag). */}
+      <DragOverlay dropAnimation={null}>
+        {activeCard ? (
+          <div className="rounded border bg-white px-2 py-1 shadow-xl ring-2 ring-[hsl(var(--gold))]/40 flex items-center gap-2 cursor-grabbing">
+            <span className="font-medium text-xs truncate">
+              {activeCard.denomination}
+            </span>
+            <span className="text-[11px] tabular-nums text-zinc-700 font-medium shrink-0 ml-auto">
+              {fmtEuro(activeCard.arr ?? 0)}
+            </span>
+          </div>
+        ) : null}
       </DragOverlay>
     </DndContext>
   );
 }
 
-function Column({
+const Column = memo(function Column({
   statut,
   cards,
   activeId,
@@ -204,15 +216,42 @@ function Column({
           </div>
         ) : (
           cards.map((c) => (
-            <Card key={c.id} card={c} isOverlay={activeId === c.id} muted={activeId === c.id} />
+            <Card key={c.id} card={c} muted={activeId === c.id} />
           ))
         )}
       </div>
     </div>
   );
-}
+}, (prev, next) => {
+  // Re-render la colonne uniquement si :
+  // - sa liste de cartes change (déplacement intra/inter-colonnes)
+  // - activeId change ET concerne une carte de cette colonne (pour muted)
+  if (prev.statut !== next.statut || prev.terminal !== next.terminal) return false;
+  if (prev.cards.length !== next.cards.length) return false;
+  for (let i = 0; i < prev.cards.length; i++) {
+    if (prev.cards[i].id !== next.cards[i].id) return false;
+    if (prev.cards[i].arr !== next.cards[i].arr) return false;
+    if (prev.cards[i].denomination !== next.cards[i].denomination) return false;
+  }
+  // Si activeId pointe vers une carte de cette colonne (avant ou après),
+  // on re-render pour appliquer/retirer le `muted`.
+  const prevHasActive = prev.cards.some((c) => c.id === prev.activeId);
+  const nextHasActive = next.cards.some((c) => c.id === next.activeId);
+  if (prevHasActive !== nextHasActive || prev.activeId !== next.activeId) {
+    if (prevHasActive || nextHasActive) return false;
+  }
+  return true;
+});
 
-function Card({
+/**
+ * Carte kanban — wrappée en React.memo pour éviter le re-render des 79
+ * cartes à chaque mouvement (gros gain de fluidité avec dnd-kit).
+ *
+ * UX : drag handle dédié à GAUCHE (icône grip ⋮⋮). Le reste de la carte
+ * est un <Link> normal qui se clique sans interférence avec le drag. Plus
+ * de bug "le link se déclenche quand on bouge".
+ */
+const Card = memo(function Card({
   card,
   isOverlay = false,
   muted = false,
@@ -221,36 +260,75 @@ function Card({
   isOverlay?: boolean;
   muted?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: card.id });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: card.id,
+    // Le drag ne se déclenche QUE depuis le handle (pas depuis la card entière)
+  });
+  // GPU translate pour fluidité. translate3d force la composition couche
+  // séparée → pas de repaint coûteux du body pendant le drag.
   const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        // Pendant le drag, on évite tout effet hover/transition coûteux
+        transition: "none",
+      }
     : undefined;
 
   return (
     <div
       ref={isOverlay ? undefined : setNodeRef}
       style={isOverlay ? undefined : style}
-      {...(isOverlay ? {} : attributes)}
-      {...(isOverlay ? {} : listeners)}
       className={cn(
-        "rounded border bg-white px-2 py-1 cursor-grab active:cursor-grabbing select-none",
-        "hover:border-zinc-400 hover:shadow-sm transition",
-        "flex items-center justify-between gap-2",
+        "rounded border bg-white px-1.5 py-1 select-none",
+        "flex items-center gap-1.5",
+        // Hover seulement quand on ne drag pas (évite repaints inutiles)
+        !isDragging && !isOverlay && "hover:border-zinc-400 hover:shadow-sm transition-[border-color,box-shadow] duration-150",
         muted && "opacity-30",
-        isOverlay && "shadow-lg ring-1 ring-zinc-200"
+        isOverlay && "shadow-xl ring-2 ring-[hsl(var(--gold))]/40 cursor-grabbing"
       )}
     >
+      {/* Drag handle : la seule zone qui déclenche le drag. Touch target 28px
+          large × pleine hauteur → facile à attraper au pouce sur mobile. */}
+      <button
+        type="button"
+        ref={undefined}
+        {...(isOverlay ? {} : attributes)}
+        {...(isOverlay ? {} : listeners)}
+        aria-label="Déplacer la carte"
+        className={cn(
+          "shrink-0 -my-1 -ml-1.5 px-1 py-1.5 text-zinc-300 hover:text-zinc-600 hover:bg-zinc-50 rounded-l transition-colors",
+          "cursor-grab active:cursor-grabbing touch-none"
+        )}
+        // Empêche le click sur le handle de propager (sinon ferme rapidement)
+        onClick={(e) => e.preventDefault()}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+
+      {/* Lien client : prend tout l'espace dispo, click normal sans drag.
+          Pas besoin de stopPropagation car les listeners sont sur le handle. */}
       <Link
         href={`/clients/${card.slug}`}
-        // Empêche le drag de déclencher la navigation
-        onPointerDown={(e) => e.stopPropagation()}
-        className="font-medium text-xs truncate min-w-0 hover:text-[hsl(var(--gold))] transition-colors"
+        className="font-medium text-xs truncate min-w-0 flex-1 hover:text-[hsl(var(--gold))] transition-colors"
       >
         {card.denomination}
       </Link>
+
       <span className="text-[11px] tabular-nums text-zinc-700 font-medium shrink-0">
         {fmtEuro(card.arr ?? 0)}
       </span>
     </div>
   );
-}
+}, (prev, next) => {
+  // Re-render uniquement si l'état visible change. La référence `card`
+  // change à chaque setLocalCards, donc on compare les primitives.
+  return (
+    prev.card.id === next.card.id &&
+    prev.card.slug === next.card.slug &&
+    prev.card.denomination === next.card.denomination &&
+    prev.card.arr === next.card.arr &&
+    prev.card.pipeline_statut === next.card.pipeline_statut &&
+    prev.isOverlay === next.isOverlay &&
+    prev.muted === next.muted
+  );
+});

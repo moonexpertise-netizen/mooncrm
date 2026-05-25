@@ -13,21 +13,33 @@ export type Comment = {
 
 /**
  * Liste les commentaires d'une obligation par ordre chronologique.
- * Le SELECT est joinable sur profiles pour récupérer l'email de l'auteur
- * (utilisé pour l'affichage en thread).
+ *
+ * Note : obligation_comments.author_id pointe vers auth.users(id), pas
+ * directement vers public.profiles(id), donc PostgREST ne peut pas faire
+ * le join automatique. On fetch les emails séparément depuis profiles
+ * (qui partage le même id qu'auth.users via la FK) puis on assemble.
  */
 export async function listComments(obligationId: string): Promise<Comment[]> {
   const sb = await createClient();
-  const { data, error } = await sb
+  const { data: rows, error } = await sb
     .from("obligation_comments")
-    .select("id, author_id, content, created_at, updated_at, profiles!inner(email)")
+    .select("id, author_id, content, created_at, updated_at")
     .eq("obligation_id", obligationId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []).map((c) => ({
+  if (!rows?.length) return [];
+
+  const authorIds = [...new Set(rows.map((r) => r.author_id))];
+  const { data: profiles } = await sb
+    .from("profiles")
+    .select("id, email")
+    .in("id", authorIds);
+  const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email]));
+
+  return rows.map((c) => ({
     id: c.id,
     author_id: c.author_id,
-    author_email: (c.profiles as unknown as { email: string }).email,
+    author_email: emailById.get(c.author_id) ?? "Inconnu",
     content: c.content,
     created_at: c.created_at,
     updated_at: c.updated_at,
@@ -35,8 +47,9 @@ export async function listComments(obligationId: string): Promise<Comment[]> {
 }
 
 /**
- * Ajoute un commentaire sur une obligation. L'author_id est posé via
- * auth.uid() côté RLS — pas besoin de le passer en paramètre.
+ * Ajoute un commentaire sur une obligation. L'author_id est l'utilisateur
+ * courant (validé côté RLS). L'email auteur vient de profiles (join manuel
+ * vu que la FK pointe vers auth.users).
  */
 export async function addComment(obligationId: string, content: string): Promise<Comment> {
   const trimmed = content.trim();
@@ -47,20 +60,21 @@ export async function addComment(obligationId: string, content: string): Promise
   const { data: { user } } = await sb.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
-  const { data, error } = await sb
+  const { data: inserted, error } = await sb
     .from("obligation_comments")
     .insert({ obligation_id: obligationId, author_id: user.id, content: trimmed })
-    .select("id, author_id, content, created_at, updated_at, profiles!inner(email)")
+    .select("id, author_id, content, created_at, updated_at")
     .single();
   if (error) throw new Error(error.message);
 
+  // Email auteur (1 query, mais on connaît déjà le user logué = auteur)
   return {
-    id: data.id,
-    author_id: data.author_id,
-    author_email: (data.profiles as unknown as { email: string }).email,
-    content: data.content,
-    created_at: data.created_at,
-    updated_at: data.updated_at,
+    id: inserted.id,
+    author_id: inserted.author_id,
+    author_email: user.email ?? "Moi",
+    content: inserted.content,
+    created_at: inserted.created_at,
+    updated_at: inserted.updated_at,
   };
 }
 

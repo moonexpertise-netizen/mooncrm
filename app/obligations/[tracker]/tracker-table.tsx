@@ -1306,21 +1306,35 @@ const StatusCell = memo(function StatusCell({
         {cell.statut_detail ?? defaultLibelle}
       </button>
 
-      {/* Bulle commentaires (style Notion : 💬 N à droite de la pastille).
-          Cliquable → ouvre le panel latéral. Affichée seulement si N > 0,
-          sinon discrètement disponible via le picker (footer). */}
-      {commentCount > 0 && cell.obligationId && (
+      {/* Bulle commentaires (style Notion : 💬 à droite de la pastille).
+          TOUJOURS visible quand la cellule a un obligationId, même sans
+          commentaires (discret en gris pâle, plus visible si count > 0).
+          Click → ouvre le panel latéral. */}
+      {cell.obligationId && (
         <button
           onClick={(e) => {
             e.stopPropagation();
             if (cell.obligationId) onOpenComments(cell.obligationId, rowLabel);
           }}
-          className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 transition-colors shrink-0"
-          title={`${commentCount} commentaire${commentCount > 1 ? "s" : ""}`}
-          aria-label={`${commentCount} commentaire${commentCount > 1 ? "s" : ""}`}
+          className={cn(
+            "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] transition-colors shrink-0",
+            commentCount > 0
+              ? "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 font-medium"
+              : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 opacity-60 hover:opacity-100"
+          )}
+          title={
+            commentCount > 0
+              ? `${commentCount} commentaire${commentCount > 1 ? "s" : ""}`
+              : "Ajouter un commentaire"
+          }
+          aria-label={
+            commentCount > 0
+              ? `${commentCount} commentaire${commentCount > 1 ? "s" : ""}`
+              : "Ajouter un commentaire"
+          }
         >
-          <MessageSquare className="h-2.5 w-2.5" />
-          <span className="tabular-nums">{commentCount}</span>
+          <MessageSquare className="h-3 w-3" />
+          {commentCount > 0 && <span className="tabular-nums">{commentCount}</span>}
         </button>
       )}
 
