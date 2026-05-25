@@ -22,9 +22,13 @@ type Payload = {
   honoraires_compta?: number | null;
   forfait_bilan?: number | null;
   honoraires_jur?: number | null;
+  honoraires_creation?: number | null;
+  honoraires_reprise?: number | null;
   tdb_honos_periode?: number | null;
   type_honos_bilans?: "Inclus" | "Facturés" | null;
   type_honos_jur?: "Facturés" | "Inclus" | "Non souscrit" | null;
+  type_honos_creation?: "Facturés" | "Non souscrit" | null;
+  type_honos_reprise?: "Facturés" | "Non souscrit" | null;
   tdb_periode?: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   /**
    * Dirigeant à rattacher comme contact. `prenom` et `nom` sont stockés
@@ -106,9 +110,13 @@ export async function createClientFromSiren(payload: Payload) {
       ...(payload.honoraires_compta != null && { honoraires_compta: payload.honoraires_compta }),
       ...(payload.forfait_bilan != null && { forfait_bilan: payload.forfait_bilan }),
       ...(payload.honoraires_jur != null && { honoraires_jur: payload.honoraires_jur }),
+      ...(payload.honoraires_creation != null && { honoraires_creation: payload.honoraires_creation }),
+      ...(payload.honoraires_reprise != null && { honoraires_reprise: payload.honoraires_reprise }),
       ...(payload.tdb_honos_periode != null && { tdb_honos_periode: payload.tdb_honos_periode }),
       ...(payload.type_honos_bilans && { type_honos_bilans: payload.type_honos_bilans }),
       ...(payload.type_honos_jur && { type_honos_jur: payload.type_honos_jur }),
+      ...(payload.type_honos_creation && { type_honos_creation: payload.type_honos_creation }),
+      ...(payload.type_honos_reprise && { type_honos_reprise: payload.type_honos_reprise }),
       ...(payload.tdb_periode && { tdb_periode: payload.tdb_periode }),
     })
     .select("id")

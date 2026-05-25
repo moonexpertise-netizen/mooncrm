@@ -535,27 +535,43 @@ export default async function ClientFiche({
               value={fmtEuro(client.mrr ?? 0) ?? "·"}
             />
           </div>
-          {/* One-shots & exceptionnels — pas inclus dans l'ARR/MRR */}
+          {/* One-shots & exceptionnels — pas inclus dans l'ARR/MRR.
+              Les flags type_honos_* déterminent ce qui apparaît dans la LDM
+              (Facturés = phrase avec montant / Non souscrit = phrase vide). */}
           <div className="border-t pt-2 mt-2 space-y-1">
+            <EditableSelect
+              clientId={id}
+              field="type_honos_creation"
+              value={client.type_honos_creation}
+              label="Honos création"
+              options={["Facturés", "Non souscrit"]}
+            />
             <EditableNumber
               clientId={id}
               field="honoraires_creation"
               value={client.honoraires_creation}
-              label="Honoraires création (one-shot)"
+              label="Montant création"
               unit="eur"
+            />
+            <EditableSelect
+              clientId={id}
+              field="type_honos_reprise"
+              value={client.type_honos_reprise}
+              label="Honos reprise"
+              options={["Facturés", "Non souscrit"]}
             />
             <EditableNumber
               clientId={id}
               field="honoraires_reprise"
               value={client.honoraires_reprise}
-              label="Honoraires reprise (one-shot)"
+              label="Montant reprise"
               unit="eur"
             />
             <EditableNumber
               clientId={id}
               field="exceptionnel"
               value={client.exceptionnel}
-              label="Honoraires exceptionnels"
+              label="Honos exceptionnels"
               unit="eur"
             />
           </div>

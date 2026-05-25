@@ -91,6 +91,8 @@ export interface Client {
   exceptionnel: number;
   type_honos_bilans: "Inclus" | "Facturés" | null;
   type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
+  type_honos_creation: "Facturés" | "Non souscrit" | null;
+  type_honos_reprise: "Facturés" | "Non souscrit" | null;
   tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;
   mrr: number;                 // GENERATED · compta + pilotage + (bilan + jur)/12

@@ -16,6 +16,8 @@
 export type LDMContext = {
   type_honos_bilans: "Inclus" | "Facturés" | null;
   type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
+  type_honos_creation: "Facturés" | "Non souscrit" | null;
+  type_honos_reprise: "Facturés" | "Non souscrit" | null;
   tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;      // montant par période
   honoraires_jur: number;         // annuel
@@ -41,14 +43,12 @@ export function phraseHonosBilan(ctx: LDMContext): string {
 }
 
 /**
- * Excel :
- *   IF(Reprise_regul = "" OR "Non", "Aucune reprise à facturer.",
- *      "La reprise comptable et fiscale des périodes antérieures sera facturée " & Honos_reprise & " € HT.")
- *
- * On utilise honoraires_reprise > 0 comme trigger.
+ * 2 cas selon type_honos_reprise :
+ *   · "Non souscrit" / null → "Aucune reprise à facturer."
+ *   · "Facturés"            → "(...) sera facturée X € HT."
  */
 export function phraseReprise(ctx: LDMContext): string {
-  if (ctx.honoraires_reprise <= 0) {
+  if (ctx.type_honos_reprise !== "Facturés" || ctx.honoraires_reprise <= 0) {
     return "Aucune reprise à facturer.";
   }
   return `La reprise comptable et fiscale des périodes antérieures sera facturée ${eur(ctx.honoraires_reprise)} € HT.`;
@@ -87,11 +87,11 @@ export function phraseTdb(ctx: LDMContext): string {
 }
 
 /**
- * Excel :
- *   IF(Création = "" OR "Non", "",
- *      "La création de la société sera facturée " & Honoraires_création & " € HT, hors frais de greffe.")
+ * 2 cas selon type_honos_creation :
+ *   · "Non souscrit" / null → "" (phrase vide)
+ *   · "Facturés"            → "(...) sera facturée X € HT, hors frais de greffe."
  */
 export function phraseHonosCreation(ctx: LDMContext): string {
-  if (ctx.honoraires_creation <= 0) return "";
+  if (ctx.type_honos_creation !== "Facturés" || ctx.honoraires_creation <= 0) return "";
   return `La création de la société sera facturée ${eur(ctx.honoraires_creation)} € HT, hors frais de greffe.`;
 }

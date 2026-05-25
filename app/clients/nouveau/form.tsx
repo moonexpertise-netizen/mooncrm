@@ -281,6 +281,11 @@ export default function NouveauClientForm() {
   const [honosJur, setHonosJur] = useState<string>("");
   const [tdbPeriode, setTdbPeriode] = useState<"" | "Mensuel" | "Trimestriel" | "Non souscrit">("");
   const [tdbHonosPeriode, setTdbHonosPeriode] = useState<string>("");
+  // Honoraires one-shot (création + reprise) — saisies à la création
+  const [typeHonosCreation, setTypeHonosCreation] = useState<"" | "Facturés" | "Non souscrit">("");
+  const [honosCreation, setHonosCreation] = useState<string>("");
+  const [typeHonosReprise, setTypeHonosReprise] = useState<"" | "Facturés" | "Non souscrit">("");
+  const [honosReprise, setHonosReprise] = useState<string>("");
 
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -413,18 +418,33 @@ export default function NouveauClientForm() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!denomination.trim()) {
-      setError("Dénomination obligatoire");
+
+    // Validation bloquante : les 4 champs strictement obligatoires.
+    const missing: string[] = [];
+    if (!denomination.trim()) missing.push("Nom du dossier");
+    if (addDirigeantAsContact) {
+      if (!dirigeantCivilite) missing.push("Sexe du dirigeant");
+      if (!dirigeantPrenom.trim()) missing.push("Prénom du dirigeant");
+      if (!dirigeantNomFamille.trim()) missing.push("Nom du dirigeant");
+    }
+    if (missing.length > 0) {
+      setError(`Champ${missing.length > 1 ? "s" : ""} obligatoire${missing.length > 1 ? "s" : ""} manquant${missing.length > 1 ? "s" : ""} : ${missing.join(", ")}.`);
       return;
     }
+
     const debut = debutDate || null;
 
     // Logique métier honoraires : un montant n'a de sens que si le flag = "Facturés"
-    // (bilan/juridique) ou si une période est définie (pilotage). Sinon on force 0.
+    // (bilan/juridique/créa/reprise) ou si une période est définie (pilotage).
+    // Sinon on force 0.
     const finalBilan =
       typeHonosBilans === "Facturés" ? parseMontant(forfaitBilan) ?? 0 : 0;
     const finalJur =
       typeHonosJur === "Facturés" ? parseMontant(honosJur) ?? 0 : 0;
+    const finalCreation =
+      typeHonosCreation === "Facturés" ? parseMontant(honosCreation) ?? 0 : 0;
+    const finalReprise =
+      typeHonosReprise === "Facturés" ? parseMontant(honosReprise) ?? 0 : 0;
     const isSouscritTdb = tdbPeriode === "Mensuel" || tdbPeriode === "Trimestriel";
     const finalTdb = isSouscritTdb ? parseMontant(tdbHonosPeriode) ?? 0 : 0;
 
@@ -448,9 +468,13 @@ export default function NouveauClientForm() {
           honoraires_compta: parseMontant(honosCompta) ?? 0,
           forfait_bilan: finalBilan,
           honoraires_jur: finalJur,
+          honoraires_creation: finalCreation,
+          honoraires_reprise: finalReprise,
           tdb_honos_periode: finalTdb,
           type_honos_bilans: typeHonosBilans || null,
           type_honos_jur: typeHonosJur || null,
+          type_honos_creation: typeHonosCreation || null,
+          type_honos_reprise: typeHonosReprise || null,
           tdb_periode: tdbPeriode || null,
           interlocuteur:
             addDirigeantAsContact && dirigeantNomFamille.trim()
@@ -550,7 +574,7 @@ export default function NouveauClientForm() {
         sub="Identité du dossier et du dirigeant · alimentent la lettre de mission"
       />
 
-      <Field label="Nom du dossier" required>
+      <Field label="Nom du dossier" required hint="Scrapé depuis l'annuaire">
         <input
           type="text"
           value={denomination}
@@ -571,14 +595,16 @@ export default function NouveauClientForm() {
           />
           <span className="text-xs font-medium text-zinc-700">
             Dirigeant (contact rattaché)
-            <span className="text-zinc-400 font-normal"> · pour la civilité de la lettre de mission</span>
+            <span className="text-zinc-400 font-normal"> · pour la lettre de mission</span>
           </span>
         </label>
 
         {addDirigeantAsContact && (
           <div className="space-y-2.5">
             <div>
-              <span className="text-xs font-medium text-zinc-700 mb-1 block">Sexe</span>
+              <span className="text-xs font-medium text-zinc-700 mb-1 block">
+                Sexe <span className="text-rose-500 ml-0.5">*</span>
+              </span>
               <div className="flex gap-1">
                 {(["M.", "Mme"] as const).map((c) => (
                   <button
@@ -589,6 +615,8 @@ export default function NouveauClientForm() {
                       "px-3 py-1.5 rounded-md text-sm font-medium border transition",
                       dirigeantCivilite === c
                         ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))]"
+                        : dirigeantCivilite === ""
+                        ? "bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100"
                         : "bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400"
                     )}
                   >
@@ -599,7 +627,7 @@ export default function NouveauClientForm() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Prénom">
+              <Field label="Prénom" required hint="Scrapé depuis l'annuaire">
                 <input
                   type="text"
                   value={dirigeantPrenom}
@@ -608,7 +636,7 @@ export default function NouveauClientForm() {
                   className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(dirigeantPrenom))}
                 />
               </Field>
-              <Field label="Nom">
+              <Field label="Nom" required hint="Scrapé depuis l'annuaire">
                 <input
                   type="text"
                   value={dirigeantNomFamille}
@@ -628,7 +656,7 @@ export default function NouveauClientForm() {
         )}
       </div>
 
-      <Field label="Activité">
+      <Field label="Activité" hint="Scrapé depuis l'annuaire">
         <input
           type="text"
           value={activite}
@@ -650,7 +678,7 @@ export default function NouveauClientForm() {
         </div>
       </Field>
 
-      <Field label="Adresse ligne 1">
+      <Field label="Adresse ligne 1" hint="Scrapé depuis l'annuaire">
         <input
           type="text"
           value={adresseSiege}
@@ -660,7 +688,7 @@ export default function NouveauClientForm() {
         />
       </Field>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Code postal">
+        <Field label="Code postal" hint="Scrapé">
           <input
             type="text"
             value={codePostal}
@@ -670,7 +698,7 @@ export default function NouveauClientForm() {
           />
         </Field>
         <div className="col-span-2">
-          <Field label="Ville">
+          <Field label="Ville" hint="Scrapé">
             <input
               type="text"
               value={ville}
@@ -768,6 +796,50 @@ export default function NouveauClientForm() {
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">
               € HT / {tdbPeriode === "Mensuel" ? "mois" : "trimestre"}
             </span>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait création <span className="text-zinc-400 font-normal">· one-shot</span></span>
+        <RadioChips
+          options={["Facturés", "Non souscrit"]}
+          value={typeHonosCreation}
+          onChange={(v) => setTypeHonosCreation(v as "" | "Facturés" | "Non souscrit")}
+        />
+        {typeHonosCreation === "Facturés" && (
+          <div className="mt-2 relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={honosCreation}
+              onChange={(e) => setHonosCreation(e.target.value)}
+              placeholder="0"
+              className={cn("w-full pl-3 pr-16 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(honosCreation))}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">€ HT</span>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait reprise <span className="text-zinc-400 font-normal">· one-shot</span></span>
+        <RadioChips
+          options={["Facturés", "Non souscrit"]}
+          value={typeHonosReprise}
+          onChange={(v) => setTypeHonosReprise(v as "" | "Facturés" | "Non souscrit")}
+        />
+        {typeHonosReprise === "Facturés" && (
+          <div className="mt-2 relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={honosReprise}
+              onChange={(e) => setHonosReprise(e.target.value)}
+              placeholder="0"
+              className={cn("w-full pl-3 pr-16 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(honosReprise))}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">€ HT</span>
           </div>
         )}
       </div>
@@ -935,17 +1007,27 @@ export default function NouveauClientForm() {
 function Field({
   label,
   required,
+  hint,
   children,
 }: {
   label: string;
   required?: boolean;
+  /** Petite annotation à droite du label (ex. "Scrapé depuis l'annuaire" en vert). */
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-zinc-700 mb-1 block">
-        {label}
-        {required && <span className="text-rose-500 ml-0.5">*</span>}
+      <span className="text-xs font-medium text-zinc-700 mb-1 flex items-center gap-1.5">
+        <span>
+          {label}
+          {required && <span className="text-rose-500 ml-0.5">*</span>}
+        </span>
+        {hint && (
+          <span className="text-[10px] font-normal text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1 py-px">
+            {hint}
+          </span>
+        )}
       </span>
       {children}
     </label>
