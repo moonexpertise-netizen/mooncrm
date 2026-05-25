@@ -106,8 +106,9 @@ export default function CommentsPanel({
   }
 
   function onTextareaKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // Cmd/Ctrl+Enter envoie (sinon Enter fait juste un retour ligne)
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    // Enter envoie (raccourci principal). Shift+Enter = retour ligne classique.
+    // Cmd/Ctrl+Enter envoie aussi (cohérence avec Slack/Linear/Notion).
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submit();
     }
@@ -224,7 +225,9 @@ export default function CommentsPanel({
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-zinc-400">⌘+↵</span>
+                <span className="text-[10px] text-zinc-400 hidden sm:inline">
+                  <kbd className="font-mono">↵</kbd> pour envoyer · <kbd className="font-mono">⇧↵</kbd> retour ligne
+                </span>
                 <button
                   type="button"
                   onClick={submit}
