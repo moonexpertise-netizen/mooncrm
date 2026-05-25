@@ -892,7 +892,7 @@ export default function TrackerTable({
         <table className="w-full text-sm border-collapse">
           <thead className="bg-zinc-50 text-zinc-700 text-xs">
             <tr>
-              <th className="sticky left-0 z-10 bg-zinc-50 text-left px-0 py-0 font-medium border-r min-w-[220px]">
+              <th className="sticky left-0 z-10 bg-zinc-50 text-left px-0 py-0 font-medium border-r min-w-[120px] md:min-w-[220px]">
                 <button
                   onClick={selectAll}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[hsl(var(--gold))]/10 transition-colors group/all"
@@ -917,7 +917,7 @@ export default function TrackerTable({
                     key={col.key}
                     className={cn(
                       "px-0 py-0 font-medium text-center",
-                      !autoFit && "min-w-[120px]"
+                      !autoFit && "min-w-[78px] md:min-w-[120px]"
                     )}
                   >
                     <button

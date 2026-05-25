@@ -84,8 +84,11 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
     const cardId = String(e.active.id);
     const card = localCards.find((c) => c.id === cardId);
     if (!card || card.pipeline_statut === newStatut) return;
+    moveCardOptimistic(cardId, newStatut);
+  }
 
-    // Optimistic update
+  // Helper réutilisable : utilisé par le drag desktop ET le picker mobile.
+  function moveCardOptimistic(cardId: string, newStatut: PipelineStatut) {
     setLocalCards((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, pipeline_statut: newStatut } : c))
     );
@@ -97,12 +100,26 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   const activeCard = activeId ? localCards.find((c) => c.id === activeId) : null;
 
   return (
-    <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="space-y-4">
-        {/* Étapes actives — mobile : scroll-x snap (1 colonne plein écran).
-            Desktop : grid auto-fit qui wrap si nécessaire. */}
+    <>
+      {/* Vue MOBILE : liste empilée verticale par stage, picker statut sur
+          chaque carte (le drag-drop tactile est trop fragile). */}
+      <div className="md:hidden">
+        <MobilePipelineList
+          cards={localCards}
+          onMove={moveCardOptimistic}
+        />
+      </div>
+
+      {/* Vue DESKTOP : kanban drag-drop classique */}
+      <DndContext
+        sensors={sensors}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+      <div className="hidden md:block space-y-4">
+        {/* Étapes actives — grid auto-fit qui wrap si nécessaire. */}
         <div
-          className="flex md:grid gap-3 pb-2 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none -mx-3 px-3 sm:-mx-0 sm:px-0"
+          className="grid gap-3 pb-2"
           style={{
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           }}
@@ -163,6 +180,241 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         ) : null}
       </DragOverlay>
     </DndContext>
+    </>
+  );
+}
+
+// ============================================================================
+//  Vue mobile : liste empilée par stage + picker statut sur chaque card
+// ============================================================================
+
+function MobilePipelineList({
+  cards,
+  onMove,
+}: {
+  cards: PipelineCard[];
+  onMove: (cardId: string, newStatut: PipelineStatut) => void;
+}) {
+  // Stages dépliés : par défaut tous ouverts en mobile (l'utilisateur voit
+  // immédiatement tous les dossiers). L'utilisateur peut replier.
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  // Carte dont le picker statut est ouvert
+  const [pickerOpenFor, setPickerOpenFor] = useState<string | null>(null);
+
+  function toggle(s: string) {
+    setClosed((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
+
+  const totalArr = (subset: PipelineCard[]) =>
+    subset.reduce((acc, c) => acc + (c.arr ?? 0), 0);
+
+  function renderSection(statut: PipelineStatut | null, label: string) {
+    const subset = cards.filter((c) => c.pipeline_statut === statut);
+    const isClosed = closed.has(String(statut ?? "__none"));
+    const color = statut
+      ? PIPELINE_COLORS[statut] ?? ""
+      : "bg-zinc-50 text-zinc-500 border-zinc-200";
+    return (
+      <section key={statut ?? "__none"} className="rounded-lg border bg-card overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggle(String(statut ?? "__none"))}
+          className="w-full px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-zinc-50 transition-colors"
+          aria-expanded={!isClosed}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={cn(
+                "inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border truncate",
+                color
+              )}
+            >
+              {label}
+            </span>
+            <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+              {subset.length} · {fmtEuro(totalArr(subset))}
+            </span>
+          </div>
+          <span
+            className={cn(
+              "text-zinc-400 text-xs transition-transform",
+              isClosed && "-rotate-90"
+            )}
+            aria-hidden
+          >
+            ▼
+          </span>
+        </button>
+        {!isClosed && (
+          <div className="divide-y divide-zinc-100">
+            {subset.length === 0 ? (
+              <div className="px-3 py-3 text-[12px] text-muted-foreground text-center">
+                (vide)
+              </div>
+            ) : (
+              subset.map((c) => (
+                <div key={c.id} className="px-3 py-2.5 flex items-center gap-2">
+                  <Link
+                    href={`/clients/${c.slug}`}
+                    className="font-medium text-sm truncate min-w-0 flex-1 hover:text-[hsl(var(--gold))] transition-colors"
+                  >
+                    {c.denomination}
+                  </Link>
+                  <span className="text-xs tabular-nums text-zinc-700 font-medium shrink-0">
+                    {fmtEuro(c.arr ?? 0)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpenFor(c.id)}
+                    className="shrink-0 ml-1 inline-flex items-center justify-center w-8 h-8 rounded-md border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 active:bg-zinc-100 transition-colors"
+                    aria-label="Changer le statut"
+                    title="Déplacer"
+                  >
+                    →
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {ACTIVE_STAGES.map((s) => renderSection(s, SHORT_LABEL[s]))}
+
+      <div className="pt-3 border-t border-zinc-200">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 px-1">
+          Hors pipeline actif
+        </div>
+        <div className="space-y-3">
+          {TERMINAL_STAGES.map((s) => renderSection(s, SHORT_LABEL[s]))}
+          {renderSection(null, "Non paramétré")}
+        </div>
+      </div>
+
+      {/* Picker statut : modal plein écran qui slide-up depuis le bas */}
+      {pickerOpenFor && (
+        <MobileStatutPicker
+          card={cards.find((c) => c.id === pickerOpenFor) ?? null}
+          onClose={() => setPickerOpenFor(null)}
+          onPick={(statut) => {
+            onMove(pickerOpenFor, statut);
+            setPickerOpenFor(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function MobileStatutPicker({
+  card,
+  onClose,
+  onPick,
+}: {
+  card: PipelineCard | null;
+  onClose: () => void;
+  onPick: (statut: PipelineStatut) => void;
+}) {
+  if (!card) return null;
+  return (
+    <>
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-40 bg-black/40 animate-fade-in"
+        aria-hidden
+      />
+      <div
+        role="dialog"
+        aria-label="Choisir un statut"
+        className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl bg-white shadow-2xl animate-slide-up-fade max-h-[80vh] overflow-y-auto pb-[env(safe-area-inset-bottom,16px)]"
+      >
+        <div className="px-4 pt-3 pb-2 border-b sticky top-0 bg-white">
+          <div className="w-10 h-1 bg-zinc-300 rounded-full mx-auto mb-2" />
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+            Déplacer vers
+          </div>
+          <div className="text-sm font-medium text-zinc-900 truncate">
+            {card.denomination}
+          </div>
+        </div>
+        <div className="p-2 space-y-1">
+          <div className="text-[10px] uppercase tracking-wide text-zinc-400 px-2 pt-1">
+            Étapes actives
+          </div>
+          {ACTIVE_STAGES.map((s) => {
+            const active = card.pipeline_statut === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPick(s)}
+                className={cn(
+                  "w-full text-left px-3 py-3 rounded-md flex items-center gap-2 transition-colors",
+                  active
+                    ? "bg-[hsl(var(--gold))]/10"
+                    : "hover:bg-zinc-50 active:bg-zinc-100"
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                    PIPELINE_COLORS[s] ?? ""
+                  )}
+                >
+                  {SHORT_LABEL[s]}
+                </span>
+                {active && <span className="ml-auto text-zinc-400">✓</span>}
+              </button>
+            );
+          })}
+          <div className="text-[10px] uppercase tracking-wide text-zinc-400 px-2 pt-3">
+            Hors pipeline actif
+          </div>
+          {TERMINAL_STAGES.map((s) => {
+            const active = card.pipeline_statut === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPick(s)}
+                className={cn(
+                  "w-full text-left px-3 py-3 rounded-md flex items-center gap-2 transition-colors",
+                  active
+                    ? "bg-[hsl(var(--gold))]/10"
+                    : "hover:bg-zinc-50 active:bg-zinc-100"
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                    PIPELINE_COLORS[s] ?? ""
+                  )}
+                >
+                  {SHORT_LABEL[s]}
+                </span>
+                {active && <span className="ml-auto text-zinc-400">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full px-4 py-3 text-sm text-zinc-600 border-t hover:bg-zinc-50 active:bg-zinc-100"
+        >
+          Annuler
+        </button>
+      </div>
+    </>
   );
 }
 

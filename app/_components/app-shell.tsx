@@ -10,6 +10,48 @@ import {
   SIDEBAR_STORAGE_KEY,
 } from "./sidebar";
 import { ClientSwitcher } from "./client-switcher";
+import { TRACKERS } from "@/app/obligations/trackers";
+
+/**
+ * Retourne le label de la page courante pour l'afficher dans le ruban mobile.
+ * Couvre les pages principales (mapping pathname → label) + les routes
+ * dynamiques (fiche client, tracker production) où on extrait le slug.
+ */
+function pageLabel(pathname: string): string {
+  // Pages dynamiques : tracker production
+  if (pathname.startsWith("/obligations/")) {
+    const trackerSlug = pathname.split("/")[2];
+    const tracker = TRACKERS.find((t) => t.slug === trackerSlug);
+    return tracker?.title ?? "Production";
+  }
+  // Pages dynamiques : fiche client (et sous-routes)
+  if (pathname.startsWith("/clients/") && pathname !== "/clients/nouveau") {
+    const segments = pathname.split("/");
+    const slug = segments[2];
+    if (!slug) return "Clients";
+    // Reformate le slug en titre : "adelex-consulting" → "Adelex Consulting"
+    const denomination = slug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+    const sub = segments[3]; // exercice / obligations / onboarding
+    if (sub === "exercice") return `${denomination} · Échéances`;
+    if (sub === "obligations") return `${denomination} · Obligations`;
+    if (sub === "onboarding") return `${denomination} · Onboarding`;
+    return denomination;
+  }
+  // Pages statiques
+  if (pathname === "/") return "Dashboard";
+  if (pathname === "/clients") return "Clients";
+  if (pathname === "/clients/nouveau") return "Nouveau client";
+  if (pathname === "/pipeline") return "Pipeline";
+  if (pathname === "/parametrage") return "Paramétrage";
+  if (pathname === "/obligations") return "Production";
+  if (pathname === "/onboarding") return "Onboarding";
+  if (pathname === "/economie") return "Économie";
+  if (pathname.startsWith("/admin/users")) return "Utilisateurs";
+  return "MoonCRM";
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -72,21 +114,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           marginLeft: isMobile ? 0 : mounted ? (collapsed ? 56 : 240) : 240,
         }}
       >
-        {/* Bandeau supérieur : hamburger mobile + sélecteur de dossier.
+        {/* Bandeau supérieur : hamburger mobile + titre de section + switcher.
             Sticky pour rester visible. */}
         <div className="sticky top-0 z-30 bg-[hsl(var(--background))]/85 backdrop-blur border-b border-zinc-200/60">
-          <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 py-2 flex items-center justify-between gap-2">
+          <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 py-2 flex items-center gap-2 md:justify-between">
             {/* Hamburger : visible uniquement sur mobile */}
             <button
               type="button"
               onClick={openMobileSidebar}
               aria-label="Ouvrir le menu"
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-700 hover:bg-zinc-100 transition-colors"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-700 hover:bg-zinc-100 transition-colors shrink-0"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="hidden md:block" />
-            <ClientSwitcher />
+            {/* Titre de section : sert de repère "où je suis" sur mobile.
+                Caché en desktop (la sidebar fait déjà ce rôle). */}
+            <h1 className="md:hidden text-sm font-semibold text-zinc-900 truncate flex-1 min-w-0">
+              {pageLabel(pathname)}
+            </h1>
+            {/* ClientSwitcher : caché sur mobile (le drawer + liste Clients
+                font le boulot). Sur desktop, alignement droite via ml-auto. */}
+            <div className="hidden md:block md:ml-auto">
+              <ClientSwitcher />
+            </div>
           </div>
         </div>
         <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 py-4 md:py-6">
