@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,10 +34,10 @@ export default function LoginPage() {
       if (error) {
         setError(translateError(error.message));
       } else {
-        // signInWithPassword pose le cookie de session côté client. On force un
-        // hard refresh pour que le middleware côté serveur le reprenne.
-        router.refresh();
-        router.replace("/");
+        // Full reload : router.replace peut avoir un délai sur la prise en
+        // compte du cookie de session par le middleware. window.location
+        // garantit que le prochain request a le bon cookie.
+        window.location.href = "/";
       }
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
