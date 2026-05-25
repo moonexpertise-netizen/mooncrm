@@ -9,7 +9,7 @@ import {
   bulkUpdateObligationStatus,
   updateObligationStatus,
 } from "../actions";
-import CommentsPanel from "./comments-panel";
+import CommentsPopover from "./comments-panel";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
@@ -66,6 +66,10 @@ export default function TrackerTable({
   );
   const [openCommentsObligId, setOpenCommentsObligId] = useState<string | null>(null);
   const [openCommentsLabel, setOpenCommentsLabel] = useState<string>("");
+  // Rect d'ancrage du popover commentaires (capturé au clic sur 💬)
+  const [openCommentsAnchor, setOpenCommentsAnchor] = useState<
+    { left: number; top: number; bottom: number; right: number } | null
+  >(null);
   const [statusFilter, setStatusFilter] = useState<Set<StatutFilter>>(new Set());
   const [periodFilter, setPeriodFilter] = useState<Set<string>>(new Set());
   // Largeur auto-fit pour les colonnes (sinon min-w-[120px] par défaut)
@@ -779,11 +783,17 @@ export default function TrackerTable({
   const handleOpen = useCallback((cellId: string) => setOpenCellId(cellId), []);
   const handleClose = useCallback(() => setOpenCellId(null), []);
 
-  // Ouverture du panel commentaires latéral (depuis l'indicateur 💬 d'une cellule).
+  // Ouverture du popover commentaires (depuis l'icône 💬 d'une cellule).
+  // Capture le rect de l'élément cliqué pour ancrer le popover.
   const handleOpenComments = useCallback(
-    (obligationId: string, label: string) => {
+    (
+      obligationId: string,
+      label: string,
+      anchorRect: { left: number; top: number; bottom: number; right: number }
+    ) => {
       setOpenCommentsObligId(obligationId);
       setOpenCommentsLabel(label);
+      setOpenCommentsAnchor(anchorRect);
       // Si le picker statut est ouvert, on le ferme pour ne pas avoir 2 popovers.
       setOpenCellId(null);
     },
@@ -792,6 +802,7 @@ export default function TrackerTable({
 
   const handleCloseComments = useCallback(() => {
     setOpenCommentsObligId(null);
+    setOpenCommentsAnchor(null);
   }, []);
 
   const handleCommentCountChange = useCallback(
@@ -996,6 +1007,9 @@ export default function TrackerTable({
                         return { boxShadow: parts.join(", ") };
                       })()
                     : undefined;
+                  const hasComments = c.obligationId
+                    ? (commentCounts[c.obligationId] ?? 0) > 0
+                    : false;
                   return (
                     <td
                       key={c.colKey}
@@ -1005,8 +1019,11 @@ export default function TrackerTable({
                       data-col-index={colIndex}
                       style={tdStyle}
                       className={cn(
-                        "px-1 py-1.5 text-center align-middle transition-colors",
+                        "group/cell px-1 py-1.5 text-center align-middle transition-colors",
                         isOpenCell && "relative z-40",
+                        // Cellule commentée : fond jaune subtil (style Notion).
+                        // Sélection a priorité sur le fond commenté.
+                        hasComments && !isSelected && !isAnchor && "bg-amber-50",
                         isSelected && "bg-[hsl(var(--gold))]/10",
                         isAnchor && "bg-[hsl(var(--gold))]/20",
                         isHighlighted && "ring-2 ring-[hsl(var(--gold))] ring-offset-1 rounded animate-pulse"
@@ -1134,13 +1151,13 @@ export default function TrackerTable({
         </div>
       )}
 
-      {/* Panel commentaires latéral (style Notion). Affiché en overlay,
-          slide-in depuis la droite. */}
+      {/* Popover commentaires (style Notion). Compact, ancré près de la cellule. */}
       {openCommentsObligId && (
-        <CommentsPanel
+        <CommentsPopover
           obligationId={openCommentsObligId}
           obligationLabel={openCommentsLabel}
           currentUserEmail={currentUserEmail}
+          anchorRect={openCommentsAnchor}
           onClose={handleCloseComments}
           onCountChange={(count) =>
             handleCommentCountChange(openCommentsObligId, count)
@@ -1213,7 +1230,11 @@ const StatusCell = memo(function StatusCell({
   rowLabel: string;
   onPick: (obligationId: string, libelle: string, type: string) => void;
   onReset: (obligationId: string) => void;
-  onOpenComments: (obligationId: string, label: string) => void;
+  onOpenComments: (
+    obligationId: string,
+    label: string,
+    anchorRect: { left: number; top: number; bottom: number; right: number }
+  ) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
@@ -1306,21 +1327,35 @@ const StatusCell = memo(function StatusCell({
         {cell.statut_detail ?? defaultLibelle}
       </button>
 
-      {/* Bulle commentaires (style Notion : 💬 à droite de la pastille).
-          TOUJOURS visible quand la cellule a un obligationId, même sans
-          commentaires (discret en gris pâle, plus visible si count > 0).
-          Click → ouvre le panel latéral. */}
+      {/* Bulle commentaires (style Notion).
+          - Cachée par défaut, visible UNIQUEMENT au hover de la cellule (td a
+            group/cell ; opacity-0 group-hover/cell:opacity-100).
+          - L'indicateur jaune sur le td signale déjà qu'il y a un thread,
+            on n'a plus besoin de la rendre toujours visible.
+          - Sur touch (pas de hover), on garde une apparence légère pour
+            qu'elle reste tappable. */}
       {cell.obligationId && (
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (cell.obligationId) onOpenComments(cell.obligationId, rowLabel);
+            if (!cell.obligationId) return;
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            onOpenComments(cell.obligationId, rowLabel, {
+              left: rect.left,
+              top: rect.top,
+              bottom: rect.bottom,
+              right: rect.right,
+            });
           }}
           className={cn(
-            "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] transition-colors shrink-0",
+            "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] transition-opacity shrink-0",
+            // Cachée par défaut, révélée au hover du td parent (group/cell)
+            "opacity-0 group-hover/cell:opacity-100",
+            // Sur mobile (pas de hover réel), on laisse une opacity discrète
+            "max-md:opacity-60",
             commentCount > 0
               ? "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 font-medium"
-              : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 opacity-60 hover:opacity-100"
+              : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
           )}
           title={
             commentCount > 0
@@ -1416,9 +1451,15 @@ const StatusCell = memo(function StatusCell({
           {/* Footer : actions secondaires (commentaires + reset) */}
           <div className="border-t bg-zinc-50/50">
             <button
-              onClick={() => {
+              onClick={(e) => {
                 if (!cell.obligationId) return;
-                onOpenComments(cell.obligationId, rowLabel);
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                onOpenComments(cell.obligationId, rowLabel, {
+                  left: rect.left,
+                  top: rect.top,
+                  bottom: rect.bottom,
+                  right: rect.right,
+                });
                 onClose();
               }}
               className="w-full px-3 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 transition-colors flex items-center gap-2"
