@@ -167,9 +167,13 @@ export function EditableNumber({
   const { save, error } = useSaver(clientId, field);
   const [focused, setFocused] = useState(false);
 
+  // ⚠ Sync sur `display` (state optimistic), pas sur `value` (prop serveur).
+  // Sinon : quand on blur, focused passe à false → useEffect re-trigger →
+  // setDraft(value) écrase la valeur optimiste qu'on vient de saisir
+  // (le serveur n'a pas encore re-fetch à ce moment-là).
   useEffect(() => {
-    if (!focused) setDraft(formatDraft(value, unit));
-  }, [value, unit, focused]);
+    if (!focused) setDraft(formatDraft(display, unit));
+  }, [display, unit, focused]);
 
   function commit() {
     setFocused(false);
