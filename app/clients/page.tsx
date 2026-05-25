@@ -8,7 +8,7 @@ export default async function ClientsPage() {
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, denomination, siren, forme, activite, regime, pipeline_statut, arr, honoraires_compta, groupes(nom)"
+      "id, slug, denomination, siren, forme, activite, regime, pipeline_statut, arr, honoraires_compta, groupes(nom)"
     )
     .order("denomination");
 
@@ -22,6 +22,7 @@ export default async function ClientsPage() {
 
   const rows: ClientRow[] = (data ?? []).map((c) => ({
     id: c.id,
+    slug: c.slug,
     denomination: c.denomination,
     siren: c.siren,
     forme: c.forme,

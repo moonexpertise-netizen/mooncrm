@@ -14,7 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { generateInstancesForType } from '../lib/obligations-engine';
-import type { TypeObligation } from '../app/clients/[id]/actions';
+import type { TypeObligation } from '../app/clients/[slug]/actions';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;

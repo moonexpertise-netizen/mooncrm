@@ -30,6 +30,7 @@ export type TrackerCell = {
 
 export type TrackerRow = {
   clientId: string;
+  clientSlug: string;
   denomination: string;
   siren: string | null;
   pipeline: string | null;
@@ -924,7 +925,7 @@ export default function TrackerTable({
                     <div className="flex-1 px-2 py-2 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Link
-                          href={`/clients/${r.clientId}`}
+                          href={`/clients/${r.clientSlug}`}
                           className="font-medium truncate hover:text-[hsl(var(--gold))] transition-colors"
                         >
                           {r.denomination}
@@ -933,7 +934,7 @@ export default function TrackerTable({
                       </div>
                       {r.siren && (
                         <Link
-                          href={`/clients/${r.clientId}`}
+                          href={`/clients/${r.clientSlug}`}
                           className="block text-xs text-muted-foreground tabular-nums hover:text-[hsl(var(--gold))] transition-colors"
                         >
                           {r.siren}

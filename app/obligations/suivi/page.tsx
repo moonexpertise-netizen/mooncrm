@@ -43,7 +43,7 @@ export default async function ObligationsPage({
   const [{ data: subs }, { data: opts }] = await Promise.all([
     supabase
       .from("obligation_subscriptions")
-      .select("client_id, type, clients!inner(id, denomination, siren, pipeline_statut, origine)")
+      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine)")
       .eq("annee", year)
       .eq("actif", true)
       .in("type", tracker.types),
@@ -61,6 +61,7 @@ export default async function ObligationsPage({
     type: string;
     clients: {
       id: string;
+      slug: string;
       denomination: string;
       siren: string | null;
       pipeline_statut: string | null;
@@ -123,6 +124,7 @@ export default async function ObligationsPage({
 
   const rows: TrackerRow[] = clientsSorted.map((c) => ({
     clientId: c.id,
+    clientSlug: c.slug,
     denomination: c.denomination,
     siren: c.siren,
     pipeline: c.pipeline_statut,

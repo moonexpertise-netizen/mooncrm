@@ -13,7 +13,7 @@ type TabKey = "identite" | "exercice" | "obligations" | "onboarding";
  * du tab dans l'historique sans déclencher de navigation Next.
  */
 export default function FicheTabs({
-  clientId,
+  slug,
   defaultTab,
   selectedYear,
   identite,
@@ -21,7 +21,7 @@ export default function FicheTabs({
   obligations,
   onboarding,
 }: {
-  clientId: string;
+  slug: string;
   defaultTab: TabKey;
   selectedYear: number;
   identite: React.ReactNode;
@@ -46,7 +46,7 @@ export default function FicheTabs({
       params.set("tab", k);
     }
     const qs = params.toString();
-    const newUrl = `/clients/${clientId}${qs ? `?${qs}` : ""}`;
+    const newUrl = `/clients/${slug}${qs ? `?${qs}` : ""}`;
     window.history.replaceState(null, "", newUrl);
   }
 
@@ -67,10 +67,10 @@ export default function FicheTabs({
           // si on n'est pas déjà sur Exercice — sinon switch instantané.
           const href =
             t.key === "exercice"
-              ? `/clients/${clientId}?tab=exercice&year=${selectedYear}`
+              ? `/clients/${slug}?tab=exercice&year=${selectedYear}`
               : t.key === "identite"
-              ? `/clients/${clientId}`
-              : `/clients/${clientId}?tab=${t.key}`;
+              ? `/clients/${slug}`
+              : `/clients/${slug}?tab=${t.key}`;
           // Si on switch entre des tabs déjà rendus (tous le sont), on évite
           // la navigation Next via onClick.
           return (

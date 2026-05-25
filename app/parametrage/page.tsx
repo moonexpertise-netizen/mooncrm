@@ -20,7 +20,7 @@ export default async function ParametragePage({
   // 1. Clients (filtre métier Signé + Interne + Sous-traitance)
   const { data: clients } = await sb
     .from("clients")
-    .select("id, denomination, siren, pipeline_statut, origine, debut_obligations, groupes(nom)")
+    .select("id, slug, denomination, siren, pipeline_statut, origine, debut_obligations, groupes(nom)")
     .order("denomination");
 
   const filtered = (clients ?? []).filter((c) => {
@@ -71,6 +71,7 @@ export default async function ParametragePage({
         : null;
     return {
       id: c.id,
+      slug: c.slug,
       denomination: c.denomination,
       siren: c.siren,
       groupe:

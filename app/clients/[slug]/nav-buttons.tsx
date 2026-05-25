@@ -15,15 +15,15 @@ export default function NavButtons({
   filtered,
   navParams,
 }: {
-  prev: { id: string; denomination: string } | null;
-  next: { id: string; denomination: string } | null;
+  prev: { slug: string; denomination: string } | null;
+  next: { slug: string; denomination: string } | null;
   idx: number;
   total: number;
   filtered: boolean;
   navParams: string; // déjà sérialisé (nav-q=...&nav-pipeline=...)
 }) {
-  function buildHref(targetId: string): string {
-    if (typeof window === "undefined") return `/clients/${targetId}${navParams ? `?${navParams}` : ""}`;
+  function buildHref(targetSlug: string): string {
+    if (typeof window === "undefined") return `/clients/${targetSlug}${navParams ? `?${navParams}` : ""}`;
     const params = new URLSearchParams(window.location.search);
     // Garde seulement tab, year. Le reste de navParams (nav-*) est ajouté à côté.
     const out = new URLSearchParams();
@@ -31,32 +31,25 @@ export default function NavButtons({
     const year = params.get("year");
     if (tab) out.set("tab", tab);
     if (year) out.set("year", year);
-    // Append navParams
     if (navParams) {
       const navUrl = new URLSearchParams(navParams);
       navUrl.forEach((v, k) => out.set(k, v));
     }
     const qs = out.toString();
-    return `/clients/${targetId}${qs ? `?${qs}` : ""}`;
+    return `/clients/${targetSlug}${qs ? `?${qs}` : ""}`;
   }
 
-  // Pour `<Link>`, on a besoin du href dès le rendu. On utilise une approche
-  // "lazy" : on attache l'event onClick qui calcule le href au dernier moment
-  // et déclenche router.push.
-  function onClick(e: React.MouseEvent<HTMLAnchorElement>, targetId: string) {
+  function onClick(e: React.MouseEvent<HTMLAnchorElement>, targetSlug: string) {
     e.preventDefault();
-    const href = buildHref(targetId);
-    // Hard navigation via window.location pour rester simple (force re-fetch
-    // du serveur sur la nouvelle fiche, ce qu'on veut).
-    window.location.href = href;
+    window.location.href = buildHref(targetSlug);
   }
 
   return (
     <div className="flex items-center gap-1">
       {prev ? (
         <Link
-          href={`/clients/${prev.id}`}
-          onClick={(e) => onClick(e, prev.id)}
+          href={`/clients/${prev.slug}`}
+          onClick={(e) => onClick(e, prev.slug)}
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 transition text-xs"
           title={`Précédent : ${prev.denomination}`}
         >
@@ -71,8 +64,8 @@ export default function NavButtons({
       </span>
       {next ? (
         <Link
-          href={`/clients/${next.id}`}
-          onClick={(e) => onClick(e, next.id)}
+          href={`/clients/${next.slug}`}
+          onClick={(e) => onClick(e, next.slug)}
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 transition text-xs"
           title={`Suivant : ${next.denomination}`}
         >

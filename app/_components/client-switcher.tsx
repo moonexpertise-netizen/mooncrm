@@ -8,6 +8,7 @@ import { cn, PIPELINE_COLORS } from "@/lib/utils";
 
 type ClientLite = {
   id: string;
+  slug: string;
   denomination: string;
   siren: string | null;
   pipeline_statut: string | null;
@@ -30,7 +31,7 @@ export function ClientSwitcher() {
   useEffect(() => {
     const sb = createClient();
     sb.from("clients")
-      .select("id, denomination, siren, pipeline_statut")
+      .select("id, slug, denomination, siren, pipeline_statut")
       .order("denomination")
       .then(({ data }) => setClients((data as ClientLite[]) ?? []));
   }, []);
@@ -76,7 +77,7 @@ export function ClientSwitcher() {
   }, [clients, query]);
 
   function onSelect(c: ClientLite) {
-    router.push(`/clients/${c.id}`);
+    router.push(`/clients/${c.slug}`);
     setOpen(false);
     setQuery("");
     inputRef.current?.blur();

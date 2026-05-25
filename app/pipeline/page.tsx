@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import PipelineKanban, { type PipelineCard } from "./kanban";
-import type { PipelineStatut } from "@/app/clients/[id]/actions";
+import type { PipelineStatut } from "@/app/clients/[slug]/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +8,7 @@ export default async function PipelinePage() {
   const sb = await createClient();
   const { data, error } = await sb
     .from("clients")
-    .select("id, denomination, siren, forme, activite, arr, pipeline_statut")
+    .select("id, slug, denomination, siren, forme, activite, arr, pipeline_statut")
     .order("denomination");
 
   if (error) {
@@ -21,6 +21,7 @@ export default async function PipelinePage() {
 
   const cards: PipelineCard[] = (data ?? []).map((c) => ({
     id: c.id,
+    slug: c.slug,
     denomination: c.denomination,
     siren: c.siren,
     forme: c.forme,

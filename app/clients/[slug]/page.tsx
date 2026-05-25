@@ -101,7 +101,7 @@ export default async function ClientFiche({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
   searchParams: Promise<{
     year?: string;
     tab?: string;
@@ -111,7 +111,7 @@ export default async function ClientFiche({
     "nav-origine"?: string;
   }>;
 }) {
-  const { id } = await params;
+  const { slug } = await params;
   const sp = await searchParams;
   const activeTab: "identite" | "exercice" | "obligations" | "onboarding" =
     sp.tab === "exercice"
@@ -137,8 +137,21 @@ export default async function ClientFiche({
   const hasNavFilter =
     navQ !== "" || navPipeline.size > 0 || navForme.size > 0 || navOrigine.size > 0;
 
+  // Étape 1 : récupérer le client par son slug. Cette query doit aboutir avant
+  // de pouvoir paralléliser les queries dépendantes du client_id.
+  const { data: client } = await supabase
+    .from("clients")
+    .select(
+      "id, denomination, siren, slug, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, groupes(nom)"
+    )
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!client) notFound();
+  const id = client.id;
+
+  // Étape 2 : queries dépendantes de client_id en parallèle.
   const [
-    { data: client },
     { data: contactsLink },
     { data: onboarding },
     { data: allSubs },
@@ -147,14 +160,6 @@ export default async function ClientFiche({
     { data: allClientsList },
     { data: allStatusOpts },
   ] = await Promise.all([
-    // Colonnes ciblées au lieu de SELECT * : payload divisé par ~2.5.
-    supabase
-      .from("clients")
-      .select(
-        "id, denomination, siren, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, groupes(nom)"
-      )
-      .eq("id", id)
-      .single(),
     supabase
       .from("client_contacts")
       .select("role, contacts(id, nom, prenom, email, telephone, civilite)")
@@ -172,15 +177,14 @@ export default async function ClientFiche({
       .select("annee, regime")
       .eq("client_id", id),
     supabase.from("groupes").select("nom").order("nom"),
-    // Liste prev/next : on ne la charge QUE si filtre actif (sinon on n'utilise
-    // que id+denomination dans la barre, ce qui est rapide) ; sinon ne fait
-    // rien et économise 1 RTT.
+    // Liste prev/next : `slug` au lieu de `id` pour pouvoir construire les
+    // URL propres directement (pas de re-lookup côté NavButtons).
     hasNavFilter
       ? supabase
           .from("clients")
-          .select("id, denomination, pipeline_statut, forme, origine, groupes(nom)")
+          .select("id, slug, denomination, pipeline_statut, forme, origine, groupes(nom)")
           .order("denomination")
-      : supabase.from("clients").select("id, denomination").order("denomination"),
+      : supabase.from("clients").select("id, slug, denomination").order("denomination"),
     // Status options pour TOUS les types possibles (payload ~20 lignes minuscule).
     // Évite une 2e query séquentielle après obligations pour charger les couleurs.
     supabase
@@ -188,8 +192,6 @@ export default async function ClientFiche({
       .select("type_code, libelle, color")
       .eq("scope", "obligation"),
   ]);
-
-  if (!client) notFound();
 
   const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
 
@@ -268,13 +270,13 @@ export default async function ClientFiche({
 
   const groupesOptions = (allGroupes ?? []).map((g) => g.nom);
 
-  // Navigation prev/next : respecte le filtre actif sur /clients. La liste
-  // chargée a la bonne shape (enrichie si filtre actif, minimale sinon) — un
-  // seul RTT au lieu de deux.
-  let clientList: Array<{ id: string; denomination: string }>;
+  // Navigation prev/next : respecte le filtre actif sur /clients. On utilise
+  // slug (et pas id) pour construire les URL directement propres.
+  let clientList: Array<{ slug: string; denomination: string }>;
   if (hasNavFilter) {
     clientList = ((allClientsList ?? []) as unknown as Array<{
       id: string;
+      slug: string;
       denomination: string;
       pipeline_statut: string | null;
       forme: string | null;
@@ -291,16 +293,16 @@ export default async function ClientFiche({
         if (navOrigine.size && !navOrigine.has(c.origine ?? "")) return false;
         return true;
       })
-      .map((c) => ({ id: c.id, denomination: c.denomination }));
+      .map((c) => ({ slug: c.slug, denomination: c.denomination }));
   } else {
-    clientList = (allClientsList ?? []) as Array<{ id: string; denomination: string }>;
+    clientList = (allClientsList ?? []) as Array<{ slug: string; denomination: string }>;
   }
 
-  const idx = clientList.findIndex((c) => c.id === id);
+  const idx = clientList.findIndex((c) => c.slug === slug);
   const prev = idx > 0 ? clientList[idx - 1] : null;
   const next = idx >= 0 && idx < clientList.length - 1 ? clientList[idx + 1] : null;
 
-  function buildHref(targetId: string): string {
+  function buildHref(targetSlug: string): string {
     const params = new URLSearchParams();
     if (activeTab === "exercice") {
       params.set("tab", "exercice");
@@ -315,7 +317,7 @@ export default async function ClientFiche({
     if (sp["nav-forme"]) params.set("nav-forme", sp["nav-forme"]);
     if (sp["nav-origine"]) params.set("nav-origine", sp["nav-origine"]);
     const qs = params.toString();
-    return `/clients/${targetId}${qs ? `?${qs}` : ""}`;
+    return `/clients/${targetSlug}${qs ? `?${qs}` : ""}`;
   }
 
   // Clôture sous la forme "JJ/MM" pour affichage
@@ -443,7 +445,7 @@ export default async function ClientFiche({
 
       {/* TABS — switch client-side instantané */}
       <FicheTabs
-        clientId={id}
+        slug={client.slug}
         defaultTab={activeTab}
         selectedYear={selectedYear}
         identite={

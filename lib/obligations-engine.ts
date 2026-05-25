@@ -8,7 +8,7 @@
  * dans `obligations` (idempotent · préserve les statuts existants).
  */
 
-import type { TypeObligation } from "@/app/clients/[id]/actions";
+import type { TypeObligation } from "@/app/clients/[slug]/actions";
 
 export type GeneratedInstance = {
   periode: string;

@@ -10,6 +10,7 @@ const DEFAULT_PIPELINE = ["7 - LDM signée", "Z - Interne"];
 
 export type ClientRow = {
   id: string;
+  slug: string;
   denomination: string;
   siren: string | null;
   forme: string | null;
@@ -217,7 +218,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               if (pipelineFilter.size) navParams.set("nav-pipeline", [...pipelineFilter].join("|"));
               if (formeFilter.size) navParams.set("nav-forme", [...formeFilter].join("|"));
               const qs = navParams.toString();
-              const href = `/clients/${r.id}${qs ? `?${qs}` : ""}`;
+              const href = `/clients/${r.slug}${qs ? `?${qs}` : ""}`;
               return (
               <tr
                 key={r.id}

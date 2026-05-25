@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { PipelineStatut } from "@/app/clients/[id]/actions";
+import type { PipelineStatut } from "@/app/clients/[slug]/actions";
 
 /**
  * Change le statut pipeline d'un client (drag-drop Kanban).

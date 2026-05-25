@@ -119,7 +119,7 @@ export async function createClientFromSiren(payload: Payload) {
       ...(payload.type_honos_reprise && { type_honos_reprise: payload.type_honos_reprise }),
       ...(payload.tdb_periode && { tdb_periode: payload.tdb_periode }),
     })
-    .select("id")
+    .select("id, slug")
     .single();
   if (error) throw new Error(error.message);
   const clientId = created.id;
@@ -162,5 +162,5 @@ export async function createClientFromSiren(payload: Payload) {
   }
 
   revalidatePath("/clients");
-  return { id: clientId };
+  return { id: clientId, slug: created.slug };
 }

@@ -22,6 +22,7 @@ type TvaMode = "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TV
 
 export type Row = {
   id: string;
+  slug: string;
   denomination: string;
   siren: string | null;
   groupe: string | null;
@@ -465,7 +466,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                       <div className="flex-1 px-2 py-2 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Link
-                            href={`/clients/${r.id}`}
+                            href={`/clients/${r.slug}`}
                             className="font-medium truncate no-underline hover:text-[hsl(var(--gold))] transition-colors"
                           >
                             {r.denomination}
@@ -474,7 +475,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                         </div>
                         {(r.siren || r.groupe) && (
                           <Link
-                            href={`/clients/${r.id}`}
+                            href={`/clients/${r.slug}`}
                             className="block text-xs text-muted-foreground truncate no-underline hover:text-[hsl(var(--gold))] transition-colors"
                           >
                             {r.siren && <span className="tabular-nums">{r.siren}</span>}

@@ -322,7 +322,7 @@ export default function NouveauClientForm() {
 
     startTransition(async () => {
       try {
-        const { id } = await createClientFromSiren({
+        const { slug } = await createClientFromSiren({
           denomination: denomination.trim(),
           siren: siren.trim() || null,
           forme: forme || null,
@@ -358,7 +358,7 @@ export default function NouveauClientForm() {
                 }
               : null,
         });
-        router.push(`/clients/${id}`);
+        router.push(`/clients/${slug}`);
       } catch (e) {
         setError((e as Error).message);
       }

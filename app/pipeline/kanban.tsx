@@ -15,10 +15,11 @@ import {
 } from "@dnd-kit/core";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
 import { movePipeline } from "./actions";
-import type { PipelineStatut } from "@/app/clients/[id]/actions";
+import type { PipelineStatut } from "@/app/clients/[slug]/actions";
 
 export type PipelineCard = {
   id: string;
+  slug: string;
   denomination: string;
   siren: string | null;
   forme: string | null;
@@ -235,7 +236,7 @@ function Card({
       )}
     >
       <Link
-        href={`/clients/${card.id}`}
+        href={`/clients/${card.slug}`}
         // Empêche le drag de déclencher la navigation
         onPointerDown={(e) => e.stopPropagation()}
         className="font-medium text-xs truncate min-w-0 hover:text-[hsl(var(--gold))] transition-colors"
