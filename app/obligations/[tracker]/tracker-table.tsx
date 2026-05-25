@@ -1007,9 +1007,6 @@ export default function TrackerTable({
                         return { boxShadow: parts.join(", ") };
                       })()
                     : undefined;
-                  const hasComments = c.obligationId
-                    ? (commentCounts[c.obligationId] ?? 0) > 0
-                    : false;
                   return (
                     <td
                       key={c.colKey}
@@ -1021,9 +1018,8 @@ export default function TrackerTable({
                       className={cn(
                         "group/cell px-1 py-1.5 text-center align-middle transition-colors",
                         isOpenCell && "relative z-40",
-                        // Cellule commentée : fond jaune subtil (style Notion).
-                        // Sélection a priorité sur le fond commenté.
-                        hasComments && !isSelected && !isAnchor && "bg-amber-50",
+                        // Pas de fond pour les cellules commentées : le soulignage
+                        // jaune est sur la pastille statut (cf. StatusCell).
                         isSelected && "bg-[hsl(var(--gold))]/10",
                         isAnchor && "bg-[hsl(var(--gold))]/20",
                         isHighlighted && "ring-2 ring-[hsl(var(--gold))] ring-offset-1 rounded animate-pulse"
@@ -1307,7 +1303,7 @@ const StatusCell = memo(function StatusCell({
   const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "·";
 
   return (
-    <div className="relative inline-flex items-center gap-1" ref={ref}>
+    <div className="relative inline-block" ref={ref}>
       <button
         onClick={(e) => {
           if (e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -1318,6 +1314,13 @@ const StatusCell = memo(function StatusCell({
         }}
         data-cell-button="1"
         tabIndex={0}
+        style={
+          // Soulignage jaune sous la pastille si commentaires (style Notion).
+          // box-shadow inset → pas de modif de taille, contrairement à un border.
+          commentCount > 0
+            ? { boxShadow: "inset 0 -2px 0 0 rgb(251 191 36)" } // amber-400
+            : undefined
+        }
         className={cn(
           "relative inline-block px-2 py-1 rounded-md text-[11px] font-medium border max-w-[110px] truncate hover:opacity-80 hover:shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
           colorClass
@@ -1328,12 +1331,12 @@ const StatusCell = memo(function StatusCell({
       </button>
 
       {/* Bulle commentaires (style Notion).
-          - Cachée par défaut, visible UNIQUEMENT au hover de la cellule (td a
-            group/cell ; opacity-0 group-hover/cell:opacity-100).
-          - L'indicateur jaune sur le td signale déjà qu'il y a un thread,
-            on n'a plus besoin de la rendre toujours visible.
-          - Sur touch (pas de hover), on garde une apparence légère pour
-            qu'elle reste tappable. */}
+          - En position ABSOLUTE → sort du flux, la cellule ne se déforme pas
+            au hover (la pastille statut garde sa position).
+          - Cachée par défaut, visible UNIQUEMENT au hover du td parent
+            (group/cell sur le td).
+          - Sur mobile (pas de hover), affichage léger pour qu'elle reste
+            tappable. */}
       {cell.obligationId && (
         <button
           onClick={(e) => {
@@ -1348,10 +1351,11 @@ const StatusCell = memo(function StatusCell({
             });
           }}
           className={cn(
-            "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] transition-opacity shrink-0",
-            // Cachée par défaut, révélée au hover du td parent (group/cell)
+            "absolute left-full top-1/2 -translate-y-1/2 ml-0.5",
+            "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] transition-opacity",
+            // Cachée par défaut, révélée au hover du td parent
             "opacity-0 group-hover/cell:opacity-100",
-            // Sur mobile (pas de hover réel), on laisse une opacity discrète
+            // Mobile : visible discrètement (pas de hover réel sur touch)
             "max-md:opacity-60",
             commentCount > 0
               ? "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 font-medium"
