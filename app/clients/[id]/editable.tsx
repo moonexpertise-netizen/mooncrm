@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn, fmtEuro } from "@/lib/utils";
-import { setClientGroupe, updateClient } from "./actions";
+import { setClientGroupe, updateClient, updateContact } from "./actions";
 
 /**
  * Composants d'édition inline (click-to-edit) pour la fiche client.
@@ -453,6 +453,175 @@ export function EditableGroupe({
           )}
         >
           {display || "·"}
+        </button>
+      )}
+    </FieldShell>
+  );
+}
+
+/**
+ * Édition inline d'un champ texte d'un contact (prénom, nom, email, téléphone).
+ * Identique à EditableText, mais cible la table contacts via updateContact.
+ */
+export function EditableContactText({
+  contactId,
+  field,
+  value,
+  label,
+  placeholder = "·",
+  required = false,
+}: {
+  contactId: string;
+  field: "prenom" | "nom" | "email" | "telephone";
+  value: string | null;
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [display, setDisplay, rollback] = useOptimistic(value);
+  const [draft, setDraft] = useState(value ?? "");
+  const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) ref.current?.focus();
+  }, [editing]);
+
+  function startEdit() {
+    setDraft(display ?? "");
+    setEditing(true);
+  }
+
+  function commit() {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (required && !trimmed) {
+      // Nom obligatoire : on reset au draft précédent sans push
+      setDraft(display ?? "");
+      return;
+    }
+    const newValue = trimmed === "" ? null : trimmed;
+    if (newValue === (display ?? null)) return;
+    setDisplay(newValue); // optimistic
+    setError(null);
+    startTransition(async () => {
+      try {
+        await updateContact(contactId, { [field]: newValue });
+      } catch (e) {
+        rollback();
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  function cancel() {
+    setDraft(display ?? "");
+    setEditing(false);
+  }
+
+  return (
+    <FieldShell label={label} error={error}>
+      {editing ? (
+        <input
+          ref={ref}
+          type={field === "email" ? "email" : "text"}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            else if (e.key === "Escape") cancel();
+          }}
+          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        />
+      ) : (
+        <button
+          onClick={startEdit}
+          className={cn(
+            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
+            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
+          )}
+        >
+          {display || placeholder}
+        </button>
+      )}
+    </FieldShell>
+  );
+}
+
+/**
+ * Sélecteur de civilité (M./Mme/Mlle) pour le dirigeant principal.
+ * Affichage des libellés longs (Monsieur / Madame / Mademoiselle) dans la
+ * fiche, stockage des codes courts (M./Mme/Mlle) en DB (compat avec le
+ * reste du CRM).
+ */
+const CIVILITE_LABELS: Record<"M." | "Mme" | "Mlle", string> = {
+  "M.": "Monsieur",
+  Mme: "Madame",
+  Mlle: "Mademoiselle",
+};
+
+export function EditableContactCivilite({
+  contactId,
+  value,
+  label,
+}: {
+  contactId: string;
+  value: "M." | "Mme" | "Mlle" | null;
+  label: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [display, setDisplay, rollback] = useOptimistic(value);
+  const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const ref = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (editing) ref.current?.focus();
+  }, [editing]);
+
+  function onChange(v: string) {
+    setEditing(false);
+    const newValue = (v || null) as "M." | "Mme" | "Mlle" | null;
+    if (newValue === (display ?? null)) return;
+    setDisplay(newValue);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await updateContact(contactId, { civilite: newValue });
+      } catch (e) {
+        rollback();
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  return (
+    <FieldShell label={label} error={error}>
+      {editing ? (
+        <select
+          ref={ref}
+          value={display ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          className="w-full px-2 py-1 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        >
+          <option value="">· (vide)</option>
+          <option value="M.">Monsieur</option>
+          <option value="Mme">Madame</option>
+          <option value="Mlle">Mademoiselle</option>
+        </select>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className={cn(
+            "w-full text-left px-2 py-1 rounded -mx-2 hover:bg-zinc-100 transition",
+            !display && "bg-amber-50 text-amber-700 hover:bg-amber-100"
+          )}
+        >
+          {display ? CIVILITE_LABELS[display] : "·"}
         </button>
       )}
     </FieldShell>

@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import {
+  phraseConformite,
   phraseHonosBilan,
   phraseHonosCreation,
   phraseJuridique,
@@ -28,11 +29,10 @@ const MONTHS_FR = [
   "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ];
 
-function fmtEuroBare(n: number): string {
-  return new Intl.NumberFormat("fr-FR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(Math.round(n)) + " €";
+function fmtNumFr(n: number): string {
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(
+    Math.round(n)
+  );
 }
 
 export type LDMClientData = {
@@ -75,10 +75,9 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
   const cloture_mois = MONTHS_FR[finDate.getMonth()];
   const cloture_annee = String(finDate.getFullYear());
 
-  // Honoraires mensuels = compta + pilotage. Annuels = ARR complet.
+  // Honoraires mensuels = compta + pilotage (utile pour la phrase bilan
+  // facturée à honos_mensuels × 2)
   const honos_mensuels = client.honoraires_compta + client.forfait_pilotage;
-  const honos_annuels =
-    honos_mensuels * 12 + client.forfait_bilan + client.honoraires_jur;
 
   const ctx: LDMContext = {
     type_honos_bilans: client.type_honos_bilans,
@@ -87,6 +86,7 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     type_honos_reprise: client.type_honos_reprise,
     tdb_periode: client.tdb_periode,
     tdb_honos_periode: client.tdb_honos_periode,
+    forfait_bilan: client.forfait_bilan,
     honoraires_jur: client.honoraires_jur,
     honoraires_reprise: client.honoraires_reprise,
     honoraires_creation: client.honoraires_creation,
@@ -94,8 +94,26 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     honos_mensuels: honos_mensuels,
   };
 
+  // Salutation dynamique : "Cher" si dirigeant masculin (M.), "Chère" sinon
+  // (Mme / Mlle). null par défaut → "Cher" (cas le plus courant).
+  const cher = dirigeant.civilite === "Mme" || dirigeant.civilite === "Mlle"
+    ? "Chère"
+    : "Cher";
+
+  // Le template Word contient un champ IF qui teste {Titre} = "Monsieur" et
+  // renvoie "Cher" ou "Chère". Pour que ce IF évalue correctement, on doit
+  // passer le titre LONG ("Monsieur"/"Madame"/"Mademoiselle"), pas l'abrégé.
+  const titreLong = dirigeant.civilite === "Mme"
+    ? "Madame"
+    : dirigeant.civilite === "Mlle"
+    ? "Mademoiselle"
+    : dirigeant.civilite === "M."
+    ? "Monsieur"
+    : "";
+
   return {
-    Titre: dirigeant.civilite ?? "",
+    Cher: cher,
+    Titre: titreLong,
     Prenom: dirigeant.prenom ?? "",
     Nom: dirigeant.nom ?? "",
     Societe: client.denomination,
@@ -105,8 +123,13 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     Ville: client.ville ?? "",
     Cloture_mission_mois: cloture_mois,
     Cloture_mission_annee: cloture_annee,
-    Honos_mensuels: fmtEuroBare(honos_mensuels),
-    Honos_annuels: fmtEuroBare(honos_annuels),
+    // Variables conformité : montant compta mensuel + compta × 12 (annuel).
+    // Le template a `{Honos_mensuels} € HT par mois ... soit {Honos_annuels}
+    // € HT pour une année de 12 mois.` — on injecte juste le nombre, le `€`
+    // est en dur dans le template.
+    Honos_mensuels: fmtNumFr(client.honoraires_compta),
+    Honos_annuels: fmtNumFr(client.honoraires_compta * 12),
+    Phrase_conformite: phraseConformite(client.honoraires_compta),
     Phrase_honos_bilan: phraseHonosBilan(ctx),
     Phrase_honos_creation: phraseHonosCreation(ctx),
     Phrase_juridique: phraseJuridique(ctx),

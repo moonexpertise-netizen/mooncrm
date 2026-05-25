@@ -18,6 +18,8 @@ import ContactsCard, { type ContactRow } from "./contacts-card";
 import FicheTabs from "./fiche-tabs";
 import NavButtons from "./nav-buttons";
 import {
+  EditableContactCivilite,
+  EditableContactText,
   EditableDate,
   EditableGroupe,
   EditableHeading,
@@ -152,6 +154,16 @@ export default async function ClientFiche({
   if (!client) notFound();
 
   const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
+
+  // Dirigeant principal = 1er contact rattaché. Affiché directement dans
+  // "Infos de base" pour avoir Sexe / Prénom / Nom à portée. La carte Contacts
+  // en bas permet la gestion multi-contacts.
+  const dirigeantContact = (contactsLink?.[0]?.contacts as unknown as {
+    id: string;
+    nom: string;
+    prenom: string | null;
+    civilite: "M." | "Mme" | "Mlle" | null;
+  } | null) ?? null;
 
   const yearsSet = new Set<number>((allSubs ?? []).map((s) => s.annee));
   yearsSet.add(CURRENT_YEAR);
@@ -376,8 +388,225 @@ export default async function ClientFiche({
           current={(client.pipeline_statut as PipelineStatut | null) ?? null}
         />
       </Card>
+
+      {/* ====================================================================
+          SECTION 1 — INFOS DE BASE (identique au parcours de création)
+      ==================================================================== */}
+      <SectionTitle
+        n={1}
+        title="Infos de base"
+        sub="Identité du dossier et coordonnées · alimentent la lettre de mission"
+      />
+      <Card title="Identité du dossier">
+        {/* Dirigeant principal (1er contact rattaché) — édition inline directe.
+            La carte Contacts plus bas reste pour la gestion multi-contacts. */}
+        {dirigeantContact ? (
+          <>
+            <EditableContactCivilite
+              contactId={dirigeantContact.id}
+              value={dirigeantContact.civilite}
+              label="Sexe dirigeant"
+            />
+            <EditableContactText
+              contactId={dirigeantContact.id}
+              field="prenom"
+              value={dirigeantContact.prenom}
+              label="Prénom dirigeant"
+            />
+            <EditableContactText
+              contactId={dirigeantContact.id}
+              field="nom"
+              value={dirigeantContact.nom}
+              label="Nom dirigeant"
+              required
+            />
+          </>
+        ) : (
+          <div className="grid grid-cols-[140px_1fr] gap-2 py-1 text-sm items-center">
+            <div className="text-muted-foreground">Dirigeant</div>
+            <div className="px-2 py-1 -mx-2 rounded bg-amber-50 text-amber-700 text-xs">
+              Aucun contact rattaché · ajouter un contact dans la carte Contacts ↓
+            </div>
+          </div>
+        )}
+        <EditableText
+          clientId={id}
+          field="email"
+          value={client.email}
+          label="Adresse mail"
+        />
+        <EditableText
+          clientId={id}
+          field="activite"
+          value={client.activite}
+          label="Activité"
+        />
+        <EditableDate
+          clientId={id}
+          field="fin_mission_date"
+          value={client.fin_mission_date}
+          label="Clôture 1ère mission"
+        />
+        <EditableText
+          clientId={id}
+          field="adresse_siege"
+          value={client.adresse_siege}
+          label="Adresse ligne 1"
+        />
+        <EditableText
+          clientId={id}
+          field="code_postal"
+          value={client.code_postal}
+          label="Code postal"
+        />
+        <EditableText
+          clientId={id}
+          field="ville"
+          value={client.ville}
+          label="Ville"
+        />
+      </Card>
+
+      {/* ====================================================================
+          SECTION 2 — HONORAIRES (forfaits récurrents + one-shots)
+      ==================================================================== */}
+      <SectionTitle
+        n={2}
+        title="Honoraires"
+        sub="Forfaits qui alimentent la lettre de mission"
+      />
+      <Card title="Forfaits récurrents">
+        <EditableNumber
+          clientId={id}
+          field="honoraires_compta"
+          value={client.honoraires_compta}
+          label="Forfait comptable"
+          unit="eur"
+        />
+        <div className="border-t pt-2 mt-1">
+          <EditableSelect
+            clientId={id}
+            field="type_honos_bilans"
+            value={client.type_honos_bilans}
+            label="Forfait bilan"
+            options={["Facturés", "Inclus"]}
+          />
+          {client.type_honos_bilans === "Facturés" && (
+            <EditableNumber
+              clientId={id}
+              field="forfait_bilan"
+              value={client.forfait_bilan}
+              label="↳ Montant"
+              unit="eur"
+            />
+          )}
+        </div>
+        <div className="border-t pt-2 mt-1">
+          <EditableSelect
+            clientId={id}
+            field="type_honos_jur"
+            value={client.type_honos_jur}
+            label="Forfait juridique"
+            options={["Facturés", "Inclus", "Non souscrit"]}
+          />
+          {client.type_honos_jur === "Facturés" && (
+            <EditableNumber
+              clientId={id}
+              field="honoraires_jur"
+              value={client.honoraires_jur}
+              label="↳ Montant"
+              unit="eur"
+            />
+          )}
+        </div>
+        <div className="border-t pt-2 mt-1">
+          <EditableSelect
+            clientId={id}
+            field="tdb_periode"
+            value={client.tdb_periode}
+            label="Forfait pilotage"
+            options={["Mensuel", "Trimestriel", "Non souscrit"]}
+          />
+          {(client.tdb_periode === "Mensuel" || client.tdb_periode === "Trimestriel") && (
+            <>
+              <EditableNumber
+                clientId={id}
+                field="tdb_honos_periode"
+                value={client.tdb_honos_periode}
+                label={`↳ Montant / ${client.tdb_periode === "Mensuel" ? "mois" : "trimestre"}`}
+                unit="eur"
+              />
+              <FieldReadonly
+                label="↳ Équivalent mensuel"
+                value={fmtEuro(client.forfait_pilotage ?? 0) ?? "·"}
+              />
+            </>
+          )}
+        </div>
+        <div className="border-t pt-2 mt-2 space-y-0.5">
+          <FieldReadonly label="MRR" value={fmtEuro(client.mrr ?? 0) ?? "·"} />
+          <FieldReadonly label="ARR" value={fmtEuro(client.arr ?? 0) ?? "·"} />
+        </div>
+      </Card>
+
+      <Card title="Honoraires one-shot">
+        <div>
+          <EditableSelect
+            clientId={id}
+            field="type_honos_creation"
+            value={client.type_honos_creation}
+            label="Forfait création"
+            options={["Facturés", "Non souscrit"]}
+          />
+          {client.type_honos_creation === "Facturés" && (
+            <EditableNumber
+              clientId={id}
+              field="honoraires_creation"
+              value={client.honoraires_creation}
+              label="↳ Montant"
+              unit="eur"
+            />
+          )}
+        </div>
+        <div className="border-t pt-2 mt-1">
+          <EditableSelect
+            clientId={id}
+            field="type_honos_reprise"
+            value={client.type_honos_reprise}
+            label="Forfait reprise"
+            options={["Facturés", "Non souscrit"]}
+          />
+          {client.type_honos_reprise === "Facturés" && (
+            <EditableNumber
+              clientId={id}
+              field="honoraires_reprise"
+              value={client.honoraires_reprise}
+              label="↳ Montant"
+              unit="eur"
+            />
+          )}
+        </div>
+        <div className="border-t pt-2 mt-1">
+          <EditableNumber
+            clientId={id}
+            field="exceptionnel"
+            value={client.exceptionnel}
+            label="Honos exceptionnels"
+            unit="eur"
+          />
+        </div>
+      </Card>
+
+      {/* ====================================================================
+          SECTION 3 — DÉTAILS CRM (suivi interne, pas dans la LDM)
+      ==================================================================== */}
+      <SectionTitle
+        n={3}
+        title="Détails CRM"
+        sub="Suivi interne · n'apparaît pas dans la lettre de mission"
+      />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="Identité">
+        <Card title="Identité légale">
           <EditableText clientId={id} field="siren" value={client.siren} label="SIREN" />
           <EditableSelect
             clientId={id}
@@ -385,12 +614,6 @@ export default async function ClientFiche({
             value={client.forme}
             label="Forme juridique"
             options={FORME_VALUES}
-          />
-          <EditableText
-            clientId={id}
-            field="activite"
-            value={client.activite}
-            label="Activité"
           />
           <EditableSelect
             clientId={id}
@@ -405,15 +628,9 @@ export default async function ClientFiche({
             label="Groupe"
             options={groupesOptions}
           />
-          <EditableText
-            clientId={id}
-            field="email"
-            value={client.email}
-            label="Email"
-          />
         </Card>
 
-        <Card title="Clôture &amp; signature">
+        <Card title="Dates de gestion">
           <ClotureSplit
             clientId={id}
             jour={client.jour_cloture}
@@ -431,167 +648,23 @@ export default async function ClientFiche({
             value={client.mois_signature}
             label="Mois signature"
           />
-          <EditableDate
-            clientId={id}
-            field="fin_mission_date"
-            value={client.fin_mission_date}
-            label="Clôture 1ère mission"
-          />
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="Adresse du siège">
-          <EditableText
-            clientId={id}
-            field="adresse_siege"
-            value={client.adresse_siege}
-            label="Adresse"
-          />
-          <EditableText
-            clientId={id}
-            field="code_postal"
-            value={client.code_postal}
-            label="Code postal"
-          />
-          <EditableText
-            clientId={id}
-            field="ville"
-            value={client.ville}
-            label="Ville"
-          />
-        </Card>
-
-        <Card title="LDM — Options">
-          <EditableSelect
-            clientId={id}
-            field="type_honos_bilans"
-            value={client.type_honos_bilans}
-            label="Honos bilans"
-            options={["Inclus", "Facturés"]}
-          />
-          <EditableSelect
-            clientId={id}
-            field="type_honos_jur"
-            value={client.type_honos_jur}
-            label="Honos juridique"
-            options={["Facturés", "Inclus", "Non souscrit"]}
-          />
-          <EditableSelect
-            clientId={id}
-            field="tdb_periode"
-            value={client.tdb_periode}
-            label="TDB période"
-            options={["Mensuel", "Trimestriel", "Non souscrit"]}
-          />
-          <EditableNumber
-            clientId={id}
-            field="tdb_honos_periode"
-            value={client.tdb_honos_periode}
-            label="TDB par période"
-            unit="eur"
-          />
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="Honoraires">
-          <EditableNumber
-            clientId={id}
-            field="honoraires_compta"
-            value={client.honoraires_compta}
-            label="Forfait comptable (mensuel)"
-            unit="eur"
-          />
-          <EditableNumber
-            clientId={id}
-            field="forfait_bilan"
-            value={client.forfait_bilan}
-            label="Forfait bilan (annuel)"
-            unit="eur"
-          />
-          <EditableNumber
-            clientId={id}
-            field="honoraires_jur"
-            value={client.honoraires_jur}
-            label="Forfait juridique (annuel)"
-            unit="eur"
-          />
-          {/* forfait_pilotage est désormais DÉRIVÉ de tdb_honos_periode + tdb_periode.
-              On l'affiche en read-only pour info, mais la saisie se fait via
-              les champs TDB dans la carte "LDM — Options". */}
-          <FieldReadonly
-            label="Forfait pilotage (mensuel)"
-            value={fmtEuro(client.forfait_pilotage ?? 0) ?? "·"}
-          />
-          {/* Calculs automatiques */}
-          <div className="border-t pt-2 mt-2 space-y-1">
-            <FieldReadonly
-              label="ARR"
-              value={fmtEuro(client.arr ?? 0) ?? "·"}
-            />
-            <FieldReadonly
-              label="MRR (équivalent)"
-              value={fmtEuro(client.mrr ?? 0) ?? "·"}
-            />
-          </div>
-          {/* One-shots & exceptionnels — pas inclus dans l'ARR/MRR.
-              Les flags type_honos_* déterminent ce qui apparaît dans la LDM
-              (Facturés = phrase avec montant / Non souscrit = phrase vide). */}
-          <div className="border-t pt-2 mt-2 space-y-1">
-            <EditableSelect
-              clientId={id}
-              field="type_honos_creation"
-              value={client.type_honos_creation}
-              label="Honos création"
-              options={["Facturés", "Non souscrit"]}
-            />
-            <EditableNumber
-              clientId={id}
-              field="honoraires_creation"
-              value={client.honoraires_creation}
-              label="Montant création"
-              unit="eur"
-            />
-            <EditableSelect
-              clientId={id}
-              field="type_honos_reprise"
-              value={client.type_honos_reprise}
-              label="Honos reprise"
-              options={["Facturés", "Non souscrit"]}
-            />
-            <EditableNumber
-              clientId={id}
-              field="honoraires_reprise"
-              value={client.honoraires_reprise}
-              label="Montant reprise"
-              unit="eur"
-            />
-            <EditableNumber
-              clientId={id}
-              field="exceptionnel"
-              value={client.exceptionnel}
-              label="Honos exceptionnels"
-              unit="eur"
-            />
-          </div>
-        </Card>
-
-        <Card title="Notes">
-          <EditableTextArea
-            clientId={id}
-            field="note_pdc"
-            value={client.note_pdc}
-            label="Note PDC"
-          />
-          <EditableTextArea
-            clientId={id}
-            field="ldm_social"
-            value={client.ldm_social}
-            label="LDM social"
-          />
-        </Card>
-      </div>
+      <Card title="Notes">
+        <EditableTextArea
+          clientId={id}
+          field="note_pdc"
+          value={client.note_pdc}
+          label="Note PDC"
+        />
+        <EditableTextArea
+          clientId={id}
+          field="ldm_social"
+          value={client.ldm_social}
+          label="LDM social"
+        />
+      </Card>
 
       <ContactsCard
         clientId={id}
@@ -757,6 +830,33 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
     <div className="rounded-lg border bg-card p-4">
       <h3 className="text-sm font-medium mb-3 text-zinc-700">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+/** Séparateur de section · titre numéroté + sous-titre, ligne dorée.
+ *  Identique au composant utilisé dans le form de création (cohérence visuelle). */
+function SectionTitle({
+  n,
+  title,
+  sub,
+}: {
+  n: number;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <div className="pt-2 pb-1">
+      <div className="flex items-baseline gap-2">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[hsl(var(--gold))]/15 text-[hsl(var(--gold-dark))] text-xs font-semibold">
+          {n}
+        </span>
+        <h2 className="text-base font-semibold tracking-tight text-zinc-900">
+          {title}
+        </h2>
+      </div>
+      <p className="text-[11px] text-zinc-500 ml-8 mt-0.5">{sub}</p>
+      <div className="h-px bg-zinc-200 mt-2" />
     </div>
   );
 }
