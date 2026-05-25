@@ -6,6 +6,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -62,8 +63,12 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   // État local optimiste : appliqué immédiatement, puis revalidate côté serveur
   const [localCards, setLocalCards] = useState<PipelineCard[]>(cards);
 
+  // Pointer (souris) : démarre dès 8px de déplacement.
+  // Touch (mobile) : delay 200ms avant drag → pas de conflit avec le scroll
+  // vertical natif. Sinon, tout swipe verticale lance un drag.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
   function onDragStart(e: DragStartEvent) {
@@ -93,10 +98,10 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="space-y-4">
-        {/* Étapes actives — grid auto-fit : les colonnes s'étirent pour
-            remplir la largeur dispo, wrappent sur 2 lignes si trop étroit. */}
+        {/* Étapes actives — mobile : scroll-x snap (1 colonne plein écran).
+            Desktop : grid auto-fit qui wrap si nécessaire. */}
         <div
-          className="grid gap-3 pb-2"
+          className="flex md:grid gap-3 pb-2 overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none -mx-3 px-3 sm:-mx-0 sm:px-0"
           style={{
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           }}
@@ -174,15 +179,15 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "min-w-0 rounded-lg border bg-card flex flex-col",
-        // Hauteur fixe pour rester compact même quand les colonnes wrap sur
-        // plusieurs lignes (les écrans étroits passent en 2 lignes au lieu
-        // de scroll horizontal).
-        terminal ? "max-h-[280px]" : "max-h-[500px]",
+        "rounded-lg border bg-card flex flex-col",
+        // Mobile : colonne snap-start ~85vw, hauteur libre. Desktop : largeur
+        // dynamique via grid + hauteur fixe pour compacité.
+        "min-w-[85vw] md:min-w-0 snap-start shrink-0 md:shrink",
+        terminal ? "max-h-none md:max-h-[280px]" : "max-h-none md:max-h-[500px]",
         isOver && "ring-2 ring-[hsl(var(--gold))] ring-offset-1"
       )}
     >
-      <div className={cn("px-3 py-2 border-b flex items-center justify-between gap-2", terminal && "bg-zinc-50/50")}>
+      <div className={cn("px-3 py-2 border-b flex items-center justify-between gap-2 md:static sticky top-0 z-10 bg-card", terminal && "bg-zinc-50/50")}>
         <div className="flex items-center gap-2 min-w-0">
           <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border truncate", color)}>
             {label}

@@ -29,8 +29,8 @@ export function SectionTitle({ n, title, sub }: { n: number; title: string; sub:
 /** Champ en lecture seule (MRR, ARR, équivalent mensuel…). */
 export function FieldReadonly({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[140px_minmax(0,360px)] gap-2 py-1 text-sm items-center">
-      <div className="text-muted-foreground">{label}</div>
+    <div className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,360px)] gap-1 sm:gap-2 py-1.5 sm:py-1 text-sm sm:items-center">
+      <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
       <div className="px-2 py-1 -mx-2 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 tabular-nums">
         {value}
       </div>

@@ -119,15 +119,16 @@ export default async function ClientLayout({
         />
       </div>
 
-      {/* HEADER */}
+      {/* HEADER — mobile : tout en colonne, MRR et boutons sous le titre.
+          Desktop : titre à gauche, MRR + boutons à droite. */}
       <div className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-start lg:justify-between gap-3 lg:gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <EditableHeading clientId={client.id} value={client.denomination} />
               <PappersInpiBadges siren={client.siren} />
             </div>
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs sm:text-sm text-muted-foreground">
               {client.siren && <span>SIREN {client.siren}</span>}
               {client.forme && <span>· {client.forme}</span>}
               {client.activite && <span>· {client.activite}</span>}
@@ -142,15 +143,17 @@ export default async function ClientLayout({
               )}
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2 text-right">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">MRR</div>
-              <div className="text-2xl font-semibold">{fmtEuro(client.mrr)}</div>
-              <div className="text-xs text-muted-foreground">
+          {/* Bloc MRR + actions : sur mobile rangé sur une ligne ;
+              sur desktop empilé verticalement à droite. */}
+          <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-start gap-3 w-full lg:w-auto">
+            <div className="lg:text-right">
+              <div className="text-[10px] sm:text-xs uppercase tracking-wide text-muted-foreground">MRR</div>
+              <div className="text-xl sm:text-2xl font-semibold">{fmtEuro(client.mrr)}</div>
+              <div className="text-[11px] sm:text-xs text-muted-foreground">
                 ARR {fmtEuro(client.arr ?? (client.mrr ?? 0) * 12)}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
               <AnnuaireButton
                 clientId={client.id}
                 siren={client.siren}

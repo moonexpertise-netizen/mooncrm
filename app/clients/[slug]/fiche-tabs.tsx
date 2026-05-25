@@ -25,7 +25,7 @@ export default function FicheTabs({ slug }: { slug: string }) {
   ];
 
   return (
-    <div className="border-b flex gap-1">
+    <div className="border-b flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-thin">
       {tabs.map((t) => {
         const active = t.match(pathname);
         return (
@@ -34,7 +34,7 @@ export default function FicheTabs({ slug }: { slug: string }) {
             href={t.href}
             prefetch
             className={cn(
-              "px-4 py-2 text-sm border-b-2 -mb-px transition-colors",
+              "px-3 sm:px-4 py-2 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0",
               active
                 ? "border-[hsl(var(--gold))] text-[hsl(var(--gold-dark))] font-medium"
                 : "border-transparent text-zinc-500 hover:text-zinc-900"

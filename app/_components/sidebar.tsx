@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 
 export const SIDEBAR_STORAGE_KEY = "moon.sidebar.collapsed";
 export const SIDEBAR_EVENT = "moon:sidebar-toggle";
+/** Event mobile : ouverture/fermeture du drawer. detail = boolean (open) */
+export const SIDEBAR_MOBILE_EVENT = "moon:sidebar-mobile-toggle";
 /** Année sélectionnée dans le module Production. Persistée pour rester active
  *  quand on navigue entre les sous-trackers. */
 const OBLIGATIONS_YEAR_KEY = "moon.obligations.year";
@@ -93,6 +95,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
+  // Mobile drawer : ouvert via hamburger AppShell, fermé au scroll route change
+  const [mobileOpen, setMobileOpen] = useState(false);
   // Ouvert si on charge déjà une page Production
   const [prodOpen, setProdOpen] = useState(() => pathname.startsWith("/obligations"));
   // Sous-blocs Production tous ouverts par défaut · clic sur l'en-tête replie celui-là
@@ -128,7 +132,20 @@ export function Sidebar() {
       const n = parseInt(yr, 10);
       if (!Number.isNaN(n)) setPersistedObligationsYear(n);
     }
+
+    // Écoute les ouvertures du drawer mobile depuis le hamburger AppShell
+    const onMobileToggle = (e: Event) => {
+      const ce = e as CustomEvent<boolean>;
+      setMobileOpen(Boolean(ce.detail));
+    };
+    window.addEventListener(SIDEBAR_MOBILE_EVENT, onMobileToggle);
+    return () => window.removeEventListener(SIDEBAR_MOBILE_EVENT, onMobileToggle);
   }, []);
+
+  // Ferme automatiquement le drawer mobile au changement de route
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   // Synchronise localStorage avec ?year= de l'URL quand on est sur /obligations*
   useEffect(() => {
@@ -205,22 +222,39 @@ export function Sidebar() {
   }
 
   return (
-    <aside
-      className={cn(
-        "fixed inset-y-0 left-0 z-40 bg-[#0D1122] text-zinc-300 flex flex-col border-r border-white/5",
-        "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-        collapsed ? "w-14" : "w-60"
-      )}
-    >
+    <>
+      {/* Overlay mobile (clic = ferme le drawer) */}
+      <div
+        onClick={() => {
+          setMobileOpen(false);
+          window.dispatchEvent(new CustomEvent(SIDEBAR_MOBILE_EVENT, { detail: false }));
+        }}
+        className={cn(
+          "md:hidden fixed inset-0 z-30 bg-black/40 transition-opacity duration-300",
+          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        aria-hidden
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 bg-[#0D1122] text-zinc-300 flex flex-col border-r border-white/5",
+          "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          // Mobile : drawer slide-in/out depuis la gauche
+          "max-md:w-[280px]",
+          mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
+          // Desktop : largeur dynamique selon collapsed
+          "md:translate-x-0",
+          collapsed ? "md:w-14" : "md:w-60"
+        )}
+      >
       {/* Hit-zone large cliquable sur tout le bord droit pour replier/déplier.
-          28px de large, centrée sur le bord — moitié intérieure, moitié extérieure.
-          Pastille chevron toujours visible (opacité 60%), boostée au survol. */}
+          Cachée sur mobile (le drawer s'ouvre via le hamburger AppShell). */}
       <button
         type="button"
         onClick={toggle}
         aria-label={collapsed ? "Déplier la barre latérale" : "Replier la barre latérale"}
         title={collapsed ? "Déplier la barre latérale" : "Replier la barre latérale"}
-        className="group/divider absolute top-0 -right-3.5 h-full w-7 z-50 cursor-pointer flex items-center justify-center"
+        className="hidden md:flex group/divider absolute top-0 -right-3.5 h-full w-7 z-50 cursor-pointer items-center justify-center"
       >
         {/* Trait vertical sur la bordure : neutre, doré au survol */}
         <span className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-white/10 group-hover/divider:bg-[hsl(var(--gold))]/70 group-hover/divider:w-0.5 transition-all duration-200" />
@@ -465,5 +499,6 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

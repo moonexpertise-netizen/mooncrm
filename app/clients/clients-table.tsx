@@ -200,7 +200,8 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         <div>ARR cumulé : <span className="font-medium text-zinc-900 tabular-nums">{fmtEuro(totalArr)}</span></div>
       </div>
 
-      <div className="rounded-lg border overflow-hidden bg-card">
+      {/* Desktop : table classique */}
+      <div className="hidden md:block rounded-lg border overflow-hidden bg-card">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-zinc-700 text-xs uppercase tracking-wide">
             <tr>
@@ -273,6 +274,52 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile : liste de cartes empilées (touch friendly) */}
+      <div className="md:hidden space-y-2">
+        {sorted.length === 0 ? (
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+            Aucun client ne correspond aux filtres.
+          </div>
+        ) : (
+          sorted.map((r) => {
+            const navParams = new URLSearchParams();
+            if (search) navParams.set("nav-q", search);
+            if (pipelineFilter.size) navParams.set("nav-pipeline", [...pipelineFilter].join("|"));
+            if (formeFilter.size) navParams.set("nav-forme", [...formeFilter].join("|"));
+            const qs = navParams.toString();
+            const href = `/clients/${r.slug}${qs ? `?${qs}` : ""}`;
+            return (
+              <Link
+                key={r.id}
+                href={href}
+                className="block rounded-lg border bg-card px-3 py-3 active:bg-zinc-50 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-sm truncate">{r.denomination}</span>
+                      <PappersInpiBadges siren={r.siren} size="xs" />
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
+                      {r.siren && <span className="tabular-nums">{r.siren}</span>}
+                      {r.groupe_nom && <span>· {r.groupe_nom}</span>}
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium tabular-nums shrink-0">
+                    {fmtEuro(r.arr ?? 0)}
+                  </div>
+                </div>
+                {r.pipeline_statut && (
+                  <div className="mt-2">
+                    <Badge text={r.pipeline_statut} color={PIPELINE_COLORS[r.pipeline_statut]} />
+                  </div>
+                )}
+              </Link>
+            );
+          })
+        )}
       </div>
     </div>
   );

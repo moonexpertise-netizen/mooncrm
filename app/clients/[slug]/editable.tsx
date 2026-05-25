@@ -25,10 +25,13 @@ import { setClientGroupe, updateClient, updateContact } from "./actions";
 /** Classe d'un input/select.
  *  - Vide    : fond jaune pastel + bordure amber (signale qu'il faut remplir)
  *  - Rempli  : fond vert pastel + bordure emerald (signale "OK, saisi")
+ *
+ *  Mobile : min-h-[44px] (cible touch iOS HIG) + text-base (16px : empêche
+ *  le zoom auto Safari sur focus d'un champ).
  */
 function fieldInputClass(filled: boolean, extra = ""): string {
   return cn(
-    "w-full px-2 py-1 rounded border text-sm transition focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
+    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded border text-base sm:text-sm transition focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
     filled
       ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
       : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400",
@@ -79,13 +82,14 @@ function FieldShell({
   className?: string;
 }) {
   return (
-    <div className={cn("py-1 text-sm", className)}>
-      <div className="grid grid-cols-[140px_minmax(0,360px)] gap-2 items-center">
-        <div className="text-muted-foreground">{label}</div>
+    <div className={cn("py-1.5 sm:py-1 text-sm", className)}>
+      {/* Mobile : label dessus, input dessous (1 colonne). Desktop : 140px label + 360px max input. */}
+      <div className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,360px)] gap-1 sm:gap-2 sm:items-center">
+        <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
         <div className="min-w-0">{children}</div>
       </div>
       {error && (
-        <div className="text-[11px] text-rose-600 mt-0.5 ml-[148px]">
+        <div className="text-[11px] text-rose-600 mt-0.5 sm:ml-[148px]">
           {error}
         </div>
       )}

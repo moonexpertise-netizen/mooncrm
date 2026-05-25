@@ -138,42 +138,53 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
   }
 
   return (
-    <li className="flex flex-wrap items-center gap-2 py-1.5 px-2 -mx-2 rounded hover:bg-zinc-50 group">
-      <CivilitePicker value={display.civilite} onChange={commitCivilite} />
-      <InlineField
-        value={display.prenom ?? ""}
-        placeholder="Prénom"
-        onCommit={(v) => commit("prenom", v)}
-        className="text-sm min-w-[80px]"
-      />
-      <InlineField
-        value={display.nom}
-        placeholder="Nom"
-        onCommit={(v) => commit("nom", v)}
-        className="font-medium min-w-[80px]"
-      />
+    <li className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 py-2 px-2 -mx-2 rounded hover:bg-zinc-50 group">
+      {/* Ligne 1 mobile : civilité + prénom + nom + supprimer */}
+      <div className="flex items-center gap-2 sm:contents">
+        <CivilitePicker value={display.civilite} onChange={commitCivilite} />
+        <InlineField
+          value={display.prenom ?? ""}
+          placeholder="Prénom"
+          onCommit={(v) => commit("prenom", v)}
+          className="text-sm min-w-[80px] flex-1 sm:flex-none"
+        />
+        <InlineField
+          value={display.nom}
+          placeholder="Nom"
+          onCommit={(v) => commit("nom", v)}
+          className="font-medium min-w-[80px] flex-1 sm:flex-none"
+        />
+        <button
+          onClick={onRemove}
+          className="sm:hidden text-sm text-zinc-400 hover:text-rose-600 px-1.5 shrink-0"
+          title="Détacher du dossier"
+        >
+          ✕
+        </button>
+      </div>
+      {/* Ligne 2+ mobile : rôle/email/téléphone empilés */}
       <InlineField
         value={display.role ?? ""}
         placeholder="Rôle"
         onCommit={(v) => commit("role", v)}
-        className="text-xs"
+        className="text-xs w-full sm:w-auto"
       />
       <InlineField
         value={display.email ?? ""}
         placeholder="Email"
         onCommit={(v) => commit("email", v)}
-        className="text-xs"
+        className="text-xs w-full sm:w-auto"
         type="email"
       />
       <InlineField
         value={display.telephone ?? ""}
         placeholder="Téléphone"
         onCommit={(v) => commit("telephone", v)}
-        className="text-xs tabular-nums"
+        className="text-xs tabular-nums w-full sm:w-auto"
       />
       <button
         onClick={onRemove}
-        className="ml-auto opacity-0 group-hover:opacity-100 transition text-xs text-zinc-400 hover:text-rose-600 px-1.5"
+        className="hidden sm:block ml-auto opacity-0 group-hover:opacity-100 transition text-xs text-zinc-400 hover:text-rose-600 px-1.5"
         title="Détacher du dossier"
       >
         ✕

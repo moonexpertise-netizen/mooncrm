@@ -36,8 +36,12 @@ export function ClientSwitcher() {
       .then(({ data }) => setClients((data as ClientLite[]) ?? []));
   }, []);
 
-  // Raccourci Ctrl/⌘ + F : focus + sélection + ouverture
+  // Raccourci Ctrl/⌘ + F : focus + sélection + ouverture. Désactivé sur
+  // touch (mobile/tablette) car ça intercepterait la recherche navigateur.
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    if (isTouch) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
@@ -101,7 +105,7 @@ export function ClientSwitcher() {
   }
 
   return (
-    <div ref={containerRef} className="relative w-72 max-w-full">
+    <div ref={containerRef} className="relative w-full md:w-72 max-w-full">
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
         <input
@@ -116,15 +120,15 @@ export function ClientSwitcher() {
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder="Aller au dossier…"
-          className="w-full pl-8 pr-12 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+          className="w-full pl-8 pr-3 md:pr-12 py-1.5 rounded-md border border-zinc-300 bg-white text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
         />
-        {/* Indicateur de raccourci */}
-        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 rounded px-1.5 py-0.5 font-mono pointer-events-none">
+        {/* Indicateur de raccourci — caché sur touch */}
+        <kbd className="hidden md:inline-block absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 rounded px-1.5 py-0.5 font-mono pointer-events-none">
           Ctrl·F
         </kbd>
       </div>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-96 max-w-[92vw] rounded-lg border bg-white shadow-xl overflow-hidden animate-slide-up-fade">
+        <div className="absolute right-0 top-full mt-1 z-50 w-96 max-w-[calc(100vw-1.5rem)] rounded-lg border bg-white shadow-xl overflow-hidden animate-slide-up-fade">
           {filtered.length === 0 ? (
             <div className="px-3 py-4 text-sm text-zinc-500 text-center">
               {clients.length === 0 ? "Chargement…" : "Aucun dossier."}
