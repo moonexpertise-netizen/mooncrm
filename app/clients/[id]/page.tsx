@@ -123,6 +123,20 @@ export default async function ClientFiche({
       : "identite";
   const supabase = await createClient();
 
+  // Perf : on charge en parallèle exactement ce qu'il faut, et on évite les
+  // gros payloads. Le SELECT * sur clients chargeait ~80 colonnes alors qu'on
+  // en utilise ~30. La query "tous les clients" qui servait à prev/next
+  // navigation a une shape conditionnelle (cf. ci-dessous) — minimale si pas
+  // de filtre nav. On charge aussi status_options pour TOUS les types possibles
+  // (~20 lignes, payload minuscule) pour éviter une 2e query séquentielle.
+
+  const navQ = sp["nav-q"]?.toLowerCase() ?? "";
+  const navPipeline = new Set(sp["nav-pipeline"]?.split("|").filter(Boolean) ?? []);
+  const navForme = new Set(sp["nav-forme"]?.split("|").filter(Boolean) ?? []);
+  const navOrigine = new Set(sp["nav-origine"]?.split("|").filter(Boolean) ?? []);
+  const hasNavFilter =
+    navQ !== "" || navPipeline.size > 0 || navForme.size > 0 || navOrigine.size > 0;
+
   const [
     { data: client },
     { data: contactsLink },
@@ -131,8 +145,16 @@ export default async function ClientFiche({
     { data: yearConfigs },
     { data: allGroupes },
     { data: allClientsList },
+    { data: allStatusOpts },
   ] = await Promise.all([
-    supabase.from("clients").select("*, groupes(nom)").eq("id", id).single(),
+    // Colonnes ciblées au lieu de SELECT * : payload divisé par ~2.5.
+    supabase
+      .from("clients")
+      .select(
+        "id, denomination, siren, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, groupes(nom)"
+      )
+      .eq("id", id)
+      .single(),
     supabase
       .from("client_contacts")
       .select("role, contacts(id, nom, prenom, email, telephone, civilite)")
@@ -150,7 +172,21 @@ export default async function ClientFiche({
       .select("annee, regime")
       .eq("client_id", id),
     supabase.from("groupes").select("nom").order("nom"),
-    supabase.from("clients").select("id, denomination").order("denomination"),
+    // Liste prev/next : on ne la charge QUE si filtre actif (sinon on n'utilise
+    // que id+denomination dans la barre, ce qui est rapide) ; sinon ne fait
+    // rien et économise 1 RTT.
+    hasNavFilter
+      ? supabase
+          .from("clients")
+          .select("id, denomination, pipeline_statut, forme, origine, groupes(nom)")
+          .order("denomination")
+      : supabase.from("clients").select("id, denomination").order("denomination"),
+    // Status options pour TOUS les types possibles (payload ~20 lignes minuscule).
+    // Évite une 2e query séquentielle après obligations pour charger les couleurs.
+    supabase
+      .from("status_options")
+      .select("type_code, libelle, color")
+      .eq("scope", "obligation"),
   ]);
 
   if (!client) notFound();
@@ -192,20 +228,10 @@ export default async function ClientFiche({
     .order("type")
     .order("periode");
 
-  // Charge les couleurs custom des libellés (status_options.color) pour les
-  // types actifs ; l'échéancier les utilise pour afficher (ex.) "Rejetée · à
-  // renvoyer" en rouge au lieu d'amber par défaut.
-  const typesInUse = [...new Set((obligations ?? []).map((o) => o.type))];
-  const { data: statusOpts } =
-    typesInUse.length > 0
-      ? await supabase
-          .from("status_options")
-          .select("type_code, libelle, color")
-          .eq("scope", "obligation")
-          .in("type_code", typesInUse)
-      : { data: [] };
+  // Couleurs custom des libellés (status_options.color) — déjà chargées dans
+  // le Promise.all initial (`allStatusOpts`), pas de RTT supplémentaire.
   const colorByKey = new Map<string, string | null>();
-  for (const o of statusOpts ?? []) {
+  for (const o of allStatusOpts ?? []) {
     if (o.color) colorByKey.set(`${o.type_code}|${o.libelle}`, o.color);
   }
 
@@ -242,23 +268,12 @@ export default async function ClientFiche({
 
   const groupesOptions = (allGroupes ?? []).map((g) => g.nom);
 
-  // Navigation prev/next : respecte le filtre actif sur /clients via les
-  // params "nav-*" transmis par les liens de la liste.
-  const navQ = sp["nav-q"]?.toLowerCase() ?? "";
-  const navPipeline = new Set(sp["nav-pipeline"]?.split("|").filter(Boolean) ?? []);
-  const navForme = new Set(sp["nav-forme"]?.split("|").filter(Boolean) ?? []);
-  const navOrigine = new Set(sp["nav-origine"]?.split("|").filter(Boolean) ?? []);
-  const hasNavFilter =
-    navQ !== "" || navPipeline.size > 0 || navForme.size > 0 || navOrigine.size > 0;
-
-  // Si filtre actif, on re-query la liste enrichie pour pouvoir filtrer
-  let clientList = (allClientsList ?? []) as Array<{ id: string; denomination: string }>;
+  // Navigation prev/next : respecte le filtre actif sur /clients. La liste
+  // chargée a la bonne shape (enrichie si filtre actif, minimale sinon) — un
+  // seul RTT au lieu de deux.
+  let clientList: Array<{ id: string; denomination: string }>;
   if (hasNavFilter) {
-    const { data: enriched } = await supabase
-      .from("clients")
-      .select("id, denomination, pipeline_statut, forme, origine, groupes(nom)")
-      .order("denomination");
-    clientList = ((enriched ?? []) as unknown as Array<{
+    clientList = ((allClientsList ?? []) as unknown as Array<{
       id: string;
       denomination: string;
       pipeline_statut: string | null;
@@ -277,6 +292,8 @@ export default async function ClientFiche({
         return true;
       })
       .map((c) => ({ id: c.id, denomination: c.denomination }));
+  } else {
+    clientList = (allClientsList ?? []) as Array<{ id: string; denomination: string }>;
   }
 
   const idx = clientList.findIndex((c) => c.id === id);

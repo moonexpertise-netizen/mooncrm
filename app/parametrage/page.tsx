@@ -31,20 +31,22 @@ export default async function ParametragePage({
   });
   const clientIds = filtered.map((c) => c.id);
 
-  // 2. Subscriptions actives pour l'année
-  const { data: subs } = await sb
-    .from("obligation_subscriptions")
-    .select("client_id, type, actif")
-    .in("client_id", clientIds.length ? clientIds : [""])
-    .eq("annee", year)
-    .eq("actif", true);
-
-  // 3. Régime par client × année
-  const { data: configs } = await sb
-    .from("client_year_config")
-    .select("client_id, regime")
-    .in("client_id", clientIds.length ? clientIds : [""])
-    .eq("annee", year);
+  // Perf : 2 & 3 sont indépendantes une fois clientIds connu. On parallélise
+  // → -1 RTT transatlantique (~100ms en moins sur la page).
+  const inClientIds = clientIds.length ? clientIds : [""];
+  const [{ data: subs }, { data: configs }] = await Promise.all([
+    sb
+      .from("obligation_subscriptions")
+      .select("client_id, type, actif")
+      .in("client_id", inClientIds)
+      .eq("annee", year)
+      .eq("actif", true),
+    sb
+      .from("client_year_config")
+      .select("client_id, regime")
+      .in("client_id", inClientIds)
+      .eq("annee", year),
+  ]);
 
   const subsByClient = new Map<string, Set<string>>();
   for (const s of subs ?? []) {

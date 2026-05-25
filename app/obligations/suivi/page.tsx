@@ -37,13 +37,24 @@ export default async function ObligationsPage({
   const cols = tracker.cols(year);
   const supabase = await createClient();
 
-  // 1. Tous les subs actifs pour ce tracker × cette année, joint sur clients
-  const { data: subs } = await supabase
-    .from("obligation_subscriptions")
-    .select("client_id, type, clients!inner(id, denomination, siren, pipeline_statut, origine)")
-    .eq("annee", year)
-    .eq("actif", true)
-    .in("type", tracker.types);
+  // Perf : status_options ne dépend que de tracker.types (connu d'entrée).
+  // On lance les 2 queries en parallèle au lieu de séquentiel → -1 RTT
+  // transatlantique (~100ms en moins sur la page).
+  const [{ data: subs }, { data: opts }] = await Promise.all([
+    supabase
+      .from("obligation_subscriptions")
+      .select("client_id, type, clients!inner(id, denomination, siren, pipeline_statut, origine)")
+      .eq("annee", year)
+      .eq("actif", true)
+      .in("type", tracker.types),
+    supabase
+      .from("status_options")
+      .select("type_code, libelle, statut_logique, ordre, color")
+      .eq("scope", "obligation")
+      .in("type_code", tracker.types)
+      .eq("actif", true)
+      .order("ordre"),
+  ]);
 
   type SubRow = {
     client_id: string;
@@ -89,15 +100,7 @@ export default async function ObligationsPage({
     obligations = data ?? [];
   }
 
-  // 4. Status options pour les types du tracker
-  const { data: opts } = await supabase
-    .from("status_options")
-    .select("type_code, libelle, statut_logique, ordre, color")
-    .eq("scope", "obligation")
-    .in("type_code", tracker.types)
-    .eq("actif", true)
-    .order("ordre");
-
+  // 4. (status_options déjà chargé en parallèle de subs ci-dessus)
   const statusOptions: Record<string, StatusOption[]> = {};
   for (const o of opts ?? []) {
     if (!statusOptions[o.type_code]) statusOptions[o.type_code] = [];
