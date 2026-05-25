@@ -24,19 +24,22 @@ export default function NavButtons({
 }) {
   function buildHref(targetSlug: string): string {
     if (typeof window === "undefined") return `/clients/${targetSlug}${navParams ? `?${navParams}` : ""}`;
+    // Conserve le sous-segment d'URL (exercice / obligations / onboarding)
+    // pour rester sur le même onglet quand on navigue prev/next.
+    const path = window.location.pathname;
+    const m = path.match(/^\/clients\/[^/]+(\/[^?]*)?$/);
+    const subPath = m?.[1] ?? "";
+    // Conserve aussi le ?year= si présent (utile sur l'onglet Échéances)
     const params = new URLSearchParams(window.location.search);
-    // Garde seulement tab, year. Le reste de navParams (nav-*) est ajouté à côté.
     const out = new URLSearchParams();
-    const tab = params.get("tab");
     const year = params.get("year");
-    if (tab) out.set("tab", tab);
     if (year) out.set("year", year);
     if (navParams) {
       const navUrl = new URLSearchParams(navParams);
       navUrl.forEach((v, k) => out.set(k, v));
     }
     const qs = out.toString();
-    return `/clients/${targetSlug}${qs ? `?${qs}` : ""}`;
+    return `/clients/${targetSlug}${subPath}${qs ? `?${qs}` : ""}`;
   }
 
   function onClick(e: React.MouseEvent<HTMLAnchorElement>, targetSlug: string) {

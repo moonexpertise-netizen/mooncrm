@@ -51,7 +51,7 @@ function buildProductionChildren(): ChildItem[] {
     for (const t of groupTrackers) {
       out.push({
         kind: "link",
-        href: `/obligations/suivi?type=${t.slug}`,
+        href: `/obligations/${t.slug}`,
         label: t.title,
         slug: t.slug,
         groupId: g.id,
@@ -145,10 +145,11 @@ export function Sidebar() {
     if (pathname.startsWith("/obligations")) setProdOpen(true);
   }, [pathname]);
 
-  // Ouvre automatiquement le sous-bloc qui contient le tracker courant
+  // Ouvre automatiquement le sous-bloc qui contient le tracker courant.
+  // Le tracker est maintenant identifié par le segment de path /obligations/<slug>.
   useEffect(() => {
-    if (pathname !== "/obligations/suivi") return;
-    const slug = searchParams?.get("type");
+    if (!pathname.startsWith("/obligations/")) return;
+    const slug = pathname.split("/")[2];
     if (!slug) return;
     const t = TRACKERS.find((x) => x.slug === slug);
     if (!t) return;
@@ -180,7 +181,8 @@ export function Sidebar() {
     broadcastCollapse(next);
   };
 
-  const activeSlug = pathname === "/obligations/suivi" ? searchParams?.get("type") : null;
+  // Active tracker = 2e segment de path (ex. /obligations/ago-depot → "ago-depot")
+  const activeSlug = pathname.startsWith("/obligations/") ? pathname.split("/")[2] ?? null : null;
 
   // Année Production active : URL si on est sur /obligations*, sinon la
   // dernière mémorisée. Sert à propager ?year= dans les liens du sidebar.

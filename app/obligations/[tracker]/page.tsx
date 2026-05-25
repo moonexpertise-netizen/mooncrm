@@ -2,13 +2,12 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { TRACKERS, getTracker } from "../trackers";
+import { getTracker } from "../trackers";
 import TrackerTable, { type StatusOption, type TrackerRow } from "./tracker-table";
 
 export const dynamic = "force-dynamic";
 
 const CURRENT_YEAR = 2026;
-const DEFAULT_SLUG = TRACKERS[0].slug;
 
 // Filtre métier : ne sont retenus dans les trackers que les dossiers qui sont
 // soit signés (6 - LDM Signée), soit internes (Z - Interne), soit en
@@ -23,13 +22,15 @@ function clientIsBillable(c: { pipeline_statut: string | null; origine: string |
 }
 
 export default async function ObligationsPage({
+  params,
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; year?: string; focus?: string }>;
+  params: Promise<{ tracker: string }>;
+  searchParams: Promise<{ year?: string; focus?: string }>;
 }) {
+  const { tracker: trackerSlug } = await params;
   const sp = await searchParams;
-  const slug = sp.type ?? DEFAULT_SLUG;
-  const tracker = getTracker(slug);
+  const tracker = getTracker(trackerSlug);
   if (!tracker) notFound();
   const focus = sp.focus ?? null;
 
@@ -165,7 +166,7 @@ export default async function ObligationsPage({
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{tracker.title}</h1>
         </div>
-        <YearSelector slug={slug} year={year} />
+        <YearSelector slug={trackerSlug} year={year} />
       </div>
 
       <TrackerTable rows={rows} cols={cols} statusOptions={statusOptions} focus={focus} />
@@ -188,7 +189,7 @@ function YearSelector({ slug, year }: { slug: string; year: number }) {
         {years.map((y) => (
           <Link
             key={y}
-            href={`/obligations/suivi?type=${slug}&year=${y}`}
+            href={`/obligations/${slug}?year=${y}`}
             className={
               y === year
                 ? "px-3 py-1 rounded-md text-sm border bg-[hsl(var(--gold))] text-white border-[hsl(var(--gold))] shadow-sm"

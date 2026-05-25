@@ -232,7 +232,7 @@ export default function EcheancierCard({
                       const slug = slugForType(o.type);
                       const focus = slug ? `${clientId}_${o.type}_${o.periode}` : null;
                       const href = slug
-                        ? `/obligations/suivi?type=${slug}&year=${annee}&focus=${encodeURIComponent(focus!)}`
+                        ? `/obligations/${slug}?year=${annee}&focus=${encodeURIComponent(focus!)}`
                         : null;
                       const content = (
                         <>

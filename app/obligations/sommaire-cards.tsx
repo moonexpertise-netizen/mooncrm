@@ -114,7 +114,7 @@ export default function SommaireCards({
                   year={year}
                   onClick={() =>
                     router.push(
-                      `/obligations/suivi?type=${r.slug}&year=${year}`,
+                      `/obligations/${r.slug}?year=${year}`,
                     )
                   }
                 />

@@ -1,0 +1,57 @@
+/**
+ * Loaders mémoïsés pour la fiche client.
+ *
+ * React `cache()` dédoublonne les appels à l'intérieur d'un même request,
+ * donc le layout + chaque sous-route peuvent appeler `loadClient(slug)` sans
+ * surcoût (1 seule query Postgres). Indispensable depuis qu'on a éclaté la
+ * fiche en sous-routes (identité, exercice, obligations, onboarding).
+ */
+import { cache } from "react";
+import { createClient } from "@/lib/supabase/server";
+
+export const CLIENT_SELECT =
+  "id, denomination, siren, slug, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, groupes(nom)";
+
+export const loadClient = cache(async (slug: string) => {
+  const sb = await createClient();
+  const { data } = await sb
+    .from("clients")
+    .select(CLIENT_SELECT)
+    .eq("slug", slug)
+    .maybeSingle();
+  return data;
+});
+
+export const loadContactsLink = cache(async (clientId: string) => {
+  const sb = await createClient();
+  const { data } = await sb
+    .from("client_contacts")
+    .select("role, contacts(id, nom, prenom, email, telephone, civilite)")
+    .eq("client_id", clientId);
+  return data ?? [];
+});
+
+export const loadAllStatusOpts = cache(async () => {
+  const sb = await createClient();
+  const { data } = await sb
+    .from("status_options")
+    .select("type_code, libelle, color")
+    .eq("scope", "obligation");
+  return data ?? [];
+});
+
+export type DirigeantContact = {
+  id: string;
+  nom: string;
+  prenom: string | null;
+  civilite: "M." | "Mme" | "Mlle" | null;
+  email: string | null;
+  telephone: string | null;
+};
+
+export function extractDirigeant(
+  contactsLink: Array<{ role: string | null; contacts: unknown }>
+): DirigeantContact | null {
+  const c = (contactsLink?.[0]?.contacts as unknown as DirigeantContact | null) ?? null;
+  return c;
+}
