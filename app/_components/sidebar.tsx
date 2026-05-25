@@ -97,6 +97,9 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   // Mobile drawer : ouvert via hamburger AppShell, fermé au scroll route change
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Détection mobile : sur mobile on force l'affichage complet (labels visibles)
+  // même si `collapsed=true` dans localStorage côté desktop.
+  const [isMobile, setIsMobile] = useState(false);
   // Ouvert si on charge déjà une page Production
   const [prodOpen, setProdOpen] = useState(() => pathname.startsWith("/obligations"));
   // Sous-blocs Production tous ouverts par défaut · clic sur l'en-tête replie celui-là
@@ -133,13 +136,23 @@ export function Sidebar() {
       if (!Number.isNaN(n)) setPersistedObligationsYear(n);
     }
 
+    // Détection mobile : utilisé pour forcer l'affichage complet de la
+    // sidebar (avec labels) même si `collapsed=true` côté desktop.
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const onMqChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onMqChange);
+
     // Écoute les ouvertures du drawer mobile depuis le hamburger AppShell
     const onMobileToggle = (e: Event) => {
       const ce = e as CustomEvent<boolean>;
       setMobileOpen(Boolean(ce.detail));
     };
     window.addEventListener(SIDEBAR_MOBILE_EVENT, onMobileToggle);
-    return () => window.removeEventListener(SIDEBAR_MOBILE_EVENT, onMobileToggle);
+    return () => {
+      mq.removeEventListener("change", onMqChange);
+      window.removeEventListener(SIDEBAR_MOBILE_EVENT, onMobileToggle);
+    };
   }, []);
 
   // Ferme automatiquement le drawer mobile au changement de route
@@ -197,6 +210,11 @@ export function Sidebar() {
     setCollapsed(next);
     broadcastCollapse(next);
   };
+
+  // Sur mobile, on force l'affichage déplié (labels visibles) même si
+  // `collapsed=true` dans localStorage côté desktop. Le drawer fait 280px,
+  // il y a largement la place pour les labels.
+  const showCollapsed = !isMobile && collapsed;
 
   // Active tracker = 2e segment de path (ex. /obligations/ago-depot → "ago-depot")
   const activeSlug = pathname.startsWith("/obligations/") ? pathname.split("/")[2] ?? null : null;
@@ -271,17 +289,17 @@ export function Sidebar() {
         </span>
       </button>
       {/* Logo */}
-      <div className={cn("h-16 flex items-center border-b border-white/5 shrink-0", collapsed ? "justify-center px-2" : "px-4")}>
+      <div className={cn("h-16 flex items-center border-b border-white/5 shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
         <Link href="/" className="flex items-center gap-2 group min-w-0" title="MoonCRM">
           <Image
             src="/moon-logo.svg"
             alt="MOON"
             width={140}
             height={32}
-            className={cn("h-7 w-auto opacity-95 group-hover:opacity-100 transition-opacity", collapsed && "h-6")}
+            className={cn("h-7 w-auto opacity-95 group-hover:opacity-100 transition-opacity", showCollapsed && "h-6")}
             priority
           />
-          {!collapsed && (
+          {!showCollapsed && (
             <span className="text-[hsl(var(--gold))] text-sm font-display tracking-wide">CRM</span>
           )}
         </Link>
@@ -295,7 +313,7 @@ export function Sidebar() {
             const Icon = item.icon;
             const hasChildren = item.children && item.children.length > 0;
             const isProduction = item.href === "/obligations";
-            const showChildren = hasChildren && !collapsed && isProduction && prodOpen;
+            const showChildren = hasChildren && !showCollapsed && isProduction && prodOpen;
 
             return (
               <li key={item.href} className="relative group/item">
@@ -316,19 +334,19 @@ export function Sidebar() {
                   <Link
                     href={withYear(item.href)}
                     onClick={() => {
-                      if (isProduction && !collapsed) setProdOpen(true);
+                      if (isProduction && !showCollapsed) setProdOpen(true);
                     }}
                     className={cn(
                       "flex items-center gap-3 transition-colors flex-1 min-w-0 rounded-md",
-                      collapsed ? "h-10 w-10 justify-center mx-auto" : "h-9 px-2.5",
+                      showCollapsed ? "h-10 w-10 justify-center mx-auto" : "h-9 px-2.5",
                       !active && "hover:text-zinc-100 hover:bg-white/5"
                     )}
-                    title={collapsed ? item.label : undefined}
+                    title={showCollapsed ? item.label : undefined}
                   >
-                    <Icon className={cn("shrink-0", collapsed ? "h-5 w-5" : "h-[18px] w-[18px]")} />
-                    {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+                    <Icon className={cn("shrink-0", showCollapsed ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                    {!showCollapsed && <span className="truncate flex-1">{item.label}</span>}
                   </Link>
-                  {!collapsed && hasChildren && isProduction && (
+                  {!showCollapsed && hasChildren && isProduction && (
                     <button
                       type="button"
                       aria-label={prodOpen ? "Replier la liste" : "Déplier la liste"}
@@ -345,8 +363,8 @@ export function Sidebar() {
                   )}
                 </div>
 
-                {/* Tooltip quand replié */}
-                {collapsed && (
+                {/* Tooltip quand replié (uniquement desktop collapsed) */}
+                {showCollapsed && (
                   <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 opacity-0 group-hover/item:opacity-100 transition-opacity">
                     <div className="bg-[#0D1122] border border-white/10 text-zinc-100 text-xs px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap">
                       {item.label}
@@ -442,7 +460,7 @@ export function Sidebar() {
 
       {/* User + actions */}
       <div className="border-t border-white/5 shrink-0">
-        {!collapsed ? (
+        {!showCollapsed ? (
           <div className="px-3 py-3">
             <div className="text-xs text-zinc-100 font-medium truncate" title={me?.email}>
               {me?.email ?? "…"}
@@ -488,10 +506,11 @@ export function Sidebar() {
           </form>
         )}
 
+        {/* Bouton replier/déplier caché sur mobile (pas pertinent dans un drawer) */}
         <button
           type="button"
           onClick={toggle}
-          className="w-full flex items-center justify-center h-10 border-t border-white/5 text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition-colors"
+          className="hidden md:flex w-full items-center justify-center h-10 border-t border-white/5 text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition-colors"
           title={collapsed ? "Déplier" : "Replier"}
           aria-label={collapsed ? "Déplier la barre latérale" : "Replier la barre latérale"}
         >
