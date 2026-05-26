@@ -5,6 +5,7 @@ import { PartyPopper } from "lucide-react";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { updateClient, setPipelineStatut } from "./actions";
+import { initializeOnboardingForClient } from "@/app/onboarding/actions";
 
 /**
  * Bouton festif "LDM signée 🎉" :
@@ -81,9 +82,13 @@ export default function LDMSigneeButton({
     setDone(true);
     startTransition(async () => {
       try {
+        // Parallélise les 3 actions : update date + pipeline + init onboarding.
+        // L'init des tâches d'onboarding est idempotente (ne re-écrit pas si
+        // déjà créées), donc safe à appeler plusieurs fois.
         await Promise.all([
           updateClient(clientId, { mois_signature: today }),
           setPipelineStatut(clientId, "7 - LDM signée"),
+          initializeOnboardingForClient(clientId),
         ]);
       } catch (e) {
         setDone(alreadySigned); // rollback

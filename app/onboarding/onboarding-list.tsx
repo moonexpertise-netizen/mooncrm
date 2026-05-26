@@ -1,0 +1,233 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export type OnboardingRow = {
+  id: string;
+  slug: string;
+  denomination: string;
+  siren: string | null;
+  pipeline_statut: string | null;
+  origine: string | null;
+  done: number;
+  total: number;
+  pct: number;
+};
+
+type Filter = "all" | "in_progress" | "complete" | "not_started" | "no_tasks";
+
+/**
+ * Liste compacte des onboardings.
+ *  - 1 ligne par client : nom + barre de progression + compteur + flèche
+ *  - Filtres : tous / en cours / terminés / pas commencés / sans tâches
+ *  - Recherche par nom ou SIREN
+ *  - Tri par nom ou par % progression
+ */
+export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<"nom" | "pct">("pct");
+
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (s) {
+        const hay = `${r.denomination} ${r.siren ?? ""}`.toLowerCase();
+        if (!hay.includes(s)) return false;
+      }
+      if (filter === "all") return true;
+      if (filter === "no_tasks") return r.total === 0;
+      if (filter === "complete") return r.total > 0 && r.done === r.total;
+      if (filter === "in_progress") return r.done > 0 && r.done < r.total;
+      if (filter === "not_started") return r.total > 0 && r.done === 0;
+      return true;
+    });
+  }, [rows, search, filter]);
+
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    if (sort === "pct") {
+      // Tri : en cours en haut (pct croissant), puis pas commencés, puis terminés
+      arr.sort((a, b) => {
+        if (a.total === 0 && b.total === 0) return a.denomination.localeCompare(b.denomination, "fr");
+        if (a.total === 0) return 1;
+        if (b.total === 0) return -1;
+        return a.pct - b.pct;
+      });
+    } else {
+      arr.sort((a, b) => a.denomination.localeCompare(b.denomination, "fr"));
+    }
+    return arr;
+  }, [filtered, sort]);
+
+  // Compteurs synthétiques
+  const counts = useMemo(() => {
+    const c = {
+      all: rows.length,
+      in_progress: 0,
+      complete: 0,
+      not_started: 0,
+      no_tasks: 0,
+    };
+    for (const r of rows) {
+      if (r.total === 0) c.no_tasks++;
+      else if (r.done === r.total) c.complete++;
+      else if (r.done === 0) c.not_started++;
+      else c.in_progress++;
+    }
+    return c;
+  }, [rows]);
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
+        <input
+          type="text"
+          placeholder="Filtrer par nom ou SIREN…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+        />
+        <div className="h-6 w-px bg-zinc-200 mx-1" />
+        <FilterPill label="Tous" value="all" current={filter} count={counts.all} onClick={() => setFilter("all")} />
+        <FilterPill label="En cours" value="in_progress" current={filter} count={counts.in_progress} color="amber" onClick={() => setFilter("in_progress")} />
+        <FilterPill label="Pas commencé" value="not_started" current={filter} count={counts.not_started} color="rose" onClick={() => setFilter("not_started")} />
+        <FilterPill label="Terminé" value="complete" current={filter} count={counts.complete} color="emerald" onClick={() => setFilter("complete")} />
+        <FilterPill label="Sans tâches" value="no_tasks" current={filter} count={counts.no_tasks} color="gray" onClick={() => setFilter("no_tasks")} />
+        <div className="ml-auto flex items-center gap-1">
+          <span className="text-[11px] text-zinc-500">Tri :</span>
+          <button
+            onClick={() => setSort("pct")}
+            className={cn(
+              "px-2 py-0.5 rounded text-[11px] transition-colors",
+              sort === "pct" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
+            )}
+          >
+            Progression
+          </button>
+          <button
+            onClick={() => setSort("nom")}
+            className={cn(
+              "px-2 py-0.5 rounded text-[11px] transition-colors",
+              sort === "nom" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
+            )}
+          >
+            Nom
+          </button>
+        </div>
+      </div>
+
+      {/* Liste */}
+      {sorted.length === 0 ? (
+        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+          Aucun dossier ne correspond aux filtres.
+        </div>
+      ) : (
+        <div className="rounded-lg border bg-card divide-y divide-zinc-100 overflow-hidden">
+          {sorted.map((r) => (
+            <OnboardingRowComp key={r.id} row={r} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OnboardingRowComp({ row }: { row: OnboardingRow }) {
+  const isComplete = row.total > 0 && row.done === row.total;
+  const noTasks = row.total === 0;
+  return (
+    <Link
+      href={`/clients/${row.slug}/onboarding`}
+      className="group/row flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+    >
+      <div className="shrink-0">
+        {isComplete ? (
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        ) : (
+          <Circle className={cn("h-4 w-4", noTasks ? "text-zinc-300" : "text-zinc-400")} />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-medium text-zinc-900 truncate">{row.denomination}</span>
+          {row.siren && (
+            <span className="text-[11px] text-zinc-400 tabular-nums shrink-0">{row.siren}</span>
+          )}
+        </div>
+        {/* Barre de progression sous le nom */}
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="flex-1 h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+            <div
+              className={cn(
+                "h-full transition-all",
+                noTasks
+                  ? "bg-zinc-200"
+                  : isComplete
+                  ? "bg-emerald-500"
+                  : "bg-[hsl(var(--gold))]"
+              )}
+              style={{ width: `${noTasks ? 0 : row.pct}%` }}
+            />
+          </div>
+          <span
+            className={cn(
+              "text-[11px] tabular-nums shrink-0 min-w-[60px] text-right",
+              noTasks
+                ? "text-zinc-400"
+                : isComplete
+                ? "text-emerald-700"
+                : "text-zinc-700"
+            )}
+          >
+            {noTasks ? "—" : `${row.done}/${row.total}`}
+            <span className="text-zinc-400 ml-1">
+              {noTasks ? "" : `(${row.pct}%)`}
+            </span>
+          </span>
+        </div>
+      </div>
+      <ArrowRight className="h-3.5 w-3.5 text-zinc-300 group-hover/row:text-[hsl(var(--gold))] group-hover/row:translate-x-0.5 transition-all shrink-0" />
+    </Link>
+  );
+}
+
+function FilterPill({
+  label,
+  value,
+  current,
+  count,
+  color = "gray",
+  onClick,
+}: {
+  label: string;
+  value: Filter;
+  current: Filter;
+  count: number;
+  color?: "amber" | "emerald" | "rose" | "gray";
+  onClick: () => void;
+}) {
+  const palette = {
+    amber: "bg-amber-50 text-amber-800 border-amber-300",
+    emerald: "bg-emerald-50 text-emerald-800 border-emerald-300",
+    rose: "bg-rose-50 text-rose-800 border-rose-300",
+    gray: "bg-zinc-100 text-zinc-700 border-zinc-300",
+  } as const;
+  const active = value === current;
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
+        active ? `${palette[color]} shadow-sm` : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
+      )}
+    >
+      {label}
+      <span className={cn("tabular-nums", active ? "" : "text-zinc-400")}>{count}</span>
+    </button>
+  );
+}
