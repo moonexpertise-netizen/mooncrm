@@ -231,3 +231,28 @@ export async function updateOnboardingTaskStatus(
     .eq("id", taskId);
   if (error) throw new Error(error.message);
 }
+
+/**
+ * Met à jour la caractéristique gestion_tns d'un client et, si on active le
+ * TNS, crée les tâches d'onboarding TNS manquantes (Prévi TNS, Affiliation
+ * TNS) — appel idempotent à `initializeOnboardingForClient`.
+ *
+ * Utilisé à la fois depuis la fiche client (EditableGestionTns) et depuis la
+ * matrice transverse onboarding (chip TNS cliquable).
+ */
+export async function setGestionTns(
+  clientId: string,
+  value: boolean | null
+) {
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({ gestion_tns: value })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+
+  // Si on active TNS, on s'assure que les tâches TNS existent
+  if (value === true) {
+    await initializeOnboardingForClient(clientId);
+  }
+}

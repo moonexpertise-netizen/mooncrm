@@ -1,15 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, statutColorClass } from "@/lib/utils";
+import { setGestionTns, updateOnboardingTaskStatus } from "@/app/onboarding/actions";
 
 export type StatutLogique =
   | "A_FAIRE"
   | "EN_COURS"
   | "TERMINE"
   | "NON_APPLICABLE";
+
+export type OnboardingStatusOption = {
+  libelle: string;
+  statut_logique: StatutLogique;
+  color: string | null;
+};
+
+export type MatriceTaskCell = {
+  id: string;
+  statut_logique: StatutLogique;
+  statut_detail: string | null;
+};
 
 export type MatriceRow = {
   id: string;
@@ -18,8 +32,9 @@ export type MatriceRow = {
   siren: string | null;
   forme: string | null;
   origine: string | null;
-  /** Statut par task_key dans l'ordre de TASK_ORDER. null = tâche non créée pour ce dossier. */
-  tasks: Array<StatutLogique | null>;
+  gestion_tns: boolean | null;
+  /** Tâche par task_key dans l'ordre de TASK_ORDER. null = tâche non créée. */
+  tasks: Array<MatriceTaskCell | null>;
   done: number;
   total: number;
 };
@@ -83,32 +98,124 @@ function origineToType(origine: string | null): OrigineType {
 }
 
 type TypeFilter = "all" | OrigineType;
+type TnsFilter = "all" | "tns" | "non_tns" | "undecided";
+type SortMode = "auto" | "pct_asc" | "pct_desc" | "nom" | "type";
+
+const STATUT_GROUP_ORDER: StatutLogique[] = ["A_FAIRE", "EN_COURS", "TERMINE", "NON_APPLICABLE"];
+const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
+  A_FAIRE: "À faire",
+  EN_COURS: "En cours",
+  TERMINE: "Terminé",
+  NON_APPLICABLE: "N/A",
+};
 
 /**
- * Tableau matriciel de l'onboarding (lecture seule).
+ * Tableau matriciel de l'onboarding avec édition inline.
  *
- *  - Première colonne sticky : client + Type chip
+ *  - Première colonne sticky : client + chip Type + chip TNS cliquable
  *  - 13 colonnes étroites : 1 par task_key dans l'ordre canonique
+ *  - Cellule : pastille couleur (cliquable → popover statut)
  *  - Dernière colonne : score done/total + barre mini
- *  - Cellule : pastille couleur selon statut
- *  - Filtre Type + recherche
+ *  - Filtres : Type, TNS, recherche · Tri : auto / progression / nom / type
  *
- * L'édition se fait sur la fiche client (clic sur la ligne navigue vers
- * /clients/[slug]/onboarding).
+ * Toutes les modifications passent par les server actions
+ * `updateOnboardingTaskStatus` et `setGestionTns`, avec optimistic update.
+ * `router.refresh()` est appelé après toute action qui peut créer de nouvelles
+ * tâches (toggle TNS), pour que les nouvelles colonnes peuplent.
  */
 export default function MatriceTable({
   rows,
   taskKeys,
+  optionsByKey,
 }: {
   rows: MatriceRow[];
   taskKeys: string[];
+  optionsByKey: Record<string, OnboardingStatusOption[]>;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [tnsFilter, setTnsFilter] = useState<TnsFilter>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("auto");
+
+  // Optimistic state : la matrice subit beaucoup d'updates
+  // (1 par clic cellule). useOptimistic évite l'attente serveur.
+  type Patch =
+    | { kind: "task"; clientId: string; taskIdx: number; statut_logique: StatutLogique; statut_detail: string | null }
+    | { kind: "tns"; clientId: string; gestion_tns: boolean | null };
+
+  const [optimisticRows, applyOptimistic] = useOptimistic<MatriceRow[], Patch>(
+    rows,
+    (state, patch) =>
+      state.map((r) => {
+        if (r.id !== patch.clientId) return r;
+        if (patch.kind === "tns") {
+          return { ...r, gestion_tns: patch.gestion_tns };
+        }
+        // patch.kind === "task"
+        const cell = r.tasks[patch.taskIdx];
+        if (!cell) return r;
+        const newCell: MatriceTaskCell = {
+          ...cell,
+          statut_logique: patch.statut_logique,
+          statut_detail: patch.statut_detail,
+        };
+        const newTasks = [...r.tasks];
+        newTasks[patch.taskIdx] = newCell;
+        // recompute done/total
+        let done = 0;
+        let total = 0;
+        for (const c of newTasks) {
+          if (c === null) continue;
+          total++;
+          if (c.statut_logique === "TERMINE" || c.statut_logique === "NON_APPLICABLE") done++;
+        }
+        return { ...r, tasks: newTasks, done, total };
+      })
+  );
+
+  const [, startTransition] = useTransition();
+
+  function onPickStatus(
+    clientId: string,
+    taskIdx: number,
+    taskId: string,
+    libelle: string,
+    statut_logique: StatutLogique
+  ) {
+    startTransition(async () => {
+      applyOptimistic({ kind: "task", clientId, taskIdx, statut_logique, statut_detail: libelle });
+      await updateOnboardingTaskStatus(taskId, libelle);
+    });
+    setOpenPicker(null);
+  }
+
+  function onResetStatus(clientId: string, taskIdx: number, taskId: string) {
+    startTransition(async () => {
+      applyOptimistic({ kind: "task", clientId, taskIdx, statut_logique: "A_FAIRE", statut_detail: null });
+      await updateOnboardingTaskStatus(taskId, null);
+    });
+    setOpenPicker(null);
+  }
+
+  function onSetTns(clientId: string, value: boolean | null) {
+    startTransition(async () => {
+      applyOptimistic({ kind: "tns", clientId, gestion_tns: value });
+      await setGestionTns(clientId, value);
+      // Si on active TNS, des nouvelles tâches sont créées côté serveur
+      // (previ_tns, affiliation_tns) — il faut refresh pour les voir.
+      if (value === true) router.refresh();
+    });
+    setOpenTnsPicker(null);
+  }
+
+  // Picker state : 1 popover global (1 ouvert à la fois)
+  const [openPicker, setOpenPicker] = useState<{ clientId: string; taskIdx: number } | null>(null);
+  const [openTnsPicker, setOpenTnsPicker] = useState<string | null>(null);
 
   const annotated = useMemo(
-    () => rows.map((r) => ({ ...r, type: origineToType(r.origine) })),
-    [rows]
+    () => optimisticRows.map((r) => ({ ...r, type: origineToType(r.origine) })),
+    [optimisticRows]
   );
 
   const filtered = useMemo(() => {
@@ -119,43 +226,76 @@ export default function MatriceTable({
         if (!hay.includes(s)) return false;
       }
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
+      if (tnsFilter === "tns" && r.gestion_tns !== true) return false;
+      if (tnsFilter === "non_tns" && r.gestion_tns !== false) return false;
+      if (tnsFilter === "undecided" && r.gestion_tns !== null) return false;
       return true;
     });
-  }, [annotated, search, typeFilter]);
+  }, [annotated, search, typeFilter, tnsFilter]);
 
-  // Tri stable : Type → progression croissante → nom
+  // Tri
   const sorted = useMemo(() => {
     const arr = [...filtered];
     const typeOrder: OrigineType[] = ["creation", "reprise", "interne", "soustraitance", "autre"];
-    arr.sort((a, b) => {
-      const ta = typeOrder.indexOf(a.type);
-      const tb = typeOrder.indexOf(b.type);
-      if (ta !== tb) return ta - tb;
-      const pa = a.total > 0 ? a.done / a.total : -1;
-      const pb = b.total > 0 ? b.done / b.total : -1;
-      if (pa !== pb) return pa - pb;
-      return a.denomination.localeCompare(b.denomination, "fr");
-    });
-    return arr;
-  }, [filtered]);
+    const byPct = (r: MatriceRow) => (r.total > 0 ? r.done / r.total : -1);
+    const byName = (a: MatriceRow, b: MatriceRow) =>
+      a.denomination.localeCompare(b.denomination, "fr");
 
-  // Compteurs par type pour les pills (sur l'ensemble, pas filtré)
+    if (sortMode === "nom") {
+      arr.sort(byName);
+    } else if (sortMode === "pct_asc") {
+      arr.sort((a, b) => byPct(a) - byPct(b) || byName(a, b));
+    } else if (sortMode === "pct_desc") {
+      arr.sort((a, b) => byPct(b) - byPct(a) || byName(a, b));
+    } else if (sortMode === "type") {
+      arr.sort((a, b) => {
+        const ta = typeOrder.indexOf(a.type);
+        const tb = typeOrder.indexOf(b.type);
+        if (ta !== tb) return ta - tb;
+        return byName(a, b);
+      });
+    } else {
+      // auto : Type -> progression croissante -> nom
+      arr.sort((a, b) => {
+        const ta = typeOrder.indexOf(a.type);
+        const tb = typeOrder.indexOf(b.type);
+        if (ta !== tb) return ta - tb;
+        const pa = byPct(a);
+        const pb = byPct(b);
+        if (pa !== pb) return pa - pb;
+        return byName(a, b);
+      });
+    }
+    return arr;
+  }, [filtered, sortMode]);
+
+  // Compteurs par type (sur tout l'ensemble, pour les pills)
   const typeCounts = useMemo(() => {
     const c = { all: annotated.length, creation: 0, reprise: 0, interne: 0, soustraitance: 0, autre: 0 };
     for (const r of annotated) c[r.type]++;
     return c;
   }, [annotated]);
 
-  // Stats par colonne (taux de complétion d'une tâche sur tous les dossiers filtrés)
+  const tnsCounts = useMemo(() => {
+    const c = { all: annotated.length, tns: 0, non_tns: 0, undecided: 0 };
+    for (const r of annotated) {
+      if (r.gestion_tns === true) c.tns++;
+      else if (r.gestion_tns === false) c.non_tns++;
+      else c.undecided++;
+    }
+    return c;
+  }, [annotated]);
+
+  // Stats par colonne (taux de complétion d'une tâche sur les dossiers triés/filtrés)
   const colStats = useMemo(() => {
     return taskKeys.map((_, i) => {
       let done = 0;
       let total = 0;
       for (const r of sorted) {
-        const s = r.tasks[i];
-        if (s === null) continue;
+        const cell = r.tasks[i];
+        if (cell === null) continue;
         total++;
-        if (s === "TERMINE" || s === "NON_APPLICABLE") done++;
+        if (cell.statut_logique === "TERMINE" || cell.statut_logique === "NON_APPLICABLE") done++;
       }
       return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
     });
@@ -163,7 +303,7 @@ export default function MatriceTable({
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
+      {/* Toolbar : recherche + filtres */}
       <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
         <input
           type="text"
@@ -174,25 +314,34 @@ export default function MatriceTable({
         />
         <div className="h-6 w-px bg-zinc-200 mx-1" />
         <span className="text-[11px] text-zinc-500">Type :</span>
-        <FilterChip label="Tous" value="all" current={typeFilter} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
-        <FilterChip label="Création" value="creation" current={typeFilter} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
-        <FilterChip label="Reprise" value="reprise" current={typeFilter} count={typeCounts.reprise} type="reprise" onClick={() => setTypeFilter("reprise")} />
-        <FilterChip label="Interne" value="interne" current={typeFilter} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
-        <FilterChip label="Sous-traitance" value="soustraitance" current={typeFilter} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
+        <FilterChip label="Tous" active={typeFilter === "all"} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
+        <FilterChip label="Création" active={typeFilter === "creation"} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
+        <FilterChip label="Reprise" active={typeFilter === "reprise"} count={typeCounts.reprise} type="reprise" onClick={() => setTypeFilter("reprise")} />
+        <FilterChip label="Interne" active={typeFilter === "interne"} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
+        <FilterChip label="ST" active={typeFilter === "soustraitance"} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
+        <div className="h-6 w-px bg-zinc-200 mx-1" />
+        <span className="text-[11px] text-zinc-500">TNS :</span>
+        <FilterChip label="Tous" active={tnsFilter === "all"} count={tnsCounts.all} onClick={() => setTnsFilter("all")} />
+        <FilterChip label="TNS" active={tnsFilter === "tns"} count={tnsCounts.tns} tone="emerald" onClick={() => setTnsFilter("tns")} />
+        <FilterChip label="Non TNS" active={tnsFilter === "non_tns"} count={tnsCounts.non_tns} tone="zinc" onClick={() => setTnsFilter("non_tns")} />
+        {tnsCounts.undecided > 0 && (
+          <FilterChip label="?" active={tnsFilter === "undecided"} count={tnsCounts.undecided} tone="amber" onClick={() => setTnsFilter("undecided")} />
+        )}
         <span className="ml-auto text-[11px] text-zinc-500 tabular-nums">
           {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
         </span>
       </div>
 
-      {/* Légende */}
-      <div className="flex items-center gap-3 text-[11px] text-zinc-500 flex-wrap px-1">
-        <LegendItem statut="TERMINE" label="Terminé" />
-        <LegendItem statut="EN_COURS" label="En cours" />
-        <LegendItem statut="A_FAIRE" label="À faire" />
-        <LegendItem statut="NON_APPLICABLE" label="N/A" />
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block w-4 h-4 rounded border border-dashed border-zinc-300" />
-          Tâche non créée
+      {/* Toolbar : tri */}
+      <div className="flex items-center gap-2 flex-wrap text-[11px] px-1">
+        <span className="text-zinc-500">Tri :</span>
+        <SortBtn label="Auto" active={sortMode === "auto"} onClick={() => setSortMode("auto")} />
+        <SortBtn label="Progression ↑" active={sortMode === "pct_asc"} onClick={() => setSortMode("pct_asc")} />
+        <SortBtn label="Progression ↓" active={sortMode === "pct_desc"} onClick={() => setSortMode("pct_desc")} />
+        <SortBtn label="Nom" active={sortMode === "nom"} onClick={() => setSortMode("nom")} />
+        <SortBtn label="Type" active={sortMode === "type"} onClick={() => setSortMode("type")} />
+        <span className="ml-3 text-[11px] text-zinc-400">
+          Astuce : clic sur une pastille pour changer le statut.
         </span>
       </div>
 
@@ -205,11 +354,11 @@ export default function MatriceTable({
         <div className="rounded-lg border bg-card overflow-x-auto">
           <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
-              {/* Numéro de colonne */}
+              {/* Numéro + label de colonne */}
               <tr className="bg-zinc-50">
                 <th
                   className="sticky left-0 z-20 bg-zinc-50 px-3 py-2 text-left text-xs font-medium text-zinc-700 border-b border-r border-zinc-200"
-                  style={{ minWidth: 240 }}
+                  style={{ minWidth: 260 }}
                 >
                   Dossier
                 </th>
@@ -218,7 +367,7 @@ export default function MatriceTable({
                     key={k}
                     className="px-1 py-2 text-center text-[10px] font-medium text-zinc-600 border-b border-zinc-200 align-bottom"
                     title={TASK_LONG_LABEL[k] ?? k}
-                    style={{ minWidth: 50 }}
+                    style={{ minWidth: 60 }}
                   >
                     <div className="flex flex-col items-center gap-0.5">
                       <span className="text-zinc-400 tabular-nums">{i + 1}</span>
@@ -237,9 +386,7 @@ export default function MatriceTable({
               </tr>
               {/* Stats par colonne */}
               <tr className="bg-zinc-50/50">
-                <th
-                  className="sticky left-0 z-20 bg-zinc-50/50 px-3 py-1 text-left text-[10px] font-medium text-zinc-400 border-b border-r border-zinc-200"
-                >
+                <th className="sticky left-0 z-20 bg-zinc-50/50 px-3 py-1 text-left text-[10px] font-medium text-zinc-400 border-b border-r border-zinc-200">
                   % terminé / colonne
                 </th>
                 {colStats.map((s, i) => (
@@ -275,41 +422,58 @@ export default function MatriceTable({
                     "hover:bg-amber-50/40"
                   )}
                 >
-                  {/* Sticky : client */}
-                  <td
-                    className="sticky left-0 z-10 bg-inherit px-3 py-2 border-b border-r border-zinc-100"
-                  >
-                    <Link
-                      href={`/clients/${r.slug}/onboarding`}
-                      className="block group-hover/row:underline"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-zinc-900 truncate">
-                          {r.denomination}
-                        </span>
-                        <span
-                          className={cn(
-                            "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
-                            TYPE_PILL[r.type]
-                          )}
-                        >
-                          {TYPE_LABEL[r.type]}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5">
-                        {r.siren && <span className="tabular-nums">{r.siren}</span>}
-                        {r.forme && <span>· {r.forme}</span>}
-                      </div>
-                    </Link>
+                  {/* Sticky : client + chips Type + TNS */}
+                  <td className="sticky left-0 z-10 bg-inherit px-3 py-2 border-b border-r border-zinc-100">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={`/clients/${r.slug}/onboarding`}
+                        className="text-sm font-medium text-zinc-900 hover:underline truncate"
+                      >
+                        {r.denomination}
+                      </Link>
+                      <span
+                        className={cn(
+                          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                          TYPE_PILL[r.type]
+                        )}
+                      >
+                        {TYPE_LABEL[r.type]}
+                      </span>
+                      <TnsChip
+                        value={r.gestion_tns}
+                        isOpen={openTnsPicker === r.id}
+                        onOpen={() => setOpenTnsPicker(r.id)}
+                        onClose={() => setOpenTnsPicker(null)}
+                        onSet={(v) => onSetTns(r.id, v)}
+                      />
+                    </div>
+                    <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5">
+                      {r.siren && <span className="tabular-nums">{r.siren}</span>}
+                      {r.forme && <span>· {r.forme}</span>}
+                    </div>
                   </td>
-                  {/* 13 cellules pastilles */}
-                  {r.tasks.map((s, i) => (
+                  {/* 13 cellules pastilles cliquables */}
+                  {r.tasks.map((cell, i) => (
                     <td
                       key={i}
-                      className="px-1 py-1 text-center border-b border-zinc-100"
-                      title={`${TASK_LONG_LABEL[taskKeys[i]] ?? taskKeys[i]} · ${statutLabel(s)}`}
+                      className="px-1 py-1 text-center border-b border-zinc-100 relative"
                     >
-                      <StatusDot statut={s} />
+                      <MatrixCell
+                        cell={cell}
+                        taskKey={taskKeys[i]}
+                        options={optionsByKey[taskKeys[i]] ?? []}
+                        isOpen={
+                          openPicker?.clientId === r.id && openPicker.taskIdx === i
+                        }
+                        onOpen={() => setOpenPicker({ clientId: r.id, taskIdx: i })}
+                        onClose={() => setOpenPicker(null)}
+                        onPick={(libelle, sl) => {
+                          if (cell) onPickStatus(r.id, i, cell.id, libelle, sl);
+                        }}
+                        onReset={() => {
+                          if (cell) onResetStatus(r.id, i, cell.id);
+                        }}
+                      />
                     </td>
                   ))}
                   {/* Progression */}
@@ -341,6 +505,295 @@ export default function MatriceTable({
           </table>
         </div>
       )}
+
+      {/* Légende */}
+      <div className="flex items-center gap-3 text-[11px] text-zinc-500 flex-wrap px-1 pt-1">
+        <LegendItem statut="TERMINE" label="Terminé" />
+        <LegendItem statut="EN_COURS" label="En cours" />
+        <LegendItem statut="A_FAIRE" label="À faire" />
+        <LegendItem statut="NON_APPLICABLE" label="N/A" />
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-4 h-4 rounded border border-dashed border-zinc-300" />
+          Tâche non créée pour ce dossier
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+//  MatrixCell : pastille + popover statut
+// ============================================================================
+
+function MatrixCell({
+  cell,
+  taskKey,
+  options,
+  isOpen,
+  onOpen,
+  onClose,
+  onPick,
+  onReset,
+}: {
+  cell: MatriceTaskCell | null;
+  taskKey: string;
+  options: OnboardingStatusOption[];
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onPick: (libelle: string, statut_logique: StatutLogique) => void;
+  onReset: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !ref.current) {
+      setPos(null);
+      return;
+    }
+    const btn = ref.current.querySelector("button[data-cell-button]");
+    if (!btn) return;
+    const rect = (btn as HTMLElement).getBoundingClientRect();
+    const POPOVER_HEIGHT = 280;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUp = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+    setPos({
+      left: rect.left + rect.width / 2,
+      top: openUp ? rect.top : rect.bottom,
+      openUp,
+    });
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  // Tâche absente : pastille pointillée, non cliquable
+  if (cell === null) {
+    return (
+      <span
+        className="inline-block w-4 h-4 rounded border border-dashed border-zinc-200"
+        title="Tâche non créée pour ce dossier (cf. règles gestion TNS / origine)"
+      />
+    );
+  }
+
+  const grouped = (() => {
+    const groups: Record<StatutLogique, OnboardingStatusOption[]> = {
+      A_FAIRE: [],
+      EN_COURS: [],
+      TERMINE: [],
+      NON_APPLICABLE: [],
+    };
+    for (const o of options) groups[o.statut_logique].push(o);
+    return groups;
+  })();
+
+  return (
+    <div className="inline-block" ref={ref}>
+      <button
+        data-cell-button="1"
+        onClick={onOpen}
+        className="p-0.5 rounded hover:bg-zinc-100 transition-colors focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))]"
+        title={`${cell.statut_detail ?? statutLabel(cell.statut_logique)} · clic pour modifier`}
+      >
+        <StatusDot statut={cell.statut_logique} />
+      </button>
+      {isOpen && pos && (
+        <div
+          style={{
+            position: "fixed",
+            left: `${pos.left}px`,
+            top: `${pos.top}px`,
+            transform: pos.openUp
+              ? "translate(-50%, calc(-100% - 8px))"
+              : "translate(-50%, 8px)",
+            zIndex: 1000,
+          }}
+          className="bg-white border rounded-lg shadow-xl min-w-[240px] text-left animate-slide-up-fade overflow-hidden"
+        >
+          {/* Titre + statut actuel */}
+          <div className="px-3 py-2 border-b">
+            <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+              {TASK_LONG_LABEL[taskKey] ?? taskKey}
+            </div>
+            {cell.statut_detail ? (
+              <span
+                className={cn(
+                  "inline-block px-2 py-0.5 rounded-md text-[11px] font-medium border",
+                  statutColorClass(
+                    cell.statut_logique,
+                    options.find((o) => o.libelle === cell.statut_detail)?.color
+                  )
+                )}
+              >
+                {cell.statut_detail}
+              </span>
+            ) : (
+              <span className="text-[11px] text-zinc-400">Aucun statut sélectionné</span>
+            )}
+          </div>
+          {/* Options groupées */}
+          <div className="max-h-[300px] overflow-y-auto py-1">
+            {options.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-zinc-500">
+                Pas de libellés disponibles pour cette tâche.
+              </div>
+            ) : (
+              STATUT_GROUP_ORDER.map((groupKey) => {
+                const opts = grouped[groupKey];
+                if (opts.length === 0) return null;
+                return (
+                  <div key={groupKey} className="py-0.5">
+                    <div className="px-3 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wide text-zinc-400 font-medium">
+                      {STATUT_GROUP_LABEL[groupKey]}
+                    </div>
+                    {opts.map((opt) => (
+                      <button
+                        key={opt.libelle}
+                        onClick={() => onPick(opt.libelle, opt.statut_logique)}
+                        className={cn(
+                          "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
+                          cell.statut_detail === opt.libelle && "bg-zinc-50"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
+                            statutColorClass(opt.statut_logique, opt.color)
+                          )}
+                        >
+                          {opt.libelle}
+                        </span>
+                        {cell.statut_detail === opt.libelle && (
+                          <span className="text-zinc-400 ml-auto text-xs">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          {/* Footer reset */}
+          {cell.statut_detail && (
+            <div className="border-t bg-zinc-50/50">
+              <button
+                onClick={onReset}
+                className="w-full px-3 py-2 text-left text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+              >
+                Réinitialiser
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+//  TnsChip : pastille tri-state cliquable
+// ============================================================================
+
+function TnsChip({
+  value,
+  isOpen,
+  onOpen,
+  onClose,
+  onSet,
+}: {
+  value: boolean | null;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onSet: (v: boolean | null) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  const label = value === true ? "TNS" : value === false ? "Non TNS" : "TNS ?";
+  const cls =
+    value === true
+      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+      : value === false
+      ? "bg-zinc-100 text-zinc-600 border-zinc-300"
+      : "bg-amber-50 text-amber-700 border-amber-300 border-dashed";
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        onClick={onOpen}
+        className={cn(
+          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80",
+          cls
+        )}
+        title="Caractéristique TNS · clic pour modifier"
+      >
+        {label}
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-white border rounded-lg shadow-xl min-w-[180px] animate-slide-up-fade overflow-hidden">
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
+            Gestion TNS
+          </div>
+          <button
+            onClick={() => onSet(true)}
+            className="w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50/60 flex items-center gap-2 transition-colors"
+          >
+            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] border bg-emerald-50 text-emerald-800 border-emerald-300">
+              TNS
+            </span>
+            {value === true && <span className="text-zinc-400 ml-auto">✓</span>}
+          </button>
+          <button
+            onClick={() => onSet(false)}
+            className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors"
+          >
+            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] border bg-zinc-100 text-zinc-600 border-zinc-300">
+              Non TNS
+            </span>
+            {value === false && <span className="text-zinc-400 ml-auto">✓</span>}
+          </button>
+          <div className="border-t">
+            <button
+              onClick={() => onSet(null)}
+              className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -351,9 +804,7 @@ export default function MatriceTable({
 
 function StatusDot({ statut }: { statut: StatutLogique | null }) {
   if (statut === null) {
-    return (
-      <span className="inline-block w-4 h-4 rounded border border-dashed border-zinc-200" />
-    );
+    return <span className="inline-block w-4 h-4 rounded border border-dashed border-zinc-200" />;
   }
   if (statut === "TERMINE") {
     return (
@@ -370,9 +821,7 @@ function StatusDot({ statut }: { statut: StatutLogique | null }) {
     );
   }
   if (statut === "EN_COURS") {
-    return (
-      <span className="inline-block w-3 h-3 rounded-full bg-amber-400 border border-amber-500" />
-    );
+    return <span className="inline-block w-3 h-3 rounded-full bg-amber-400 border border-amber-500" />;
   }
   // A_FAIRE
   return (
@@ -404,25 +853,29 @@ function LegendItem({ statut, label }: { statut: StatutLogique; label: string })
 }
 
 // ============================================================================
-//  FilterChip
+//  FilterChip + SortBtn
 // ============================================================================
 
 function FilterChip({
   label,
-  value,
-  current,
+  active,
   count,
   type,
+  tone,
   onClick,
 }: {
   label: string;
-  value: TypeFilter;
-  current: TypeFilter;
+  active: boolean;
   count: number;
   type?: OrigineType;
+  tone?: "emerald" | "zinc" | "amber";
   onClick: () => void;
 }) {
-  const active = value === current;
+  const toneClass: Record<"emerald" | "zinc" | "amber", string> = {
+    emerald: "bg-emerald-50 text-emerald-800 border-emerald-300",
+    zinc: "bg-zinc-100 text-zinc-700 border-zinc-300",
+    amber: "bg-amber-50 text-amber-800 border-amber-300",
+  };
   return (
     <button
       onClick={onClick}
@@ -430,6 +883,8 @@ function FilterChip({
         "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
         active && type
           ? `${TYPE_PILL[type]} shadow-sm`
+          : active && tone
+          ? `${toneClass[tone]} shadow-sm`
           : active
           ? "bg-zinc-100 text-zinc-700 border-zinc-300 shadow-sm"
           : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
@@ -437,6 +892,28 @@ function FilterChip({
     >
       {label}
       <span className={cn("tabular-nums", active ? "" : "text-zinc-400")}>{count}</span>
+    </button>
+  );
+}
+
+function SortBtn({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-2 py-0.5 rounded text-[11px] transition-colors",
+        active ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
+      )}
+    >
+      {label}
     </button>
   );
 }

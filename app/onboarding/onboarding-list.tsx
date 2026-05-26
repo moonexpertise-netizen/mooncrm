@@ -74,27 +74,6 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     [rows]
   );
 
-  // Agrégat transverse par Type (utilisé pour le bandeau du haut)
-  const byType = useMemo(() => {
-    const acc: Record<
-      OrigineType,
-      { count: number; done: number; total: number }
-    > = {
-      creation: { count: 0, done: 0, total: 0 },
-      reprise: { count: 0, done: 0, total: 0 },
-      interne: { count: 0, done: 0, total: 0 },
-      soustraitance: { count: 0, done: 0, total: 0 },
-      autre: { count: 0, done: 0, total: 0 },
-    };
-    for (const r of annotated) {
-      const t = acc[r.type];
-      t.count++;
-      t.done += r.done;
-      t.total += r.total;
-    }
-    return acc;
-  }, [annotated]);
-
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return annotated.filter((r) => {
@@ -148,55 +127,14 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   }, [annotated, typeFilter]);
 
   // Compteurs par type (pour les pills Type)
-  const typeCounts = {
-    all: annotated.length,
-    creation: byType.creation.count,
-    reprise: byType.reprise.count,
-    interne: byType.interne.count,
-    soustraitance: byType.soustraitance.count,
-    autre: byType.autre.count,
-  };
+  const typeCounts = useMemo(() => {
+    const c = { all: annotated.length, creation: 0, reprise: 0, interne: 0, soustraitance: 0, autre: 0 };
+    for (const r of annotated) c[r.type]++;
+    return c;
+  }, [annotated]);
 
   return (
     <div className="space-y-4">
-      {/* Bandeau transverse : agrégat par Type */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <TypeSummaryCard
-          type="creation"
-          stats={byType.creation}
-          active={typeFilter === "creation"}
-          onClick={() =>
-            setTypeFilter((prev) => (prev === "creation" ? "all" : "creation"))
-          }
-        />
-        <TypeSummaryCard
-          type="reprise"
-          stats={byType.reprise}
-          active={typeFilter === "reprise"}
-          onClick={() =>
-            setTypeFilter((prev) => (prev === "reprise" ? "all" : "reprise"))
-          }
-        />
-        <TypeSummaryCard
-          type="interne"
-          stats={byType.interne}
-          active={typeFilter === "interne"}
-          onClick={() =>
-            setTypeFilter((prev) => (prev === "interne" ? "all" : "interne"))
-          }
-        />
-        <TypeSummaryCard
-          type="soustraitance"
-          stats={byType.soustraitance}
-          active={typeFilter === "soustraitance"}
-          onClick={() =>
-            setTypeFilter((prev) =>
-              prev === "soustraitance" ? "all" : "soustraitance"
-            )
-          }
-        />
-      </div>
-
       {/* Toolbar */}
       <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
         <input
@@ -261,68 +199,6 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
         </div>
       )}
     </div>
-  );
-}
-
-// ============================================================================
-//  TypeSummaryCard : agrégat par Type (cliquable = filtre)
-// ============================================================================
-
-function TypeSummaryCard({
-  type,
-  stats,
-  active,
-  onClick,
-}: {
-  type: OrigineType;
-  stats: { count: number; done: number; total: number };
-  active: boolean;
-  onClick: () => void;
-}) {
-  const pct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
-  // Si pas de dossiers de ce type, on grise la carte mais reste cliquable
-  // (utile si Benjamin veut quand même appliquer le filtre vide).
-  const empty = stats.count === 0;
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "rounded-lg border bg-card p-3 text-left transition-all hover:shadow-sm active:scale-[0.99]",
-        active
-          ? "border-[hsl(var(--gold))] ring-2 ring-[hsl(var(--gold))]/30"
-          : "border-zinc-200 hover:border-zinc-300",
-        empty && "opacity-60"
-      )}
-    >
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span
-          className={cn(
-            "inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border",
-            TYPE_PILL[type]
-          )}
-        >
-          {TYPE_LABEL[type]}
-        </span>
-        <span className="text-[11px] text-zinc-500 tabular-nums">
-          {stats.count} dossier{stats.count > 1 ? "s" : ""}
-        </span>
-      </div>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-zinc-800 tabular-nums">
-          {stats.done} / {stats.total} tâches
-        </span>
-        <span className="text-xs text-zinc-500 tabular-nums">{pct}%</span>
-      </div>
-      <div className="mt-1.5 h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-        <div
-          className={cn(
-            "h-full transition-all",
-            pct >= 100 ? "bg-emerald-500" : "bg-[hsl(var(--gold))]"
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </button>
   );
 }
 
