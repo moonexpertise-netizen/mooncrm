@@ -2,27 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   DESIGN SYSTEM MOON CRM
+
+   Direction : sobre, premium, B2B intensif. Inspirations : Linear, Stripe,
+   Notion, Attio. Calme, lisible, sans bruit visuel.
+
+   Tokens canoniques :
+     - Couleurs : palette neutre zinc + accent doré MOON (réservé focus/CTA)
+     - Sémantique : success / warning / danger / info — 4 tons seulement
+     - Spacing : 4 / 8 / 12 / 16 / 24 / 32 / 48 px (Tailwind 1 / 2 / 3 / 4 / 6 / 8 / 12)
+     - Radii : 6 (md) inputs/buttons · 8 (lg) cards · 12 (xl) modales · full pills
+     - Shadows : sm hover · lg popovers · 2xl modales
+     - Typography : Funnel Sans (corps) + Funnel Display (titres) + Fraunces (logo)
+   ============================================================================ */
+
 @layer base {
   :root {
-    /* Palette MOON Expertise */
-    --background: 60 8% 92%;            /* #ebebe7 papier */
-    --foreground: 226 45% 10%;          /* #0D1122 encre */
-    --card: 0 0% 100%;                  /* blanc */
+    /* Surfaces ------------------------------------------------------------- */
+    --background: 0 0% 98%;             /* #fafafa  fond page neutre */
+    --foreground: 226 45% 10%;          /* #0D1122  encre MOON */
+    --card: 0 0% 100%;                  /* #ffffff  cartes */
     --card-foreground: 226 45% 10%;
-    --primary: 226 45% 10%;             /* #0D1122 */
-    --primary-foreground: 60 8% 96%;
-    --muted: 60 8% 88%;
-    --muted-foreground: 226 10% 35%;
-    --accent: 36 35% 58%;               /* doré clair */
-    --accent-foreground: 226 45% 10%;
-    --border: 226 12% 86%;
+    --muted: 240 5% 96%;                /* #f4f4f5  zinc-100 */
+    --muted-foreground: 240 4% 46%;     /* #71717a  zinc-500 — texte secondaire */
+    --border: 240 6% 90%;               /* #e4e4e7  zinc-200 — bordures discrètes */
 
-    --gold: 34 32% 52%;                 /* doré principal #A88962 */
-    --gold-soft: 36 40% 88%;            /* doré pâle (fond) */
-    --gold-dark: 32 30% 32%;            /* doré foncé (hover) */
+    /* Primary (CTA neutre, fond dark) ------------------------------------- */
+    --primary: 226 45% 10%;             /* #0D1122  navy MOON */
+    --primary-foreground: 0 0% 100%;
+
+    /* Accent doré MOON (réservé focus + actions primaires importantes) ---- */
+    --gold: 34 32% 52%;                 /* #a88962  doré principal */
+    --gold-soft: 36 40% 88%;            /* #ecdfca  doré pâle (fond) */
+    --gold-dark: 32 30% 32%;            /* #6e5a3f  doré foncé (hover) */
+
+    /* Couleurs sémantiques (4 seulement) --------------------------------- */
+    --success: 158 64% 40%;             /* emerald-600 */
+    --success-soft: 152 76% 96%;        /* emerald-50 */
+    --warning: 38 92% 50%;              /* amber-500 */
+    --warning-soft: 48 100% 96%;        /* amber-50 */
+    --danger: 0 72% 51%;                /* rose-600 */
+    --danger-soft: 0 86% 97%;           /* rose-50 */
+    --info: 199 89% 48%;                /* sky-500 */
+    --info-soft: 204 100% 97%;          /* sky-50 */
   }
 }
 
+/* Reset bordure par défaut sur les éléments interactifs */
 * {
   border-color: hsl(var(--border));
 }
@@ -30,6 +57,8 @@
 html {
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: hsl(var(--foreground));
+  /* Text rendering pour finesse typographique */
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -38,6 +67,8 @@ body {
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Hauteur de ligne confortable pour journée de lecture intensive */
+  line-height: 1.5;
 }
 
 .font-display {
@@ -45,13 +76,20 @@ body {
   font-feature-settings: "ss01";
 }
 
+/* Hiérarchie typographique — un seul code pour tout le CRM
+   text-2xl (24/30) tracking-tight semibold → Page titles (h1)
+   text-lg  (18/28) tracking-tight semibold → Section titles (h2)
+   text-base(16/24) font-semibold           → Card titles (h3)
+   text-sm  (14/20)                         → Body
+   text-xs  (12/16)                         → Metadata
+   [11px]   uppercase tracking-wide         → Eyebrows / labels métadonnées */
 h1, h2, h3, h4 {
   font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: hsl(var(--foreground));
 }
 
-/* Couleurs MOON exposées comme classes utilitaires */
+/* Couleurs MOON exposées comme classes utilitaires ----------------------- */
 .text-ink { color: hsl(var(--foreground)); }
 .text-gold { color: hsl(var(--gold)); }
 .bg-gold { background-color: hsl(var(--gold)); }
@@ -62,48 +100,44 @@ h1, h2, h3, h4 {
 .hover\:border-gold:hover { border-color: hsl(var(--gold)); }
 .ring-gold { --tw-ring-color: hsl(var(--gold)); }
 
-/* Animations utilitaires */
+/* Animations utilitaires (durées courtes, courbes naturelles) ----------- */
 @keyframes slide-up-fade {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(4px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .animate-slide-up-fade {
-  animation: slide-up-fade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slide-up-fade 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fade-in {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
 .animate-fade-in {
-  animation: fade-in 0.2s ease-out;
+  animation: fade-in 0.15s ease-out;
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
 }
 .animate-scale-in {
-  animation: scale-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: scale-in 0.12s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 .animate-slide-in-right {
-  animation: slide-in-right 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Focus ring (ardoise/doré selon contexte) */
+/* Focus visible global : ring zinc subtle (au lieu de gold partout)
+   Les éléments qui nécessitent l'accent gold peuvent l'overrider avec
+   focus-visible:ring-[hsl(var(--gold))] */
 :focus-visible {
-  outline: 2px solid hsl(var(--gold));
+  outline: 2px solid hsl(240 5% 65%);  /* zinc-400 */
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -113,14 +147,14 @@ button:focus-visible,
   outline-offset: 1px;
 }
 
-/* Smooth transition par défaut sur les interactifs */
+/* Transitions par défaut sur interactifs (durée courte, courbe naturelle) */
 button, a, select, input[type="checkbox"], input[type="radio"] {
   transition-property: background-color, border-color, color, box-shadow, transform, opacity;
-  transition-duration: 160ms;
+  transition-duration: 140ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Scrollbar discrète */
+/* Scrollbar discrète --------------------------------------------------- */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -129,18 +163,18 @@ button, a, select, input[type="checkbox"], input[type="radio"] {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--foreground) / 0.18);
+  background: hsl(var(--foreground) / 0.15);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--foreground) / 0.3);
+  background: hsl(var(--foreground) / 0.25);
   background-clip: content-box;
 }
 
-/* Sélection de texte (couleur dorée) */
+/* Sélection texte (gold MOON discret) */
 ::selection {
-  background: hsl(var(--gold) / 0.4);
+  background: hsl(var(--gold) / 0.25);
   color: hsl(var(--foreground));
 }
