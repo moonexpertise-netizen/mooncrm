@@ -96,8 +96,8 @@ function broadcastCollapse(collapsed: boolean) {
  * l'email complet dans l'UI (risque info exploitable par un attaquant qui
  * regarde l'écran).
  *
- * Ex. "benjamin.perez@moonexpertise.fr" → "Benjamin Perez"
- *     "j.dupont@example.com" → "J. Dupont"
+ * Ex. "prenom.nom@example.com" → "Prenom Nom"
+ *     "j.dupont@example.com" → "J Dupont"
  *     "admin" → "Admin"
  */
 function displayNameFromEmail(email: string): string {

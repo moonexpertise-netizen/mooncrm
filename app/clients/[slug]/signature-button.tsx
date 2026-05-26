@@ -363,9 +363,7 @@ export default function SignatureButton({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium">Benjamin Perez</div>
-                      <div className="text-[11px] text-zinc-500">
-                        benjamin.perez@moonexpertise.fr · MOON Expertise
-                      </div>
+                      <div className="text-[11px] text-zinc-500">MOON Expertise</div>
                     </div>
                     <span className="text-[10px] text-zinc-500 px-2 py-0.5 rounded bg-white border">
                       Contre-signature
