@@ -1,21 +1,17 @@
+import { PageHeader } from "../_components/page-header";
 import OnboardingTabs from "./onboarding-tabs";
 
 /**
- * Layout commun aux vues onboarding (Liste / Matrice).
- *
- * Affiche le titre + un sélecteur d'onglet client (qui synchronise via URL).
- * Les sous-pages (page.tsx = liste, matrice/page.tsx = matrice) se contentent
- * de rendre leur contenu spécifique.
+ * Layout commun aux vues onboarding (Liste / Matrice / Paramétrage).
+ * Titre + onglets stables au-dessus du contenu de chaque sous-route.
  */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Onboarding</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Suivi de l&apos;intégration des nouveaux dossiers · dossiers signés / internes / sous-traitance
-        </p>
-      </div>
+      <PageHeader
+        title="Onboarding"
+        description="Suivi de l'intégration des nouveaux dossiers · signés / internes / sous-traitance"
+      />
       <OnboardingTabs />
       {children}
     </div>
