@@ -306,7 +306,7 @@ function OnboardingRowComp({ row, type }: { row: OnboardingRow; type: OrigineTyp
                 : "text-zinc-700"
             )}
           >
-            {noTasks ? "·" : `${row.done}/${row.total}`}
+            {noTasks ? "-" : `${row.done}/${row.total}`}
             <span className="text-zinc-400 ml-1">
               {noTasks ? "" : `(${row.pct}%)`}
             </span>

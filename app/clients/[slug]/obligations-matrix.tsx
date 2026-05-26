@@ -250,7 +250,7 @@ export default function ObligationsMatrix({
           </select>
           {debutYear !== null && (
             <span className="text-zinc-500 text-[11px]">
-              Années &lt; {debutYear} marquées « · »
+              Années &lt; {debutYear} marquées « - »
             </span>
           )}
         </div>
@@ -265,7 +265,7 @@ export default function ObligationsMatrix({
           <div className="flex items-center gap-1.5 text-[11px] text-zinc-300">
             {pendingReconduits.map((p, i) => (
               <span key={i} className="px-1.5 py-0.5 rounded bg-white/10 tabular-nums">
-                {p.from} · {p.to}
+                {p.from} - {p.to}
               </span>
             ))}
           </div>
@@ -340,7 +340,7 @@ export default function ObligationsMatrix({
                 const before = isBeforeDebut(y);
                 if (before) {
                   return (
-                    <td key={y} className="px-1 py-1 text-center align-middle bg-zinc-100 text-zinc-400">·</td>
+                    <td key={y} className="px-1 py-1 text-center align-middle bg-zinc-100 text-zinc-400">-</td>
                   );
                 }
                 const r = getRegime(y);
@@ -370,7 +370,7 @@ export default function ObligationsMatrix({
                 const before = isBeforeDebut(y);
                 if (before) {
                   return (
-                    <td key={y} className="px-1 py-1 text-center align-middle bg-zinc-100 text-zinc-400">·</td>
+                    <td key={y} className="px-1 py-1 text-center align-middle bg-zinc-100 text-zinc-400">-</td>
                   );
                 }
                 const m = getTva(y);
@@ -415,7 +415,7 @@ export default function ObligationsMatrix({
                   const before = isBeforeDebut(y);
                   if (before) {
                     return (
-                      <td key={y} className="px-0.5 text-center align-middle bg-zinc-100 text-zinc-400">·</td>
+                      <td key={y} className="px-0.5 text-center align-middle bg-zinc-100 text-zinc-400">-</td>
                     );
                   }
                   const v = isActive(row.key, y);

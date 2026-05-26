@@ -468,7 +468,7 @@ export default function MatriceTable({
                           : "text-rose-600"
                       )}
                     >
-                      {s.total > 0 ? `${s.pct}%` : "·"}
+                      {s.total > 0 ? `${s.pct}%` : "-"}
                     </span>
                   </th>
                 ))}
@@ -557,7 +557,7 @@ export default function MatriceTable({
                         />
                       </div>
                       <span className="text-[10px] tabular-nums text-zinc-600 shrink-0 min-w-[34px] text-right">
-                        {r.total > 0 ? `${r.done}/${r.total}` : "·"}
+                        {r.total > 0 ? `${r.done}/${r.total}` : "-"}
                       </span>
                     </div>
                   </td>

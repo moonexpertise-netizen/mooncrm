@@ -543,7 +543,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                   </td>
                   <td className="px-1 text-center align-middle border-r border-zinc-200">
                     {beforeDebut ? (
-                      <span className="text-zinc-400 text-sm">·</span>
+                      <span className="text-zinc-400 text-sm">-</span>
                     ) : (
                       <select
                         value={r.regime ?? ""}
@@ -561,7 +561,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                   </td>
                   <td className="px-1 text-center align-middle border-r border-zinc-200">
                     {beforeDebut ? (
-                      <span className="text-zinc-400 text-sm">·</span>
+                      <span className="text-zinc-400 text-sm">-</span>
                     ) : (
                       <select
                         value={r.tvaMode ?? ""}
@@ -586,7 +586,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                           key={col.key}
                           className="px-0.5 py-1 text-center align-middle text-zinc-400 text-sm"
                         >
-                          ·
+                          -
                         </td>
                       );
                     }
@@ -641,7 +641,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                   })}
                   <td className="px-2 text-center align-middle border-l border-zinc-200">
                     {beforeDebut ? (
-                      <span className="text-zinc-400 text-sm">·</span>
+                      <span className="text-zinc-400 text-sm">-</span>
                     ) : (
                       <button
                         onClick={() => reconduireOne(r.id)}

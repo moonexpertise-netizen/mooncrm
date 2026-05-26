@@ -93,7 +93,7 @@ function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
         value={
           kpi.clientsActifs > 0
             ? fmtEuro(Math.round(kpi.arr / kpi.clientsActifs))
-            : "·"
+            : "-"
         }
         sub="moyenne par dossier actif"
         icon={<TrendingUp className="h-5 w-5" />}
