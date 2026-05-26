@@ -86,17 +86,25 @@ const TASK_LONG_LABEL: Record<string, string> = {
   affiliation_tns: "Affiliation TNS réalisée",
 };
 
-type OrigineType = "creation" | "reprise" | "interne" | "soustraitance" | "autre";
+type OrigineType =
+  | "creation"
+  | "reprise_ec"
+  | "reprise_sans_ec"
+  | "interne"
+  | "soustraitance"
+  | "autre";
 const TYPE_LABEL: Record<OrigineType, string> = {
   creation: "Création",
-  reprise: "Reprise",
+  reprise_ec: "Reprise avec EC",
+  reprise_sans_ec: "Reprise sans EC",
   interne: "Interne",
-  soustraitance: "Sous-traitance",
+  soustraitance: "ST",
   autre: "Autre",
 };
 const TYPE_PILL: Record<OrigineType, string> = {
   creation: "bg-sky-50 text-sky-800 border-sky-300",
-  reprise: "bg-violet-50 text-violet-800 border-violet-300",
+  reprise_ec: "bg-violet-50 text-violet-800 border-violet-300",
+  reprise_sans_ec: "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300",
   interne: "bg-amber-50 text-amber-800 border-amber-300",
   soustraitance: "bg-zinc-100 text-zinc-700 border-zinc-300",
   autre: "bg-zinc-50 text-zinc-500 border-zinc-200",
@@ -104,7 +112,8 @@ const TYPE_PILL: Record<OrigineType, string> = {
 function origineToType(origine: string | null): OrigineType {
   if (!origine) return "autre";
   if (origine === "1 - Création") return "creation";
-  if (origine === "2 - Reprise" || origine === "3 - Reprise sans EC") return "reprise";
+  if (origine === "2 - Reprise") return "reprise_ec";
+  if (origine === "3 - Reprise sans EC") return "reprise_sans_ec";
   if (origine === "4 - Interne") return "interne";
   if (origine === "5 - Sous-traitance") return "soustraitance";
   return "autre";
@@ -297,7 +306,15 @@ export default function MatriceTable({
 
   // Compteurs par type (sur tout l'ensemble, pour les pills)
   const typeCounts = useMemo(() => {
-    const c = { all: annotated.length, creation: 0, reprise: 0, interne: 0, soustraitance: 0, autre: 0 };
+    const c = {
+      all: annotated.length,
+      creation: 0,
+      reprise_ec: 0,
+      reprise_sans_ec: 0,
+      interne: 0,
+      soustraitance: 0,
+      autre: 0,
+    };
     for (const r of annotated) c[r.type]++;
     return c;
   }, [annotated]);
@@ -353,7 +370,8 @@ export default function MatriceTable({
         <span className="text-[11px] text-zinc-500">Type :</span>
         <FilterChip label="Tous" active={typeFilter === "all"} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
         <FilterChip label="Création" active={typeFilter === "creation"} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
-        <FilterChip label="Reprise" active={typeFilter === "reprise"} count={typeCounts.reprise} type="reprise" onClick={() => setTypeFilter("reprise")} />
+        <FilterChip label="Reprise avec EC" active={typeFilter === "reprise_ec"} count={typeCounts.reprise_ec} type="reprise_ec" onClick={() => setTypeFilter("reprise_ec")} />
+        <FilterChip label="Reprise sans EC" active={typeFilter === "reprise_sans_ec"} count={typeCounts.reprise_sans_ec} type="reprise_sans_ec" onClick={() => setTypeFilter("reprise_sans_ec")} />
         <FilterChip label="Interne" active={typeFilter === "interne"} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
         <FilterChip label="ST" active={typeFilter === "soustraitance"} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
         <div className="h-6 w-px bg-zinc-200 mx-1" />
