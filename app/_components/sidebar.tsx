@@ -296,8 +296,8 @@ export function Sidebar() {
         {/* Pastille chevron : visible par défaut, dorée au survol */}
         <span
           className={cn(
-            "flex items-center justify-center w-5 h-10 rounded-md bg-[#0D1122] border shadow-md",
-            "border-white/15 text-zinc-400/70",
+            "flex items-center justify-center w-5 h-10 rounded-md bg-[hsl(var(--sidebar))] border shadow-md",
+            "border-white/15 text-zinc-200",
             "group-hover/divider:border-[hsl(var(--gold))]/60 group-hover/divider:text-[hsl(var(--gold))] group-hover/divider:scale-110",
             "transition-all duration-150"
           )}
@@ -391,7 +391,7 @@ export function Sidebar() {
                 {/* Tooltip quand replié (uniquement desktop collapsed) */}
                 {showCollapsed && (
                   <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                    <div className="bg-[#0D1122] border border-white/10 text-zinc-100 text-xs px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap">
+                    <div className="bg-[hsl(var(--surface-elevated))] dark:bg-[hsl(var(--surface-elevated))] border border-white/10 text-zinc-100 text-xs px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap">
                       {item.label}
                       {isProduction && hasChildren && item.children && (
                         <div className="mt-1.5 pt-1.5 border-t border-white/10 space-y-1 max-h-80 overflow-auto">

@@ -78,37 +78,40 @@
    * Contrastes WCAG AA verifies sur tous les couples texte / fond.
    */
   .dark {
-    /* ============= PALETTE NOTION =============
+    /* ============= PALETTE NOTION (specification Benjamin) ===========
      *
-     * Reference exacte : Notion dark mode.
-     *   App bg #191919 (lightness 9.8%, saturation 0)
-     *   Card  #1c1c1c (lightness 11%)
-     *   Muted #242424 (lightness 14%)
-     *   Modal #2c2c2c (lightness 17%)
-     *   Hover overlay : rgba(255,255,255,0.055)
-     *   Selected overlay : rgba(255,255,255,0.082)
-     *   Border : rgba(255,255,255,0.094)
-     *   Texte 1 : rgba(255,255,255,0.92)
-     *   Texte 2 : rgba(255,255,255,0.60)
-     *   Texte 3 : rgba(255,255,255,0.42)
+     * Reference imposee, basee sur Notion dark mode :
+     *   App bg          #191919  (lightness 9.8%)
+     *   Surface         #202020  (lightness 12.5%)
+     *   Surface elevee  #252525  (lightness 14.5%)
+     *   Surface hover   #2F2F2F  (lightness 18.5%)
+     *   Border subtile  #373737  (lightness 21.5%)
+     *   Border visible  #4A4A4A  (lightness 29%)
      *
-     * Saturation = 0 partout (Notion utilise du gris pur, pas de teinte).
-     * ============================================ */
+     * Textes :
+     *   Principal    #F1F1F1  (lightness 94.5%)
+     *   Secondaire   #CFCFCF  (lightness 81%)
+     *   Tertiaire    #A8A8A8  (lightness 66%)
+     *   Disabled     #777777  (lightness 47%)
+     *
+     * Saturation = 0 partout (gris pur, jamais bleu nuit / violet).
+     * Interdit : #0D1122.
+     * ================================================================ */
 
     /* Surfaces ----------------------------------------------------------- */
     --background: 0 0% 9.8%;            /* #191919  app */
-    --foreground: 0 0% 92%;             /* texte principal (contrast 14.2:1) */
-    --card: 0 0% 12.5%;                 /* #202020  card par defaut, depth claire vs bg */
-    --card-foreground: 0 0% 92%;
-    --muted: 0 0% 15.5%;                /* #272727  header card / surface secondaire */
-    --muted-foreground: 0 0% 62%;       /* texte secondaire (contrast 6.7:1) */
-    --border: 0 0% 100% / 0.094;        /* bordure Notion exacte */
-    --border-strong: 0 0% 100% / 0.18;  /* hover/focus border */
+    --foreground: 0 0% 94.5%;           /* #F1F1F1  texte principal (contrast 16.4:1) */
+    --card: 0 0% 12.5%;                 /* #202020  surface principale */
+    --card-foreground: 0 0% 94.5%;
+    --muted: 0 0% 14.5%;                /* #252525  surface elevee (header card) */
+    --muted-foreground: 0 0% 81%;       /* #CFCFCF  texte secondaire (contrast 11.6:1) */
+    --border: 0 0% 21.5%;               /* #373737  bordure subtile mais visible */
+    --border-strong: 0 0% 29%;          /* #4A4A4A  bordure marquee (hover/focus) */
 
     /* Surfaces hiérarchisées (3 niveaux) ---------------------------------- */
-    --surface: 0 0% 12.5%;              /* card */
-    --surface-muted: 0 0% 10.5%;        /* zone interne contraste leger */
-    --surface-elevated: 0 0% 18%;       /* modal, popover, dropdown */
+    --surface: 0 0% 12.5%;              /* card #202020 */
+    --surface-muted: 0 0% 11%;          /* zone interne contraste leger */
+    --surface-elevated: 0 0% 14.5%;     /* modal, popover, dropdown #252525 */
 
     /* Primary (en dark : passe en blanc casse pour CTA visible) --------- */
     --primary: 0 0% 92%;                /* CTA principal devient clair */
@@ -118,10 +121,10 @@
     --accent: 0 0% 14%;
     --accent-foreground: 0 0% 92%;
 
-    /* Sidebar : reste navy MOON (identite forte conservee) -------------- */
-    --sidebar: 230 30% 7%;              /* legerement plus fonce qu'en light pour cohérence */
-    --sidebar-foreground: 240 5% 84%;
-    --sidebar-border: 240 5% 100% / 0.06;
+    /* Sidebar : neutre Notion-like en dark (plus de navy bleute) -------- */
+    --sidebar: 0 0% 11%;                /* #1c1c1c  sidebar = un cran plus fonce que la card */
+    --sidebar-foreground: 0 0% 81%;     /* #CFCFCF  texte secondaire */
+    --sidebar-border: 0 0% 100% / 0.08;
 
     /* Gold MOON ajuste (eclaire pour la lisibilite en dark) ------------- */
     --gold: 38 55% 68%;                 /* #d3b88a  plus clair et plus chaud */
@@ -279,6 +282,14 @@ h3 { font-weight: 600; }
     color: hsl(var(--background));
   }
 
+  /* INTERDICTION #0D1122 EN DARK : tous les bg-[#0D1122] hardcodes
+     sont remappes vers surface-elevated (sticky bars) ou primary CTA
+     (boutons) selon le contexte. On unifie tout sur surface-elevated
+     car c'est utilise pour les sticky toolbars (cas majoritaire). */
+  .dark :where(.bg-\[\#0D1122\]) { background-color: hsl(var(--surface-elevated)); }
+  .dark :where(.hover\:bg-\[\#0D1122\]\/85:hover) { background-color: hsl(0 0% 22%); }
+  .dark :where(.bg-\[\#0D1122\]\/85) { background-color: hsl(var(--surface-elevated) / 0.92); }
+
   /* === HOVERS NEUTRES (le coeur du look Notion) ====================
    *
    * Tous les hover utilitaires neutres -> overlay blanc transparent.
@@ -286,52 +297,81 @@ h3 { font-weight: 600; }
    * zinc-100 plus marque, zinc-200 actif).
    * ================================================================== */
 
-  .dark :where(.hover\:bg-zinc-50:hover) { background-color: rgba(255,255,255,0.055); }
-  .dark :where(.hover\:bg-zinc-100:hover) { background-color: rgba(255,255,255,0.082); }
-  .dark :where(.hover\:bg-zinc-200:hover) { background-color: rgba(255,255,255,0.11); }
+  /* Hovers calibres sur Notion surface hover (#2F2F2F vs surface #202020).
+     6 pts d'ecart en lightness => overlay blanc ~7.5-9% selon intensite. */
+  .dark :where(.hover\:bg-zinc-50:hover) { background-color: rgba(255,255,255,0.075); }
+  .dark :where(.hover\:bg-zinc-100:hover) { background-color: rgba(255,255,255,0.10); }
+  .dark :where(.hover\:bg-zinc-200:hover) { background-color: rgba(255,255,255,0.14); }
 
   /* Hovers neutres avec transparence dans la classe d'origine */
-  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: rgba(255,255,255,0.045); }
-  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: rgba(255,255,255,0.035); }
-  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: rgba(255,255,255,0.030); }
+  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: rgba(255,255,255,0.060); }
+  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: rgba(255,255,255,0.050); }
+  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: rgba(255,255,255,0.045); }
 
   /* Active states pousses (clic sur tactile) */
-  .dark :where(.active\:bg-zinc-100:active) { background-color: rgba(255,255,255,0.10); }
-  .dark :where(.active\:bg-zinc-200:active) { background-color: rgba(255,255,255,0.14); }
+  .dark :where(.active\:bg-zinc-100:active) { background-color: rgba(255,255,255,0.13); }
+  .dark :where(.active\:bg-zinc-200:active) { background-color: rgba(255,255,255,0.17); }
 
-  /* === TEXTES ZINC ============================================== */
+  /* === TEXTES ZINC ==============================================
+   *
+   * Mapping vers la palette Notion-Benjamin :
+   *   text principal #F1F1F1 (94.5%), secondaire #CFCFCF (81%),
+   *   tertiaire #A8A8A8 (66%), disabled #777777 (47%).
+   *
+   * On mappe vers ces valeurs PURES (pas d'opacite qui rend illisible).
+   * ================================================================ */
 
-  .dark :where(.text-zinc-900) { color: hsl(var(--foreground)); }
-  .dark :where(.text-zinc-800) { color: hsl(var(--foreground) / 0.96); }
-  .dark :where(.text-zinc-700) { color: hsl(var(--foreground) / 0.90); }
-  .dark :where(.text-zinc-600) { color: hsl(var(--muted-foreground)); }
-  .dark :where(.text-zinc-500) { color: hsl(var(--muted-foreground)); }
-  .dark :where(.text-zinc-400) { color: hsl(var(--muted-foreground) / 0.82); }
-  .dark :where(.text-zinc-300) { color: hsl(var(--muted-foreground) / 0.72); }
-  .dark :where(.hover\:text-zinc-900:hover) { color: hsl(var(--foreground)); }
-  .dark :where(.hover\:text-zinc-700:hover) { color: hsl(var(--foreground) / 0.92); }
-  .dark :where(.group:hover .group-hover\:text-zinc-900) { color: hsl(var(--foreground)); }
+  .dark :where(.text-zinc-900) { color: hsl(0 0% 94.5%); }    /* #F1F1F1 principal */
+  .dark :where(.text-zinc-800) { color: hsl(0 0% 90%); }
+  .dark :where(.text-zinc-700) { color: hsl(0 0% 85%); }
+  .dark :where(.text-zinc-600) { color: hsl(0 0% 81%); }      /* #CFCFCF secondaire */
+  .dark :where(.text-zinc-500) { color: hsl(0 0% 75%); }
+  .dark :where(.text-zinc-400) { color: hsl(0 0% 66%); }      /* #A8A8A8 tertiaire */
+  .dark :where(.text-zinc-300) { color: hsl(0 0% 58%); }
+  .dark :where(.hover\:text-zinc-900:hover) { color: hsl(0 0% 94.5%); }
+  .dark :where(.hover\:text-zinc-700:hover) { color: hsl(0 0% 85%); }
+  .dark :where(.hover\:text-zinc-200:hover) { color: hsl(0 0% 90%); }
+  .dark :where(.hover\:text-zinc-100:hover) { color: hsl(0 0% 94.5%); }
+  .dark :where(.group:hover .group-hover\:text-zinc-900) { color: hsl(0 0% 94.5%); }
 
-  /* === BORDURES ZINC ============================================ */
+  /* white/N (sidebar items) : on garde l'opacite mais on remonte la valeur
+     pour compenser l'effet de luminosite percu */
+  .dark :where(.text-white\/40) { color: hsl(0 0% 66%); }     /* tertiaire */
+  .dark :where(.text-white\/50) { color: hsl(0 0% 70%); }
+  .dark :where(.text-white\/60) { color: hsl(0 0% 75%); }
 
-  .dark :where(.border-zinc-100) { border-color: hsl(var(--border)); }
-  .dark :where(.border-zinc-200) { border-color: hsl(var(--border)); }
-  .dark :where(.border-zinc-200\/70) { border-color: hsl(var(--border)); }
-  .dark :where(.border-zinc-200\/80) { border-color: hsl(var(--border)); }
-  .dark :where(.border-zinc-200\/60) { border-color: hsl(var(--border) / 0.7); }
-  .dark :where(.border-zinc-300) { border-color: hsl(var(--border-strong)); }
-  .dark :where(.divide-zinc-100 > * + *) { border-color: hsl(var(--border)); }
-  .dark :where(.divide-zinc-200 > * + *) { border-color: hsl(var(--border)); }
-  .dark :where(.hover\:border-zinc-300:hover) { border-color: hsl(var(--border-strong)); }
-  .dark :where(.hover\:border-zinc-400:hover) { border-color: hsl(var(--border-strong)); }
+  /* === BORDURES ZINC ============================================
+   *
+   * Mapping vers la palette Notion-Benjamin :
+   *   border subtile #373737 (21.5%)
+   *   border visible #4A4A4A (29%)
+   *
+   * En dark, les bordures /70 /80 (transparences) restent visibles
+   * grace au fond ~12% (contraste 9 pts minimum).
+   * ================================================================ */
 
-  /* === PLACEHOLDERS / FOCUS RINGS =============================== */
+  .dark :where(.border-zinc-100) { border-color: hsl(0 0% 21.5%); }   /* #373737 */
+  .dark :where(.border-zinc-200) { border-color: hsl(0 0% 21.5%); }
+  .dark :where(.border-zinc-200\/70) { border-color: hsl(0 0% 21.5% / 0.85); }
+  .dark :where(.border-zinc-200\/80) { border-color: hsl(0 0% 21.5% / 0.9); }
+  .dark :where(.border-zinc-200\/60) { border-color: hsl(0 0% 21.5% / 0.75); }
+  .dark :where(.border-zinc-300) { border-color: hsl(0 0% 29%); }     /* #4A4A4A */
+  .dark :where(.divide-zinc-100 > * + *) { border-color: hsl(0 0% 21.5%); }
+  .dark :where(.divide-zinc-200 > * + *) { border-color: hsl(0 0% 21.5%); }
+  .dark :where(.hover\:border-zinc-300:hover) { border-color: hsl(0 0% 35%); }
+  .dark :where(.hover\:border-zinc-400:hover) { border-color: hsl(0 0% 35%); }
 
-  .dark :where(.placeholder\:text-zinc-400::placeholder) { color: hsl(var(--muted-foreground) / 0.65); }
-  .dark :where(.placeholder\:text-zinc-500::placeholder) { color: hsl(var(--muted-foreground) / 0.72); }
+  /* === PLACEHOLDERS / FOCUS RINGS ================================
+   *
+   * Placeholders : #9A9A9A (lightness 60%) — visible mais distinct
+   * de la valeur saisie. Focus border : #8F8F8F.
+   * ================================================================ */
+
+  .dark :where(.placeholder\:text-zinc-400::placeholder) { color: hsl(0 0% 60%); }   /* #9A9A9A */
+  .dark :where(.placeholder\:text-zinc-500::placeholder) { color: hsl(0 0% 60%); }
   .dark :where(.ring-zinc-900\/\[0\.07\]) { --tw-ring-color: hsl(0 0% 100% / 0.12); }
   .dark :where(.focus\:ring-zinc-900\/\[0\.07\]:focus) { --tw-ring-color: hsl(0 0% 100% / 0.12); }
-  .dark :where(.focus\:border-zinc-900:focus) { border-color: hsl(var(--foreground) / 0.7); }
+  .dark :where(.focus\:border-zinc-900:focus) { border-color: hsl(0 0% 56%); }       /* #8F8F8F focus */
   .dark :where(.focus\:bg-white:focus) { background-color: hsl(var(--muted)); }
 
   /* === STATUS BACKGROUNDS (Notion-style) =======================
