@@ -318,25 +318,14 @@ export function Sidebar() {
               priority
             />
           ) : (
-            <>
-              <Image
-                src="/moon-logo.svg"
-                alt="MOON"
-                width={140}
-                height={32}
-                className="h-7 w-auto opacity-95 group-hover:opacity-100 transition-opacity"
-                priority
-              />
-              <span
-                className="text-base tracking-wide italic"
-                style={{
-                  color: "#d6cba3",
-                  fontFamily: "var(--font-fraunces), Georgia, serif",
-                }}
-              >
-                CRM
-              </span>
-            </>
+            <Image
+              src="/moon-logo.svg"
+              alt="MOON Expertise"
+              width={188}
+              height={44}
+              className="h-11 w-auto opacity-95 group-hover:opacity-100 transition-opacity"
+              priority
+            />
           )}
         </Link>
       </div>
