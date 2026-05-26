@@ -65,27 +65,28 @@ export default function DashboardCharts({ data }: { data: DashboardData }) {
 
 function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       <KpiCard
         label="Clients actifs"
         value={kpi.clientsActifs.toString()}
         sub="LDM signée · interne · sous-traitance"
-        icon={<Users className="h-4 w-4" />}
+        icon={<Users className="h-5 w-5" />}
         href="/clients"
+        tone="neutral"
       />
       <KpiCard
         label="MRR"
         value={fmtEuro(kpi.mrr)}
         sub={`ARR ${fmtEuro(kpi.arr)}`}
-        icon={<TrendingUp className="h-4 w-4" />}
-        accent="gold"
+        icon={<TrendingUp className="h-5 w-5" />}
+        tone="gold"
       />
       <KpiCard
         label="Signatures du mois"
         value={kpi.signaturesCeMois.toString()}
         sub={`${fmtEuro(kpi.arrSigneCeMois)} ARR signé`}
-        icon={<CalendarClock className="h-4 w-4" />}
-        accent="emerald"
+        icon={<CalendarClock className="h-5 w-5" />}
+        tone="emerald"
       />
       <KpiCard
         label="ARR / client"
@@ -95,11 +96,34 @@ function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
             : "—"
         }
         sub="moyenne par dossier actif"
-        icon={<TrendingUp className="h-4 w-4" />}
+        icon={<TrendingUp className="h-5 w-5" />}
+        tone="violet"
       />
     </div>
   );
 }
+
+type KpiTone = "neutral" | "gold" | "emerald" | "violet";
+
+const KPI_TONE: Record<KpiTone, { icon: string; ring: string }> = {
+  neutral: {
+    icon: "bg-zinc-100 text-zinc-700",
+    ring: "hover:border-zinc-300",
+  },
+  gold: {
+    icon:
+      "bg-gradient-to-br from-[hsl(var(--gold))]/25 to-[hsl(var(--gold))]/5 text-[hsl(var(--gold-dark))] border border-[hsl(var(--gold))]/20",
+    ring: "hover:border-[hsl(var(--gold))]/40",
+  },
+  emerald: {
+    icon: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+    ring: "hover:border-emerald-200",
+  },
+  violet: {
+    icon: "bg-violet-50 text-violet-700 border border-violet-100",
+    ring: "hover:border-violet-200",
+  },
+};
 
 function KpiCard({
   label,
@@ -107,44 +131,52 @@ function KpiCard({
   sub,
   icon,
   href,
-  accent,
+  tone = "neutral",
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: React.ReactNode;
   href?: string;
-  accent?: "gold" | "emerald";
+  tone?: KpiTone;
 }) {
-  const accentClass = accent === "gold"
-    ? "text-[hsl(var(--gold-dark))]"
-    : accent === "emerald"
-    ? "text-emerald-600"
-    : "text-zinc-900";
+  const toneClass = KPI_TONE[tone];
   const content = (
     <>
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <span className="text-[10px] uppercase tracking-[0.08em] text-zinc-500 font-semibold">
           {label}
         </span>
-        <span className="text-zinc-400">{icon}</span>
+        <span
+          className={cn(
+            "inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0",
+            toneClass.icon
+          )}
+        >
+          {icon}
+        </span>
       </div>
-      <div className={cn("text-2xl font-semibold mt-1 tabular-nums", accentClass)}>
+      <div className="font-display text-3xl md:text-[32px] font-semibold tracking-tight text-zinc-900 tabular-nums leading-none">
         {value}
       </div>
-      {sub && <div className="text-[11px] text-zinc-500 mt-0.5 truncate">{sub}</div>}
+      {sub && (
+        <div className="text-[11px] text-zinc-500 mt-2 truncate">{sub}</div>
+      )}
     </>
   );
-  return href ? (
-    <Link
-      href={href}
-      className="block rounded-lg border bg-card px-4 py-3 hover:border-[hsl(var(--gold))]/60 hover:shadow-sm transition-all"
-    >
-      {content}
-    </Link>
-  ) : (
-    <div className="rounded-lg border bg-card px-4 py-3">{content}</div>
-  );
+  const base =
+    "block rounded-2xl border border-zinc-200/70 bg-white shadow-card px-5 py-4 transition-all";
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={cn(base, toneClass.ring, "hover:shadow-card-hover hover:-translate-y-px")}
+      >
+        {content}
+      </Link>
+    );
+  }
+  return <div className={base}>{content}</div>;
 }
 
 // ============================================================================
@@ -173,11 +205,11 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
   }
 
   return (
-    <section className="rounded-lg border bg-card p-4">
+    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
       <header className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-900">Pipeline</h2>
-          <p className="text-[11px] text-zinc-500">
+          <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Pipeline</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
             Clique sur une barre pour filtrer les clients
           </p>
         </div>
@@ -271,13 +303,13 @@ function SignaturesParMois({
   }));
 
   return (
-    <section className="rounded-lg border bg-card p-4">
+    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
       <header className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-900">
+          <h2 className="text-base font-semibold text-zinc-900 tracking-tight">
             Signatures · 12 derniers mois
           </h2>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-xs text-zinc-500 mt-0.5">
             Barres = mois · ligne = cumul YTD (reset au 1er janvier)
           </p>
         </div>
@@ -381,10 +413,10 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
   const max = Math.max(...topClients.map((c) => c.arr ?? 0), 1);
 
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <header className="mb-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Top 10 clients · ARR</h2>
-        <p className="text-[11px] text-zinc-500">Clic = ouvre la fiche</p>
+    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
+      <header className="mb-4">
+        <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Top 10 clients · ARR</h2>
+        <p className="text-xs text-zinc-500 mt-0.5">Clic = ouvre la fiche</p>
       </header>
       {topClients.length === 0 ? (
         <div className="text-xs text-zinc-400 text-center py-8">Aucun client actif.</div>
@@ -432,10 +464,10 @@ function ProductionRisque({
   risque: DashboardData["productionRisque"];
 }) {
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <header className="mb-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Production à risque</h2>
-        <p className="text-[11px] text-zinc-500">Obligations non terminées</p>
+    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
+      <header className="mb-4">
+        <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Production à risque</h2>
+        <p className="text-xs text-zinc-500 mt-0.5">Obligations non terminées</p>
       </header>
       <div className="space-y-2">
         <RisqueRow
@@ -478,22 +510,48 @@ function RisqueRow({
   href: string;
 }) {
   const palette = {
-    rose: "bg-rose-50 text-rose-700 border-rose-200",
-    amber: "bg-amber-50 text-amber-700 border-amber-200",
-    blue: "bg-blue-50 text-blue-700 border-blue-200",
+    rose: {
+      bg: "bg-rose-50/60 hover:bg-rose-50",
+      border: "border-rose-100 hover:border-rose-200",
+      iconBg: "bg-rose-100 text-rose-700",
+      text: "text-rose-900",
+    },
+    amber: {
+      bg: "bg-amber-50/60 hover:bg-amber-50",
+      border: "border-amber-100 hover:border-amber-200",
+      iconBg: "bg-amber-100 text-amber-700",
+      text: "text-amber-900",
+    },
+    blue: {
+      bg: "bg-sky-50/60 hover:bg-sky-50",
+      border: "border-sky-100 hover:border-sky-200",
+      iconBg: "bg-sky-100 text-sky-700",
+      text: "text-sky-900",
+    },
   } as const;
+  const p = palette[color];
+  const muted = value === 0;
   return (
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 px-3 py-2 rounded-md border transition-all hover:shadow-sm",
-        value > 0 ? palette[color] : "bg-zinc-50 text-zinc-400 border-zinc-100"
+        "group flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all",
+        muted
+          ? "bg-zinc-50/40 text-zinc-400 border-zinc-100 hover:bg-zinc-50"
+          : cn(p.bg, p.border, p.text, "hover:shadow-card-hover")
       )}
     >
-      <span className="shrink-0">{icon}</span>
+      <span
+        className={cn(
+          "inline-flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
+          muted ? "bg-zinc-100 text-zinc-400" : p.iconBg
+        )}
+      >
+        {icon}
+      </span>
       <span className="text-xs flex-1 font-medium">{label}</span>
-      <span className="text-base font-semibold tabular-nums">{value}</span>
-      <ArrowRight className="h-3 w-3 opacity-60" />
+      <span className="text-xl font-semibold tabular-nums leading-none">{value}</span>
+      <ArrowRight className="h-3.5 w-3.5 opacity-40 group-hover:opacity-80 group-hover:translate-x-0.5 transition-all" />
     </Link>
   );
 }
@@ -523,10 +581,10 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
   }
 
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <header className="mb-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Mix activité</h2>
-        <p className="text-[11px] text-zinc-500">
+    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
+      <header className="mb-4">
+        <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Mix activité</h2>
+        <p className="text-xs text-zinc-500 mt-0.5">
           Répartition par secteur · dossiers actifs · clic pour filtrer
         </p>
       </header>

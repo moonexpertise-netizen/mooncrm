@@ -445,27 +445,25 @@ const Column = memo(function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-lg border bg-card flex flex-col",
-        // Mobile : colonne snap-start ~85vw, hauteur libre. Desktop : largeur
-        // dynamique via grid + hauteur fixe pour compacité.
+        "rounded-2xl border border-zinc-200/70 bg-zinc-50/40 flex flex-col transition-all",
         "min-w-[85vw] md:min-w-0 snap-start shrink-0 md:shrink",
-        terminal ? "max-h-none md:max-h-[280px]" : "max-h-none md:max-h-[500px]",
-        isOver && "ring-2 ring-[hsl(var(--gold))] ring-offset-1"
+        terminal ? "max-h-none md:max-h-[280px]" : "max-h-none md:max-h-[560px]",
+        isOver && "ring-2 ring-[hsl(var(--gold))] ring-offset-2 bg-[hsl(var(--gold))]/[0.03] border-[hsl(var(--gold))]/30"
       )}
     >
-      <div className={cn("px-3 py-2 border-b flex items-center justify-between gap-2 md:static sticky top-0 z-10 bg-card", terminal && "bg-zinc-50/50")}>
+      <div className={cn("px-3 py-2.5 border-b border-zinc-200/60 flex items-center justify-between gap-2 md:static sticky top-0 z-10 bg-zinc-50/80 backdrop-blur-sm rounded-t-2xl")}>
         <div className="flex items-center gap-2 min-w-0">
-          <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border truncate", color)}>
+          <span className={cn("inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold border truncate", color)}>
             {label}
           </span>
         </div>
-        <div className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+        <div className="text-[11px] text-zinc-500 tabular-nums whitespace-nowrap font-medium">
           {cards.length} · {fmtEuro(totalArr)}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
+      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {cards.length === 0 ? (
-          <div className="text-[11px] text-muted-foreground text-center py-6">
+          <div className="text-[11px] text-zinc-400 text-center py-10 italic">
             (vide)
           </div>
         ) : (
@@ -533,16 +531,14 @@ const Card = memo(function Card({
       ref={isOverlay ? undefined : setNodeRef}
       style={isOverlay ? undefined : style}
       className={cn(
-        "rounded border bg-white px-1.5 py-1 select-none",
-        "flex items-center gap-1.5",
-        // Hover seulement quand on ne drag pas (évite repaints inutiles)
-        !isDragging && !isOverlay && "hover:border-zinc-400 hover:shadow-sm transition-[border-color,box-shadow] duration-150",
+        "group rounded-lg border border-zinc-200/70 bg-white px-2 py-1.5 select-none shadow-card",
+        "flex items-center gap-2",
+        !isDragging && !isOverlay && "hover:border-zinc-300 hover:shadow-card-hover hover:-translate-y-px transition-all duration-150",
         muted && "opacity-30",
-        isOverlay && "shadow-xl ring-2 ring-[hsl(var(--gold))]/40 cursor-grabbing"
+        isOverlay && "shadow-modal ring-2 ring-[hsl(var(--gold))]/50 cursor-grabbing scale-[1.02]"
       )}
     >
-      {/* Drag handle : la seule zone qui déclenche le drag. Touch target 28px
-          large × pleine hauteur → facile à attraper au pouce sur mobile. */}
+      {/* Drag handle : la seule zone qui déclenche le drag. */}
       <button
         type="button"
         ref={undefined}
@@ -550,25 +546,22 @@ const Card = memo(function Card({
         {...(isOverlay ? {} : listeners)}
         aria-label="Déplacer la carte"
         className={cn(
-          "shrink-0 -my-1 -ml-1.5 px-1 py-1.5 text-zinc-300 hover:text-zinc-600 hover:bg-zinc-50 rounded-l transition-colors",
+          "shrink-0 -my-1.5 -ml-2 px-1.5 py-2 text-zinc-300 hover:text-zinc-600 group-hover:text-zinc-400 rounded-l-lg transition-colors",
           "cursor-grab active:cursor-grabbing touch-none"
         )}
-        // Empêche le click sur le handle de propager (sinon ferme rapidement)
         onClick={(e) => e.preventDefault()}
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
 
-      {/* Lien client : prend tout l'espace dispo, click normal sans drag.
-          Pas besoin de stopPropagation car les listeners sont sur le handle. */}
       <Link
         href={`/clients/${card.slug}`}
-        className="font-medium text-xs truncate min-w-0 flex-1 hover:text-[hsl(var(--gold))] transition-colors"
+        className="font-medium text-xs truncate min-w-0 flex-1 text-zinc-900 group-hover:text-[hsl(var(--gold-dark))] transition-colors"
       >
         {card.denomination}
       </Link>
 
-      <span className="text-[11px] tabular-nums text-zinc-700 font-medium shrink-0">
+      <span className="text-[11px] tabular-nums text-zinc-700 font-semibold shrink-0">
         {fmtEuro(card.arr ?? 0)}
       </span>
     </div>

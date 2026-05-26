@@ -1,27 +1,82 @@
 import { cn } from "@/lib/utils";
 
-/** Carte standard avec titre. */
-export function Card({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * Card premium (refonte v2) — fiche client.
+ *
+ * Header avec titre + (optionnel) sous-titre + (optionnel) action à droite.
+ * Style Linear / Attio : rounded-2xl, border-zinc-200/70, shadow-card,
+ * header sur fond très légèrement teinté pour le détacher du corps.
+ */
+export function Card({
+  title,
+  subtitle,
+  action,
+  children,
+  className,
+  bodyClassName,
+}: {
+  title?: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+}) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <h3 className="text-sm font-medium mb-3 text-zinc-700">{title}</h3>
-      {children}
+    <div
+      className={cn(
+        "rounded-2xl bg-white border border-zinc-200/70 shadow-card overflow-hidden",
+        className
+      )}
+    >
+      {(title || action) && (
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-zinc-100 bg-zinc-50/40">
+          <div className="min-w-0">
+            {title && (
+              <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+                {title}
+              </h3>
+            )}
+            {subtitle && (
+              <p className="text-[11px] text-zinc-500 mt-0.5">{subtitle}</p>
+            )}
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </div>
+      )}
+      <div className={cn("p-5 space-y-1", bodyClassName)}>{children}</div>
     </div>
   );
 }
 
-/** Séparateur de section numéroté (Section 1 — Infos de base, etc.). */
-export function SectionTitle({ n, title, sub }: { n: number; title: string; sub: string }) {
+/**
+ * Séparateur de section premium (Section 1 — Infos de base, etc.).
+ *
+ * Style Linear : eyebrow numéroté en pastille gold, titre large, line accent
+ * sous le titre. Pas une simple bordure plate — un vrai séparateur visuel.
+ */
+export function SectionTitle({
+  n,
+  title,
+  sub,
+}: {
+  n: number;
+  title: string;
+  sub: string;
+}) {
   return (
-    <div className="pt-2 pb-1">
-      <div className="flex items-baseline gap-2">
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[hsl(var(--gold))]/15 text-[hsl(var(--gold-dark))] text-xs font-semibold">
+    <div className="pt-3 pb-1">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(var(--gold))]/20 to-[hsl(var(--gold))]/5 text-[hsl(var(--gold-dark))] text-xs font-bold tracking-tight border border-[hsl(var(--gold))]/20 shadow-card">
           {n}
         </span>
-        <h2 className="text-base font-semibold tracking-tight text-zinc-900">{title}</h2>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold tracking-tight text-zinc-900 leading-none">
+            {title}
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1">{sub}</p>
+        </div>
       </div>
-      <p className="text-[11px] text-zinc-500 ml-8 mt-0.5">{sub}</p>
-      <div className="h-px bg-zinc-200 mt-2" />
     </div>
   );
 }
@@ -30,8 +85,8 @@ export function SectionTitle({ n, title, sub }: { n: number; title: string; sub:
 export function FieldReadonly({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,360px)] gap-1 sm:gap-2 py-1.5 sm:py-1 text-sm sm:items-center">
-      <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
-      <div className="px-2 py-1 -mx-2 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 tabular-nums">
+      <div className="text-xs sm:text-sm text-zinc-500">{label}</div>
+      <div className="px-3 py-2 sm:px-2 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md border border-zinc-100 bg-zinc-50/60 text-zinc-700 tabular-nums text-sm flex items-center">
         {value}
       </div>
     </div>

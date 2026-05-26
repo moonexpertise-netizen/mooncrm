@@ -90,8 +90,8 @@ function extractDirigeantParts(
 /** Classes de fond pour les inputs : ambre si vide, blanc sinon. */
 function inputFill(value: string): string {
   return value.trim()
-    ? "border-zinc-300 bg-white focus:border-[hsl(var(--gold))]/60"
-    : "border-amber-300 bg-amber-50 text-amber-900 placeholder:text-amber-700/60";
+    ? "border-zinc-200 bg-white text-zinc-900 hover:border-zinc-300 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]"
+    : "border-zinc-200/60 bg-zinc-50/70 text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-300 focus:bg-white focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]";
 }
 
 /**

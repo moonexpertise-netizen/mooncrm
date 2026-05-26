@@ -1,5 +1,6 @@
 import { loadDashboardData } from "./_dashboard/dashboard-data";
 import DashboardChartsLoader from "./_dashboard/dashboard-charts-loader";
+import { PageHeader } from "./_components/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -7,13 +8,11 @@ export default async function DashboardPage() {
   const data = await loadDashboardData();
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Vue d&apos;ensemble · pipeline, signatures, production
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description="Vue d'ensemble du portefeuille · pipeline, signatures, production"
+      />
       <DashboardChartsLoader data={data} />
     </div>
   );

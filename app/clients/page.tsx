@@ -47,7 +47,7 @@ export default async function ClientsPage() {
         actions={
           <Link
             href="/clients/nouveau"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-sm font-medium shadow-card hover:bg-zinc-800 hover:shadow-card-hover transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 active:scale-[0.97]"
           >
             <Plus className="h-4 w-4" />
             Nouveau client

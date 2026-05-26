@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isClientBillable } from "@/lib/billable";
+import { PageHeader } from "@/app/_components/page-header";
 import { TRACKERS, slugForType } from "./trackers";
 import SommaireCards, { type TrackerStat } from "./sommaire-cards";
 
@@ -112,19 +113,12 @@ export default async function ObligationsSommaire({
   });
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Suivi de production
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Exercice {selectedYear} · dossiers signés / internes /
-            sous-traitance.
-          </p>
-        </div>
-        <YearSelector year={selectedYear} />
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Suivi de production"
+        description={`Exercice ${selectedYear} · dossiers signés / internes / sous-traitance.`}
+        actions={<YearSelector year={selectedYear} />}
+      />
 
       <SommaireCards rows={stats} year={selectedYear} />
     </div>
@@ -133,23 +127,23 @@ export default async function ObligationsSommaire({
 
 function YearSelector({ year }: { year: number }) {
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1.5">
       <div
-        className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-500"
+        className="flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-zinc-400"
         title="L'année reste active pendant ta navigation entre les sous-trackers Production"
       >
         <Lock className="h-2.5 w-2.5" />
         <span>Mémorisée</span>
       </div>
-      <div className="flex gap-2">
+      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60">
         {AVAILABLE_YEARS.map((y) => (
           <Link
             key={y}
             href={`/obligations?year=${y}`}
             className={
               y === year
-                ? "px-3 py-1 rounded-md text-sm border bg-[hsl(var(--gold))] text-white border-[hsl(var(--gold))] shadow-sm"
-                : "px-3 py-1 rounded-md text-sm border bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400"
+                ? "px-3 py-1 rounded-lg text-sm bg-white text-zinc-900 shadow-card font-medium tabular-nums"
+                : "px-3 py-1 rounded-lg text-sm text-zinc-600 hover:text-zinc-900 hover:bg-white/50 tabular-nums"
             }
           >
             {y}

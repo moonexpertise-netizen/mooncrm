@@ -22,28 +22,28 @@ import { setClientGroupe, updateClient, updateContact } from "./actions";
 //  Helpers de style — uniformes partout sur la fiche
 // ============================================================================
 
-/** Classe d'un input/select.
+/** Classe d'un input/select — refonte premium (Linear / Stripe style).
  *
- *  Direction design (refactor 2026) : on calme le visuel.
- *    - Vide   : fond très subtil ambre (amber-50/40) + bordure amber-200
- *    - Rempli : blanc neutre + bordure zinc-200
- *    - Hover/Focus : bordure zinc-400 + ring zinc-400/30
+ *  Direction design (refonte 2026) :
+ *    - Vide   : fond zinc-50/60 (presque transparent) + bordure zinc-200/0 (invisible au repos)
+ *    - Rempli : blanc + bordure zinc-200
+ *    - Hover  : bg légèrement plus marqué + bordure zinc-300
+ *    - Focus  : bg blanc + bordure zinc-900 + ring zinc-900/10 (très premium)
  *
- *  Avant on avait des fonds amber-50 et emerald-50 saturés qui criaient sur
- *  l'œil pendant une journée. Maintenant le signal "à remplir" est juste un
- *  léger reflet chaud, pas une alerte.
+ *  Plus aucun fond ambre/saturé. Le champ vide est juste un creux gris discret,
+ *  comme dans Linear ou Notion. Le focus est marqué net (bordure foncée).
  *
  *  Mobile : min-h-[44px] (cible touch iOS HIG) + text-base (16px : empêche
  *  le zoom auto Safari sur focus d'un champ).
  */
 function fieldInputClass(filled: boolean, extra = ""): string {
   return cn(
-    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded-md border text-base sm:text-sm transition-colors",
-    "focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-400",
+    "w-full px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg border text-base sm:text-sm transition-all",
+    "focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.07] focus:border-zinc-900 focus:bg-white",
     "hover:border-zinc-300",
     filled
       ? "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-      : "bg-amber-50/40 border-amber-200/80 text-zinc-900 placeholder:text-amber-700/50",
+      : "bg-zinc-50/70 border-zinc-200/60 text-zinc-900 placeholder:text-zinc-400",
     extra
   );
 }
@@ -561,14 +561,14 @@ export function EditableHeading({
             setEditing(false);
           }
         }}
-        className="text-3xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded border border-zinc-300 bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400 w-full max-w-xl"
+        className="font-display text-3xl md:text-4xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded-lg border border-zinc-300 bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.07] focus:border-zinc-900 w-full max-w-2xl"
       />
     );
   }
   return (
     <button
       onClick={startEdit}
-      className="text-3xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded hover:bg-zinc-100 transition text-left"
+      className="font-display text-3xl md:text-4xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded-lg hover:bg-zinc-100/70 transition text-left text-zinc-900"
     >
       {display}
     </button>

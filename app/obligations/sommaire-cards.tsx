@@ -162,7 +162,7 @@ export default function SommaireCards({
             </header>
 
             {/* Liste des rows */}
-            <div className="rounded-lg border border-zinc-200 bg-card divide-y divide-zinc-100 overflow-hidden">
+            <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card divide-y divide-zinc-100 overflow-hidden">
               {groupRows.map((r) => (
                 <TrackerRow
                   key={r.slug}
@@ -177,7 +177,7 @@ export default function SommaireCards({
       })}
 
       {grouped.length === 0 && (
-        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-10 text-center text-sm text-zinc-500">
           Aucun tracker ne correspond aux filtres.
         </div>
       )}
@@ -331,10 +331,10 @@ function KpiPill({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border transition-all",
+        "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shadow-card",
         active
-          ? `${p.bgActive} text-zinc-900 border-transparent ring-2 shadow-sm`
-          : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900"
+          ? `${p.bgActive} text-zinc-900 border-transparent ring-2 shadow-card-hover`
+          : "bg-white text-zinc-700 border-zinc-200/70 hover:border-zinc-300 hover:shadow-card-hover hover:-translate-y-px"
       )}
     >
       {icon ? (
@@ -342,7 +342,7 @@ function KpiPill({
       ) : (
         <span className={cn("inline-block w-2 h-2 rounded-full", p.dot)} aria-hidden />
       )}
-      <span className="uppercase tracking-wide text-[10px]">{label}</span>
+      <span className="uppercase tracking-[0.06em] text-[10px]">{label}</span>
       <span className="tabular-nums font-semibold text-sm">{value}</span>
     </button>
   );

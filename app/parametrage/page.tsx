@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isClientBillable } from "@/lib/billable";
+import { PageHeader } from "@/app/_components/page-header";
 import ParametrageGrid, { type Row } from "./grid";
 
 export const dynamic = "force-dynamic";
@@ -91,16 +92,12 @@ export default async function ParametragePage({
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Paramétrage</h1>
-          <p className="text-sm text-muted-foreground">
-            Matrice clients × obligations · édition rapide
-          </p>
-        </div>
-        <YearSelector year={year} />
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Paramétrage"
+        description="Matrice clients × obligations · édition rapide"
+        actions={<YearSelector year={year} />}
+      />
       <ParametrageGrid rows={rows} year={year} />
     </div>
   );
@@ -109,15 +106,15 @@ export default async function ParametragePage({
 function YearSelector({ year }: { year: number }) {
   const years = [year - 1, year, year + 1];
   return (
-    <div className="flex gap-2">
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60">
       {years.map((y) => (
         <Link
           key={y}
           href={`/parametrage?year=${y}`}
           className={
             y === year
-              ? "px-3 py-1 rounded-md text-sm border bg-[hsl(var(--gold))] text-white border-[hsl(var(--gold))] shadow-sm"
-              : "px-3 py-1 rounded-md text-sm border bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400"
+              ? "px-3 py-1 rounded-lg text-sm bg-white text-zinc-900 shadow-card font-medium tabular-nums"
+              : "px-3 py-1 rounded-lg text-sm text-zinc-600 hover:text-zinc-900 hover:bg-white/50 tabular-nums"
           }
         >
           {y}
