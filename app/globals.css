@@ -78,28 +78,45 @@
    * Contrastes WCAG AA verifies sur tous les couples texte / fond.
    */
   .dark {
-    /* Surfaces ----------------------------------------------------------- */
-    --background: 240 6% 9%;            /* #15161a  fond app, anthracite tres fonce */
-    --foreground: 240 5% 96%;           /* #f3f3f4  texte principal (contrast 14.5:1) */
-    --card: 240 6% 13%;                 /* #1f2024  surface card (un cran au-dessus du fond) */
-    --card-foreground: 240 5% 96%;
-    --muted: 240 5% 18%;                /* #2c2d32  surface secondaire (header card) */
-    --muted-foreground: 240 5% 70%;     /* #b0b2b8  texte secondaire (contrast 8.2:1) - plus lisible */
-    --border: 240 5% 100% / 0.12;       /* bordure subtile mais visible (avant 0.08) */
-    --border-strong: 240 5% 100% / 0.22; /* hover marque (avant 0.16) */
+    /* ============= PALETTE NOTION =============
+     *
+     * Reference exacte : Notion dark mode.
+     *   App bg #191919 (lightness 9.8%, saturation 0)
+     *   Card  #1c1c1c (lightness 11%)
+     *   Muted #242424 (lightness 14%)
+     *   Modal #2c2c2c (lightness 17%)
+     *   Hover overlay : rgba(255,255,255,0.055)
+     *   Selected overlay : rgba(255,255,255,0.082)
+     *   Border : rgba(255,255,255,0.094)
+     *   Texte 1 : rgba(255,255,255,0.92)
+     *   Texte 2 : rgba(255,255,255,0.60)
+     *   Texte 3 : rgba(255,255,255,0.42)
+     *
+     * Saturation = 0 partout (Notion utilise du gris pur, pas de teinte).
+     * ============================================ */
 
-    /* Surfaces hiérarchisées (3 niveaux d'elevation) -------------------- */
-    --surface: 240 6% 13%;              /* card par defaut */
-    --surface-muted: 240 6% 11%;        /* zone interne contraste leger */
-    --surface-elevated: 240 6% 17%;     /* modal, popover, dropdown */
+    /* Surfaces ----------------------------------------------------------- */
+    --background: 0 0% 9.8%;            /* #191919  app */
+    --foreground: 0 0% 92%;             /* texte principal (contrast 14.2:1) */
+    --card: 0 0% 12.5%;                 /* #202020  card par defaut, depth claire vs bg */
+    --card-foreground: 0 0% 92%;
+    --muted: 0 0% 15.5%;                /* #272727  header card / surface secondaire */
+    --muted-foreground: 0 0% 62%;       /* texte secondaire (contrast 6.7:1) */
+    --border: 0 0% 100% / 0.094;        /* bordure Notion exacte */
+    --border-strong: 0 0% 100% / 0.18;  /* hover/focus border */
+
+    /* Surfaces hiérarchisées (3 niveaux) ---------------------------------- */
+    --surface: 0 0% 12.5%;              /* card */
+    --surface-muted: 0 0% 10.5%;        /* zone interne contraste leger */
+    --surface-elevated: 0 0% 18%;       /* modal, popover, dropdown */
 
     /* Primary (en dark : passe en blanc casse pour CTA visible) --------- */
-    --primary: 240 5% 95%;              /* CTA principal devient clair */
-    --primary-foreground: 240 6% 9%;    /* texte sur CTA = fond app */
+    --primary: 0 0% 92%;                /* CTA principal devient clair */
+    --primary-foreground: 0 0% 9.8%;    /* texte sur CTA = fond app */
 
     /* Accent (hover doux) ----------------------------------------------- */
-    --accent: 240 5% 16%;
-    --accent-foreground: 240 5% 95%;
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 92%;
 
     /* Sidebar : reste navy MOON (identite forte conservee) -------------- */
     --sidebar: 230 30% 7%;              /* legerement plus fonce qu'en light pour cohérence */
@@ -228,30 +245,59 @@ h3 { font-weight: 600; }
    ========================================================================= */
 
 @layer utilities {
-  /* === SURFACES BLANCHES / NEUTRES =============================== */
+  /* === SURFACES NEUTRES (Notion-style) ===============================
+   *
+   * Strategie Notion : les hover/selected ne sont PAS des fonds opaques,
+   * ce sont des OVERLAYS blanc transparent sur la couleur courante.
+   * Donne un effet "voile lumineux" subtil, parfaitement integre.
+   *
+   *   hover  -> rgba(255,255,255,0.055)
+   *   active -> rgba(255,255,255,0.08)
+   *   strong -> rgba(255,255,255,0.11)
+   * ================================================================== */
 
-  /* bg-white plein -> card. On exclut volontairement bg-white/{N} (transparences)
-     car ils servent souvent en dark deja pour des hovers/overlays. */
+  /* bg-white plein (cards) -> card surface */
   .dark :where(.bg-white):not([class*="bg-white\/"]) {
     background-color: hsl(var(--card));
   }
-  /* bg-zinc-50 / bg-zinc-100 et leurs transparences -> muted */
-  .dark :where(.bg-zinc-50) { background-color: hsl(var(--muted)); }
-  .dark :where(.bg-zinc-100) { background-color: hsl(var(--muted)); }
-  .dark :where(.bg-zinc-50\/40) { background-color: hsl(var(--muted) / 0.4); }
-  .dark :where(.bg-zinc-50\/50) { background-color: hsl(var(--muted) / 0.5); }
-  .dark :where(.bg-zinc-50\/60) { background-color: hsl(var(--muted) / 0.5); }
-  .dark :where(.bg-zinc-50\/70) { background-color: hsl(var(--muted) / 0.5); }
-  .dark :where(.bg-zinc-50\/80) { background-color: hsl(var(--muted) / 0.6); }
-  .dark :where(.bg-zinc-100\/70) { background-color: hsl(var(--muted) / 0.6); }
-  /* bg-zinc-200 (drop zones, dividers) -> bordure forte */
-  .dark :where(.bg-zinc-200) { background-color: hsl(var(--border-strong)); }
-  /* bg-zinc-900 plein (boutons CTA hardcodes) -> blanc casse pour CTA visible */
-  .dark :where(.bg-zinc-900):not([class*="bg-zinc-900\/"]) { background-color: hsl(var(--foreground)); color: hsl(var(--background)); }
-  /* Hovers neutres */
-  .dark :where(.hover\:bg-zinc-50:hover) { background-color: hsl(var(--muted) / 0.6); }
-  .dark :where(.hover\:bg-zinc-100:hover) { background-color: hsl(var(--muted)); }
-  .dark :where(.hover\:bg-zinc-200:hover) { background-color: hsl(var(--border-strong)); }
+
+  /* Fonds neutres pleins -> overlays blanc Notion */
+  .dark :where(.bg-zinc-50) { background-color: rgba(255,255,255,0.030); }
+  .dark :where(.bg-zinc-100) { background-color: rgba(255,255,255,0.055); }
+  .dark :where(.bg-zinc-50\/40) { background-color: rgba(255,255,255,0.022); }
+  .dark :where(.bg-zinc-50\/50) { background-color: rgba(255,255,255,0.028); }
+  .dark :where(.bg-zinc-50\/60) { background-color: rgba(255,255,255,0.030); }
+  .dark :where(.bg-zinc-50\/70) { background-color: rgba(255,255,255,0.035); }
+  .dark :where(.bg-zinc-50\/80) { background-color: rgba(255,255,255,0.040); }
+  .dark :where(.bg-zinc-100\/70) { background-color: rgba(255,255,255,0.040); }
+
+  /* bg-zinc-200 (drop zones, kbd) -> overlay plus marque */
+  .dark :where(.bg-zinc-200) { background-color: rgba(255,255,255,0.10); }
+  /* bg-zinc-900 plein (CTA) -> CTA inverse blanc casse */
+  .dark :where(.bg-zinc-900):not([class*="bg-zinc-900\/"]) {
+    background-color: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+
+  /* === HOVERS NEUTRES (le coeur du look Notion) ====================
+   *
+   * Tous les hover utilitaires neutres -> overlay blanc transparent.
+   * Le poids varie selon la classe d'origine (zinc-50 plus subtil,
+   * zinc-100 plus marque, zinc-200 actif).
+   * ================================================================== */
+
+  .dark :where(.hover\:bg-zinc-50:hover) { background-color: rgba(255,255,255,0.055); }
+  .dark :where(.hover\:bg-zinc-100:hover) { background-color: rgba(255,255,255,0.082); }
+  .dark :where(.hover\:bg-zinc-200:hover) { background-color: rgba(255,255,255,0.11); }
+
+  /* Hovers neutres avec transparence dans la classe d'origine */
+  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: rgba(255,255,255,0.045); }
+  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: rgba(255,255,255,0.035); }
+  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: rgba(255,255,255,0.030); }
+
+  /* Active states pousses (clic sur tactile) */
+  .dark :where(.active\:bg-zinc-100:active) { background-color: rgba(255,255,255,0.10); }
+  .dark :where(.active\:bg-zinc-200:active) { background-color: rgba(255,255,255,0.14); }
 
   /* === TEXTES ZINC ============================================== */
 
@@ -288,119 +334,152 @@ h3 { font-weight: 600; }
   .dark :where(.focus\:border-zinc-900:focus) { border-color: hsl(var(--foreground) / 0.7); }
   .dark :where(.focus\:bg-white:focus) { background-color: hsl(var(--muted)); }
 
-  /* === COULEURS STATUTS : BACKGROUNDS ============================
+  /* === STATUS BACKGROUNDS (Notion-style) =======================
    *
-   * En dark, on remplace les fonds pastels Tailwind hardcodes par des
-   * versions "tinted" : teinte conservee + lightness reduite a ~16-22%.
-   * Donne un fond visible mais discret, parfaitement lisible avec un
-   * texte clair par dessus.
-   * ================================================================ */
+   * Notion utilise des fonds satures sombres pour les tags colores.
+   * Reference exacte (mesuree sur Notion dark) :
+   *   Green  : #243b2f (hsl 149 24% 19%)
+   *   Orange : #5c3b23 (hsl 24 44% 25%)
+   *   Yellow : #564328 (hsl 36 36% 24%)
+   *   Blue   : #1d3a4c (hsl 202 45% 21%)
+   *   Purple : #3a2c4e (hsl 266 28% 24%)
+   *   Pink   : #4e2731 (hsl 348 33% 23%)
+   *   Red    : #5d2f2a (hsl 6 38% 27%)
+   *
+   * On adapte aux nuances Tailwind du codebase.
+   * Pas de border sur ces badges (Notion non plus), uniquement bg + texte.
+   * ============================================================== */
 
-  /* Famille -50 (badges discrets, cards alerte) */
-  .dark :where(.bg-emerald-50) { background-color: hsl(152 50% 17%); }
-  .dark :where(.bg-emerald-50\/60) { background-color: hsl(152 50% 17% / 0.6); }
-  .dark :where(.bg-emerald-50\/30) { background-color: hsl(152 50% 17% / 0.3); }
-  .dark :where(.bg-amber-50) { background-color: hsl(38 55% 16%); }
-  .dark :where(.bg-amber-50\/40) { background-color: hsl(38 55% 16% / 0.4); }
-  .dark :where(.bg-amber-50\/60) { background-color: hsl(38 55% 16% / 0.6); }
-  .dark :where(.bg-amber-50\/30) { background-color: hsl(38 55% 16% / 0.3); }
-  .dark :where(.bg-amber-50\/70) { background-color: hsl(38 55% 16% / 0.7); }
-  .dark :where(.bg-rose-50) { background-color: hsl(0 50% 18%); }
-  .dark :where(.bg-rose-50\/60) { background-color: hsl(0 50% 18% / 0.6); }
-  .dark :where(.bg-sky-50) { background-color: hsl(199 50% 18%); }
-  .dark :where(.bg-sky-50\/60) { background-color: hsl(199 50% 18% / 0.6); }
-  .dark :where(.bg-violet-50) { background-color: hsl(265 50% 22%); }
-  .dark :where(.bg-fuchsia-50) { background-color: hsl(290 50% 22%); }
-  .dark :where(.bg-blue-50) { background-color: hsl(220 60% 18%); }
+  /* Famille -50 (badges discrets, cards alerte) — un cran plus subtil */
+  .dark :where(.bg-emerald-50) { background-color: hsl(149 24% 17%); }
+  .dark :where(.bg-emerald-50\/60) { background-color: hsl(149 24% 17% / 0.6); }
+  .dark :where(.bg-emerald-50\/30) { background-color: hsl(149 24% 17% / 0.3); }
+  .dark :where(.bg-amber-50) { background-color: hsl(36 36% 18%); }
+  .dark :where(.bg-amber-50\/40) { background-color: hsl(36 36% 18% / 0.4); }
+  .dark :where(.bg-amber-50\/60) { background-color: hsl(36 36% 18% / 0.6); }
+  .dark :where(.bg-amber-50\/30) { background-color: hsl(36 36% 18% / 0.3); }
+  .dark :where(.bg-amber-50\/70) { background-color: hsl(36 36% 18% / 0.7); }
+  .dark :where(.bg-rose-50) { background-color: hsl(348 30% 18%); }
+  .dark :where(.bg-rose-50\/60) { background-color: hsl(348 30% 18% / 0.6); }
+  .dark :where(.bg-sky-50) { background-color: hsl(202 40% 18%); }
+  .dark :where(.bg-sky-50\/60) { background-color: hsl(202 40% 18% / 0.6); }
+  .dark :where(.bg-violet-50) { background-color: hsl(266 28% 22%); }
+  .dark :where(.bg-fuchsia-50) { background-color: hsl(300 28% 22%); }
+  .dark :where(.bg-blue-50) { background-color: hsl(218 40% 20%); }
 
-  /* Famille -100 (badges principaux PIPELINE_COLORS, statut cells) */
-  .dark :where(.bg-emerald-100) { background-color: hsl(152 50% 22%); }
-  .dark :where(.bg-amber-100) { background-color: hsl(38 55% 22%); }
-  .dark :where(.bg-rose-100) { background-color: hsl(0 55% 24%); }
-  .dark :where(.bg-sky-100) { background-color: hsl(199 55% 24%); }
-  .dark :where(.bg-violet-100) { background-color: hsl(265 50% 26%); }
-  .dark :where(.bg-fuchsia-100) { background-color: hsl(290 50% 26%); }
-  .dark :where(.bg-blue-100) { background-color: hsl(220 55% 24%); }
-  .dark :where(.bg-red-100) { background-color: hsl(0 55% 24%); }
+  /* Famille -100 (badges principaux PIPELINE_COLORS, statut cells)
+     — tons Notion exacts : satures sombres avec saturation modérée */
+  .dark :where(.bg-emerald-100) { background-color: hsl(149 24% 19%); }
+  .dark :where(.bg-amber-100) { background-color: hsl(36 36% 24%); }
+  .dark :where(.bg-rose-100) { background-color: hsl(348 33% 23%); }
+  .dark :where(.bg-sky-100) { background-color: hsl(202 45% 21%); }
+  .dark :where(.bg-violet-100) { background-color: hsl(266 28% 24%); }
+  .dark :where(.bg-fuchsia-100) { background-color: hsl(300 32% 24%); }
+  .dark :where(.bg-blue-100) { background-color: hsl(218 45% 22%); }
+  .dark :where(.bg-red-100) { background-color: hsl(6 38% 25%); }
+  .dark :where(.bg-pink-100) { background-color: hsl(343 36% 24%); }
+  .dark :where(.bg-pink-200) { background-color: hsl(343 40% 30%); }
+  .dark :where(.bg-blue-200) { background-color: hsl(218 48% 28%); }
+  .dark :where(.hover\:bg-pink-200:hover) { background-color: hsl(343 40% 30%); }
+  .dark :where(.hover\:bg-blue-200:hover) { background-color: hsl(218 48% 28%); }
 
-  /* Famille -200 (pastilles avatar dans modales, icon backgrounds) */
-  .dark :where(.bg-emerald-200) { background-color: hsl(152 50% 28%); }
-  .dark :where(.bg-amber-200) { background-color: hsl(38 55% 28%); }
-  .dark :where(.bg-rose-200) { background-color: hsl(0 55% 30%); }
-  .dark :where(.bg-sky-200) { background-color: hsl(199 55% 30%); }
-  .dark :where(.bg-violet-200) { background-color: hsl(265 50% 32%); }
+  /* Famille -200 (pastilles avatar dans modales, icon backgrounds)
+     — un cran plus claire que -100 pour les icons rondes */
+  .dark :where(.bg-emerald-200) { background-color: hsl(149 28% 25%); }
+  .dark :where(.bg-amber-200) { background-color: hsl(36 40% 28%); }
+  .dark :where(.bg-rose-200) { background-color: hsl(348 36% 28%); }
+  .dark :where(.bg-sky-200) { background-color: hsl(202 48% 26%); }
+  .dark :where(.bg-violet-200) { background-color: hsl(266 32% 30%); }
 
-  /* Hovers rows colores (obligations-matrix, dashboard production…) */
-  .dark :where(.hover\:bg-emerald-50:hover) { background-color: hsl(152 50% 17% / 0.7); }
-  .dark :where(.hover\:bg-amber-50:hover) { background-color: hsl(38 55% 16% / 0.7); }
-  .dark :where(.hover\:bg-amber-50\/70:hover) { background-color: hsl(38 55% 16% / 0.5); }
-  .dark :where(.hover\:bg-amber-100:hover) { background-color: hsl(38 55% 24%); }
-  .dark :where(.hover\:bg-rose-50:hover) { background-color: hsl(0 50% 18% / 0.7); }
-  .dark :where(.hover\:bg-rose-100:hover) { background-color: hsl(0 55% 26%); }
-  .dark :where(.hover\:bg-sky-50:hover) { background-color: hsl(199 50% 18% / 0.7); }
+  /* Hovers rows colorés — versions overlay subtle "Notion" plutôt que
+     fonds opaques (donne un look beaucoup plus integre) */
+  .dark :where(.hover\:bg-emerald-50:hover) { background-color: hsl(149 24% 17% / 0.7); }
+  .dark :where(.hover\:bg-amber-50:hover) { background-color: hsl(36 36% 18% / 0.7); }
+  .dark :where(.hover\:bg-amber-50\/70:hover) { background-color: hsl(36 36% 18% / 0.5); }
+  .dark :where(.hover\:bg-amber-100:hover) { background-color: hsl(36 36% 26%); }
+  .dark :where(.hover\:bg-rose-50:hover) { background-color: hsl(348 30% 18% / 0.7); }
+  .dark :where(.hover\:bg-rose-100:hover) { background-color: hsl(348 33% 25%); }
+  .dark :where(.hover\:bg-sky-50:hover) { background-color: hsl(202 40% 18% / 0.7); }
 
   /* group hovers (cards en hover global) */
   .dark :where(.group:hover .group-hover\/row\:bg-amber-100),
   .dark :where(.group\/row:hover .group-hover\/row\:bg-amber-100) {
-    background-color: hsl(38 55% 22%);
+    background-color: hsl(36 36% 24%);
   }
 
-  /* === COULEURS STATUTS : TEXTES =================================
+  /* === STATUS TEXTS (Notion exact) ==================================
    *
-   * On garde la teinte mais on remonte la lightness vers ~68-78%
-   * pour contraster avec les fonds dark/tinted.
-   * ================================================================ */
+   * Notion utilise des textes vifs (saturation 40-55%) avec une lightness
+   * de 65-75% — lisible sur les fonds tinted -100/-200 ci-dessus.
+   * Reference :
+   *   text on green bg  : #67ab7d (149 30% 54%)
+   *   text on orange bg : #cb7c4b (24 55% 55%)
+   *   text on yellow bg : #d6a449 (40 65% 56%)
+   *   text on red bg    : #dc6e6c (1 64% 65%)
+   *   text on blue bg   : #5a93b0 (202 35% 53%)
+   *   text on purple bg : #a48abf (266 25% 65%)
+   *   text on pink bg   : #bf5879 (343 47% 55%)
+   * ============================================================== */
 
   /* Famille -500/600 (compteurs, icones, accent foreground) */
-  .dark :where(.text-emerald-500) { color: hsl(152 65% 65%); }
-  .dark :where(.text-emerald-600) { color: hsl(152 65% 62%); }
-  .dark :where(.text-amber-500) { color: hsl(38 90% 65%); }
-  .dark :where(.text-amber-600) { color: hsl(38 90% 62%); }
-  .dark :where(.text-rose-500) { color: hsl(0 80% 70%); }
-  .dark :where(.text-rose-600) { color: hsl(0 80% 67%); }
-  .dark :where(.text-sky-500) { color: hsl(199 80% 65%); }
-  .dark :where(.text-sky-600) { color: hsl(199 80% 62%); }
-  .dark :where(.text-violet-500) { color: hsl(265 75% 70%); }
-  .dark :where(.text-violet-600) { color: hsl(265 75% 67%); }
+  .dark :where(.text-emerald-500) { color: hsl(149 40% 60%); }
+  .dark :where(.text-emerald-600) { color: hsl(149 42% 56%); }
+  .dark :where(.text-amber-500) { color: hsl(38 70% 62%); }
+  .dark :where(.text-amber-600) { color: hsl(38 72% 58%); }
+  .dark :where(.text-rose-500) { color: hsl(348 60% 68%); }
+  .dark :where(.text-rose-600) { color: hsl(348 60% 64%); }
+  .dark :where(.text-sky-500) { color: hsl(202 55% 62%); }
+  .dark :where(.text-sky-600) { color: hsl(202 55% 58%); }
+  .dark :where(.text-violet-500) { color: hsl(266 50% 70%); }
+  .dark :where(.text-violet-600) { color: hsl(266 50% 66%); }
 
-  /* Famille -700/800/900 (label texte sur fonds tinted) */
-  .dark :where(.text-emerald-700) { color: hsl(152 65% 72%); }
-  .dark :where(.text-emerald-800) { color: hsl(152 60% 76%); }
-  .dark :where(.text-emerald-900) { color: hsl(152 50% 84%); }
-  .dark :where(.text-amber-700) { color: hsl(38 85% 72%); }
-  .dark :where(.text-amber-800) { color: hsl(38 80% 78%); }
-  .dark :where(.text-amber-900) { color: hsl(38 60% 86%); }
-  .dark :where(.text-rose-700) { color: hsl(0 80% 76%); }
-  .dark :where(.text-rose-800) { color: hsl(0 75% 80%); }
-  .dark :where(.text-rose-900) { color: hsl(0 60% 88%); }
-  .dark :where(.text-sky-700) { color: hsl(199 80% 72%); }
-  .dark :where(.text-sky-800) { color: hsl(199 75% 78%); }
-  .dark :where(.text-violet-700) { color: hsl(265 75% 76%); }
-  .dark :where(.text-violet-800) { color: hsl(265 70% 80%); }
-  .dark :where(.text-fuchsia-700) { color: hsl(290 75% 76%); }
-  .dark :where(.text-fuchsia-800) { color: hsl(290 70% 80%); }
-  .dark :where(.text-blue-700) { color: hsl(220 85% 72%); }
-  .dark :where(.text-blue-800) { color: hsl(220 80% 78%); }
-  .dark :where(.text-red-700) { color: hsl(0 80% 76%); }
-  .dark :where(.text-red-800) { color: hsl(0 75% 80%); }
+  /* Famille -700/800/900 (label texte sur fonds -100 tinted) */
+  .dark :where(.text-emerald-700) { color: hsl(149 38% 65%); }
+  .dark :where(.text-emerald-800) { color: hsl(149 38% 70%); }
+  .dark :where(.text-emerald-900) { color: hsl(149 32% 78%); }
+  .dark :where(.text-amber-700) { color: hsl(38 65% 68%); }
+  .dark :where(.text-amber-800) { color: hsl(38 65% 72%); }
+  .dark :where(.text-amber-900) { color: hsl(38 50% 82%); }
+  .dark :where(.text-rose-700) { color: hsl(348 55% 70%); }
+  .dark :where(.text-rose-800) { color: hsl(348 55% 74%); }
+  .dark :where(.text-rose-900) { color: hsl(348 45% 84%); }
+  .dark :where(.text-sky-700) { color: hsl(202 50% 66%); }
+  .dark :where(.text-sky-800) { color: hsl(202 50% 72%); }
+  .dark :where(.text-violet-700) { color: hsl(266 48% 72%); }
+  .dark :where(.text-violet-800) { color: hsl(266 45% 76%); }
+  .dark :where(.text-fuchsia-700) { color: hsl(300 48% 72%); }
+  .dark :where(.text-fuchsia-800) { color: hsl(300 45% 76%); }
+  .dark :where(.text-blue-700) { color: hsl(218 60% 68%); }
+  .dark :where(.text-blue-800) { color: hsl(218 55% 74%); }
+  .dark :where(.text-red-700) { color: hsl(6 60% 68%); }
+  .dark :where(.text-red-800) { color: hsl(6 55% 74%); }
+  .dark :where(.text-pink-700) { color: hsl(343 55% 70%); }
+  .dark :where(.text-pink-800) { color: hsl(343 50% 76%); }
 
-  /* === BORDURES STATUS ============================================ */
+  /* === BORDURES STATUS =============================================
+   *
+   * Notion n'utilise quasi pas de border sur les tags (fond + texte suffit).
+   * On garde des borders TRES subtiles pour ne pas casser le visuel quand
+   * la classe Tailwind est utilisee comme attendu, mais elles disparaissent
+   * quasiment dans le rendu.
+   * ============================================================== */
 
-  .dark :where(.border-emerald-100) { border-color: hsl(152 40% 32% / 0.5); }
-  .dark :where(.border-emerald-200) { border-color: hsl(152 40% 36% / 0.6); }
-  .dark :where(.border-amber-100) { border-color: hsl(38 40% 32% / 0.5); }
-  .dark :where(.border-amber-200) { border-color: hsl(38 40% 36% / 0.6); }
-  .dark :where(.border-amber-300) { border-color: hsl(38 50% 42%); }
-  .dark :where(.border-rose-100) { border-color: hsl(0 40% 32% / 0.5); }
-  .dark :where(.border-rose-200) { border-color: hsl(0 40% 36% / 0.6); }
-  .dark :where(.border-rose-300) { border-color: hsl(0 50% 42%); }
-  .dark :where(.border-sky-100) { border-color: hsl(199 40% 32% / 0.5); }
-  .dark :where(.border-sky-200) { border-color: hsl(199 40% 36% / 0.6); }
-  .dark :where(.border-sky-300) { border-color: hsl(199 50% 42%); }
-  .dark :where(.border-violet-200) { border-color: hsl(265 40% 36% / 0.6); }
-  .dark :where(.border-violet-300) { border-color: hsl(265 50% 42%); }
-  .dark :where(.border-fuchsia-300) { border-color: hsl(290 50% 42%); }
-  .dark :where(.border-blue-200) { border-color: hsl(220 50% 36% / 0.6); }
+  .dark :where(.border-emerald-100) { border-color: hsl(149 24% 25% / 0.5); }
+  .dark :where(.border-emerald-200) { border-color: hsl(149 28% 30% / 0.6); }
+  .dark :where(.border-amber-100) { border-color: hsl(36 30% 28% / 0.5); }
+  .dark :where(.border-amber-200) { border-color: hsl(36 35% 32% / 0.6); }
+  .dark :where(.border-amber-300) { border-color: hsl(36 40% 38%); }
+  .dark :where(.border-rose-100) { border-color: hsl(348 28% 28% / 0.5); }
+  .dark :where(.border-rose-200) { border-color: hsl(348 30% 32% / 0.6); }
+  .dark :where(.border-rose-300) { border-color: hsl(348 35% 38%); }
+  .dark :where(.border-sky-100) { border-color: hsl(202 32% 28% / 0.5); }
+  .dark :where(.border-sky-200) { border-color: hsl(202 36% 32% / 0.6); }
+  .dark :where(.border-sky-300) { border-color: hsl(202 42% 38%); }
+  .dark :where(.border-violet-200) { border-color: hsl(266 28% 32% / 0.6); }
+  .dark :where(.border-violet-300) { border-color: hsl(266 32% 38%); }
+  .dark :where(.border-fuchsia-300) { border-color: hsl(300 36% 38%); }
+  .dark :where(.border-blue-200) { border-color: hsl(218 36% 32% / 0.6); }
+  .dark :where(.border-pink-200) { border-color: hsl(343 30% 32% / 0.6); }
 
   /* === DIVIDERS COLORES (admin/users approuves) =================== */
   .dark :where(.divide-amber-100 > * + *) { border-color: hsl(38 30% 28% / 0.6); }
