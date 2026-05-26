@@ -22,7 +22,7 @@ export type ClientRow = {
   groupe_nom: string | null;
 };
 
-type SortKey = "denomination" | "groupe_nom" | "activite" | "pipeline_statut" | "arr";
+type SortKey = "denomination" | "forme" | "groupe_nom" | "activite" | "pipeline_statut" | "arr";
 
 /** Largeur (en px) personnalisée par colonne, persistée en localStorage. */
 type ColumnWidths = Partial<Record<SortKey, number>>;
@@ -253,6 +253,8 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             <tr>
               <Th label="Client" sortKey="denomination" sort={sort} onSort={toggleSort}
                 width={columnWidths.denomination} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
+              <Th label="Forme" sortKey="forme" sort={sort} onSort={toggleSort}
+                width={columnWidths.forme} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
               <Th label="Groupe" sortKey="groupe_nom" sort={sort} onSort={toggleSort}
                 width={columnWidths.groupe_nom} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
               <Th label="Activité" sortKey="activite" sort={sort} onSort={toggleSort}
@@ -291,6 +293,17 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                 </td>
                 <td className="px-3 py-2 text-zinc-600">
                   <Link href={href} className="block">
+                    {r.forme ? (
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[11px] font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 tabular-nums">
+                        {r.forme}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-300">·</span>
+                    )}
+                  </Link>
+                </td>
+                <td className="px-3 py-2 text-zinc-600">
+                  <Link href={href} className="block">
                     {r.groupe_nom ?? <span className="text-zinc-300">·</span>}
                   </Link>
                 </td>
@@ -318,7 +331,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             })}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                   Aucun client ne correspond aux filtres.
                 </td>
               </tr>
@@ -355,6 +368,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
                       {r.siren && <span className="tabular-nums">{r.siren}</span>}
+                      {r.forme && <span>· {r.forme}</span>}
                       {r.groupe_nom && <span>· {r.groupe_nom}</span>}
                     </div>
                   </div>

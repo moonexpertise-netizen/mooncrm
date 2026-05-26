@@ -39,9 +39,12 @@ const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
 export default function OnboardingEditor({
   tasks,
   optionsByKey,
+  numbered = false,
 }: {
   tasks: OnboardingTask[];
   optionsByKey: Record<string, OnboardingStatusOption[]>;
+  /** Affiche un préfixe numéroté (1, 2, 3…) devant chaque tâche. */
+  numbered?: boolean;
 }) {
   type Patch = {
     taskId: string;
@@ -85,10 +88,11 @@ export default function OnboardingEditor({
 
   return (
     <div className="divide-y divide-zinc-100">
-      {optimisticTasks.map((t) => (
+      {optimisticTasks.map((t, i) => (
         <TaskRow
           key={t.id}
           task={t}
+          index={numbered ? i + 1 : null}
           options={optionsByKey[t.task_key] ?? []}
           isOpen={openTaskId === t.id}
           onOpen={() => setOpenTaskId(t.id)}
@@ -107,6 +111,7 @@ export default function OnboardingEditor({
 
 function TaskRow({
   task,
+  index,
   options,
   isOpen,
   onOpen,
@@ -115,6 +120,8 @@ function TaskRow({
   onReset,
 }: {
   task: OnboardingTask;
+  /** Si non null, affiche le numéro d'ordre devant le libellé. */
+  index: number | null;
   options: OnboardingStatusOption[];
   isOpen: boolean;
   onOpen: () => void;
@@ -179,7 +186,14 @@ function TaskRow({
 
   return (
     <div className="relative flex items-center justify-between gap-2 py-2 px-1" ref={ref}>
-      <span className="text-sm font-medium text-zinc-800 truncate">{task.label}</span>
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {index !== null && (
+          <span className="shrink-0 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-zinc-100 text-zinc-600 text-[10px] font-semibold tabular-nums">
+            {index}
+          </span>
+        )}
+        <span className="text-sm font-medium text-zinc-800 truncate">{task.label}</span>
+      </div>
       <button
         type="button"
         data-status-button="1"

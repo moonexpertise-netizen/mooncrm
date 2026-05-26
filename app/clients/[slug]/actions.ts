@@ -638,7 +638,7 @@ const NUMERIC_NOT_NULL = new Set([
 
 export async function updateClient(
   clientId: string,
-  patch: Record<string, string | number | null>
+  patch: Record<string, string | number | boolean | null>
 ) {
   const sb = await createClient();
 

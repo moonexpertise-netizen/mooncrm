@@ -18,26 +18,79 @@ export type OnboardingRow = {
 };
 
 type Filter = "all" | "in_progress" | "complete" | "not_started" | "no_tasks";
+type TypeFilter = "all" | "creation" | "reprise" | "soustraitance" | "autre";
+
+/** Type métier dérivé de l'origine (utilisé pour le suivi transverse). */
+type OrigineType = "creation" | "reprise" | "soustraitance" | "autre";
+const TYPE_LABEL: Record<OrigineType, string> = {
+  creation: "Création",
+  reprise: "Reprise",
+  soustraitance: "Sous-traitance",
+  autre: "Autre",
+};
+const TYPE_PILL: Record<OrigineType, string> = {
+  creation: "bg-sky-50 text-sky-800 border-sky-300",
+  reprise: "bg-violet-50 text-violet-800 border-violet-300",
+  soustraitance: "bg-zinc-100 text-zinc-700 border-zinc-300",
+  autre: "bg-zinc-50 text-zinc-500 border-zinc-200",
+};
+function origineToType(origine: string | null): OrigineType {
+  if (!origine) return "autre";
+  if (origine.startsWith("1 -") || origine.startsWith("2 -")) return "creation";
+  if (origine.startsWith("3 -") || origine.startsWith("4 -")) return "reprise";
+  if (origine.startsWith("Z -")) return "soustraitance";
+  return "autre";
+}
 
 /**
  * Liste compacte des onboardings.
- *  - 1 ligne par client : nom + barre de progression + compteur + flèche
- *  - Filtres : tous / en cours / terminés / pas commencés / sans tâches
+ *  - Bandeau transverse en haut : agrégats par Type (Création / Reprise / Sous-traitance)
+ *  - Filtres statut : tous / en cours / terminés / pas commencés / sans tâches
+ *  - Filtre Type : tous / Création / Reprise / Sous-traitance
  *  - Recherche par nom ou SIREN
  *  - Tri par nom ou par % progression
+ *  - 1 ligne par client : Type chip + nom + barre de progression + compteur
  */
 export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [sort, setSort] = useState<"nom" | "pct">("pct");
+
+  // Annotate rows with derived Type once
+  const annotated = useMemo(
+    () => rows.map((r) => ({ ...r, type: origineToType(r.origine) })),
+    [rows]
+  );
+
+  // Agrégat transverse par Type (utilisé pour le bandeau du haut)
+  const byType = useMemo(() => {
+    const acc: Record<
+      OrigineType,
+      { count: number; done: number; total: number }
+    > = {
+      creation: { count: 0, done: 0, total: 0 },
+      reprise: { count: 0, done: 0, total: 0 },
+      soustraitance: { count: 0, done: 0, total: 0 },
+      autre: { count: 0, done: 0, total: 0 },
+    };
+    for (const r of annotated) {
+      const t = acc[r.type];
+      t.count++;
+      t.done += r.done;
+      t.total += r.total;
+    }
+    return acc;
+  }, [annotated]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    return annotated.filter((r) => {
       if (s) {
         const hay = `${r.denomination} ${r.siren ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
+      if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (filter === "all") return true;
       if (filter === "no_tasks") return r.total === 0;
       if (filter === "complete") return r.total > 0 && r.done === r.total;
@@ -45,12 +98,11 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
       if (filter === "not_started") return r.total > 0 && r.done === 0;
       return true;
     });
-  }, [rows, search, filter]);
+  }, [annotated, search, filter, typeFilter]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (sort === "pct") {
-      // Tri : en cours en haut (pct croissant), puis pas commencés, puis terminés
       arr.sort((a, b) => {
         if (a.total === 0 && b.total === 0) return a.denomination.localeCompare(b.denomination, "fr");
         if (a.total === 0) return 1;
@@ -63,26 +115,67 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     return arr;
   }, [filtered, sort]);
 
-  // Compteurs synthétiques
+  // Compteurs statut (sur l'ensemble filtré par type, pour cohérence visuelle)
   const counts = useMemo(() => {
     const c = {
-      all: rows.length,
+      all: 0,
       in_progress: 0,
       complete: 0,
       not_started: 0,
       no_tasks: 0,
     };
-    for (const r of rows) {
+    for (const r of annotated) {
+      if (typeFilter !== "all" && r.type !== typeFilter) continue;
+      c.all++;
       if (r.total === 0) c.no_tasks++;
       else if (r.done === r.total) c.complete++;
       else if (r.done === 0) c.not_started++;
       else c.in_progress++;
     }
     return c;
-  }, [rows]);
+  }, [annotated, typeFilter]);
+
+  // Compteurs par type (pour les pills Type)
+  const typeCounts = {
+    all: annotated.length,
+    creation: byType.creation.count,
+    reprise: byType.reprise.count,
+    soustraitance: byType.soustraitance.count,
+    autre: byType.autre.count,
+  };
 
   return (
     <div className="space-y-4">
+      {/* Bandeau transverse : agrégat par Type */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <TypeSummaryCard
+          type="creation"
+          stats={byType.creation}
+          active={typeFilter === "creation"}
+          onClick={() =>
+            setTypeFilter((prev) => (prev === "creation" ? "all" : "creation"))
+          }
+        />
+        <TypeSummaryCard
+          type="reprise"
+          stats={byType.reprise}
+          active={typeFilter === "reprise"}
+          onClick={() =>
+            setTypeFilter((prev) => (prev === "reprise" ? "all" : "reprise"))
+          }
+        />
+        <TypeSummaryCard
+          type="soustraitance"
+          stats={byType.soustraitance}
+          active={typeFilter === "soustraitance"}
+          onClick={() =>
+            setTypeFilter((prev) =>
+              prev === "soustraitance" ? "all" : "soustraitance"
+            )
+          }
+        />
+      </div>
+
       {/* Toolbar */}
       <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
         <input
@@ -121,6 +214,18 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
         </div>
       </div>
 
+      {/* Pills Type (filtre transverse) */}
+      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+        <span className="text-zinc-500">Type :</span>
+        <TypePill label="Tous" value="all" current={typeFilter} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
+        <TypePill label="Création" value="creation" current={typeFilter} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
+        <TypePill label="Reprise" value="reprise" current={typeFilter} count={typeCounts.reprise} type="reprise" onClick={() => setTypeFilter("reprise")} />
+        <TypePill label="Sous-traitance" value="soustraitance" current={typeFilter} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
+        {typeCounts.autre > 0 && (
+          <TypePill label="Autre" value="autre" current={typeFilter} count={typeCounts.autre} type="autre" onClick={() => setTypeFilter("autre")} />
+        )}
+      </div>
+
       {/* Liste */}
       {sorted.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -129,7 +234,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
       ) : (
         <div className="rounded-lg border bg-card divide-y divide-zinc-100 overflow-hidden">
           {sorted.map((r) => (
-            <OnboardingRowComp key={r.id} row={r} />
+            <OnboardingRowComp key={r.id} row={r} type={r.type} />
           ))}
         </div>
       )}
@@ -137,7 +242,73 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   );
 }
 
-function OnboardingRowComp({ row }: { row: OnboardingRow }) {
+// ============================================================================
+//  TypeSummaryCard : agrégat par Type (cliquable = filtre)
+// ============================================================================
+
+function TypeSummaryCard({
+  type,
+  stats,
+  active,
+  onClick,
+}: {
+  type: OrigineType;
+  stats: { count: number; done: number; total: number };
+  active: boolean;
+  onClick: () => void;
+}) {
+  const pct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+  // Si pas de dossiers de ce type, on grise la carte mais reste cliquable
+  // (utile si Benjamin veut quand même appliquer le filtre vide).
+  const empty = stats.count === 0;
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-lg border bg-card p-3 text-left transition-all hover:shadow-sm active:scale-[0.99]",
+        active
+          ? "border-[hsl(var(--gold))] ring-2 ring-[hsl(var(--gold))]/30"
+          : "border-zinc-200 hover:border-zinc-300",
+        empty && "opacity-60"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span
+          className={cn(
+            "inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border",
+            TYPE_PILL[type]
+          )}
+        >
+          {TYPE_LABEL[type]}
+        </span>
+        <span className="text-[11px] text-zinc-500 tabular-nums">
+          {stats.count} dossier{stats.count > 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium text-zinc-800 tabular-nums">
+          {stats.done} / {stats.total} tâches
+        </span>
+        <span className="text-xs text-zinc-500 tabular-nums">{pct}%</span>
+      </div>
+      <div className="mt-1.5 h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+        <div
+          className={cn(
+            "h-full transition-all",
+            pct >= 100 ? "bg-emerald-500" : "bg-[hsl(var(--gold))]"
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </button>
+  );
+}
+
+// ============================================================================
+//  OnboardingRowComp : ligne d'un dossier (avec chip Type)
+// ============================================================================
+
+function OnboardingRowComp({ row, type }: { row: OnboardingRow; type: OrigineType }) {
   const isComplete = row.total > 0 && row.done === row.total;
   const noTasks = row.total === 0;
   return (
@@ -153,8 +324,16 @@ function OnboardingRowComp({ row }: { row: OnboardingRow }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-sm font-medium text-zinc-900 truncate">{row.denomination}</span>
+          <span
+            className={cn(
+              "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
+              TYPE_PILL[type]
+            )}
+          >
+            {TYPE_LABEL[type]}
+          </span>
           {row.siren && (
             <span className="text-[11px] text-zinc-400 tabular-nums shrink-0">{row.siren}</span>
           )}
@@ -196,6 +375,10 @@ function OnboardingRowComp({ row }: { row: OnboardingRow }) {
   );
 }
 
+// ============================================================================
+//  Pills réutilisables
+// ============================================================================
+
 function FilterPill({
   label,
   value,
@@ -224,6 +407,36 @@ function FilterPill({
       className={cn(
         "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
         active ? `${palette[color]} shadow-sm` : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
+      )}
+    >
+      {label}
+      <span className={cn("tabular-nums", active ? "" : "text-zinc-400")}>{count}</span>
+    </button>
+  );
+}
+
+function TypePill({
+  label,
+  value,
+  current,
+  count,
+  type,
+  onClick,
+}: {
+  label: string;
+  value: TypeFilter;
+  current: TypeFilter;
+  count: number;
+  type?: OrigineType;
+  onClick: () => void;
+}) {
+  const active = value === current;
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
+        active && type ? `${TYPE_PILL[type]} shadow-sm` : active ? "bg-zinc-100 text-zinc-700 border-zinc-300 shadow-sm" : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
       )}
     >
       {label}

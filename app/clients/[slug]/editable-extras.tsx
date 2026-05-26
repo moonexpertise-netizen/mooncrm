@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { updateClient } from "./actions";
+import { initializeOnboardingForClient } from "@/app/onboarding/actions";
 
 /**
  * Édition de la clôture standard (jour + mois) · deux selects côte à côte.
@@ -155,6 +156,84 @@ export function EditableTextArea({
             : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400"
         )}
       />
+    </div>
+  );
+}
+
+/**
+ * Caractéristique tri-state "Gestion TNS" : Oui / Non / (non décidé).
+ *
+ * Conditionne les tâches d'onboarding TNS (Prévi TNS, Affiliation TNS).
+ * À la sauvegarde, on relance `initializeOnboardingForClient` pour ajouter
+ * les éventuelles tâches manquantes (idempotent : ne touche pas aux tâches
+ * existantes). Si on passe de true → false, les tâches TNS déjà créées
+ * restent en place — c'est volontaire (Benjamin peut les marquer N/A à la
+ * main si besoin).
+ */
+export function EditableGestionTns({
+  clientId,
+  value,
+  label,
+}: {
+  clientId: string;
+  value: boolean | null;
+  label: string;
+}) {
+  const [display, setDisplay] = useState<boolean | null>(value);
+  const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setDisplay(value), [value]);
+
+  function onChange(v: string) {
+    const newValue: boolean | null =
+      v === "true" ? true : v === "false" ? false : null;
+    if (newValue === display) return;
+    const prev = display;
+    setDisplay(newValue);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await updateClient(clientId, { gestion_tns: newValue });
+        // Si on active TNS, créer les tâches d'onboarding TNS manquantes
+        // (idempotent : ne re-crée pas ce qui existe).
+        if (newValue === true) {
+          await initializeOnboardingForClient(clientId);
+        }
+      } catch (e) {
+        setDisplay(prev);
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  const filled = display !== null;
+  const selectClass = cn(
+    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded border text-base sm:text-sm transition focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
+    filled
+      ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
+      : "bg-amber-50 border-amber-300 text-amber-900 focus:border-amber-400"
+  );
+
+  return (
+    <div className="py-1.5 sm:py-1 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,360px)] gap-1 sm:gap-2 sm:items-center">
+        <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
+        <div className="min-w-0">
+          <select
+            value={display === null ? "" : display ? "true" : "false"}
+            onChange={(e) => onChange(e.target.value)}
+            className={selectClass}
+          >
+            <option value="">- à renseigner</option>
+            <option value="true">Oui — gestion TNS</option>
+            <option value="false">Non — pas de gestion TNS</option>
+          </select>
+        </div>
+      </div>
+      {error && (
+        <div className="text-[11px] text-rose-600 mt-0.5 sm:ml-[148px]">{error}</div>
+      )}
     </div>
   );
 }

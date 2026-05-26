@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Card, groupBy } from "../_components";
+import { Card } from "../_components";
 import { loadClient } from "../_data";
+import { TASK_ORDER } from "@/app/onboarding/actions";
 import OnboardingEditor, {
   type OnboardingTask,
   type OnboardingStatusOption,
@@ -9,35 +10,28 @@ import OnboardingEditor, {
 
 export const dynamic = "force-dynamic";
 
-const CAT_LABEL: Record<string, string> = {
-  "2G": "Admin général",
-  "2C": "Création",
-  "2R": "Reprise",
-  "2T": "TNS",
-};
-
 const ONBOARDING_LABEL: Record<string, string> = {
-  tally_crea_pdc: "Tally Créa / PDC",
-  abo_moon: "Abo MOON",
-  mandat_moon: "Mandat MOON",
-  mandat_impots: "Mandat Impôts",
-  impot_gouv: "Impot.gouv",
-  cfe_1447: "CFE 1447",
-  acces_pennylane: "Accès Pennylane",
-  ob_pennylane: "OB Pennylane",
-  depot_kbis_banque: "Dépôt KBIS Banque",
-  confrere: "Confrère",
-  reprise_compta: "Reprise compta",
-  affiliation_tns: "Affiliation TNS",
+  tally_crea_pdc: "Tally rempli",
+  acces_pennylane: "Accès Pennylane créé",
+  depot_kbis_banque: "Dépôt KBIS auprès de la banque",
+  confrere: "Reprise confrère",
+  abo_moon: "Abonnement MOON actif",
+  mandat_moon: "Mandat de prélèvement MOON signé",
+  impot_gouv: "Accès au compte impôt.gouv",
+  mandat_impots: "Mandat des impôts signé et envoyé à la banque",
+  cfe_1447: "751-SD ou 1447 CFE signé et déposé sur messagerie",
+  ob_pennylane: "Onboarding Pennylane réalisé",
   option_ir_is: "Lettre d'option IR/IS",
-  previ_tns: "Prévi TNS",
+  previ_tns: "Prévisionnel TNS réalisé",
+  affiliation_tns: "Affiliation TNS réalisée",
+  // Tâches historiques (legacy, peuvent exister sur d'anciens dossiers)
+  reprise_compta: "Reprise compta",
 };
 
 /**
- * Onglet "Onboarding" : édition inline du statut de chaque tâche.
- * Les statuts viennent de status_options scope='onboarding'.
- * La création des tâches est automatique au moment de la signature LDM (cf.
- * LDMSigneeButton → initializeOnboardingForClient).
+ * Onglet "Onboarding" du client : checklist numérotée dans l'ordre métier.
+ * Une seule liste linéaire (pas de regroupement par catégorie DB).
+ * Création automatique au moment de la signature LDM (cf. LDMSigneeButton).
  */
 export default async function OnboardingTab({
   params,
@@ -62,7 +56,7 @@ export default async function OnboardingTab({
       .order("ordre"),
   ]);
 
-  // Regroupe options par task_key pour passage aux <OnboardingEditor> rows
+  // Options par task_key
   const optionsByKey: Record<string, OnboardingStatusOption[]> = {};
   for (const o of options ?? []) {
     if (!optionsByKey[o.type_code]) optionsByKey[o.type_code] = [];
@@ -73,17 +67,24 @@ export default async function OnboardingTab({
     });
   }
 
-  const allTasks: OnboardingTask[] = (tasks ?? []).map((t) => ({
-    id: t.id,
-    task_key: t.task_key,
-    categorie: t.categorie,
-    statut_logique: t.statut_logique as OnboardingTask["statut_logique"],
-    statut_detail: t.statut_detail,
-    label: ONBOARDING_LABEL[t.task_key] ?? t.task_key,
-  }));
-  const byCat = groupBy(allTasks, (t) => t.categorie);
+  // Tri des tâches selon l'ordre métier canonique (TASK_ORDER).
+  // Les tâches legacy (hors TASK_ORDER) tombent à la fin.
+  const orderIdx = (k: string) => {
+    const i = TASK_ORDER.indexOf(k);
+    return i === -1 ? 999 : i;
+  };
+  const allTasks: OnboardingTask[] = (tasks ?? [])
+    .map((t) => ({
+      id: t.id,
+      task_key: t.task_key,
+      categorie: t.categorie,
+      statut_logique: t.statut_logique as OnboardingTask["statut_logique"],
+      statut_detail: t.statut_detail,
+      label: ONBOARDING_LABEL[t.task_key] ?? t.task_key,
+    }))
+    .sort((a, b) => orderIdx(a.task_key) - orderIdx(b.task_key));
 
-  // Stats globales pour le compteur
+  // Stats globales
   const total = allTasks.length;
   const done = allTasks.filter(
     (t) => t.statut_logique === "TERMINE" || t.statut_logique === "NON_APPLICABLE"
@@ -97,7 +98,7 @@ export default async function OnboardingTab({
         {total === 0 ? (
           <p className="text-sm text-muted-foreground">
             Aucune tâche d&apos;onboarding pour ce client. Elles sont créées
-            automatiquement au moment de la signature LDM.
+            automatiquement au moment de la signature LDM (bouton « LDM signée 🎉 »).
           </p>
         ) : (
           <div className="space-y-2">
@@ -118,22 +119,9 @@ export default async function OnboardingTab({
       </Card>
 
       {total === 0 ? null : (
-        <div className="space-y-4">
-          {(["2G", "2C", "2R", "2T"] as const).map((cat) => {
-            const list = byCat[cat];
-            if (!list?.length) return null;
-            const catDone = list.filter(
-              (t) =>
-                t.statut_logique === "TERMINE" ||
-                t.statut_logique === "NON_APPLICABLE"
-            ).length;
-            return (
-              <Card key={cat} title={`${CAT_LABEL[cat]} · ${catDone}/${list.length}`}>
-                <OnboardingEditor tasks={list} optionsByKey={optionsByKey} />
-              </Card>
-            );
-          })}
-        </div>
+        <Card title="Checklist">
+          <OnboardingEditor tasks={allTasks} optionsByKey={optionsByKey} numbered />
+        </Card>
       )}
     </div>
   );

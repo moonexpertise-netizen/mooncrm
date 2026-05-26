@@ -12,7 +12,7 @@ import {
   EditableSelect,
   EditableText,
 } from "./editable";
-import { ClotureSplit, EditableTextArea } from "./editable-extras";
+import { ClotureSplit, EditableGestionTns, EditableTextArea } from "./editable-extras";
 import { Card, FieldReadonly, SectionTitle } from "./_components";
 import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
@@ -188,6 +188,7 @@ export default async function IdentiteTab({
           <ClotureSplit clientId={id} jour={client.jour_cloture} mois={client.mois_cloture} />
           <EditableDate clientId={id} field="debut_obligations" value={client.debut_obligations} label="Reprise à partir de" />
           <EditableDate clientId={id} field="mois_signature" value={client.mois_signature} label="Date signature LDM" />
+          <EditableGestionTns clientId={id} value={client.gestion_tns} label="Gestion TNS" />
         </Card>
       </div>
 
