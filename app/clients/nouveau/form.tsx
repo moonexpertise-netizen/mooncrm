@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { activiteFromNaf } from "@/lib/activite-from-naf";
+import { libelleFromNaf } from "@/lib/naf-libelles";
 import { formeFromNatureJuridique, defaultClotureForForme } from "@/lib/nature-to-forme";
 import { createClientFromSiren } from "./actions";
 
@@ -245,10 +245,14 @@ export default function NouveauClientForm() {
       const mapped = formeFromNatureJuridique(s.nature_juridique);
       if (mapped) setForme(mapped);
     }
-    // Activité depuis le code NAF
+    // Activité : libellé NAF officiel (ex. "Ingénierie, études techniques")
+    // depuis la table de correspondance INSEE. Si code inconnu, on garde le
+    // code brut pour que l'utilisateur sache quoi taper.
     const naf = s.activite_principale ?? s.siege?.activite_principale;
-    const inferredActivite = activiteFromNaf(naf);
-    if (inferredActivite) setActivite(inferredActivite);
+    if (naf) {
+      const libelle = libelleFromNaf(naf);
+      setActivite(libelle ?? naf);
+    }
 
     // Dirigeant : premier dirigeant personne physique. On remplit prénom et
     // nom séparément ; civilité reste vide (l'annuaire ne la donne pas).

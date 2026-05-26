@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Building2, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { activiteFromNaf } from "@/lib/activite-from-naf";
+import { libelleFromNaf } from "@/lib/naf-libelles";
 import { formeFromNatureJuridique, type FormeJuridique } from "@/lib/nature-to-forme";
 import { fetchInpiCloture, importFromAnnuaire } from "./actions";
 
@@ -174,10 +174,10 @@ export default function AnnuaireButton({
         ? extractRueOnly(adresseRaw, codePostal, ville)
         : null;
 
-      // Activité : mappage du code NAF/APE vers nos libellés (mêmes règles que
-      // le form de création, via le helper partagé)
+      // Activité : libellé NAF officiel INSEE (ex. "Ingénierie, études techniques").
+      // Si code inconnu, on garde le code brut (l'utilisateur pourra le compléter).
       const naf = result.activite_principale ?? result.siege?.activite_principale;
-      const activite = activiteFromNaf(naf);
+      const activite = naf ? libelleFromNaf(naf) ?? naf : null;
 
       // Forme juridique : mappage du code INSEE nature_juridique
       const forme = formeFromNatureJuridique(result.nature_juridique);
