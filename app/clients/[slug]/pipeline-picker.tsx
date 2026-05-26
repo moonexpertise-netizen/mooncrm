@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { cn, PIPELINE_COLORS } from "@/lib/utils";
 import { setPipelineStatut, type PipelineStatut } from "./actions";
 
@@ -20,8 +21,11 @@ const PIPELINE_VALUES: PipelineStatut[] = [
 
 /**
  * Sélecteur de statut pipeline (radio pills colorées).
- * Anciennement dans ParametrageCard. Migré dans l'onglet Identité car le
- * pipeline est un attribut stable du client, pas par exercice.
+ *
+ * State local + sync via prop (pattern editable.tsx) pour l'optimistic update :
+ * le clic met l'UI à jour immédiatement, puis router.refresh() repropage la
+ * donnée serveur. Sans le router.refresh, la prop ne se mettait pas à jour
+ * et il fallait F5 pour voir le nouveau statut.
  */
 export default function PipelinePicker({
   clientId,
@@ -30,11 +34,18 @@ export default function PipelinePicker({
   clientId: string;
   current: PipelineStatut | null;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [local, setLocal] = useState<PipelineStatut | null>(current);
+
+  // Resync quand le serveur revient
+  useEffect(() => setLocal(current), [current]);
 
   function onChange(next: PipelineStatut | null) {
+    setLocal(next); // optimistic
     startTransition(async () => {
       await setPipelineStatut(clientId, next);
+      router.refresh();
     });
   }
 
@@ -42,19 +53,24 @@ export default function PipelinePicker({
     <div
       className={cn(
         "flex flex-wrap gap-2",
-        isPending && "opacity-60 pointer-events-none"
+        isPending && "opacity-80"
       )}
     >
       {PIPELINE_VALUES.map((p) => {
-        const active = current === p;
+        const active = local === p;
+        const colorClass = PIPELINE_COLORS[p];
         return (
           <button
             key={p}
             onClick={() => onChange(active ? null : p)}
             className={cn(
-              "px-3 py-1.5 rounded-full text-xs border transition-colors",
+              "px-3 py-1.5 rounded-full text-xs border transition-all duration-150 active:scale-95",
               active
-                ? PIPELINE_COLORS[p] ?? "bg-zinc-900 text-white border-zinc-900"
+                ? // Active : couleur du statut + ring + shadow pour la visibilité
+                  cn(
+                    colorClass ?? "bg-zinc-900 text-white border-zinc-900",
+                    "shadow-sm ring-2 ring-offset-1 ring-zinc-300 font-medium"
+                  )
                 : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50"
             )}
           >

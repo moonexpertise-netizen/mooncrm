@@ -503,6 +503,8 @@ function RisqueRow({
 // ============================================================================
 
 function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"] }) {
+  const router = useRouter();
+
   // Palette MOON : gold + déclinaisons + neutres
   const COLORS = [
     "hsl(34, 32%, 52%)", // gold
@@ -516,12 +518,16 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
     "#a1a1aa",
   ];
 
+  function gotoActivite(name: string) {
+    router.push(`/clients?activite=${encodeURIComponent(name)}`);
+  }
+
   return (
     <section className="rounded-lg border bg-card p-4">
       <header className="mb-3">
         <h2 className="text-sm font-semibold text-zinc-900">Mix activité</h2>
         <p className="text-[11px] text-zinc-500">
-          Répartition par secteur · dossiers actifs
+          Répartition par secteur · dossiers actifs · clic pour filtrer
         </p>
       </header>
       {mixActivite.length === 0 ? (
@@ -539,6 +545,11 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
                 innerRadius={40}
                 outerRadius={70}
                 paddingAngle={2}
+                onClick={(p: unknown) => {
+                  const item = p as { name?: string } | null;
+                  if (item?.name) gotoActivite(item.name);
+                }}
+                style={{ cursor: "pointer" }}
               >
                 {mixActivite.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -554,6 +565,9 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
                       <div className="text-zinc-600 tabular-nums">
                         {p.value} dossier{p.value > 1 ? "s" : ""}
                       </div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">
+                        Clic pour voir les dossiers
+                      </div>
                     </div>
                   );
                 }}
@@ -565,6 +579,10 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
                 wrapperStyle={{ fontSize: 10, paddingLeft: 8, lineHeight: "14px" }}
                 iconType="circle"
                 iconSize={8}
+                onClick={(e: unknown) => {
+                  const item = e as { value?: string } | null;
+                  if (item?.value) gotoActivite(item.value);
+                }}
               />
             </PieChart>
           </ResponsiveContainer>

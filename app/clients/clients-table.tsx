@@ -6,7 +6,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 
-const DEFAULT_PIPELINE = ["7 - LDM signée", "Z - Interne"];
+// 3 buckets métier qui groupent les pipeline_statut.
+// Le bucket par défaut est "clients" (clients actifs).
+const BUCKET_PIPELINES: Record<Bucket, string[]> = {
+  all: [],
+  prospects: [
+    "1 - Tally à envoyer",
+    "2 - Tally à compléter",
+    "3 - PC à préparer",
+    "4 - PC envoyée",
+    "5 - PC acceptée",
+    "6 - LDM envoyée",
+  ],
+  clients: ["7 - LDM signée", "Z - Interne", "Z - Sous-traitance"],
+  perdus: ["Z - Prospect perdu", "Z - Résiliée"],
+};
+
+const BUCKET_LABEL: Record<Bucket, string> = {
+  all: "Tous",
+  prospects: "Prospects",
+  clients: "Clients",
+  perdus: "Perdus & résiliés",
+};
+
+type Bucket = "all" | "prospects" | "clients" | "perdus";
+
+function isValidBucket(b: string | null): b is Bucket {
+  return b === "all" || b === "prospects" || b === "clients" || b === "perdus";
+}
 
 export type ClientRow = {
   id: string;
@@ -34,24 +61,29 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
   const searchParams = useSearchParams();
 
   // Lecture initiale depuis l'URL. Si aucun param et pas de sentinel `clear`,
-  // on applique le filtre par défaut métier "Signé + Interne" sur le pipeline.
+  // on applique le bucket "clients" par défaut (clients actifs MOON).
+  // L'utilisateur peut explicitement passer en "Tous" via le bouton (cf. clear).
   const isClearedByUser = searchParams.has("clear");
   const hasUrlFilter =
     searchParams.has("q") ||
-    searchParams.has("pipeline") ||
-    searchParams.has("forme");
+    searchParams.has("bucket") ||
+    searchParams.has("forme") ||
+    searchParams.has("activite");
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
-  const [pipelineFilter, setPipelineFilter] = useState<Set<string>>(() => {
-    const v = searchParams.get("pipeline");
-    if (v != null) return new Set(v ? v.split("|") : []);
-    if (isClearedByUser || hasUrlFilter) return new Set();
-    return new Set(DEFAULT_PIPELINE);
+  const [bucket, setBucket] = useState<Bucket>(() => {
+    const v = searchParams.get("bucket");
+    if (isValidBucket(v)) return v;
+    if (isClearedByUser || hasUrlFilter) return "all";
+    return "clients"; // défaut métier : clients actifs
   });
   const [formeFilter, setFormeFilter] = useState<Set<string>>(() => {
     const v = searchParams.get("forme");
     return new Set(v ? v.split("|") : []);
   });
+  const [activiteFilter, setActiviteFilter] = useState<string>(
+    () => searchParams.get("activite") ?? ""
+  );
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "denomination",
     dir: "asc",
@@ -96,21 +128,25 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
     });
   }, []);
 
-  // Synchronise les filtres en URL (pour persistance + partage du lien)
+  // Synchronise les filtres en URL (pour persistance F5 + partage du lien).
+  // Quand l'utilisateur navigue à /clients depuis la sidebar (sans params),
+  // l'init applique le défaut "clients". Quand il F5 sur une vue filtrée,
+  // les params préservés re-hydratent l'état.
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const writeParams = useCallback(() => {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
-    if (pipelineFilter.size) params.set("pipeline", [...pipelineFilter].join("|"));
+    if (bucket !== "clients") params.set("bucket", bucket);
     if (formeFilter.size) params.set("forme", [...formeFilter].join("|"));
-    // Sentinel : marque que l'utilisateur a touché aux filtres, même s'ils
-    // sont tous vides. Sinon prochain reload réapplique le défaut.
-    if (!pipelineFilter.size && !formeFilter.size && !search) {
+    if (activiteFilter) params.set("activite", activiteFilter);
+    // Sentinel : marque que l'utilisateur a explicitement choisi "Tous"
+    // sans autre filtre. Sinon le prochain reload réappliquerait "clients".
+    if (bucket === "all" && !search && !formeFilter.size && !activiteFilter) {
       params.set("clear", "1");
     }
     const qs = params.toString();
     router.replace(`/clients${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [search, pipelineFilter, formeFilter, router]);
+  }, [search, bucket, formeFilter, activiteFilter, router]);
 
   useEffect(() => {
     if (syncTimer.current) clearTimeout(syncTimer.current);
@@ -126,40 +162,58 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "l") {
         e.preventDefault();
         setSearch("");
-        setPipelineFilter(new Set());
+        setBucket("all");
         setFormeFilter(new Set());
+        setActiviteFilter("");
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-
   // Listes uniques pour les filtres
-  const pipelines = useMemo(
-    () => unique(rows.map((r) => r.pipeline_statut).filter(Boolean) as string[]),
-    [rows]
-  );
   const formes = useMemo(
     () => unique(rows.map((r) => r.forme).filter(Boolean) as string[]),
     [rows]
   );
 
+  // Compteurs par bucket (pour afficher dans les boutons)
+  const bucketCounts = useMemo(() => {
+    const c = { all: rows.length, prospects: 0, clients: 0, perdus: 0 };
+    const setProspects = new Set(BUCKET_PIPELINES.prospects);
+    const setClients = new Set(BUCKET_PIPELINES.clients);
+    const setPerdus = new Set(BUCKET_PIPELINES.perdus);
+    for (const r of rows) {
+      const p = r.pipeline_statut ?? "";
+      if (setProspects.has(p)) c.prospects++;
+      else if (setClients.has(p)) c.clients++;
+      else if (setPerdus.has(p)) c.perdus++;
+    }
+    return c;
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
+    const bucketSet =
+      bucket === "all" ? null : new Set(BUCKET_PIPELINES[bucket]);
+    const actLower = activiteFilter.trim().toLowerCase();
     return rows.filter((r) => {
       if (s) {
         const hay = `${r.denomination} ${r.siren ?? ""} ${r.groupe_nom ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
-      if (pipelineFilter.size && !pipelineFilter.has(r.pipeline_statut ?? "")) return false;
+      if (bucketSet && !bucketSet.has(r.pipeline_statut ?? "")) return false;
       if (formeFilter.size && !formeFilter.has(r.forme ?? "")) return false;
+      if (actLower && (r.activite ?? "").toLowerCase() !== actLower) return false;
       return true;
     });
-  }, [rows, search, pipelineFilter, formeFilter]);
+  }, [rows, search, bucket, formeFilter, activiteFilter]);
 
   const hasActiveFilter =
-    search !== "" || pipelineFilter.size > 0 || formeFilter.size > 0;
+    search !== "" ||
+    bucket !== "clients" ||
+    formeFilter.size > 0 ||
+    activiteFilter !== "";
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -186,6 +240,14 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Buckets métier : Prospects / Clients (défaut) / Perdus */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <BucketBtn label="Tous" active={bucket === "all"} count={bucketCounts.all} onClick={() => setBucket("all")} />
+        <BucketBtn label="Prospects" active={bucket === "prospects"} count={bucketCounts.prospects} tone="amber" onClick={() => setBucket("prospects")} />
+        <BucketBtn label="Clients" active={bucket === "clients"} count={bucketCounts.clients} tone="emerald" onClick={() => setBucket("clients")} />
+        <BucketBtn label="Perdus & résiliés" active={bucket === "perdus"} count={bucketCounts.perdus} tone="rose" onClick={() => setBucket("perdus")} />
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <input
           type="text"
@@ -193,13 +255,6 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-[260px] px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400 transition"
-        />
-        <MultiSelect
-          label="Pipeline"
-          values={pipelineFilter}
-          onChange={setPipelineFilter}
-          options={pipelines}
-          colorMap={PIPELINE_COLORS}
         />
         <MultiSelect
           label="Forme"
@@ -211,8 +266,9 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
           <button
             onClick={() => {
               setSearch("");
-              setPipelineFilter(new Set());
+              setBucket("all");
               setFormeFilter(new Set());
+              setActiviteFilter("");
             }}
             className="px-3 py-2 rounded-md text-sm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
           >
@@ -221,14 +277,15 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         )}
       </div>
 
-      {hasActiveFilter && (
+      {(formeFilter.size > 0 || activiteFilter) && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-zinc-500">Filtres actifs :</span>
-          {[...pipelineFilter].map((v) => (
-            <FilterChip key={`p-${v}`} label={v} color={PIPELINE_COLORS[v]} onRemove={() => {
-              setPipelineFilter((prev) => { const next = new Set(prev); next.delete(v); return next; });
-            }} />
-          ))}
+          {activiteFilter && (
+            <FilterChip
+              label={`Activité : ${activiteFilter}`}
+              onRemove={() => setActiviteFilter("")}
+            />
+          )}
           {[...formeFilter].map((v) => (
             <FilterChip key={`f-${v}`} label={v} onRemove={() => {
               setFormeFilter((prev) => { const next = new Set(prev); next.delete(v); return next; });
@@ -269,8 +326,9 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             {sorted.map((r) => {
               const navParams = new URLSearchParams();
               if (search) navParams.set("nav-q", search);
-              if (pipelineFilter.size) navParams.set("nav-pipeline", [...pipelineFilter].join("|"));
+              if (bucket !== "clients") navParams.set("nav-bucket", bucket);
               if (formeFilter.size) navParams.set("nav-forme", [...formeFilter].join("|"));
+              if (activiteFilter) navParams.set("nav-activite", activiteFilter);
               const qs = navParams.toString();
               const href = `/clients/${r.slug}${qs ? `?${qs}` : ""}`;
               return (
@@ -350,8 +408,9 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
           sorted.map((r) => {
             const navParams = new URLSearchParams();
             if (search) navParams.set("nav-q", search);
-            if (pipelineFilter.size) navParams.set("nav-pipeline", [...pipelineFilter].join("|"));
+            if (bucket !== "clients") navParams.set("nav-bucket", bucket);
             if (formeFilter.size) navParams.set("nav-forme", [...formeFilter].join("|"));
+            if (activiteFilter) navParams.set("nav-activite", activiteFilter);
             const qs = navParams.toString();
             const href = `/clients/${r.slug}${qs ? `?${qs}` : ""}`;
             return (
@@ -575,6 +634,44 @@ function MultiSelect({
         </div>
       )}
     </div>
+  );
+}
+
+function BucketBtn({
+  label,
+  active,
+  count,
+  tone,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  count: number;
+  tone?: "amber" | "emerald" | "rose";
+  onClick: () => void;
+}) {
+  const palette = {
+    amber: "bg-amber-50 text-amber-800 border-amber-300",
+    emerald: "bg-emerald-50 text-emerald-800 border-emerald-300",
+    rose: "bg-rose-50 text-rose-800 border-rose-300",
+  } as const;
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
+        active && tone
+          ? `${palette[tone]} shadow-sm`
+          : active
+          ? "bg-zinc-900 text-white border-zinc-900 shadow-sm"
+          : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50"
+      )}
+    >
+      {label}
+      <span className={cn("tabular-nums text-[10px]", active ? "" : "text-zinc-400")}>
+        {count}
+      </span>
+    </button>
   );
 }
 
