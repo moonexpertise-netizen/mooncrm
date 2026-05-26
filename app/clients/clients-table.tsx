@@ -294,19 +294,22 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         </div>
       )}
 
-      <div className="text-xs text-muted-foreground flex justify-between">
+      <div className="flex items-center justify-between gap-3 px-1 text-xs text-zinc-500">
         <div>
-          {sorted.length} client{sorted.length > 1 ? "s" : ""} sur {rows.length}
+          <span className="font-medium text-zinc-700 tabular-nums">{sorted.length}</span> client{sorted.length > 1 ? "s" : ""} <span className="text-zinc-400">sur {rows.length}</span>
         </div>
-        <div>ARR cumulé : <span className="font-medium text-zinc-900 tabular-nums">{fmtEuro(totalArr)}</span></div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-zinc-500">ARR cumulé</span>
+          <span className="font-semibold text-zinc-900 tabular-nums">{fmtEuro(totalArr)}</span>
+        </div>
       </div>
 
-      {/* Desktop : table classique. table-auto par défaut (auto-fit au contenu) ;
-          width explicite n'est appliquée que sur les colonnes redimensionnées
-          par l'utilisateur, le reste reste auto. */}
-      <div className="hidden md:block rounded-lg border overflow-hidden bg-card">
+      {/* Desktop : table moderne (style Attio/Linear). Bordures très douces,
+          header avec uppercase tracking-wide, hover row subtil, lignes plus
+          aérées (py-3 au lieu de py-2). */}
+      <div className="hidden md:block rounded-xl border border-zinc-200/80 bg-white shadow-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-zinc-700 text-xs uppercase tracking-wide">
+          <thead className="bg-zinc-50/60 text-zinc-500 text-[11px] uppercase tracking-wider font-medium border-b border-zinc-200/60">
             <tr>
               <Th label="Client" sortKey="denomination" sort={sort} onSort={toggleSort}
                 width={columnWidths.denomination} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
@@ -334,25 +337,25 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               return (
               <tr
                 key={r.id}
-                className="border-t hover:bg-zinc-50 transition-colors cursor-pointer"
+                className="border-t border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer group/row"
               >
-                <td className="px-3 py-2">
-                  <div className="font-medium flex items-center gap-1.5 flex-wrap">
+                <td className="px-4 py-3">
+                  <div className="font-medium text-zinc-900 flex items-center gap-1.5 flex-wrap">
                     <Link href={href} className="hover:underline">
                       {r.denomination}
                     </Link>
                     <PappersInpiBadges siren={r.siren} />
                   </div>
                   {r.siren && (
-                    <Link href={href} className="block text-xs text-muted-foreground tabular-nums hover:underline">
+                    <Link href={href} className="block text-xs text-muted-foreground tabular-nums mt-0.5 hover:underline">
                       {r.siren}
                     </Link>
                   )}
                 </td>
-                <td className="px-3 py-2 text-zinc-600">
+                <td className="px-4 py-3 text-zinc-600">
                   <Link href={href} className="block">
                     {r.forme ? (
-                      <span className="inline-block px-1.5 py-0.5 rounded text-[11px] font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 tabular-nums">
+                      <span className="inline-block px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 text-zinc-700 tabular-nums">
                         {r.forme}
                       </span>
                     ) : (
@@ -360,17 +363,17 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     )}
                   </Link>
                 </td>
-                <td className="px-3 py-2 text-zinc-600">
+                <td className="px-4 py-3 text-zinc-600">
                   <Link href={href} className="block">
                     {r.groupe_nom ?? <span className="text-zinc-300">·</span>}
                   </Link>
                 </td>
-                <td className="px-3 py-2 text-zinc-600">
+                <td className="px-4 py-3 text-zinc-600">
                   <Link href={href} className="block">
                     {r.activite ?? <span className="text-zinc-300">·</span>}
                   </Link>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-4 py-3">
                   <Link href={href} className="block">
                     {r.pipeline_statut ? (
                       <Badge text={r.pipeline_statut} color={PIPELINE_COLORS[r.pipeline_statut]} />
@@ -379,8 +382,8 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     )}
                   </Link>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  <Link href={href} className="block font-medium">
+                <td className="px-4 py-3 text-right tabular-nums">
+                  <Link href={href} className="block font-medium text-zinc-900">
                     {fmtEuro(r.arr ?? 0)}
                   </Link>
                 </td>
@@ -389,8 +392,22 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             })}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                  Aucun client ne correspond aux filtres.
+                <td colSpan={6} className="px-4 py-16 text-center text-sm text-muted-foreground">
+                  <div className="space-y-2">
+                    <div className="text-zinc-400">Aucun client ne correspond aux filtres.</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setBucket("all");
+                        setFormeFilter(new Set());
+                        setActiviteFilter("");
+                      }}
+                      className="text-xs text-zinc-600 hover:text-zinc-900 underline-offset-2 hover:underline"
+                    >
+                      Réinitialiser les filtres
+                    </button>
+                  </div>
                 </td>
               </tr>
             )}
@@ -401,7 +418,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
       {/* Mobile : liste de cartes empilées (touch friendly) */}
       <div className="md:hidden space-y-2">
         {sorted.length === 0 ? (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-zinc-200/80 bg-white shadow-card p-6 text-center text-sm text-zinc-500">
             Aucun client ne correspond aux filtres.
           </div>
         ) : (
@@ -417,7 +434,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               <Link
                 key={r.id}
                 href={href}
-                className="block rounded-lg border bg-card px-3 py-3 active:bg-zinc-50 transition-colors"
+                className="block rounded-xl border border-zinc-200/80 bg-white shadow-card px-3 py-3 active:bg-zinc-50 transition-all"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -506,19 +523,19 @@ function Th({
       ref={thRef}
       style={width ? { width: `${width}px` } : undefined}
       className={cn(
-        "relative px-3 py-2 font-medium select-none group/th",
+        "relative px-4 py-3 font-medium select-none group/th",
         align === "right" ? "text-right" : "text-left"
       )}
     >
       <button
         onClick={() => onSort(sortKey)}
         className={cn(
-          "inline-flex items-center gap-1 hover:text-zinc-900 transition-colors",
-          active ? "text-zinc-900" : "text-zinc-700"
+          "inline-flex items-center gap-1 hover:text-zinc-700 transition-colors",
+          active ? "text-zinc-800" : "text-zinc-500"
         )}
       >
         {label}
-        <span className="text-[10px] w-2">
+        <span className="text-[9px] w-2 opacity-70">
           {active ? (sort.dir === "asc" ? "▲" : "▼") : ""}
         </span>
       </button>

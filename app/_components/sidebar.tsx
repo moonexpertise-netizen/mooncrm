@@ -272,7 +272,7 @@ export function Sidebar() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 bg-[#0D1122] text-zinc-300 flex flex-col border-r border-white/5",
+          "fixed inset-y-0 left-0 z-40 bg-[hsl(var(--sidebar))] text-zinc-300 flex flex-col border-r border-white/[0.04]",
           "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
           // Mobile : drawer slide-in/out depuis la gauche
           "max-md:w-[280px]",
@@ -306,7 +306,7 @@ export function Sidebar() {
         </span>
       </button>
       {/* Logo : full moon-logo.svg en mode étendu, favicon (icon.svg) compact en mode replié */}
-      <div className={cn("h-16 flex items-center border-b border-white/5 shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
+      <div className={cn("h-14 flex items-center border-b border-white/[0.04] shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
         <Link href="/" className="flex items-center gap-2 group min-w-0" title="Retour au dashboard">
           {showCollapsed ? (
             <Image
@@ -355,15 +355,15 @@ export function Sidebar() {
               <li key={item.href} className="relative group/item">
                 <div
                   className={cn(
-                    "relative flex items-center rounded-md text-sm",
+                    "relative flex items-center rounded-lg text-sm",
                     active
-                      ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold))]"
-                      : "text-zinc-300"
+                      ? "bg-white/[0.08] text-white font-medium"
+                      : "text-zinc-400"
                   )}
                 >
                   {active && (
                     <span
-                      className="absolute -left-2 top-1.5 bottom-1.5 w-[3px] rounded-r bg-[hsl(var(--gold))]"
+                      className="absolute -left-2 top-2 bottom-2 w-[3px] rounded-r-full bg-[hsl(var(--gold))]"
                       aria-hidden
                     />
                   )}
@@ -373,9 +373,9 @@ export function Sidebar() {
                       if (isProduction && !showCollapsed) setProdOpen(true);
                     }}
                     className={cn(
-                      "flex items-center gap-3 transition-colors flex-1 min-w-0 rounded-md",
+                      "flex items-center gap-3 transition-colors flex-1 min-w-0 rounded-lg",
                       showCollapsed ? "h-10 w-10 justify-center mx-auto" : "h-9 px-2.5",
-                      !active && "hover:text-zinc-100 hover:bg-white/5"
+                      !active && "hover:text-zinc-100 hover:bg-white/[0.05]"
                     )}
                     title={showCollapsed ? item.label : undefined}
                   >
@@ -387,7 +387,7 @@ export function Sidebar() {
                       type="button"
                       aria-label={prodOpen ? "Replier la liste" : "Déplier la liste"}
                       onClick={() => setProdOpen((v) => !v)}
-                      className="h-9 px-2 flex items-center justify-center rounded-md hover:bg-white/10 hover:text-zinc-100 transition-colors"
+                      className="h-9 px-2 flex items-center justify-center rounded-md hover:bg-white/[0.08] hover:text-zinc-100 transition-colors"
                     >
                       <ChevronDown
                         className={cn(
