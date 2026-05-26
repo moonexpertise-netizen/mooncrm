@@ -891,8 +891,8 @@ export default function NouveauClientForm() {
           type="submit"
           disabled={isPending}
           className={cn(
-            "px-4 py-2 rounded-md bg-[#0D1122] text-white text-sm font-medium transition-colors",
-            isPending ? "opacity-60" : "hover:bg-[#0D1122]/85"
+            "px-4 py-2 rounded-md bg-[#0D1122] dark:bg-zinc-50 text-white dark:text-zinc-900 text-sm font-medium transition-colors",
+            isPending ? "opacity-60" : "hover:bg-[#0D1122]/85 dark:hover:bg-white"
           )}
         >
           {isPending ? "Création…" : "Créer la fiche"}

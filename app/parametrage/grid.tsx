@@ -669,7 +669,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
       {/* Barre d'actions bulk */}
       {selectedClientIds.size > 0 && (
         <div className="sticky bottom-4 z-30 mx-auto max-w-5xl animate-slide-up-fade">
-          <div className="rounded-xl bg-[#0D1122] text-white shadow-2xl ring-1 ring-white/10">
+          <div className="rounded-xl bg-[#0D1122] dark:bg-[hsl(var(--surface-elevated))] text-white shadow-2xl ring-1 ring-white/10 dark:ring-white/[0.18]">
             <div className="px-4 py-2.5 flex items-center gap-3 border-b border-white/10">
               <div className="text-sm font-medium">
                 {selectedClientIds.size} client{selectedClientIds.size > 1 ? "s" : ""} sélectionné{selectedClientIds.size > 1 ? "s" : ""}

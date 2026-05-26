@@ -171,7 +171,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
           sans Link interne (pas besoin de naviguer pendant un drag). */}
       <DragOverlay dropAnimation={null}>
         {activeCard ? (
-          <div className="rounded border bg-white px-2 py-1 shadow-xl ring-2 ring-[hsl(var(--gold))]/40 flex items-center gap-2 cursor-grabbing">
+          <div className="rounded border bg-white dark:bg-[hsl(var(--surface-elevated))] px-2 py-1 shadow-xl ring-2 ring-[hsl(var(--gold))]/40 flex items-center gap-2 cursor-grabbing">
             <span className="font-medium text-xs truncate">
               {activeCard.denomination}
             </span>

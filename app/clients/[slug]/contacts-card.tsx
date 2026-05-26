@@ -502,7 +502,7 @@ function NewContactForm({
         <button
           onClick={submit}
           disabled={isPending}
-          className="text-xs px-4 py-1.5 rounded-md bg-[#0D1122] text-white hover:bg-[#0D1122]/85 transition font-medium"
+          className="text-xs px-4 py-1.5 rounded-md bg-[#0D1122] dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-[#0D1122]/85 dark:hover:bg-white transition font-medium"
         >
           {isPending ? "Ajout…" : "Ajouter le contact"}
         </button>

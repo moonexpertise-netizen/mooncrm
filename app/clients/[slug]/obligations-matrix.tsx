@@ -258,7 +258,7 @@ export default function ObligationsMatrix({
 
       {/* Barre flottante quand draft */}
       {pendingReconduits.length > 0 && (
-        <div className="sticky top-16 z-20 rounded-lg bg-[#0D1122] text-white px-4 py-2.5 flex items-center gap-3 shadow-xl animate-slide-up-fade">
+        <div className="sticky top-16 z-20 rounded-lg bg-[#0D1122] dark:bg-[hsl(var(--surface-elevated))] text-white px-4 py-2.5 flex items-center gap-3 shadow-xl ring-1 ring-white/10 dark:ring-white/[0.18] animate-slide-up-fade">
           <span className="text-sm font-medium">
             {pendingReconduits.length} reconduction{pendingReconduits.length > 1 ? "s" : ""} en attente
           </span>
