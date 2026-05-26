@@ -26,7 +26,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "MoonCRM",
+  title: "CRM | MOON Expertise",
   description: "CRM interne MOON Expertise",
 };
 
