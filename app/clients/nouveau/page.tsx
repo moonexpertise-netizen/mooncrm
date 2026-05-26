@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/app/_components/page-header";
 import NouveauClientForm from "./form";
 
@@ -10,7 +11,7 @@ export default function NouveauClientPage() {
         className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors group"
       >
         <span className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-zinc-200 bg-white group-hover:border-zinc-300 group-hover:shadow-card transition-all">
-          ←
+          <ChevronLeft className="h-3.5 w-3.5" />
         </span>
         <span className="font-medium">Clients</span>
       </Link>

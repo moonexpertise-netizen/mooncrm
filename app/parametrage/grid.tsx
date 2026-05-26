@@ -264,7 +264,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     if (!selectedClientIds.size) return;
     const n = selectedClientIds.size;
     const ok = await confirm({
-      title: `Reconduire ${year} → ${year + 1} ?`,
+      title: `Reconduire ${year} vers ${year + 1} ?`,
       description: `${n} dossier${n > 1 ? "s" : ""} sélectionné${n > 1 ? "s" : ""}. Les obligations actives seront recréées sur l'année suivante.`,
       confirmLabel: "Reconduire",
     });
@@ -281,7 +281,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
 
   async function reconduireOne(clientId: string) {
     const ok = await confirm({
-      title: `Reconduire ${year} → ${year + 1} ?`,
+      title: `Reconduire ${year} vers ${year + 1} ?`,
       description: "Pour ce dossier uniquement.",
       confirmLabel: "Reconduire",
     });
@@ -302,7 +302,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     const ids = filtered.map((r) => r.id);
     if (!ids.length) return;
     const ok = await confirm({
-      title: `Reconduire ${year} → ${year + 1} ?`,
+      title: `Reconduire ${year} vers ${year + 1} ?`,
       description: `TOUS les ${ids.length} dossiers affichés seront reconduits.`,
       confirmLabel: "Reconduire tout",
       variant: "danger",
@@ -543,7 +543,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                   </td>
                   <td className="px-1 text-center align-middle border-r border-zinc-200">
                     {beforeDebut ? (
-                      <span className="text-zinc-400 text-sm">—</span>
+                      <span className="text-zinc-400 text-sm">·</span>
                     ) : (
                       <select
                         value={r.regime ?? ""}
@@ -561,7 +561,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                   </td>
                   <td className="px-1 text-center align-middle border-r border-zinc-200">
                     {beforeDebut ? (
-                      <span className="text-zinc-400 text-sm">—</span>
+                      <span className="text-zinc-400 text-sm">·</span>
                     ) : (
                       <select
                         value={r.tvaMode ?? ""}
@@ -586,7 +586,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                           key={col.key}
                           className="px-0.5 py-1 text-center align-middle text-zinc-400 text-sm"
                         >
-                          —
+                          ·
                         </td>
                       );
                     }
@@ -641,7 +641,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                   })}
                   <td className="px-2 text-center align-middle border-l border-zinc-200">
                     {beforeDebut ? (
-                      <span className="text-zinc-400 text-sm">—</span>
+                      <span className="text-zinc-400 text-sm">·</span>
                     ) : (
                       <button
                         onClick={() => reconduireOne(r.id)}

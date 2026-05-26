@@ -2,7 +2,7 @@
 
 import { memo, useState, useTransition } from "react";
 import Link from "next/link";
-import { GripVertical } from "lucide-react";
+import { GripVertical, ArrowRightLeft } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -277,7 +277,7 @@ function MobilePipelineList({
                     aria-label="Changer le statut"
                     title="Déplacer"
                   >
-                    →
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))

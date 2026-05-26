@@ -117,7 +117,7 @@ export default function ParametrageCard({
   async function onReconduire() {
     const target = annee + 1;
     const ok = await confirm({
-      title: `Reconduire ${annee} → ${target} ?`,
+      title: `Reconduire ${annee} vers ${target} ?`,
       description: "La configuration et les obligations actives seront copiées sur l'année suivante.",
       confirmLabel: "Reconduire",
     });
@@ -152,7 +152,7 @@ export default function ParametrageCard({
           disabled={isPending}
           className="text-xs px-2 py-1 rounded border border-zinc-300 hover:bg-zinc-100 text-zinc-700"
         >
-          Reconduire vers {annee + 1} →
+          Reconduire vers {annee + 1}
         </button>
       </div>
 

@@ -71,7 +71,7 @@ export default async function OnboardingParametragePage() {
           href="/onboarding/matrice"
           className="underline hover:text-amber-700"
         >
-          Aller à la matrice →
+          Aller à la matrice
         </Link>
       </div>
 

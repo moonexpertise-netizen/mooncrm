@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /**
  * Boutons prev/next "tab-aware" : lit le tab courant de l'URL via
@@ -56,10 +57,13 @@ export default function NavButtons({
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 transition text-xs"
           title={`Précédent : ${prev.denomination}`}
         >
-          ← <span className="truncate max-w-[160px]">{prev.denomination}</span>
+          <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate max-w-[160px]">{prev.denomination}</span>
         </Link>
       ) : (
-        <span className="px-2.5 py-1 text-xs text-zinc-300">←</span>
+        <span className="px-2.5 py-1 text-zinc-300 inline-flex items-center">
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </span>
       )}
       <span className="text-[11px] text-muted-foreground tabular-nums px-1">
         {idx >= 0 ? idx + 1 : "?"} / {total}
@@ -72,10 +76,13 @@ export default function NavButtons({
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 transition text-xs"
           title={`Suivant : ${next.denomination}`}
         >
-          <span className="truncate max-w-[160px]">{next.denomination}</span> →
+          <span className="truncate max-w-[160px]">{next.denomination}</span>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
         </Link>
       ) : (
-        <span className="px-2.5 py-1 text-xs text-zinc-300">→</span>
+        <span className="px-2.5 py-1 text-zinc-300 inline-flex items-center">
+          <ChevronRight className="h-3.5 w-3.5" />
+        </span>
       )}
     </div>
   );

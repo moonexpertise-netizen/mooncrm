@@ -35,7 +35,7 @@ export default function GlobalError({
             Une erreur est survenue
           </h1>
           <p className="text-sm text-zinc-600 mt-1">
-            Désolé, quelque chose s&apos;est mal passé. Tu peux réessayer — si
+            Désolé, quelque chose s&apos;est mal passé. Tu peux réessayer ; si
             le problème persiste, recharge la page complètement.
           </p>
         </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { Lock, ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isClientBillable as clientIsBillable } from "@/lib/billable";
@@ -159,7 +159,7 @@ export default async function ObligationsPage({
         className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors group"
       >
         <span className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-zinc-200 bg-white group-hover:border-zinc-300 group-hover:shadow-card transition-all">
-          ←
+          <ChevronLeft className="h-3.5 w-3.5" />
         </span>
         <span className="font-medium">Sommaire production</span>
       </Link>

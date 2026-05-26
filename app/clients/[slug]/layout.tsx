@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
+import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
@@ -98,7 +99,7 @@ export default async function ClientLayout({
           className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-900 transition-colors group"
         >
           <span className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-zinc-200 bg-white group-hover:border-zinc-300 group-hover:shadow-card transition-all">
-            ←
+            <ChevronLeft className="h-3.5 w-3.5" />
           </span>
           <span className="font-medium">Clients</span>
         </Link>
