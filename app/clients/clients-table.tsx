@@ -667,25 +667,31 @@ function BucketBtn({
   tone?: "amber" | "emerald" | "rose";
   onClick: () => void;
 }) {
-  const palette = {
-    amber: "bg-amber-50 text-amber-800 border-amber-300",
-    emerald: "bg-emerald-50 text-emerald-800 border-emerald-300",
-    rose: "bg-rose-50 text-rose-800 border-rose-300",
+  const accentDot = {
+    amber: "bg-amber-500",
+    emerald: "bg-emerald-500",
+    rose: "bg-rose-500",
   } as const;
   return (
     <button
       onClick={onClick}
       className={cn(
-        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
-        active && tone
-          ? `${palette[tone]} shadow-sm`
-          : active
-          ? "bg-zinc-900 text-white border-zinc-900 shadow-sm"
-          : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50"
+        "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2",
+        active
+          ? "bg-zinc-900 text-white shadow-card"
+          : "bg-white text-zinc-700 border border-zinc-200 hover:border-zinc-300 hover:text-zinc-900"
       )}
     >
+      {tone && (
+        <span className={cn("inline-block w-1.5 h-1.5 rounded-full shrink-0", accentDot[tone])} />
+      )}
       {label}
-      <span className={cn("tabular-nums text-[10px]", active ? "" : "text-zinc-400")}>
+      <span
+        className={cn(
+          "tabular-nums text-xs font-medium px-1.5 py-0.5 rounded",
+          active ? "bg-white/15 text-white/90" : "bg-zinc-100 text-zinc-600"
+        )}
+      >
         {count}
       </span>
     </button>
@@ -720,15 +726,35 @@ function FilterChip({
   );
 }
 
-function Badge({ text, color }: { text: string; color?: string }) {
+/**
+ * Badge statut moderne : pastille colorée + libellé.
+ * Plus calme et plus lisible que les bg pastels.
+ */
+function Badge({ text }: { text: string; color?: string }) {
   return (
-    <span
-      className={cn(
-        "inline-block px-2 py-0.5 rounded-full text-xs font-medium border",
-        color ?? "bg-zinc-100 text-zinc-700 border-zinc-200"
-      )}
-    >
-      {text}
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 whitespace-nowrap">
+      <span className={cn("inline-block w-1.5 h-1.5 rounded-full shrink-0", pipelineDotColor(text))} />
+      {text.replace(/^[0-9Z] - /, "")}
     </span>
   );
+}
+
+/**
+ * Couleur du dot pour un statut pipeline. Mapping métier MOON :
+ *   Tally / PC à préparer  → amber  (en cours)
+ *   PC envoyée / acceptée  → sky    (en attente)
+ *   LDM envoyée            → violet (presque signé)
+ *   LDM signée / Interne   → emerald (actif)
+ *   Sous-traitance         → sky
+ *   Perdu / Résiliée       → rose
+ */
+function pipelineDotColor(statut: string): string {
+  if (statut.startsWith("1 -") || statut.startsWith("2 -") || statut.startsWith("3 -")) return "bg-amber-500";
+  if (statut.startsWith("4 -") || statut.startsWith("5 -")) return "bg-sky-500";
+  if (statut.startsWith("6 -")) return "bg-violet-500";
+  if (statut.startsWith("7 -")) return "bg-emerald-500";
+  if (statut === "Z - Interne") return "bg-emerald-500";
+  if (statut === "Z - Sous-traitance") return "bg-sky-500";
+  if (statut === "Z - Prospect perdu" || statut === "Z - Résiliée") return "bg-rose-500";
+  return "bg-zinc-400";
 }
