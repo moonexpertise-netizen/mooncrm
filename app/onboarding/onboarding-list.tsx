@@ -353,8 +353,8 @@ function FilterChip({
           : active && tone
           ? `${toneClass[tone]} shadow-sm`
           : active
-          ? "bg-zinc-100 text-zinc-700 border-zinc-300 shadow-sm"
-          : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
+          ? "bg-zinc-100 text-zinc-700 border-zinc-300 shadow-sm dark:bg-white/[0.10] dark:text-zinc-50 dark:border-white/20"
+          : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900 hover:border-zinc-400 dark:bg-transparent dark:text-zinc-400 dark:border-white/[0.10] dark:hover:bg-white/[0.06] dark:hover:text-zinc-100 dark:hover:border-white/20"
       )}
     >
       {label}

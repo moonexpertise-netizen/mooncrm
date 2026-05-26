@@ -81,7 +81,7 @@ export default function LDMButton({
         type="button"
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[hsl(var(--gold))] text-white dark:text-zinc-900 text-xs font-medium hover:opacity-90 transition shadow-sm"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[hsl(var(--gold))] dark:bg-[hsl(34_32%_22%)] text-white dark:text-[hsl(38_55%_82%)] text-xs font-medium hover:opacity-90 dark:hover:bg-[hsl(34_32%_28%)] transition shadow-sm"
       >
         <FileText className="h-3.5 w-3.5" />
         Générer LDM
