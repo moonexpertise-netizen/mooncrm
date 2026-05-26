@@ -6,6 +6,7 @@ import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { updateClient, setPipelineStatut } from "./actions";
 import { initializeOnboardingForClient } from "@/app/onboarding/actions";
+import { useAlert } from "@/app/_components/confirm-modal";
 
 /**
  * Bouton festif "LDM signée 🎉" :
@@ -26,6 +27,7 @@ export default function LDMSigneeButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const [done, setDone] = useState(alreadySigned);
+  const { alert, AlertDialog } = useAlert();
 
   function fireConfetti() {
     // 3 secondes de confettis en 2 sources (gauche + droite) pour un effet
@@ -92,12 +94,14 @@ export default function LDMSigneeButton({
         ]);
       } catch (e) {
         setDone(alreadySigned); // rollback
-        alert((e as Error).message);
+        await alert({ title: "Erreur", description: (e as Error).message });
       }
     });
   }
 
   return (
+    <>
+      {AlertDialog}
     <button
       type="button"
       onClick={onClick}
@@ -119,5 +123,6 @@ export default function LDMSigneeButton({
       <PartyPopper className="h-3.5 w-3.5" />
       {done ? "LDM signée" : "LDM signée 🎉"}
     </button>
+    </>
   );
 }

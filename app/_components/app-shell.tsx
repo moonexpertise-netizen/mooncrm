@@ -106,6 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar />
       </Suspense>
       <main
+        id="main-content"
         className="min-h-screen transition-[margin] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{
           // Mobile : pas de margin (le drawer overlay au-dessus). Desktop :

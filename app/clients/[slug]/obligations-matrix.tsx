@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useAlert } from "@/app/_components/confirm-modal";
 import {
   reconduireAnnee,
   setRegime as setRegimeAction,
@@ -75,6 +76,7 @@ export default function ObligationsMatrix({
 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { alert, AlertDialog } = useAlert();
 
   // Reconductions en attente (draft) : sequence à appliquer dans l'ordre
   const [pendingReconduits, setPendingReconduits] = useState<Array<{ from: number; to: number }>>([]);
@@ -159,7 +161,10 @@ export default function ObligationsMatrix({
 
   function onToggle(type: SubKey, annee: number) {
     if (pendingReconduits.length > 0) {
-      alert("Valide d'abord les reconductions en attente, ou annule-les.");
+      void alert({
+        title: "Reconductions en attente",
+        description: "Valide d'abord les reconductions en attente, ou annule-les.",
+      });
       return;
     }
     const current = isActive(type, annee);
@@ -170,7 +175,10 @@ export default function ObligationsMatrix({
 
   function onTva(annee: number, mode: TvaMode | null) {
     if (pendingReconduits.length > 0) {
-      alert("Valide d'abord les reconductions en attente, ou annule-les.");
+      void alert({
+        title: "Reconductions en attente",
+        description: "Valide d'abord les reconductions en attente, ou annule-les.",
+      });
       return;
     }
     startTransition(async () => {
@@ -180,7 +188,10 @@ export default function ObligationsMatrix({
 
   function onRegime(annee: number, regime: Regime | null) {
     if (pendingReconduits.length > 0) {
-      alert("Valide d'abord les reconductions en attente, ou annule-les.");
+      void alert({
+        title: "Reconductions en attente",
+        description: "Valide d'abord les reconductions en attente, ou annule-les.",
+      });
       return;
     }
     startTransition(async () => {
@@ -190,7 +201,10 @@ export default function ObligationsMatrix({
 
   function onDebutChange(year: number | null) {
     if (pendingReconduits.length > 0) {
-      alert("Valide d'abord les reconductions en attente, ou annule-les.");
+      void alert({
+        title: "Reconductions en attente",
+        description: "Valide d'abord les reconductions en attente, ou annule-les.",
+      });
       return;
     }
     startTransition(async () => {
@@ -202,6 +216,7 @@ export default function ObligationsMatrix({
 
   return (
     <div className="space-y-4">
+      {AlertDialog}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="text-sm text-muted-foreground">
           Vue inversée : pour chaque obligation, coche les années où elle s&apos;applique.

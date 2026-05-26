@@ -8,6 +8,7 @@ import {
   updateContact,
   updateContactRole,
 } from "./actions";
+import { useAlert, useConfirm } from "@/app/_components/confirm-modal";
 
 export type ContactRow = {
   contactId: string;
@@ -68,6 +69,8 @@ export default function ContactsCard({
 
 function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }) {
   const [, startTransition] = useTransition();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { alert, AlertDialog } = useAlert();
 
   // Optimistic display : on garde un état local de la row qui prime sur la prop
   // jusqu'au prochain revalidate. La saisie semble instantanée.
@@ -108,18 +111,23 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         }
       } catch (e) {
         setDisplay(previous); // rollback
-        alert((e as Error).message);
+        await alert({ title: "Erreur", description: (e as Error).message });
       }
     });
   }
 
-  function onRemove() {
-    if (!confirm(`Détacher ${display.nom} de ce dossier ?`)) return;
+  async function onRemove() {
+    const ok = await confirm({
+      title: `Détacher ${display.nom} ?`,
+      description: "Le contact n'est pas supprimé, juste détaché de ce dossier.",
+      confirmLabel: "Détacher",
+    });
+    if (!ok) return;
     startTransition(async () => {
       try {
         await removeContactFromClient(clientId, row.contactId);
       } catch (e) {
-        alert((e as Error).message);
+        await alert({ title: "Erreur", description: (e as Error).message });
       }
     });
   }
@@ -132,13 +140,15 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         await updateContact(row.contactId, { civilite: v });
       } catch (e) {
         setDisplay(previous); // rollback
-        alert((e as Error).message);
+        await alert({ title: "Erreur", description: (e as Error).message });
       }
     });
   }
 
   return (
     <li className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 py-2 px-2 -mx-2 rounded hover:bg-zinc-50 group">
+      {ConfirmDialog}
+      {AlertDialog}
       {/* Ligne 1 mobile : civilité + prénom + nom + supprimer */}
       <div className="flex items-center gap-2 sm:contents">
         <CivilitePicker value={display.civilite} onChange={commitCivilite} />

@@ -31,6 +31,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/app/_components/confirm-modal";
 import {
   createEtape,
   createRubrique,
@@ -100,6 +101,7 @@ export default function ParcoursEditor({
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [expandedEtapeId, setExpandedEtapeId] = useState<string | null>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // State local + sync via prop pour conserver l'UI immédiate pendant le save
   const [localEtapes, setLocalEtapes] = useState<EtapeRow[]>(etapes);
@@ -253,10 +255,14 @@ export default function ParcoursEditor({
     });
   }
 
-  function onDeleteEtape(etapeId: string, libelle: string) {
-    if (!confirm(`Supprimer l'étape « ${libelle} » du parcours ?\n\nLes onboardings existants conservent la tâche, seule la création des nouveaux dossiers est affectée.`)) {
-      return;
-    }
+  async function onDeleteEtape(etapeId: string, libelle: string) {
+    const ok = await confirm({
+      title: `Supprimer l'étape « ${libelle} » ?`,
+      description: "Les onboardings existants conservent la tâche. Seule la création des nouveaux dossiers est affectée.",
+      confirmLabel: "Supprimer",
+      variant: "danger",
+    });
+    if (!ok) return;
     setLocalEtapes((state) => state.filter((e) => e.id !== etapeId));
     startTransition(async () => {
       await deleteEtape(etapeId);
@@ -298,10 +304,14 @@ export default function ParcoursEditor({
     });
   }
 
-  function onDeleteRubrique(rubId: string, nom: string) {
-    if (!confirm(`Supprimer la rubrique « ${nom} » ?\n\nLes étapes qu'elle contient seront déplacées en « Sans rubrique » (non supprimées).`)) {
-      return;
-    }
+  async function onDeleteRubrique(rubId: string, nom: string) {
+    const ok = await confirm({
+      title: `Supprimer la rubrique « ${nom} » ?`,
+      description: "Les étapes qu'elle contient seront déplacées en « Sans rubrique » (non supprimées).",
+      confirmLabel: "Supprimer",
+      variant: "danger",
+    });
+    if (!ok) return;
     setLocalRubriques((state) => state.filter((r) => r.id !== rubId));
     setLocalEtapes((state) =>
       state.map((e) => (e.rubrique_id === rubId ? { ...e, rubrique_id: null } : e))
@@ -335,6 +345,7 @@ export default function ParcoursEditor({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
+      {ConfirmDialog}
       <div className="space-y-3">
         {/* Section "Sans rubrique" si elle a des étapes OU s'il n'y a aucune rubrique */}
         {(noRubEtapes.length > 0 || localRubriques.length === 0) && (

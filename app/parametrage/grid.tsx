@@ -13,6 +13,7 @@ import {
   setSubActive,
   setTva,
 } from "./actions";
+import { useAlert, useConfirm } from "@/app/_components/confirm-modal";
 
 type SubKey =
   | "TVS" | "IS_ACOMPTE" | "IS_SOLDE" | "CVAE" | "CVAE_ACOMPTE"
@@ -75,6 +76,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   const currentHoverColRef = useRef<SubKey | null>(null);
   const [, startTransition] = useTransition();
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { alert, AlertDialog } = useAlert();
 
   function setHoverCol(key: SubKey | null) {
     const prev = currentHoverColRef.current;
@@ -257,42 +260,74 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     });
   }
 
-  function reconduire() {
+  async function reconduire() {
     if (!selectedClientIds.size) return;
-    if (!confirm(`Reconduire la conf ${year} vers ${year + 1} pour ${selectedClientIds.size} client${selectedClientIds.size > 1 ? "s" : ""} ?`)) return;
+    const n = selectedClientIds.size;
+    const ok = await confirm({
+      title: `Reconduire ${year} → ${year + 1} ?`,
+      description: `${n} dossier${n > 1 ? "s" : ""} sélectionné${n > 1 ? "s" : ""}. Les obligations actives seront recréées sur l'année suivante.`,
+      confirmLabel: "Reconduire",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await bulkReconduire([...selectedClientIds], year, year + 1);
       router.refresh();
-      alert(`${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`);
+      await alert({
+        title: `Reconduction effectuée`,
+        description: `${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`,
+      });
     });
   }
 
-  function reconduireOne(clientId: string) {
-    if (!confirm(`Reconduire la conf ${year} vers ${year + 1} pour ce dossier ?`)) return;
+  async function reconduireOne(clientId: string) {
+    const ok = await confirm({
+      title: `Reconduire ${year} → ${year + 1} ?`,
+      description: "Pour ce dossier uniquement.",
+      confirmLabel: "Reconduire",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await bulkReconduire([clientId], year, year + 1);
       router.refresh();
       if (res.created === 0) {
-        alert(`Rien à reconduire (déjà à jour ou aucune obligation active en ${year}).`);
+        await alert({
+          title: "Rien à reconduire",
+          description: `Le dossier est déjà à jour, ou n'a aucune obligation active en ${year}.`,
+        });
       }
     });
   }
 
-  function reconduireAll() {
+  async function reconduireAll() {
     const ids = filtered.map((r) => r.id);
     if (!ids.length) return;
-    if (!confirm(`Reconduire la conf ${year} vers ${year + 1} pour TOUS les ${ids.length} dossiers affichés ?`)) return;
+    const ok = await confirm({
+      title: `Reconduire ${year} → ${year + 1} ?`,
+      description: `TOUS les ${ids.length} dossiers affichés seront reconduits.`,
+      confirmLabel: "Reconduire tout",
+      variant: "danger",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await bulkReconduire(ids, year, year + 1);
       router.refresh();
-      alert(`${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`);
+      await alert({
+        title: "Reconduction effectuée",
+        description: `${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`,
+      });
     });
   }
 
-  function decocheAll() {
+  async function decocheAll() {
     if (!selectedClientIds.size) return;
     const n = selectedClientIds.size;
-    if (!confirm(`Désactiver TOUTES les obligations ${year} pour ${n} client${n > 1 ? "s" : ""} ?\n\nL'historique d'échéances est conservé. Tu peux réactiver à tout moment.`)) return;
+    const ok = await confirm({
+      title: `Désactiver toutes les obligations ${year} ?`,
+      description: `Pour ${n} client${n > 1 ? "s" : ""} sélectionné${n > 1 ? "s" : ""}. L'historique d'échéances est conservé, tu peux réactiver à tout moment.`,
+      confirmLabel: "Désactiver",
+      variant: "danger",
+    });
+    if (!ok) return;
     const ids = [...selectedClientIds];
     // Patch local immédiat : toutes les cellules de ces clients passent à false
     const allKeys = COLS.map((c) => c.key);
@@ -307,6 +342,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
 
   return (
     <div className="space-y-3">
+      {ConfirmDialog}
+      {AlertDialog}
       {/* Toolbar */}
       <div className="rounded-lg border bg-card px-3 py-2 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">

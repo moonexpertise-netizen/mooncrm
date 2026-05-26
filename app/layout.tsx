@@ -41,6 +41,13 @@ export default function RootLayout({
       className={`${funnelDisplay.variable} ${funnelSans.variable} ${fraunces.variable}`}
     >
       <body>
+        {/* Skip-link a11y : passe directement au contenu principal au clavier */}
+        <a
+          href="#main-content"
+          className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-2 focus-visible:left-2 focus-visible:z-[2000] focus-visible:px-3 focus-visible:py-2 focus-visible:rounded-md focus-visible:bg-zinc-900 focus-visible:text-white focus-visible:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+        >
+          Aller au contenu
+        </a>
         <AppShell>{children}</AppShell>
       </body>
     </html>

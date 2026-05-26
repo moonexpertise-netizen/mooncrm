@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn, PIPELINE_COLORS } from "@/lib/utils";
+import { useAlert, useConfirm } from "@/app/_components/confirm-modal";
 import {
   reconduireAnnee,
   setPipelineStatut,
@@ -83,6 +84,8 @@ export default function ParametrageCard({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { alert, AlertDialog } = useAlert();
   const active = new Set(activeTypes);
   const currentTva = TVA_MODES.find((m) => active.has(m)) ?? null;
 
@@ -111,19 +114,25 @@ export default function ParametrageCard({
     });
   }
 
-  function onReconduire() {
+  async function onReconduire() {
     const target = annee + 1;
-    if (!confirm(`Reconduire la configuration ${annee} vers ${target} ?`)) return;
+    const ok = await confirm({
+      title: `Reconduire ${annee} → ${target} ?`,
+      description: "La configuration et les obligations actives seront copiées sur l'année suivante.",
+      confirmLabel: "Reconduire",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await reconduireAnnee(clientId, annee, target);
       const url = new URL(window.location.href);
       url.searchParams.set("year", String(target));
       router.push(url.pathname + url.search);
-      alert(
-        `${res.created} obligation${res.created > 1 ? "s" : ""} reconduite${
+      await alert({
+        title: "Reconduction effectuée",
+        description: `${res.created} obligation${res.created > 1 ? "s" : ""} reconduite${
           res.created > 1 ? "s" : ""
-        } vers ${target}.`
-      );
+        } vers ${target}.`,
+      });
     });
   }
 
@@ -134,6 +143,8 @@ export default function ParametrageCard({
         isPending && "opacity-60 pointer-events-none"
       )}
     >
+      {ConfirmDialog}
+      {AlertDialog}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Paramétrage {annee}</h2>
         <button
