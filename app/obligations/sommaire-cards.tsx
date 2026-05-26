@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { ArrowRight, CalendarDays } from "lucide-react";
 import { cn, fmtDateFr } from "@/lib/utils";
 import { TRACKER_GROUPS, type TrackerGroup } from "./trackers";
 
@@ -18,8 +19,19 @@ export type TrackerStat = {
   derniereAction: string | null;
 };
 
-type StatusFilter = "todo" | "wip" | "done";
+type StatusFilter = "todo" | "wip" | "done" | "urgent";
 
+/**
+ * Dashboard "Suivi de production" — refonte en liste horizontale.
+ *
+ * Philosophy : 1 ligne par tracker, scan rapide, info critique (échéance)
+ * mise en valeur. KPI synthétiques en top sous forme de pilules cliquables
+ * (filtres). Groupes (TVA / IS / Annuelles / Autres) comme sections claires.
+ *
+ * Code couleur des compteurs : seuls les chiffres > 0 sont colorés
+ * (rouge / ambre / vert), les zéros sont en gris discret → l'œil va
+ * directement vers ce qui demande action.
+ */
 export default function SommaireCards({
   rows,
   year,
@@ -28,9 +40,7 @@ export default function SommaireCards({
   year: number;
 }) {
   const router = useRouter();
-  const [statusFilter, setStatusFilter] = useState<Set<StatusFilter>>(
-    new Set(),
-  );
+  const [statusFilter, setStatusFilter] = useState<Set<StatusFilter>>(new Set());
 
   function toggleStatus(s: StatusFilter) {
     setStatusFilter((prev) => {
@@ -41,6 +51,20 @@ export default function SommaireCards({
     });
   }
 
+  // Cutoff "échéance urgente" = dans les 30 prochains jours
+  const URGENT_DAYS = 30;
+  const urgentCutoff = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + URGENT_DAYS);
+    return d.toISOString().substring(0, 10);
+  }, []);
+  const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
+
+  function isUrgent(r: TrackerStat): boolean {
+    if (!r.prochaineEcheance) return false;
+    return r.prochaineEcheance >= today && r.prochaineEcheance <= urgentCutoff;
+  }
+
   const filtered = useMemo(() => {
     if (statusFilter.size === 0) return rows;
     return rows.filter((r) => {
@@ -48,75 +72,103 @@ export default function SommaireCards({
       if (statusFilter.has("wip") && r.wip > 0) return true;
       if (statusFilter.has("done") && r.done > 0 && r.todo === 0 && r.wip === 0)
         return true;
+      if (statusFilter.has("urgent") && isUrgent(r)) return true;
       return false;
     });
-  }, [rows, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, statusFilter, today, urgentCutoff]);
 
   const grouped = useMemo(() => {
     return TRACKER_GROUPS.map((g) => ({
       group: g,
       rows: filtered.filter((r) => r.group === g.id),
     })).filter((g) => g.rows.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered]);
 
   const totalTodo = rows.reduce((s, r) => s + r.todo, 0);
   const totalWip = rows.reduce((s, r) => s + r.wip, 0);
   const totalDone = rows.reduce((s, r) => s + r.done, 0);
+  const totalUrgent = rows.filter(isUrgent).length;
 
   return (
     <div className="space-y-6">
-      {/* Voyants globaux + filtres */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <FilterCard
+      {/* KPI synthétiques : pilules cliquables = filtres rapides. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <KpiPill
           label="À traiter"
-          color="rose"
           value={totalTodo}
+          color="rose"
           active={statusFilter.has("todo")}
           onClick={() => toggleStatus("todo")}
         />
-        <FilterCard
+        <KpiPill
           label="En cours"
-          color="amber"
           value={totalWip}
+          color="amber"
           active={statusFilter.has("wip")}
           onClick={() => toggleStatus("wip")}
         />
-        <FilterCard
+        <KpiPill
           label="Terminés"
-          color="emerald"
           value={totalDone}
+          color="emerald"
           active={statusFilter.has("done")}
           onClick={() => toggleStatus("done")}
         />
+        <KpiPill
+          label={`Urgent · ${URGENT_DAYS}j`}
+          value={totalUrgent}
+          color="amber"
+          icon={<CalendarDays className="h-3 w-3" />}
+          active={statusFilter.has("urgent")}
+          onClick={() => toggleStatus("urgent")}
+        />
+        {statusFilter.size > 0 && (
+          <button
+            onClick={() => setStatusFilter(new Set())}
+            className="text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-2 ml-1"
+          >
+            Tout afficher
+          </button>
+        )}
       </div>
 
-      {/* Cartes regroupées par sous-bloc */}
+      {/* Sections par groupe — chaque section = liste de rows horizontales */}
       {grouped.map(({ group, rows: groupRows }) => {
         const gTodo = groupRows.reduce((s, r) => s + r.todo, 0);
         const gWip = groupRows.reduce((s, r) => s + r.wip, 0);
         const gDone = groupRows.reduce((s, r) => s + r.done, 0);
         return (
-          <section key={group.id} className="space-y-3">
-            <div className="flex items-baseline gap-3 border-b border-zinc-200 pb-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-700">
+          <section key={group.id} className="space-y-2">
+            {/* En-tête de groupe : titre + récap inline */}
+            <header className="flex items-baseline justify-between gap-3 px-1">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
                 {group.label}
               </h2>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {groupRows.length} tracker{groupRows.length > 1 ? "s" : ""} ·{" "}
-                {gTodo} à traiter · {gWip} en cours · {gDone} terminés
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="text-[11px] text-zinc-400 tabular-nums">
+                <span className={cn(gTodo > 0 && "text-rose-600 font-medium")}>
+                  {gTodo}
+                </span>
+                <span className="mx-1">·</span>
+                <span className={cn(gWip > 0 && "text-amber-600 font-medium")}>
+                  {gWip}
+                </span>
+                <span className="mx-1">·</span>
+                <span className={cn(gDone > 0 && "text-emerald-600 font-medium")}>
+                  {gDone}
+                </span>
+              </div>
+            </header>
+
+            {/* Liste des rows */}
+            <div className="rounded-lg border border-zinc-200 bg-card divide-y divide-zinc-100 overflow-hidden">
               {groupRows.map((r) => (
-                <TrackerCard
+                <TrackerRow
                   key={r.slug}
                   row={r}
-                  year={year}
-                  onClick={() =>
-                    router.push(
-                      `/obligations/${r.slug}?year=${year}`,
-                    )
-                  }
+                  urgent={isUrgent(r)}
+                  onClick={() => router.push(`/obligations/${r.slug}?year=${year}`)}
                 />
               ))}
             </div>
@@ -133,12 +185,17 @@ export default function SommaireCards({
   );
 }
 
-function TrackerCard({
+// ============================================================================
+//  Row : 1 ligne horizontale par tracker
+// ============================================================================
+
+function TrackerRow({
   row,
+  urgent,
   onClick,
 }: {
   row: TrackerStat;
-  year: number;
+  urgent: boolean;
   onClick: () => void;
 }) {
   const empty = row.total === 0;
@@ -146,136 +203,147 @@ function TrackerCard({
     <button
       type="button"
       onClick={onClick}
+      disabled={empty}
       className={cn(
-        "group text-left rounded-lg border bg-card p-4 hover:border-[hsl(var(--gold))]/60 hover:shadow-sm transition-all flex flex-col gap-3",
-        empty && "opacity-60",
+        "group/row w-full flex items-center gap-3 px-3 py-2.5 text-left",
+        "hover:bg-zinc-50 active:bg-zinc-100 transition-colors",
+        empty && "opacity-50 cursor-default"
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-medium text-zinc-900 truncate">{row.title}</div>
+      {/* Nom + description courte. Tronqué sur petite largeur. */}
+      <div className="min-w-0 flex-1 flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-zinc-900 truncate">
+            {row.title}
+          </div>
           {row.description && (
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+            <div className="text-[11px] text-zinc-500 truncate hidden md:block">
               {row.description}
-            </p>
+            </div>
           )}
         </div>
-        <span className="text-xs text-muted-foreground tabular-nums shrink-0 mt-0.5">
-          {row.total}
+      </div>
+
+      {/* 3 compteurs alignés verticalement, largeur fixe. Le 0 est en gris
+          discret → l'œil se concentre sur ce qui n'est pas zéro. */}
+      <div className="hidden sm:flex items-center gap-1 shrink-0 tabular-nums">
+        <Counter value={row.todo} color="rose" />
+        <Counter value={row.wip} color="amber" />
+        <Counter value={row.done} color="emerald" />
+      </div>
+
+      {/* Sur mobile : compteurs compactés en une ligne */}
+      <div className="sm:hidden flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums">
+        <span className={cn(row.todo > 0 ? "text-rose-600 font-semibold" : "text-zinc-300")}>
+          {row.todo}
+        </span>
+        <span className="text-zinc-300">/</span>
+        <span className={cn(row.wip > 0 ? "text-amber-600 font-semibold" : "text-zinc-300")}>
+          {row.wip}
+        </span>
+        <span className="text-zinc-300">/</span>
+        <span className={cn(row.done > 0 ? "text-emerald-600 font-semibold" : "text-zinc-300")}>
+          {row.done}
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <Voyant label="À traiter" value={row.todo} color="rose" />
-        <Voyant label="En cours" value={row.wip} color="amber" />
-        <Voyant label="Terminés" value={row.done} color="emerald" />
+      {/* Échéance : info la plus critique pour le pilotage.
+          Mise en valeur si elle approche (urgent = dans 30j). */}
+      <div
+        className={cn(
+          "hidden md:flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums w-28 justify-end",
+          urgent ? "text-amber-700 font-medium" : "text-zinc-500"
+        )}
+      >
+        {row.prochaineEcheance ? (
+          <>
+            <CalendarDays className={cn("h-3 w-3", urgent ? "text-amber-500" : "text-zinc-400")} />
+            <span>{fmtDateFr(row.prochaineEcheance)}</span>
+          </>
+        ) : (
+          <span className="text-zinc-300">·</span>
+        )}
       </div>
 
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-zinc-100">
-        <span>
-          {row.prochaineEcheance ? (
-            <>
-              Prochaine{" "}
-              <span className="text-zinc-700 tabular-nums">
-                {fmtDateFr(row.prochaineEcheance)}
-              </span>
-            </>
-          ) : (
-            <span className="text-zinc-300">·</span>
-          )}
-        </span>
-        <span>
-          {row.derniereAction ? (
-            <>
-              Maj{" "}
-              <span className="text-zinc-700 tabular-nums">
-                {fmtDateFr(row.derniereAction)}
-              </span>
-            </>
-          ) : (
-            <span className="text-zinc-300">·</span>
-          )}
-        </span>
-      </div>
+      {/* Flèche à droite : affordance "cliquable" */}
+      <ArrowRight
+        className={cn(
+          "h-3.5 w-3.5 shrink-0 transition-transform",
+          empty ? "text-zinc-200" : "text-zinc-300 group-hover/row:text-[hsl(var(--gold))] group-hover/row:translate-x-0.5"
+        )}
+      />
     </button>
   );
 }
 
-function Voyant({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: "rose" | "amber" | "emerald";
-}) {
-  const palette: Record<typeof color, { dot: string; bg: string; text: string }> = {
-    rose: { dot: "bg-rose-500", bg: "bg-rose-50", text: "text-rose-700" },
-    amber: { dot: "bg-amber-500", bg: "bg-amber-50", text: "text-amber-700" },
-    emerald: {
-      dot: "bg-emerald-500",
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-    },
-  };
-  const p = palette[color];
+// ============================================================================
+//  Counter : pastille compacte d'un statut. Gris si 0, coloré sinon.
+// ============================================================================
+
+function Counter({ value, color }: { value: number; color: "rose" | "amber" | "emerald" }) {
   const muted = value === 0;
+  const palette = {
+    rose: "bg-rose-50 text-rose-700 ring-rose-100",
+    amber: "bg-amber-50 text-amber-700 ring-amber-100",
+    emerald: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  } as const;
   return (
     <div
       className={cn(
-        "rounded-md px-2 py-1.5 flex items-center justify-between gap-1.5",
-        muted ? "bg-zinc-50 text-zinc-400" : `${p.bg} ${p.text}`,
+        "min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums ring-1",
+        muted
+          ? "bg-zinc-50 text-zinc-300 ring-zinc-100"
+          : palette[color]
       )}
     >
-      <span className="text-[10px] uppercase tracking-wide font-medium truncate">
-        {label}
-      </span>
-      <span className="inline-flex items-center gap-1 tabular-nums font-semibold">
-        <span
-          className={cn("inline-block w-1.5 h-1.5 rounded-full", muted ? "bg-zinc-300" : p.dot)}
-        />
-        {value}
-      </span>
+      {value}
     </div>
   );
 }
 
-function FilterCard({
+// ============================================================================
+//  KpiPill : KPI synthétique cliquable (= filtre)
+// ============================================================================
+
+function KpiPill({
   label,
   value,
   color,
+  icon,
   active,
   onClick,
 }: {
   label: string;
   value: number;
   color: "rose" | "amber" | "emerald";
+  icon?: React.ReactNode;
   active: boolean;
   onClick: () => void;
 }) {
-  const palette: Record<typeof color, string> = {
-    rose: "bg-rose-500",
-    amber: "bg-amber-500",
-    emerald: "bg-emerald-500",
+  const palette: Record<typeof color, { dot: string; bgActive: string }> = {
+    rose: { dot: "bg-rose-500", bgActive: "bg-rose-50 ring-rose-200" },
+    amber: { dot: "bg-amber-500", bgActive: "bg-amber-50 ring-amber-200" },
+    emerald: { dot: "bg-emerald-500", bgActive: "bg-emerald-50 ring-emerald-200" },
   };
+  const p = palette[color];
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
-        "rounded-lg border p-4 text-left transition-all flex items-center justify-between gap-3",
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border transition-all",
         active
-          ? "bg-zinc-900 text-white border-zinc-900 shadow-sm"
-          : "bg-card hover:border-zinc-400",
+          ? `${p.bgActive} text-zinc-900 border-transparent ring-2 shadow-sm`
+          : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900"
       )}
     >
-      <div>
-        <div className={cn("text-xs uppercase tracking-wider", active ? "text-zinc-300" : "text-muted-foreground")}>
-          {label}
-        </div>
-        <div className="text-2xl font-semibold tabular-nums mt-1">{value}</div>
-      </div>
-      <span className={cn("inline-block w-3 h-3 rounded-full", palette[color])} />
+      {icon ? (
+        <span className={cn(active ? "text-zinc-700" : "text-zinc-400")}>{icon}</span>
+      ) : (
+        <span className={cn("inline-block w-2 h-2 rounded-full", p.dot)} aria-hidden />
+      )}
+      <span className="uppercase tracking-wide text-[10px]">{label}</span>
+      <span className="tabular-nums font-semibold text-sm">{value}</span>
     </button>
   );
 }
