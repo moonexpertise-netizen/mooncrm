@@ -20,6 +20,7 @@ export type OnboardingRow = {
 
 type TypeFilter = "all" | OrigineType;
 type TnsFilter = "all" | "tns" | "non_tns" | "undecided";
+type StatusFilter = "all" | "in_progress" | "not_started" | "complete";
 type SortMode = "pct" | "nom";
 
 /** Type métier dérivé de l'origine (cohérent avec la matrice). */
@@ -58,6 +59,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [tnsFilter, setTnsFilter] = useState<TnsFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortMode>("pct");
 
   // Annotate rows with derived Type once
@@ -77,9 +79,15 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
       if (tnsFilter === "tns" && r.gestion_tns !== true) return false;
       if (tnsFilter === "non_tns" && r.gestion_tns !== false) return false;
       if (tnsFilter === "undecided" && r.gestion_tns !== null) return false;
+      if (statusFilter !== "all") {
+        if (r.total === 0) return false;
+        if (statusFilter === "complete" && r.done !== r.total) return false;
+        if (statusFilter === "in_progress" && (r.done === 0 || r.done === r.total)) return false;
+        if (statusFilter === "not_started" && r.done !== 0) return false;
+      }
       return true;
     });
-  }, [annotated, search, typeFilter, tnsFilter]);
+  }, [annotated, search, typeFilter, tnsFilter, statusFilter]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -115,6 +123,17 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     return c;
   }, [annotated]);
 
+  const statusCounts = useMemo(() => {
+    const c = { all: annotated.length, in_progress: 0, not_started: 0, complete: 0 };
+    for (const r of annotated) {
+      if (r.total === 0) continue;
+      if (r.done === r.total) c.complete++;
+      else if (r.done === 0) c.not_started++;
+      else c.in_progress++;
+    }
+    return c;
+  }, [annotated]);
+
   return (
     <div className="space-y-4">
       {/* Toolbar unifiée (mêmes filtres et tri que la matrice) */}
@@ -141,6 +160,12 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
         {tnsCounts.undecided > 0 && (
           <FilterChip label="?" active={tnsFilter === "undecided"} count={tnsCounts.undecided} tone="amber" onClick={() => setTnsFilter("undecided")} />
         )}
+        <div className="h-6 w-px bg-zinc-200 mx-1" />
+        <span className="text-[11px] text-zinc-500">Statut :</span>
+        <FilterChip label="Tous" active={statusFilter === "all"} count={statusCounts.all} onClick={() => setStatusFilter("all")} />
+        <FilterChip label="En cours" active={statusFilter === "in_progress"} count={statusCounts.in_progress} tone="amber" onClick={() => setStatusFilter("in_progress")} />
+        <FilterChip label="Pas commencé" active={statusFilter === "not_started"} count={statusCounts.not_started} tone="rose" onClick={() => setStatusFilter("not_started")} />
+        <FilterChip label="Terminé" active={statusFilter === "complete"} count={statusCounts.complete} tone="emerald" onClick={() => setStatusFilter("complete")} />
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11px] text-zinc-500">Tri :</span>
           <SortBtn label="Progression" active={sort === "pct"} onClick={() => setSort("pct")} />
@@ -254,13 +279,14 @@ function FilterChip({
   active: boolean;
   count: number;
   type?: OrigineType;
-  tone?: "emerald" | "zinc" | "amber";
+  tone?: "emerald" | "zinc" | "amber" | "rose";
   onClick: () => void;
 }) {
-  const toneClass: Record<"emerald" | "zinc" | "amber", string> = {
+  const toneClass: Record<"emerald" | "zinc" | "amber" | "rose", string> = {
     emerald: "bg-emerald-50 text-emerald-800 border-emerald-300",
     zinc: "bg-zinc-100 text-zinc-700 border-zinc-300",
     amber: "bg-amber-50 text-amber-800 border-amber-300",
+    rose: "bg-rose-50 text-rose-800 border-rose-300",
   };
   return (
     <button
