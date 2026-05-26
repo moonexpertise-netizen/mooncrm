@@ -17,7 +17,7 @@ export default async function OnboardingPage() {
   // 1. Tous les clients facturables (avec slug pour navigation)
   const { data: clients } = await sb
     .from("clients")
-    .select("id, slug, denomination, siren, pipeline_statut, origine")
+    .select("id, slug, denomination, siren, pipeline_statut, origine, gestion_tns")
     .order("denomination");
 
   const billable = (clients ?? []).filter(isClientBillable);
@@ -53,6 +53,7 @@ export default async function OnboardingPage() {
       siren: c.siren,
       pipeline_statut: c.pipeline_statut,
       origine: c.origine,
+      gestion_tns: c.gestion_tns,
       done: agg.done,
       total: agg.total,
       pct,

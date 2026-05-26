@@ -12,23 +12,17 @@ export type OnboardingRow = {
   siren: string | null;
   pipeline_statut: string | null;
   origine: string | null;
+  gestion_tns: boolean | null;
   done: number;
   total: number;
   pct: number;
 };
 
-type Filter = "all" | "in_progress" | "complete" | "not_started" | "no_tasks";
-type TypeFilter = "all" | "creation" | "reprise" | "interne" | "soustraitance" | "autre";
+type TypeFilter = "all" | OrigineType;
+type TnsFilter = "all" | "tns" | "non_tns" | "undecided";
+type SortMode = "pct" | "nom";
 
-/** Type métier dérivé de l'origine (utilisé pour le suivi transverse).
- *
- *   1 - Création          → "creation"
- *   2 - Reprise           → "reprise"
- *   3 - Reprise sans EC   → "reprise"
- *   4 - Interne           → "interne"
- *   5 - Sous-traitance    → "soustraitance"
- *   (null / legacy)       → "autre"
- */
+/** Type métier dérivé de l'origine (cohérent avec la matrice). */
 type OrigineType = "creation" | "reprise" | "interne" | "soustraitance" | "autre";
 const TYPE_LABEL: Record<OrigineType, string> = {
   creation: "Création",
@@ -54,19 +48,17 @@ function origineToType(origine: string | null): OrigineType {
 }
 
 /**
- * Liste compacte des onboardings.
- *  - Bandeau transverse en haut : agrégats par Type (Création / Reprise / Sous-traitance)
- *  - Filtres statut : tous / en cours / terminés / pas commencés / sans tâches
- *  - Filtre Type : tous / Création / Reprise / Sous-traitance
- *  - Recherche par nom ou SIREN
- *  - Tri par nom ou par % progression
- *  - 1 ligne par client : Type chip + nom + barre de progression + compteur
+ * Liste compacte des onboardings (vue Liste de /onboarding).
+ *
+ * Toolbar unifiée avec la matrice : search · Type · TNS · Tri (à droite) · count.
+ * Pas de filtres statut séparés (la barre de progression visuelle suffit ;
+ * un tri "Progression ↑" met automatiquement les dossiers à finir en haut).
  */
 export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [sort, setSort] = useState<"nom" | "pct">("pct");
+  const [tnsFilter, setTnsFilter] = useState<TnsFilter>("all");
+  const [sort, setSort] = useState<SortMode>("pct");
 
   // Annotate rows with derived Type once
   const annotated = useMemo(
@@ -82,18 +74,18 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
         if (!hay.includes(s)) return false;
       }
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
-      if (filter === "all") return true;
-      if (filter === "no_tasks") return r.total === 0;
-      if (filter === "complete") return r.total > 0 && r.done === r.total;
-      if (filter === "in_progress") return r.done > 0 && r.done < r.total;
-      if (filter === "not_started") return r.total > 0 && r.done === 0;
+      if (tnsFilter === "tns" && r.gestion_tns !== true) return false;
+      if (tnsFilter === "non_tns" && r.gestion_tns !== false) return false;
+      if (tnsFilter === "undecided" && r.gestion_tns !== null) return false;
       return true;
     });
-  }, [annotated, search, filter, typeFilter]);
+  }, [annotated, search, typeFilter, tnsFilter]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (sort === "pct") {
+      // Tri : en cours / pas commencés en haut (pct croissant), terminés en bas,
+      // dossiers sans tâches tout à la fin.
       arr.sort((a, b) => {
         if (a.total === 0 && b.total === 0) return a.denomination.localeCompare(b.denomination, "fr");
         if (a.total === 0) return 1;
@@ -106,36 +98,26 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     return arr;
   }, [filtered, sort]);
 
-  // Compteurs statut (sur l'ensemble filtré par type, pour cohérence visuelle)
-  const counts = useMemo(() => {
-    const c = {
-      all: 0,
-      in_progress: 0,
-      complete: 0,
-      not_started: 0,
-      no_tasks: 0,
-    };
-    for (const r of annotated) {
-      if (typeFilter !== "all" && r.type !== typeFilter) continue;
-      c.all++;
-      if (r.total === 0) c.no_tasks++;
-      else if (r.done === r.total) c.complete++;
-      else if (r.done === 0) c.not_started++;
-      else c.in_progress++;
-    }
-    return c;
-  }, [annotated, typeFilter]);
-
-  // Compteurs par type (pour les pills Type)
+  // Compteurs par type / TNS pour les pills
   const typeCounts = useMemo(() => {
     const c = { all: annotated.length, creation: 0, reprise: 0, interne: 0, soustraitance: 0, autre: 0 };
     for (const r of annotated) c[r.type]++;
     return c;
   }, [annotated]);
 
+  const tnsCounts = useMemo(() => {
+    const c = { all: annotated.length, tns: 0, non_tns: 0, undecided: 0 };
+    for (const r of annotated) {
+      if (r.gestion_tns === true) c.tns++;
+      else if (r.gestion_tns === false) c.non_tns++;
+      else c.undecided++;
+    }
+    return c;
+  }, [annotated]);
+
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
+      {/* Toolbar unifiée (mêmes filtres et tri que la matrice) */}
       <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
         <input
           type="text"
@@ -145,45 +127,28 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
           className="w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
         />
         <div className="h-6 w-px bg-zinc-200 mx-1" />
-        <FilterPill label="Tous" value="all" current={filter} count={counts.all} onClick={() => setFilter("all")} />
-        <FilterPill label="En cours" value="in_progress" current={filter} count={counts.in_progress} color="amber" onClick={() => setFilter("in_progress")} />
-        <FilterPill label="Pas commencé" value="not_started" current={filter} count={counts.not_started} color="rose" onClick={() => setFilter("not_started")} />
-        <FilterPill label="Terminé" value="complete" current={filter} count={counts.complete} color="emerald" onClick={() => setFilter("complete")} />
-        <FilterPill label="Sans tâches" value="no_tasks" current={filter} count={counts.no_tasks} color="gray" onClick={() => setFilter("no_tasks")} />
-        <div className="ml-auto flex items-center gap-1">
-          <span className="text-[11px] text-zinc-500">Tri :</span>
-          <button
-            onClick={() => setSort("pct")}
-            className={cn(
-              "px-2 py-0.5 rounded text-[11px] transition-colors",
-              sort === "pct" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
-            )}
-          >
-            Progression
-          </button>
-          <button
-            onClick={() => setSort("nom")}
-            className={cn(
-              "px-2 py-0.5 rounded text-[11px] transition-colors",
-              sort === "nom" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
-            )}
-          >
-            Nom
-          </button>
-        </div>
-      </div>
-
-      {/* Pills Type (filtre transverse) */}
-      <div className="flex items-center gap-2 flex-wrap text-[11px]">
-        <span className="text-zinc-500">Type :</span>
-        <TypePill label="Tous" value="all" current={typeFilter} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
-        <TypePill label="Création" value="creation" current={typeFilter} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
-        <TypePill label="Reprise" value="reprise" current={typeFilter} count={typeCounts.reprise} type="reprise" onClick={() => setTypeFilter("reprise")} />
-        <TypePill label="Interne" value="interne" current={typeFilter} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
-        <TypePill label="Sous-traitance" value="soustraitance" current={typeFilter} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
-        {typeCounts.autre > 0 && (
-          <TypePill label="Autre" value="autre" current={typeFilter} count={typeCounts.autre} type="autre" onClick={() => setTypeFilter("autre")} />
+        <span className="text-[11px] text-zinc-500">Type :</span>
+        <FilterChip label="Tous" active={typeFilter === "all"} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
+        <FilterChip label="Création" active={typeFilter === "creation"} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
+        <FilterChip label="Reprise" active={typeFilter === "reprise"} count={typeCounts.reprise} type="reprise" onClick={() => setTypeFilter("reprise")} />
+        <FilterChip label="Interne" active={typeFilter === "interne"} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
+        <FilterChip label="ST" active={typeFilter === "soustraitance"} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
+        <div className="h-6 w-px bg-zinc-200 mx-1" />
+        <span className="text-[11px] text-zinc-500">TNS :</span>
+        <FilterChip label="Tous" active={tnsFilter === "all"} count={tnsCounts.all} onClick={() => setTnsFilter("all")} />
+        <FilterChip label="TNS" active={tnsFilter === "tns"} count={tnsCounts.tns} tone="emerald" onClick={() => setTnsFilter("tns")} />
+        <FilterChip label="Non TNS" active={tnsFilter === "non_tns"} count={tnsCounts.non_tns} tone="zinc" onClick={() => setTnsFilter("non_tns")} />
+        {tnsCounts.undecided > 0 && (
+          <FilterChip label="?" active={tnsFilter === "undecided"} count={tnsCounts.undecided} tone="amber" onClick={() => setTnsFilter("undecided")} />
         )}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[11px] text-zinc-500">Tri :</span>
+          <SortBtn label="Progression" active={sort === "pct"} onClick={() => setSort("pct")} />
+          <SortBtn label="Nom" active={sort === "nom"} onClick={() => setSort("nom")} />
+          <span className="text-[11px] text-zinc-500 tabular-nums ml-2">
+            {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
       {/* Liste */}
@@ -274,37 +239,41 @@ function OnboardingRowComp({ row, type }: { row: OnboardingRow; type: OrigineTyp
 }
 
 // ============================================================================
-//  Pills réutilisables
+//  FilterChip + SortBtn (mêmes composants que dans matrice-table)
 // ============================================================================
 
-function FilterPill({
+function FilterChip({
   label,
-  value,
-  current,
+  active,
   count,
-  color = "gray",
+  type,
+  tone,
   onClick,
 }: {
   label: string;
-  value: Filter;
-  current: Filter;
+  active: boolean;
   count: number;
-  color?: "amber" | "emerald" | "rose" | "gray";
+  type?: OrigineType;
+  tone?: "emerald" | "zinc" | "amber";
   onClick: () => void;
 }) {
-  const palette = {
-    amber: "bg-amber-50 text-amber-800 border-amber-300",
+  const toneClass: Record<"emerald" | "zinc" | "amber", string> = {
     emerald: "bg-emerald-50 text-emerald-800 border-emerald-300",
-    rose: "bg-rose-50 text-rose-800 border-rose-300",
-    gray: "bg-zinc-100 text-zinc-700 border-zinc-300",
-  } as const;
-  const active = value === current;
+    zinc: "bg-zinc-100 text-zinc-700 border-zinc-300",
+    amber: "bg-amber-50 text-amber-800 border-amber-300",
+  };
   return (
     <button
       onClick={onClick}
       className={cn(
         "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
-        active ? `${palette[color]} shadow-sm` : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
+        active && type
+          ? `${TYPE_PILL[type]} shadow-sm`
+          : active && tone
+          ? `${toneClass[tone]} shadow-sm`
+          : active
+          ? "bg-zinc-100 text-zinc-700 border-zinc-300 shadow-sm"
+          : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
       )}
     >
       {label}
@@ -313,32 +282,24 @@ function FilterPill({
   );
 }
 
-function TypePill({
+function SortBtn({
   label,
-  value,
-  current,
-  count,
-  type,
+  active,
   onClick,
 }: {
   label: string;
-  value: TypeFilter;
-  current: TypeFilter;
-  count: number;
-  type?: OrigineType;
+  active: boolean;
   onClick: () => void;
 }) {
-  const active = value === current;
   return (
     <button
       onClick={onClick}
       className={cn(
-        "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
-        active && type ? `${TYPE_PILL[type]} shadow-sm` : active ? "bg-zinc-100 text-zinc-700 border-zinc-300 shadow-sm" : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
+        "px-2 py-0.5 rounded text-[11px] transition-colors",
+        active ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
       )}
     >
       {label}
-      <span className={cn("tabular-nums", active ? "" : "text-zinc-400")}>{count}</span>
     </button>
   );
 }

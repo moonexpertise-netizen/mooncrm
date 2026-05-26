@@ -111,7 +111,7 @@ function origineToType(origine: string | null): OrigineType {
 
 type TypeFilter = "all" | OrigineType;
 type TnsFilter = "all" | "tns" | "non_tns" | "undecided";
-type SortMode = "auto" | "pct_asc" | "pct_desc" | "nom" | "type";
+type SortMode = "pct" | "nom";
 
 const STATUT_GROUP_ORDER: StatutLogique[] = ["A_FAIRE", "EN_COURS", "TERMINE", "NON_APPLICABLE"];
 const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
@@ -148,7 +148,7 @@ export default function MatriceTable({
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [tnsFilter, setTnsFilter] = useState<TnsFilter>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("auto");
+  const [sortMode, setSortMode] = useState<SortMode>("pct");
 
   // Optimistic state : la matrice subit beaucoup d'updates
   // (1 par clic cellule). useOptimistic évite l'attente serveur.
@@ -268,38 +268,23 @@ export default function MatriceTable({
     });
   }, [annotated, search, typeFilter, tnsFilter]);
 
-  // Tri
+  // Tri (cohérent avec la vue Liste) :
+  //   - "pct" : pct croissant (à finir en haut, terminés en bas, sans tâches à la fin)
+  //   - "nom" : alphabétique
   const sorted = useMemo(() => {
     const arr = [...filtered];
-    const typeOrder: OrigineType[] = ["creation", "reprise", "interne", "soustraitance", "autre"];
-    const byPct = (r: MatriceRow) => (r.total > 0 ? r.done / r.total : -1);
-    const byName = (a: MatriceRow, b: MatriceRow) =>
-      a.denomination.localeCompare(b.denomination, "fr");
-
-    if (sortMode === "nom") {
-      arr.sort(byName);
-    } else if (sortMode === "pct_asc") {
-      arr.sort((a, b) => byPct(a) - byPct(b) || byName(a, b));
-    } else if (sortMode === "pct_desc") {
-      arr.sort((a, b) => byPct(b) - byPct(a) || byName(a, b));
-    } else if (sortMode === "type") {
+    if (sortMode === "pct") {
       arr.sort((a, b) => {
-        const ta = typeOrder.indexOf(a.type);
-        const tb = typeOrder.indexOf(b.type);
-        if (ta !== tb) return ta - tb;
-        return byName(a, b);
+        if (a.total === 0 && b.total === 0) return a.denomination.localeCompare(b.denomination, "fr");
+        if (a.total === 0) return 1;
+        if (b.total === 0) return -1;
+        const pa = a.done / a.total;
+        const pb = b.done / b.total;
+        if (pa !== pb) return pa - pb;
+        return a.denomination.localeCompare(b.denomination, "fr");
       });
     } else {
-      // auto : Type -> progression croissante -> nom
-      arr.sort((a, b) => {
-        const ta = typeOrder.indexOf(a.type);
-        const tb = typeOrder.indexOf(b.type);
-        if (ta !== tb) return ta - tb;
-        const pa = byPct(a);
-        const pb = byPct(b);
-        if (pa !== pb) return pa - pb;
-        return byName(a, b);
-      });
+      arr.sort((a, b) => a.denomination.localeCompare(b.denomination, "fr"));
     }
     return arr;
   }, [filtered, sortMode]);
@@ -338,7 +323,7 @@ export default function MatriceTable({
 
   return (
     <div className="space-y-3">
-      {/* Toolbar : recherche + filtres */}
+      {/* Toolbar unifiée (mêmes filtres et tri que la vue Liste) */}
       <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
         <input
           type="text"
@@ -362,22 +347,14 @@ export default function MatriceTable({
         {tnsCounts.undecided > 0 && (
           <FilterChip label="?" active={tnsFilter === "undecided"} count={tnsCounts.undecided} tone="amber" onClick={() => setTnsFilter("undecided")} />
         )}
-        <span className="ml-auto text-[11px] text-zinc-500 tabular-nums">
-          {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
-        </span>
-      </div>
-
-      {/* Toolbar : tri */}
-      <div className="flex items-center gap-2 flex-wrap text-[11px] px-1">
-        <span className="text-zinc-500">Tri :</span>
-        <SortBtn label="Auto" active={sortMode === "auto"} onClick={() => setSortMode("auto")} />
-        <SortBtn label="Progression ↑" active={sortMode === "pct_asc"} onClick={() => setSortMode("pct_asc")} />
-        <SortBtn label="Progression ↓" active={sortMode === "pct_desc"} onClick={() => setSortMode("pct_desc")} />
-        <SortBtn label="Nom" active={sortMode === "nom"} onClick={() => setSortMode("nom")} />
-        <SortBtn label="Type" active={sortMode === "type"} onClick={() => setSortMode("type")} />
-        <span className="ml-3 text-[11px] text-zinc-400">
-          Astuce : clic sur une pastille pour changer le statut.
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[11px] text-zinc-500">Tri :</span>
+          <SortBtn label="Progression" active={sortMode === "pct"} onClick={() => setSortMode("pct")} />
+          <SortBtn label="Nom" active={sortMode === "nom"} onClick={() => setSortMode("nom")} />
+          <span className="text-[11px] text-zinc-500 tabular-nums ml-2">
+            {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
       {/* Tableau */}
