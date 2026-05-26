@@ -153,16 +153,22 @@ export default async function ObligationsPage({
   }));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div className="flex items-baseline gap-3">
-          <Link
-            href={`/obligations?year=${year}`}
-            className="text-sm text-muted-foreground hover:text-[hsl(var(--gold))] transition-colors"
-          >
-            ← Sommaire
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">{tracker.title}</h1>
+    <div className="space-y-5">
+      <Link
+        href={`/obligations?year=${year}`}
+        className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors group"
+      >
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-zinc-200 bg-white group-hover:border-zinc-300 group-hover:shadow-card transition-all">
+          ←
+        </span>
+        <span className="font-medium">Sommaire production</span>
+      </Link>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-zinc-900">{tracker.title}</h1>
+          {tracker.description && (
+            <p className="text-sm text-zinc-500 mt-1">{tracker.description}</p>
+          )}
         </div>
         <YearSelector slug={trackerSlug} year={year} />
       </div>
@@ -182,23 +188,23 @@ export default async function ObligationsPage({
 function YearSelector({ slug, year }: { slug: string; year: number }) {
   const years = [year - 1, year, year + 1];
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1.5">
       <div
-        className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-500"
+        className="flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-zinc-400"
         title="L'année reste active pendant ta navigation entre les sous-trackers Production"
       >
         <Lock className="h-2.5 w-2.5" />
         <span>Mémorisée</span>
       </div>
-      <div className="flex gap-2">
+      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60">
         {years.map((y) => (
           <Link
             key={y}
             href={`/obligations/${slug}?year=${y}`}
             className={
               y === year
-                ? "px-3 py-1 rounded-md text-sm border bg-[hsl(var(--gold))] text-white border-[hsl(var(--gold))] shadow-sm"
-                : "px-3 py-1 rounded-md text-sm border bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400"
+                ? "px-3 py-1 rounded-lg text-sm bg-white text-zinc-900 shadow-card font-medium tabular-nums"
+                : "px-3 py-1 rounded-lg text-sm text-zinc-600 hover:text-zinc-900 hover:bg-white/50 tabular-nums"
             }
           >
             {y}

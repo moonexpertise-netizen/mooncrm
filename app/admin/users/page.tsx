@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/app/_components/page-header";
 import UserRow from "./user-row";
 
 export const dynamic = "force-dynamic";
@@ -28,20 +29,23 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Utilisateurs</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gestion des comptes MoonCRM · approbation des nouvelles inscriptions.
-          Seuls les emails <code className="text-xs bg-zinc-100 px-1 py-0.5 rounded">@moonexpertise.fr</code> peuvent s&apos;inscrire.
-        </p>
-      </div>
+      <PageHeader
+        title="Utilisateurs"
+        description={
+          <>
+            Gestion des comptes MoonCRM · approbation des nouvelles inscriptions.
+            Seuls les emails <code className="text-xs bg-zinc-100 px-1.5 py-0.5 rounded-md border border-zinc-200/60">@moonexpertise.fr</code> peuvent s&apos;inscrire.
+          </>
+        }
+      />
 
       {pending.length > 0 && (
-        <section>
-          <h2 className="text-sm font-medium text-amber-700 uppercase tracking-wide mb-2">
+        <section className="space-y-2.5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-700 flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
             En attente d&apos;approbation ({pending.length})
           </h2>
-          <div className="rounded-lg border bg-amber-50/30 divide-y divide-amber-100">
+          <div className="rounded-2xl border border-amber-200/60 bg-gradient-to-b from-amber-50/40 to-white shadow-card divide-y divide-amber-100/60 overflow-hidden">
             {pending.map((p) => (
               <UserRow key={p.id} profile={p} />
             ))}
@@ -49,16 +53,17 @@ export default async function AdminUsersPage() {
         </section>
       )}
 
-      <section>
-        <h2 className="text-sm font-medium text-zinc-700 uppercase tracking-wide mb-2">
+      <section className="space-y-2.5">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500 flex items-center gap-2">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
           Comptes approuvés ({approved.length})
         </h2>
         {approved.length === 0 ? (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-10 text-center text-sm text-zinc-500">
             Aucun compte approuvé encore.
           </div>
         ) : (
-          <div className="rounded-lg border bg-card divide-y divide-zinc-100">
+          <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card divide-y divide-zinc-100 overflow-hidden">
             {approved.map((p) => (
               <UserRow key={p.id} profile={p} />
             ))}
