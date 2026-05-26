@@ -117,28 +117,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           marginLeft: isMobile ? 0 : mounted ? (collapsed ? 56 : 240) : 240,
         }}
       >
-        {/* Bandeau supérieur sombre (cohérence avec la sidebar) :
-            hamburger mobile + titre de section + switcher. Sticky. */}
-        <div className="sticky top-0 z-30 bg-[#0D1122] border-b border-white/10">
-          <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 py-2 flex items-center gap-2 md:justify-between">
+        {/* Bandeau supérieur clair (look SaaS moderne : Linear / Attio).
+            Plus de fond dark — le sidebar reste l'élément navy MOON, le
+            ribbon devient un liseré subtle pour lui faire respirer. */}
+        <div className="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-zinc-200/80">
+          <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 h-14 flex items-center gap-2 md:justify-between">
             {/* Hamburger : visible uniquement sur mobile */}
             <button
               type="button"
               onClick={openMobileSidebar}
               aria-label="Ouvrir le menu"
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-200 hover:bg-white/10 transition-colors shrink-0"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-700 hover:bg-zinc-100 transition-colors shrink-0"
             >
               <Menu className="h-5 w-5" />
             </button>
-            {/* Titre de section : sert de repère "où je suis" sur mobile.
-                Caché en desktop (la sidebar fait déjà ce rôle). */}
-            <h1 className="md:hidden text-sm font-semibold text-zinc-100 truncate flex-1 min-w-0">
+            {/* Titre de section sur mobile uniquement */}
+            <h1 className="md:hidden text-sm font-semibold text-zinc-900 truncate flex-1 min-w-0">
               {pageLabel(pathname)}
             </h1>
-            {/* ClientSwitcher : caché sur mobile (le drawer + liste Clients
-                font le boulot). Sur desktop, alignement droite via ml-auto. */}
             <div className="hidden md:flex items-center gap-3 md:ml-auto">
-              {/* Hint Cmd+K visible en desktop pour faire découvrir la palette */}
               <CommandPaletteHint />
               <ClientSwitcher />
             </div>
@@ -175,10 +172,10 @@ function CommandPaletteHint() {
       type="button"
       onClick={open}
       aria-label="Ouvrir la palette de recherche"
-      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-zinc-100 transition-colors text-xs border border-white/10"
+      className="inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 hover:border-zinc-300 text-zinc-500 hover:text-zinc-700 text-xs transition-colors min-w-[200px]"
     >
-      <span>Rechercher…</span>
-      <kbd className="inline-flex items-center px-1 rounded border border-white/20 bg-white/5 text-[9px] font-medium tabular-nums">
+      <span className="flex-1 text-left">Rechercher…</span>
+      <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-[10px] font-medium tabular-nums text-zinc-500">
         {isMac ? "⌘K" : "Ctrl K"}
       </kbd>
     </button>

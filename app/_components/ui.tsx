@@ -5,18 +5,14 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * Primitives UI partagées du CRM. Objectif : éviter la duplication de classes
- * Tailwind (Button, Badge, Card, EmptyState, Toolbar) et garantir la
- * cohérence visuelle (espacements, bordures, focus, ombres).
+ * Primitives UI premium du CRM (v2 — refonte design).
  *
- * Règles design système :
- *   - rounded-md       : boutons / inputs (8px)
- *   - rounded-lg       : cartes (12px) et modales
- *   - rounded-full     : pastilles / pills / chips
- *   - border-zinc-200  : bordures secondaires
- *   - border-zinc-300  : bordures interactives
- *   - focus-visible:ring-2 ring-zinc-400 ring-offset-1  : focus standard
- *   - text-sm sur les boutons standards, text-xs sur les boutons compact
+ * Styles inspirés Linear / Attio / Stripe :
+ *   - Boutons : rounded-lg, ombre légère, hover state marqué, active scale
+ *   - Cards : rounded-xl, ombre subtile (shadow-card), pas de bordure forte
+ *   - Badges : dot + label (style status moderne) ou pill simple
+ *   - EmptyState : icône cerclée + texte + CTA
+ *   - Toolbar : pill horizontale, padding généreux
  */
 
 // ============================================================================
@@ -24,25 +20,33 @@ import { cn } from "@/lib/utils";
 // ============================================================================
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "outline";
-type ButtonSize = "xs" | "sm" | "md";
+type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
+  "inline-flex items-center justify-center gap-1.5 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 active:scale-[0.97]";
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-zinc-900 text-white hover:bg-zinc-800",
+  // CTA principal : noir profond, ombre subtle, hover subtle lift
+  primary:
+    "bg-zinc-900 text-white shadow-card hover:bg-zinc-800 hover:shadow-card-hover",
+  // Secondary : neutre sur fond zinc-50, bordure visible
   secondary:
-    "bg-zinc-100 text-zinc-900 hover:bg-zinc-200 border border-zinc-200",
+    "bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 shadow-card",
+  // Outline : neutre fond transparent
   outline:
-    "bg-white text-zinc-700 border border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400",
+    "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 hover:border-zinc-300",
+  // Ghost : texte uniquement, hover bg subtile
   ghost: "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100",
-  danger: "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400",
+  // Danger : rouge plein avec ombre
+  danger:
+    "bg-rose-600 text-white shadow-card hover:bg-rose-700 focus-visible:ring-rose-400",
 };
 
 const BUTTON_SIZE: Record<ButtonSize, string> = {
-  xs: "px-2 py-1 text-xs rounded-md",
-  sm: "px-2.5 py-1.5 text-xs rounded-md",
-  md: "px-3 py-2 text-sm rounded-md",
+  xs: "h-7 px-2 text-xs rounded-md",
+  sm: "h-8 px-2.5 text-xs rounded-md",
+  md: "h-9 px-3.5 text-sm rounded-lg",
+  lg: "h-10 px-4 text-sm rounded-lg",
 };
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -86,19 +90,78 @@ export function LinkButton({
 }
 
 // ============================================================================
-//  BADGE / CHIP
+//  STATUS BADGE (style moderne : dot + label)
+// ============================================================================
+
+type StatusTone = "neutral" | "success" | "warning" | "danger" | "info" | "amber" | "violet" | "sky" | "fuchsia";
+
+const STATUS_DOT: Record<StatusTone, string> = {
+  neutral: "bg-zinc-400",
+  success: "bg-emerald-500",
+  warning: "bg-amber-500",
+  danger: "bg-rose-500",
+  info: "bg-sky-500",
+  amber: "bg-amber-500",
+  violet: "bg-violet-500",
+  sky: "bg-sky-500",
+  fuchsia: "bg-fuchsia-500",
+};
+
+const STATUS_TEXT: Record<StatusTone, string> = {
+  neutral: "text-zinc-700",
+  success: "text-emerald-700",
+  warning: "text-amber-700",
+  danger: "text-rose-700",
+  info: "text-sky-700",
+  amber: "text-amber-700",
+  violet: "text-violet-700",
+  sky: "text-sky-700",
+  fuchsia: "text-fuchsia-700",
+};
+
+/**
+ * Status badge moderne : un point coloré + un label.
+ * Plus calme que les bg pastels, plus lisible.
+ *
+ *   <StatusBadge tone="success">LDM signée</StatusBadge>
+ */
+export function StatusBadge({
+  tone = "neutral",
+  children,
+  className,
+}: {
+  tone?: StatusTone;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-zinc-200 text-xs font-medium whitespace-nowrap",
+        STATUS_TEXT[tone],
+        className
+      )}
+    >
+      <span className={cn("inline-block w-1.5 h-1.5 rounded-full shrink-0", STATUS_DOT[tone])} />
+      {children}
+    </span>
+  );
+}
+
+// ============================================================================
+//  BADGE (pill plein — pour étiquettes simples non-statut)
 // ============================================================================
 
 type BadgeTone = "neutral" | "amber" | "emerald" | "rose" | "sky" | "violet" | "fuchsia";
 
 const BADGE_TONE: Record<BadgeTone, string> = {
-  neutral: "bg-zinc-100 text-zinc-700 border-zinc-200",
-  amber: "bg-amber-50 text-amber-800 border-amber-300",
-  emerald: "bg-emerald-50 text-emerald-800 border-emerald-300",
-  rose: "bg-rose-50 text-rose-800 border-rose-300",
-  sky: "bg-sky-50 text-sky-800 border-sky-300",
-  violet: "bg-violet-50 text-violet-800 border-violet-300",
-  fuchsia: "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300",
+  neutral: "bg-zinc-100 text-zinc-700",
+  amber: "bg-amber-50 text-amber-800",
+  emerald: "bg-emerald-50 text-emerald-800",
+  rose: "bg-rose-50 text-rose-800",
+  sky: "bg-sky-50 text-sky-800",
+  violet: "bg-violet-50 text-violet-800",
+  fuchsia: "bg-fuchsia-50 text-fuchsia-800",
 };
 
 export function Badge({
@@ -113,7 +176,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border whitespace-nowrap",
+        "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap",
         BADGE_TONE[tone],
         className
       )}
@@ -134,7 +197,7 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-lg border bg-card", className)}
+      className={cn("rounded-xl bg-white border border-zinc-200/80 shadow-card", className)}
       {...rest}
     >
       {children}
@@ -149,7 +212,7 @@ export function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("px-4 py-3 border-b border-zinc-200", className)}
+      className={cn("px-5 py-4 border-b border-zinc-100", className)}
       {...rest}
     >
       {children}
@@ -163,7 +226,7 @@ export function CardBody({
   ...rest
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("p-4", className)} {...rest}>
+    <div className={cn("p-5", className)} {...rest}>
       {children}
     </div>
   );
@@ -189,24 +252,24 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-8 text-center space-y-3",
+        "rounded-xl border border-zinc-200/80 bg-white shadow-card px-6 py-10 text-center space-y-3",
         className
       )}
     >
       {icon && (
-        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 text-zinc-500 mx-auto">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-100 text-zinc-500 mx-auto">
           {icon}
         </div>
       )}
       <div>
-        <h3 className="text-sm font-medium text-zinc-900">{title}</h3>
+        <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
         {description && (
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
+          <p className="text-sm text-zinc-500 mt-1 max-w-sm mx-auto">
             {description}
           </p>
         )}
       </div>
-      {action && <div className="pt-1">{action}</div>}
+      {action && <div className="pt-2">{action}</div>}
     </div>
   );
 }
@@ -223,7 +286,7 @@ export function Toolbar({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap",
+        "rounded-xl bg-white border border-zinc-200/80 shadow-card px-3 py-2.5 flex items-center gap-2 flex-wrap",
         className
       )}
       {...rest}
@@ -235,4 +298,27 @@ export function Toolbar({
 
 export function ToolbarSeparator() {
   return <div className="h-6 w-px bg-zinc-200 mx-1 shrink-0" />;
+}
+
+// ============================================================================
+//  KBD (raccourci clavier stylé)
+// ============================================================================
+
+export function Kbd({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <kbd
+      className={cn(
+        "inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-[10px] text-zinc-500 font-medium tabular-nums",
+        className
+      )}
+    >
+      {children}
+    </kbd>
+  );
 }
