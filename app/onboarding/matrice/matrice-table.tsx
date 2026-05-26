@@ -597,6 +597,7 @@ function MatrixCell({
   onReset: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
 
   useEffect(() => {
@@ -621,7 +622,11 @@ function MatrixCell({
   useEffect(() => {
     if (!isOpen) return;
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      // Vérifie le chip ET le popover (portaillé hors du chip)
+      if (ref.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -668,6 +673,7 @@ function MatrixCell({
       {isOpen && pos &&
         createPortal(
           <div
+            ref={popoverRef}
             style={{
               position: "fixed",
               left: `${pos.left}px`,
@@ -778,6 +784,7 @@ function OrigineChip({
   onSet: (v: string | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
 
   // Position fixe (sinon clippé par l'overflow horizontal du tableau)
@@ -803,7 +810,10 @@ function OrigineChip({
   useEffect(() => {
     if (!isOpen) return;
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -836,6 +846,7 @@ function OrigineChip({
       {isOpen && pos &&
         createPortal(
           <div
+            ref={popoverRef}
             style={{
               position: "fixed",
               left: `${pos.left}px`,
@@ -901,6 +912,7 @@ function TnsChip({
   onSet: (v: boolean | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
 
   // Position fixe (sinon le popover est clippé par l'overflow du tableau)
@@ -926,7 +938,10 @@ function TnsChip({
   useEffect(() => {
     if (!isOpen) return;
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -963,6 +978,7 @@ function TnsChip({
       {isOpen && pos &&
         createPortal(
           <div
+            ref={popoverRef}
             style={{
               position: "fixed",
               left: `${pos.left}px`,
