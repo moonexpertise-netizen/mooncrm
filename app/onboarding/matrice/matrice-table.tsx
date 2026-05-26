@@ -5,7 +5,19 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
-import { setGestionTns, updateOnboardingTaskStatus } from "@/app/onboarding/actions";
+import {
+  setGestionTns,
+  setOrigine,
+  updateOnboardingTaskStatus,
+} from "@/app/onboarding/actions";
+
+const ORIGINE_VALUES = [
+  "1 - Création",
+  "2 - Reprise",
+  "3 - Reprise sans EC",
+  "4 - Interne",
+  "5 - Sous-traitance",
+] as const;
 
 export type StatutLogique =
   | "A_FAIRE"
@@ -142,7 +154,8 @@ export default function MatriceTable({
   // (1 par clic cellule). useOptimistic évite l'attente serveur.
   type Patch =
     | { kind: "task"; clientId: string; taskIdx: number; statut_logique: StatutLogique; statut_detail: string | null }
-    | { kind: "tns"; clientId: string; gestion_tns: boolean | null };
+    | { kind: "tns"; clientId: string; gestion_tns: boolean | null }
+    | { kind: "origine"; clientId: string; origine: string | null };
 
   const [optimisticRows, applyOptimistic] = useOptimistic<MatriceRow[], Patch>(
     rows,
@@ -151,6 +164,9 @@ export default function MatriceTable({
         if (r.id !== patch.clientId) return r;
         if (patch.kind === "tns") {
           return { ...r, gestion_tns: patch.gestion_tns };
+        }
+        if (patch.kind === "origine") {
+          return { ...r, origine: patch.origine };
         }
         // patch.kind === "task"
         const cell = r.tasks[patch.taskIdx];
@@ -216,9 +232,21 @@ export default function MatriceTable({
     setOpenTnsPicker(null);
   }
 
+  function onSetOrigineRow(clientId: string, value: string | null) {
+    startTransition(async () => {
+      applyOptimistic({ kind: "origine", clientId, origine: value });
+      await setOrigine(clientId, value);
+      // À chaque changement d'origine, les tâches conditionnelles
+      // (depot_kbis_banque ou confrere) peuvent être ajoutées : refresh.
+      router.refresh();
+    });
+    setOpenOriginePicker(null);
+  }
+
   // Picker state : 1 popover global (1 ouvert à la fois)
   const [openPicker, setOpenPicker] = useState<{ clientId: string; taskIdx: number } | null>(null);
   const [openTnsPicker, setOpenTnsPicker] = useState<string | null>(null);
+  const [openOriginePicker, setOpenOriginePicker] = useState<string | null>(null);
 
   const annotated = useMemo(
     () => optimisticRows.map((r) => ({ ...r, type: origineToType(r.origine) })),
@@ -438,14 +466,13 @@ export default function MatriceTable({
                       >
                         {r.denomination}
                       </Link>
-                      <span
-                        className={cn(
-                          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
-                          TYPE_PILL[r.type]
-                        )}
-                      >
-                        {TYPE_LABEL[r.type]}
-                      </span>
+                      <OrigineChip
+                        origine={r.origine}
+                        isOpen={openOriginePicker === r.id}
+                        onOpen={() => setOpenOriginePicker(r.id)}
+                        onClose={() => setOpenOriginePicker(null)}
+                        onSet={(v) => onSetOrigineRow(r.id, v)}
+                      />
                       <TnsChip
                         value={r.gestion_tns}
                         isOpen={openTnsPicker === r.id}
@@ -707,6 +734,127 @@ function MatrixCell({
               </button>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+//  OrigineChip : chip Type cliquable → picker des 5 origines
+// ============================================================================
+
+function OrigineChip({
+  origine,
+  isOpen,
+  onOpen,
+  onClose,
+  onSet,
+}: {
+  origine: string | null;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onSet: (v: string | null) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+
+  // Position fixe (sinon clippé par l'overflow horizontal du tableau)
+  useEffect(() => {
+    if (!isOpen || !ref.current) {
+      setPos(null);
+      return;
+    }
+    const btn = ref.current.querySelector("button[data-origine-button]");
+    if (!btn) return;
+    const rect = (btn as HTMLElement).getBoundingClientRect();
+    const POPOVER_HEIGHT = 240;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUp = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+    setPos({
+      left: rect.left,
+      top: openUp ? rect.top : rect.bottom,
+      openUp,
+    });
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  // Le label affiché = type court dérivé de l'origine (cohérent avec les
+  // pills de filtre Type juste au-dessus).
+  const type = origineToType(origine);
+
+  return (
+    <div className="inline-block" ref={ref}>
+      <button
+        data-origine-button="1"
+        onClick={onOpen}
+        className={cn(
+          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80",
+          TYPE_PILL[type]
+        )}
+        title={origine ? `Origine : ${origine} · clic pour modifier` : "Origine non renseignée · clic pour modifier"}
+      >
+        {TYPE_LABEL[type]}
+      </button>
+      {isOpen && pos && (
+        <div
+          style={{
+            position: "fixed",
+            left: `${pos.left}px`,
+            top: `${pos.top}px`,
+            transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+            zIndex: 1000,
+          }}
+          className="bg-white border rounded-lg shadow-xl min-w-[220px] animate-slide-up-fade overflow-hidden"
+        >
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
+            Origine du dossier
+          </div>
+          {ORIGINE_VALUES.map((v) => {
+            const t = origineToType(v);
+            return (
+              <button
+                key={v}
+                onClick={() => onSet(v)}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 flex items-center gap-2 transition-colors"
+              >
+                <span
+                  className={cn(
+                    "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
+                    TYPE_PILL[t]
+                  )}
+                >
+                  {v}
+                </span>
+                {origine === v && <span className="text-zinc-400 ml-auto text-xs">✓</span>}
+              </button>
+            );
+          })}
+          <div className="border-t">
+            <button
+              onClick={() => onSet(null)}
+              className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+            >
+              Réinitialiser
+            </button>
+          </div>
         </div>
       )}
     </div>

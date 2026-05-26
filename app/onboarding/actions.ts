@@ -256,3 +256,22 @@ export async function setGestionTns(
     await initializeOnboardingForClient(clientId);
   }
 }
+
+/**
+ * Met à jour l'origine d'un client + relance l'init onboarding pour ajouter
+ * les tâches conditionnelles (depot_kbis_banque pour Création, confrere pour
+ * Reprise). Idempotent : les tâches déjà présentes restent telles quelles.
+ *
+ * ⚠ Quand on passe d'une origine "Création" à "Reprise" (ou inverse), la tâche
+ * obsolète (KBIS ou Confrère) reste en base ; Benjamin peut la marquer en
+ * N/A à la main. Pas de suppression auto pour ne pas perdre d'historique.
+ */
+export async function setOrigine(clientId: string, origine: string | null) {
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({ origine })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+  await initializeOnboardingForClient(clientId);
+}
