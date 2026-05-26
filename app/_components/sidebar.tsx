@@ -64,8 +64,9 @@ function buildProductionChildren(): ChildItem[] {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/pipeline", label: "Pipeline", icon: GitBranch, matchPrefix: "/pipeline" },
   { href: "/clients", label: "Clients", icon: Users, matchPrefix: "/clients" },
+  { href: "/pipeline", label: "Pipeline", icon: GitBranch, matchPrefix: "/pipeline" },
+  { href: "/onboarding", label: "Onboarding", icon: Workflow, matchPrefix: "/onboarding" },
   { href: "/parametrage", label: "Paramétrage", icon: Settings2, matchPrefix: "/parametrage" },
   {
     href: "/obligations",
@@ -74,7 +75,6 @@ const NAV_ITEMS: NavItem[] = [
     matchPrefix: "/obligations",
     children: buildProductionChildren(),
   },
-  { href: "/onboarding", label: "Onboarding", icon: Workflow, matchPrefix: "/onboarding" },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
