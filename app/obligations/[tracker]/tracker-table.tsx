@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
@@ -87,6 +88,7 @@ export default function TrackerTable({
   } | null>(null);
   const [, startTransition] = useTransition();
   const tableRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Optimistic state pour les cellules · patch partiel appliqué immédiatement,
   // remplacé par le serveur au prochain refresh.
@@ -392,6 +394,7 @@ export default function TrackerTable({
           bulkUpdateObligationStatus(ids, libelle)
         )
       );
+      router.refresh();
     });
   }
 
@@ -704,6 +707,7 @@ export default function TrackerTable({
         applyOptimistic({ obligationId: oid, statut_logique, statut_detail: libelle });
       }
       await bulkUpdateObligationStatus(obligationIds, libelle);
+      router.refresh();
     });
   }
 
@@ -760,9 +764,10 @@ export default function TrackerTable({
         applyOptimistic(patch);
         setOpenCellId(null);
         await updateObligationStatus(obligationId, libelle);
+        router.refresh();
       });
     },
-    [statusOptions, applyOptimistic]
+    [statusOptions, applyOptimistic, router]
   );
 
   const onReset = useCallback(
@@ -771,9 +776,10 @@ export default function TrackerTable({
         applyOptimistic({ obligationId, statut_logique: "A_FAIRE", statut_detail: null });
         setOpenCellId(null);
         await updateObligationStatus(obligationId, null);
+        router.refresh();
       });
     },
-    [applyOptimistic]
+    [applyOptimistic, router]
   );
 
   // (Le système de notes legacy est remplacé par les commentaires latéraux.)

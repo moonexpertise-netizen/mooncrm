@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 import {
@@ -73,6 +74,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   const theadRef = useRef<HTMLTableSectionElement>(null);
   const currentHoverColRef = useRef<SubKey | null>(null);
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   function setHoverCol(key: SubKey | null) {
     const prev = currentHoverColRef.current;
@@ -165,6 +167,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     startTransition(async () => {
       for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
       await bulkSetSubActive(ids, key, year, active);
+      router.refresh();
     });
     setColMenu(null);
   }
@@ -215,6 +218,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     startTransition(async () => {
       applyPatch({ kind: "sub", clientId, key, active: !current });
       await setSubActive(clientId, key, year, !current);
+      router.refresh();
     });
   }
 
@@ -223,6 +227,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     startTransition(async () => {
       applyPatch({ kind: "tva", clientId, mode: nextMode });
       await setTva(clientId, year, nextMode);
+      router.refresh();
     });
   }
 
@@ -231,6 +236,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     startTransition(async () => {
       applyPatch({ kind: "regime", clientId, regime: nextRegime });
       await setRegimeAction(clientId, year, nextRegime);
+      router.refresh();
     });
   }
 
@@ -240,6 +246,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     startTransition(async () => {
       for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
       await bulkSetSubActive(ids, key, year, active);
+      router.refresh();
     });
   }
 
@@ -248,6 +255,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     if (!confirm(`Reconduire la conf ${year} vers ${year + 1} pour ${selectedClientIds.size} client${selectedClientIds.size > 1 ? "s" : ""} ?`)) return;
     startTransition(async () => {
       const res = await bulkReconduire([...selectedClientIds], year, year + 1);
+      router.refresh();
       alert(`${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`);
     });
   }
@@ -256,6 +264,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     if (!confirm(`Reconduire la conf ${year} vers ${year + 1} pour ce dossier ?`)) return;
     startTransition(async () => {
       const res = await bulkReconduire([clientId], year, year + 1);
+      router.refresh();
       if (res.created === 0) {
         alert(`Rien à reconduire (déjà à jour ou aucune obligation active en ${year}).`);
       }
@@ -268,6 +277,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     if (!confirm(`Reconduire la conf ${year} vers ${year + 1} pour TOUS les ${ids.length} dossiers affichés ?`)) return;
     startTransition(async () => {
       const res = await bulkReconduire(ids, year, year + 1);
+      router.refresh();
       alert(`${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`);
     });
   }
@@ -284,6 +294,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
         for (const k of allKeys) applyPatch({ kind: "sub", clientId: id, key: k, active: false });
       }
       await bulkDeactivateAll(ids, year);
+      router.refresh();
     });
   }
 

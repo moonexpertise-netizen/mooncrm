@@ -176,6 +176,11 @@ export default function MatriceTable({
 
   const [, startTransition] = useTransition();
 
+  // IMPORTANT : router.refresh() après chaque action serveur.
+  // React `useOptimistic` revient à la valeur prop à la fin de la
+  // transition ; sans refresh, on retombe sur l'ancienne donnée. Le refresh
+  // déclenche un re-fetch RSC en arrière-plan → la prop se met à jour
+  // → la sync optimistic→prop devient invisible.
   function onPickStatus(
     clientId: string,
     taskIdx: number,
@@ -186,6 +191,7 @@ export default function MatriceTable({
     startTransition(async () => {
       applyOptimistic({ kind: "task", clientId, taskIdx, statut_logique, statut_detail: libelle });
       await updateOnboardingTaskStatus(taskId, libelle);
+      router.refresh();
     });
     setOpenPicker(null);
   }
@@ -194,6 +200,7 @@ export default function MatriceTable({
     startTransition(async () => {
       applyOptimistic({ kind: "task", clientId, taskIdx, statut_logique: "A_FAIRE", statut_detail: null });
       await updateOnboardingTaskStatus(taskId, null);
+      router.refresh();
     });
     setOpenPicker(null);
   }
@@ -202,9 +209,9 @@ export default function MatriceTable({
     startTransition(async () => {
       applyOptimistic({ kind: "tns", clientId, gestion_tns: value });
       await setGestionTns(clientId, value);
-      // Si on active TNS, des nouvelles tâches sont créées côté serveur
-      // (previ_tns, affiliation_tns) — il faut refresh pour les voir.
-      if (value === true) router.refresh();
+      // À l'activation TNS, de nouvelles tâches sont créées côté serveur
+      // (previ_tns, affiliation_tns) — le refresh repeuple la matrice.
+      router.refresh();
     });
     setOpenTnsPicker(null);
   }
@@ -724,6 +731,27 @@ function TnsChip({
   onSet: (v: boolean | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+
+  // Position fixe (sinon le popover est clippé par l'overflow du tableau)
+  useEffect(() => {
+    if (!isOpen || !ref.current) {
+      setPos(null);
+      return;
+    }
+    const btn = ref.current.querySelector("button[data-tns-button]");
+    if (!btn) return;
+    const rect = (btn as HTMLElement).getBoundingClientRect();
+    const POPOVER_HEIGHT = 160;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUp = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+    setPos({
+      left: rect.left,
+      top: openUp ? rect.top : rect.bottom,
+      openUp,
+    });
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -750,8 +778,9 @@ function TnsChip({
       : "bg-amber-50 text-amber-700 border-amber-300 border-dashed";
 
   return (
-    <div className="relative inline-block" ref={ref}>
+    <div className="inline-block" ref={ref}>
       <button
+        data-tns-button="1"
         onClick={onOpen}
         className={cn(
           "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80",
@@ -761,8 +790,17 @@ function TnsChip({
       >
         {label}
       </button>
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white border rounded-lg shadow-xl min-w-[180px] animate-slide-up-fade overflow-hidden">
+      {isOpen && pos && (
+        <div
+          style={{
+            position: "fixed",
+            left: `${pos.left}px`,
+            top: `${pos.top}px`,
+            transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+            zIndex: 1000,
+          }}
+          className="bg-white border rounded-lg shadow-xl min-w-[180px] animate-slide-up-fade overflow-hidden"
+        >
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
             Gestion TNS
           </div>
@@ -821,7 +859,11 @@ function StatusDot({ statut }: { statut: StatutLogique | null }) {
     );
   }
   if (statut === "EN_COURS") {
-    return <span className="inline-block w-3 h-3 rounded-full bg-amber-400 border border-amber-500" />;
+    return (
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-100 border border-sky-300">
+        <span className="inline-block w-2 h-2 bg-sky-600 rounded-[1px]" />
+      </span>
+    );
   }
   // A_FAIRE
   return (
