@@ -58,7 +58,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-zinc-50 via-white to-[hsl(var(--gold))]/[0.04]">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-zinc-50 via-white to-[hsl(var(--gold))]/[0.04] dark:from-[hsl(var(--background))] dark:via-[hsl(var(--surface-muted))] dark:to-[hsl(var(--gold))]/[0.08]">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[hsl(230_35%_9%)] to-[hsl(226_45%_13%)] shadow-modal mb-4">

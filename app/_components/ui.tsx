@@ -26,20 +26,21 @@ const BUTTON_BASE =
   "inline-flex items-center justify-center gap-1.5 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 active:scale-[0.97]";
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  // CTA principal : noir profond, ombre subtle, hover subtle lift
+  // CTA principal : noir profond en light, blanc casse en dark
   primary:
-    "bg-zinc-900 text-white shadow-card hover:bg-zinc-800 hover:shadow-card-hover",
-  // Secondary : neutre sur fond zinc-50, bordure visible
+    "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 shadow-card hover:bg-zinc-800 dark:hover:bg-white hover:shadow-card-hover",
+  // Secondary : neutre sur fond muted, bordure visible
   secondary:
-    "bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 shadow-card",
-  // Outline : neutre fond transparent
+    "bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-white/[0.08] hover:border-zinc-300 dark:hover:border-white/[0.16] shadow-card",
+  // Outline : neutre fond quasi transparent
   outline:
-    "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 hover:border-zinc-300",
+    "bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-white/[0.08] hover:text-zinc-900 dark:hover:text-white hover:border-zinc-300 dark:hover:border-white/[0.16]",
   // Ghost : texte uniquement, hover bg subtile
-  ghost: "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100",
+  ghost:
+    "text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06]",
   // Danger : rouge plein avec ombre
   danger:
-    "bg-rose-600 text-white shadow-card hover:bg-rose-700 focus-visible:ring-rose-400",
+    "bg-rose-600 dark:bg-rose-500 text-white shadow-card hover:bg-rose-700 dark:hover:bg-rose-600 focus-visible:ring-rose-400",
 };
 
 const BUTTON_SIZE: Record<ButtonSize, string> = {
@@ -96,7 +97,7 @@ export function LinkButton({
 type StatusTone = "neutral" | "success" | "warning" | "danger" | "info" | "amber" | "violet" | "sky" | "fuchsia";
 
 const STATUS_DOT: Record<StatusTone, string> = {
-  neutral: "bg-zinc-400",
+  neutral: "bg-zinc-400 dark:bg-zinc-500",
   success: "bg-emerald-500",
   warning: "bg-amber-500",
   danger: "bg-rose-500",
@@ -108,15 +109,15 @@ const STATUS_DOT: Record<StatusTone, string> = {
 };
 
 const STATUS_TEXT: Record<StatusTone, string> = {
-  neutral: "text-zinc-700",
-  success: "text-emerald-700",
-  warning: "text-amber-700",
-  danger: "text-rose-700",
-  info: "text-sky-700",
-  amber: "text-amber-700",
-  violet: "text-violet-700",
-  sky: "text-sky-700",
-  fuchsia: "text-fuchsia-700",
+  neutral: "text-zinc-700 dark:text-zinc-200",
+  success: "text-emerald-700 dark:text-emerald-400",
+  warning: "text-amber-700 dark:text-amber-400",
+  danger: "text-rose-700 dark:text-rose-400",
+  info: "text-sky-700 dark:text-sky-400",
+  amber: "text-amber-700 dark:text-amber-400",
+  violet: "text-violet-700 dark:text-violet-400",
+  sky: "text-sky-700 dark:text-sky-400",
+  fuchsia: "text-fuchsia-700 dark:text-fuchsia-400",
 };
 
 /**
@@ -137,7 +138,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-zinc-200 text-xs font-medium whitespace-nowrap",
+        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.08] text-xs font-medium whitespace-nowrap",
         STATUS_TEXT[tone],
         className
       )}
@@ -155,13 +156,13 @@ export function StatusBadge({
 type BadgeTone = "neutral" | "amber" | "emerald" | "rose" | "sky" | "violet" | "fuchsia";
 
 const BADGE_TONE: Record<BadgeTone, string> = {
-  neutral: "bg-zinc-100 text-zinc-700",
-  amber: "bg-amber-50 text-amber-800",
-  emerald: "bg-emerald-50 text-emerald-800",
-  rose: "bg-rose-50 text-rose-800",
-  sky: "bg-sky-50 text-sky-800",
-  violet: "bg-violet-50 text-violet-800",
-  fuchsia: "bg-fuchsia-50 text-fuchsia-800",
+  neutral: "bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-200",
+  amber: "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300",
+  emerald: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+  rose: "bg-rose-50 dark:bg-rose-500/15 text-rose-800 dark:text-rose-300",
+  sky: "bg-sky-50 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300",
+  violet: "bg-violet-50 dark:bg-violet-500/15 text-violet-800 dark:text-violet-300",
+  fuchsia: "bg-fuchsia-50 dark:bg-fuchsia-500/15 text-fuchsia-800 dark:text-fuchsia-300",
 };
 
 export function Badge({
@@ -197,7 +198,10 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-xl bg-white border border-zinc-200/80 shadow-card", className)}
+      className={cn(
+        "rounded-xl bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/80 dark:border-white/[0.08] shadow-card",
+        className
+      )}
       {...rest}
     >
       {children}
@@ -212,7 +216,7 @@ export function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("px-5 py-4 border-b border-zinc-100", className)}
+      className={cn("px-5 py-4 border-b border-zinc-100 dark:border-white/[0.06]", className)}
       {...rest}
     >
       {children}
@@ -252,19 +256,19 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "rounded-xl border border-zinc-200/80 bg-white shadow-card px-6 py-10 text-center space-y-3",
+        "rounded-xl border border-zinc-200/80 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card px-6 py-10 text-center space-y-3",
         className
       )}
     >
       {icon && (
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-100 text-zinc-500 mx-auto">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400 mx-auto">
           {icon}
         </div>
       )}
       <div>
-        <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
         {description && (
-          <p className="text-sm text-zinc-500 mt-1 max-w-sm mx-auto">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
             {description}
           </p>
         )}
@@ -286,7 +290,7 @@ export function Toolbar({
   return (
     <div
       className={cn(
-        "rounded-xl bg-white border border-zinc-200/80 shadow-card px-3 py-2.5 flex items-center gap-2 flex-wrap",
+        "rounded-xl bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/80 dark:border-white/[0.08] shadow-card px-3 py-2.5 flex items-center gap-2 flex-wrap",
         className
       )}
       {...rest}
@@ -297,7 +301,7 @@ export function Toolbar({
 }
 
 export function ToolbarSeparator() {
-  return <div className="h-6 w-px bg-zinc-200 mx-1 shrink-0" />;
+  return <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08] mx-1 shrink-0" />;
 }
 
 // ============================================================================
@@ -314,7 +318,7 @@ export function Kbd({
   return (
     <kbd
       className={cn(
-        "inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-[10px] text-zinc-500 font-medium tabular-nums",
+        "inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.04] text-[10px] text-zinc-500 dark:text-zinc-400 font-medium tabular-nums",
         className
       )}
     >

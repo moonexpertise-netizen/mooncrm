@@ -107,21 +107,21 @@ type KpiTone = "neutral" | "gold" | "emerald" | "violet";
 
 const KPI_TONE: Record<KpiTone, { icon: string; ring: string }> = {
   neutral: {
-    icon: "bg-zinc-100 text-zinc-700",
-    ring: "hover:border-zinc-300",
+    icon: "bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300",
+    ring: "hover:border-zinc-300 dark:hover:border-white/[0.16]",
   },
   gold: {
     icon:
-      "bg-gradient-to-br from-[hsl(var(--gold))]/25 to-[hsl(var(--gold))]/5 text-[hsl(var(--gold-dark))] border border-[hsl(var(--gold))]/20",
+      "bg-gradient-to-br from-[hsl(var(--gold))]/25 to-[hsl(var(--gold))]/5 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border border-[hsl(var(--gold))]/20",
     ring: "hover:border-[hsl(var(--gold))]/40",
   },
   emerald: {
-    icon: "bg-emerald-50 text-emerald-700 border border-emerald-100",
-    ring: "hover:border-emerald-200",
+    icon: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20",
+    ring: "hover:border-emerald-200 dark:hover:border-emerald-500/40",
   },
   violet: {
-    icon: "bg-violet-50 text-violet-700 border border-violet-100",
-    ring: "hover:border-violet-200",
+    icon: "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 border border-violet-100 dark:border-violet-500/20",
+    ring: "hover:border-violet-200 dark:hover:border-violet-500/40",
   },
 };
 

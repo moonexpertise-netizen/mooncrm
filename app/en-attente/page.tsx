@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  */
 export default function EnAttentePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-zinc-50 via-white to-amber-50/40">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-zinc-50 via-white to-amber-50/40 dark:from-[hsl(var(--background))] dark:via-[hsl(var(--surface-muted))] dark:to-amber-500/[0.08]">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-modal p-8 text-center space-y-5">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-50 text-amber-700 text-2xl border border-amber-200/60 shadow-card">
