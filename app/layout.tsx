@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Funnel_Display, Funnel_Sans } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "./_components/app-shell";
+import { ThemeProvider, THEME_INIT_SCRIPT } from "./_components/theme-provider";
 
 const funnelDisplay = Funnel_Display({
   subsets: ["latin"],
@@ -15,8 +16,7 @@ const funnelSans = Funnel_Sans({
   variable: "--font-sans",
 });
 
-// Fraunces (serif chic) — utilisée pour le mot "CRM" dans le logo,
-// cohérent avec l'identité MOON Expertise.
+// Fraunces (serif chic) — utilisée pour les titres d'accent quand pertinent
 const fraunces = Fraunces({
   subsets: ["latin"],
   display: "swap",
@@ -38,8 +38,17 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
+      // suppressHydrationWarning : on modifie className/data-attrs avant
+      // hydratation via le script inline (anti-FOUC). Sans cette prop,
+      // React warn d'un mismatch attendu.
+      suppressHydrationWarning
       className={`${funnelDisplay.variable} ${funnelSans.variable} ${fraunces.variable}`}
     >
+      <head>
+        {/* Script anti-FOUC : applique la classe `dark` sur <html> AVANT
+            React, evite le flash blanc -> sombre au chargement. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         {/* Skip-link a11y : passe directement au contenu principal au clavier */}
         <a
@@ -48,7 +57,9 @@ export default function RootLayout({
         >
           Aller au contenu
         </a>
-        <AppShell>{children}</AppShell>
+        <ThemeProvider>
+          <AppShell>{children}</AppShell>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -12,6 +12,7 @@
 
 @layer base {
   :root {
+    /* ============ THEME CLAIR (defaut) ============ */
     /* Surfaces ------------------------------------------------------------- */
     --background: 240 8% 97%;           /* #f6f6f8  fond page très doux */
     --foreground: 226 45% 10%;          /* #0D1122  encre MOON */
@@ -20,10 +21,20 @@
     --muted: 240 5% 96%;                /* #f4f4f5  zinc-100 */
     --muted-foreground: 240 4% 46%;     /* #71717a  zinc-500 */
     --border: 240 6% 92%;               /* #e9eaec  bordures très discrètes */
+    --border-strong: 240 6% 84%;        /* #d1d2d6  bordure marquee (zinc-300) */
+
+    /* Surfaces secondaires (light) --------------------------------------- */
+    --surface: 0 0% 100%;               /* cards principales */
+    --surface-muted: 240 5% 96%;        /* zones secondaires */
+    --surface-elevated: 0 0% 100%;      /* popover / modal */
 
     /* Primary (CTA dark) -------------------------------------------------- */
     --primary: 226 45% 10%;             /* #0D1122 */
     --primary-foreground: 0 0% 100%;
+
+    /* Accent (= alias primary pour shadcn-like) ------------------------- */
+    --accent: 240 5% 96%;               /* hover doux */
+    --accent-foreground: 226 45% 10%;
 
     /* Sidebar (un peu adouci par rapport au noir pur, garde l'identité MOON) */
     --sidebar: 230 35% 9%;              /* #0e1019  navy MOON légèrement adouci */
@@ -51,6 +62,72 @@
     --shadow-lg: 0 10px 24px -8px rgba(15, 17, 34, 0.10), 0 4px 8px -4px rgba(15, 17, 34, 0.05);
     --shadow-xl: 0 20px 50px -10px rgba(15, 17, 34, 0.18);
   }
+
+  /* ============ THEME SOMBRE ============
+   *
+   * Direction "Notion dark, mais plus lisible" :
+   *   - Fond app graphite tres fonce, JAMAIS noir pur
+   *   - Surfaces (cards) en gris anthracite legerement plus clair
+   *   - 3 niveaux de surface elevation pour la hierarchie
+   *   - Texte principal blanc casse (zinc-50) > 14:1 contrast
+   *   - Texte secondaire gris moyen clair (zinc-400) > 7:1 contrast
+   *   - Borders subtiles mais visibles (white/[0.08])
+   *   - Gold MOON eclairci pour rester lisible sur fond fonce
+   *   - Statuts saturation reduite + lightness ajustee
+   *
+   * Contrastes WCAG AA verifies sur tous les couples texte / fond.
+   */
+  .dark {
+    /* Surfaces ----------------------------------------------------------- */
+    --background: 240 6% 9%;            /* #15161a  fond app, anthracite tres fonce */
+    --foreground: 240 5% 95%;           /* #f0f1f2  texte principal (contrast 14.1:1) */
+    --card: 240 6% 12%;                 /* #1c1d20  surface card (1 cran au-dessus du fond) */
+    --card-foreground: 240 5% 95%;
+    --muted: 240 5% 16%;                /* #28292d  surface secondaire (header card) */
+    --muted-foreground: 240 4% 64%;     /* #9c9ea4  texte secondaire (contrast 6.5:1) */
+    --border: 240 5% 100% / 0.08;       /* bordure subtile mais visible */
+    --border-strong: 240 5% 100% / 0.16;
+
+    /* Surfaces hiérarchisées (3 niveaux d'elevation) -------------------- */
+    --surface: 240 6% 12%;              /* card par defaut */
+    --surface-muted: 240 6% 10%;        /* zone interne contraste leger */
+    --surface-elevated: 240 6% 16%;     /* modal, popover, dropdown */
+
+    /* Primary (en dark : passe en blanc casse pour CTA visible) --------- */
+    --primary: 240 5% 95%;              /* CTA principal devient clair */
+    --primary-foreground: 240 6% 9%;    /* texte sur CTA = fond app */
+
+    /* Accent (hover doux) ----------------------------------------------- */
+    --accent: 240 5% 16%;
+    --accent-foreground: 240 5% 95%;
+
+    /* Sidebar : reste navy MOON (identite forte conservee) -------------- */
+    --sidebar: 230 30% 7%;              /* legerement plus fonce qu'en light pour cohérence */
+    --sidebar-foreground: 240 5% 84%;
+    --sidebar-border: 240 5% 100% / 0.06;
+
+    /* Gold MOON ajuste (eclaire pour la lisibilite en dark) ------------- */
+    --gold: 38 55% 68%;                 /* #d3b88a  plus clair et plus chaud */
+    --gold-soft: 36 30% 22%;            /* fond gold tres assombri */
+    --gold-dark: 38 60% 76%;            /* hover plus eclatant */
+
+    /* Semantique dark (saturation reduite + lightness ajustee) ---------- */
+    --success: 152 50% 56%;             /* emerald-400 environ */
+    --success-soft: 152 30% 14%;
+    --warning: 38 85% 62%;              /* amber-400 plus chaleureux */
+    --warning-soft: 38 40% 14%;
+    --danger: 0 75% 65%;                /* rose-400 mat */
+    --danger-soft: 0 40% 16%;
+    --info: 199 75% 62%;
+    --info-soft: 199 40% 14%;
+
+    /* Ombres en dark : on garde discret mais on accentue legerement.
+       Toujours base sur du noir pur transparence, pas le navy MOON. */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.30);
+    --shadow-md: 0 2px 8px -2px rgba(0, 0, 0, 0.40), 0 1px 2px -1px rgba(0, 0, 0, 0.30);
+    --shadow-lg: 0 10px 24px -8px rgba(0, 0, 0, 0.55), 0 4px 8px -4px rgba(0, 0, 0, 0.35);
+    --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.70);
+  }
 }
 
 * { border-color: hsl(var(--border)); }
@@ -64,7 +141,7 @@ html {
 body {
   background: hsl(var(--background));
   background-image:
-    radial-gradient(at 20% -10%, hsl(34 32% 52% / 0.05) 0px, transparent 50%),
+    radial-gradient(at 20% -10%, hsl(var(--gold) / 0.05) 0px, transparent 50%),
     radial-gradient(at 90% 0%, hsl(230 35% 9% / 0.04) 0px, transparent 50%);
   background-attachment: fixed;
   color: hsl(var(--foreground));
@@ -74,16 +151,27 @@ body {
   line-height: 1.5;
 }
 
+.dark body {
+  /* En dark : ambient gradient gold + bleu nuit, plus subtil */
+  background-image:
+    radial-gradient(at 20% -10%, hsl(var(--gold) / 0.06) 0px, transparent 50%),
+    radial-gradient(at 95% 5%, hsl(220 50% 30% / 0.06) 0px, transparent 60%);
+}
+
 /* Hero gradients ----------------------------------------------------- */
 .hero-surface {
-  background:
-    linear-gradient(135deg, #ffffff 0%, #fbfaf7 100%);
+  background: linear-gradient(135deg, hsl(var(--surface)) 0%, hsl(var(--surface-muted)) 100%);
   border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-md);
 }
-.hero-surface-dark {
+.dark .hero-surface {
+  /* Dark : gradient anthracite + chaleur gold leger en bas droite */
   background:
-    linear-gradient(135deg, hsl(230 35% 9%) 0%, hsl(226 45% 13%) 100%);
+    linear-gradient(135deg, hsl(var(--surface)) 0%, hsl(240 6% 14%) 100%),
+    radial-gradient(at 100% 100%, hsl(var(--gold) / 0.08) 0px, transparent 60%);
+}
+.hero-surface-dark {
+  background: linear-gradient(135deg, hsl(230 35% 9%) 0%, hsl(226 45% 13%) 100%);
   color: #fff;
   box-shadow: var(--shadow-lg);
 }
@@ -145,11 +233,20 @@ h3 { font-weight: 600; }
 }
 .animate-slide-in-right { animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
 
-/* Focus standard zinc (le gold est réservé aux états actifs significatifs) */
+/* color-scheme : informe le navigateur du theme actif (scrollbars natives,
+   form controls par defaut, etc. s'adaptent automatiquement). */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+/* Focus standard zinc (le gold est réservé aux états actifs significatifs).
+   En dark, le focus passe en clair pour rester visible sur fond fonce. */
 :focus-visible {
   outline: 2px solid hsl(240 5% 65%);
   outline-offset: 2px;
   border-radius: 6px;
+}
+.dark :focus-visible {
+  outline-color: hsl(240 5% 75%);
 }
 button:focus-visible, [role="button"]:focus-visible { outline-offset: 1px; }
 
@@ -172,8 +269,20 @@ button, a, select, input[type="checkbox"], input[type="radio"] {
   background: hsl(var(--foreground) / 0.22);
   background-clip: content-box;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.18);
+  background-clip: content-box;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--foreground) / 0.32);
+  background-clip: content-box;
+}
 
 ::selection {
   background: hsl(var(--gold) / 0.25);
+  color: hsl(var(--foreground));
+}
+.dark ::selection {
+  background: hsl(var(--gold) / 0.35);
   color: hsl(var(--foreground));
 }

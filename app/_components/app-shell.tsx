@@ -11,6 +11,7 @@ import {
 } from "./sidebar";
 import { ClientSwitcher } from "./client-switcher";
 import CommandPalette from "./command-palette";
+import { ThemeToggle } from "./theme-toggle";
 import { TRACKERS } from "@/app/obligations/trackers";
 
 /**
@@ -117,27 +118,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           marginLeft: isMobile ? 0 : mounted ? (collapsed ? 56 : 240) : 240,
         }}
       >
-        {/* Bandeau supérieur clair (look SaaS moderne : Linear / Attio).
-            Plus de fond dark — le sidebar reste l'élément navy MOON, le
-            ribbon devient un liseré subtle pour lui faire respirer. */}
-        <div className="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-zinc-200/80">
+        {/* Bandeau supérieur — bg adaptatif clair/sombre.
+            Light : blanc translucide. Dark : graphite translucide.
+            Border bas subtile dans les deux cas. */}
+        <div className="sticky top-0 z-30 bg-white/85 dark:bg-[hsl(var(--background))]/85 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/[0.06]">
           <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 h-14 flex items-center gap-2 md:justify-between">
             {/* Hamburger : visible uniquement sur mobile */}
             <button
               type="button"
               onClick={openMobileSidebar}
               aria-label="Ouvrir le menu"
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-700 hover:bg-zinc-100 transition-colors shrink-0"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors shrink-0"
             >
               <Menu className="h-5 w-5" />
             </button>
             {/* Titre de section sur mobile uniquement */}
-            <h1 className="md:hidden text-sm font-semibold text-zinc-900 truncate flex-1 min-w-0">
+            <h1 className="md:hidden text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate flex-1 min-w-0">
               {pageLabel(pathname)}
             </h1>
-            <div className="hidden md:flex items-center gap-3 md:ml-auto">
+            <div className="hidden md:flex items-center gap-2.5 md:ml-auto">
               <CommandPaletteHint />
               <ClientSwitcher />
+              <ThemeToggle />
+            </div>
+            {/* Mobile : toggle visible a droite du titre */}
+            <div className="md:hidden ml-auto shrink-0">
+              <ThemeToggle compact />
             </div>
           </div>
         </div>
@@ -172,10 +178,10 @@ function CommandPaletteHint() {
       type="button"
       onClick={open}
       aria-label="Ouvrir la palette de recherche"
-      className="inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 hover:border-zinc-300 text-zinc-500 hover:text-zinc-700 text-xs transition-colors min-w-[200px]"
+      className="inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] hover:bg-zinc-50 dark:hover:bg-white/[0.08] hover:border-zinc-300 dark:hover:border-white/[0.16] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-xs transition-colors min-w-[200px]"
     >
       <span className="flex-1 text-left">Rechercher…</span>
-      <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-[10px] font-medium tabular-nums text-zinc-500">
+      <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.04] text-[10px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
         {isMac ? "⌘K" : "Ctrl K"}
       </kbd>
     </button>
