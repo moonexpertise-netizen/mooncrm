@@ -226,8 +226,8 @@ export function EditableGestionTns({
             className={selectClass}
           >
             <option value="">- à renseigner</option>
-            <option value="true">Oui — gestion TNS</option>
-            <option value="false">Non — pas de gestion TNS</option>
+            <option value="true">Gestion TNS</option>
+            <option value="false">Pas de gestion TNS</option>
           </select>
         </div>
       </div>
