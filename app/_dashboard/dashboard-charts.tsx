@@ -15,6 +15,7 @@ import {
   Bar,
   BarChart,
   Cell,
+  LabelList,
   Legend,
   Line,
   Pie,
@@ -204,8 +205,9 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
             <YAxis
               tick={{ fontSize: 10, fill: "#71717a" }}
               tickFormatter={(v) =>
-                mode === "arr" ? `${Math.round(v / 1000)}k€` : v.toString()
+                mode === "arr" ? fmtCompactEuro(v) : fmtCompactCount(v)
               }
+              width={56}
             />
             <Tooltip
               cursor={{ fill: "rgba(0,0,0,0.04)" }}
@@ -216,7 +218,9 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
                   <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
                     <div className="font-medium">{p.full}</div>
                     <div className="text-zinc-600 tabular-nums">
-                      {mode === "arr" ? fmtEuro(p.value) : `${p.value} dossier${p.value > 1 ? "s" : ""}`}
+                      {mode === "arr"
+                        ? fmtEuro(p.value)
+                        : `${fmtCompactCount(p.value)} dossier${p.value > 1 ? "s" : ""}`}
                     </div>
                   </div>
                 );
@@ -227,8 +231,17 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
               radius={[4, 4, 0, 0]}
               cursor="pointer"
               onClick={onBarClick}
-              label={{ position: "top", fontSize: 10, fill: "#52525b" }}
             >
+              <LabelList
+                dataKey="value"
+                position="top"
+                style={{ fontSize: 10, fill: "#52525b" }}
+                formatter={(v: unknown) =>
+                  mode === "arr"
+                    ? fmtCompactEuro(Number(v))
+                    : fmtCompactCount(Number(v))
+                }
+              />
               {data.map((d, i) => (
                 <Cell key={i} fill={d.color} />
               ))}
@@ -291,16 +304,18 @@ function SignaturesParMois({
               yAxisId="left"
               tick={{ fontSize: 10, fill: "#71717a" }}
               tickFormatter={(v) =>
-                mode === "arr" ? `${Math.round(v / 1000)}k€` : v.toString()
+                mode === "arr" ? fmtCompactEuro(v) : fmtCompactCount(v)
               }
+              width={56}
             />
             <YAxis
               yAxisId="right"
               orientation="right"
               tick={{ fontSize: 10, fill: "#a3a3a3" }}
               tickFormatter={(v) =>
-                mode === "arr" ? `${Math.round(v / 1000)}k€` : v.toString()
+                mode === "arr" ? fmtCompactEuro(v) : fmtCompactCount(v)
               }
+              width={56}
             />
             <Tooltip
               content={({ active, payload, label }) => {
@@ -311,10 +326,10 @@ function SignaturesParMois({
                   <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
                     <div className="font-medium">{label}</div>
                     <div className="text-zinc-700 tabular-nums">
-                      Mois : {mode === "arr" ? fmtEuro(v) : v}
+                      Mois : {mode === "arr" ? fmtEuro(v) : fmtCompactCount(v)}
                     </div>
                     <div className="text-zinc-500 tabular-nums">
-                      Cumul YTD : {mode === "arr" ? fmtEuro(c) : c}
+                      Cumul YTD : {mode === "arr" ? fmtEuro(c) : fmtCompactCount(c)}
                     </div>
                   </div>
                 );
@@ -330,7 +345,18 @@ function SignaturesParMois({
               fill="hsl(34, 32%, 52%)"
               radius={[4, 4, 0, 0]}
               name="Mois"
-            />
+            >
+              <LabelList
+                dataKey="value"
+                position="top"
+                style={{ fontSize: 10, fill: "#52525b" }}
+                formatter={(v: unknown) => {
+                  const n = Number(v);
+                  if (n === 0) return ""; // pas de label sur les barres à 0
+                  return mode === "arr" ? fmtCompactEuro(n) : fmtCompactCount(n);
+                }}
+              />
+            </Bar>
             <Line
               yAxisId="right"
               type="monotone"
@@ -555,6 +581,30 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
 function shortLabel(statut: string): string {
   // Retire le préfixe "N - " (chiffre ou Z) pour gain de place
   return statut.replace(/^[0-9Z] - /, "");
+}
+
+/**
+ * Format compact € pour les labels au-dessus des barres et l'axe Y.
+ * - ≥ 1000 → "136 k€" (arrondi)
+ * - < 1000 → "850 €" (sans décimales)
+ * Séparateur de milliers FR (espace fine) pour cohérence.
+ */
+function fmtCompactEuro(n: number): string {
+  if (!Number.isFinite(n)) return "0 €";
+  if (Math.abs(n) >= 1000) {
+    const k = Math.round(n / 1000);
+    return `${k.toLocaleString("fr-FR")} k€`;
+  }
+  return `${Math.round(n).toLocaleString("fr-FR")} €`;
+}
+
+/**
+ * Format compact pour les compteurs (séparateur milliers).
+ * Ex. 1234 → "1 234"
+ */
+function fmtCompactCount(n: number): string {
+  if (!Number.isFinite(n)) return "0";
+  return Math.round(n).toLocaleString("fr-FR");
 }
 
 // Toggle segmenté Nb/€
