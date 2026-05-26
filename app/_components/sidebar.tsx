@@ -305,27 +305,38 @@ export function Sidebar() {
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </span>
       </button>
-      {/* Logo */}
+      {/* Logo : full moon-logo.svg en mode étendu, favicon (icon.svg) compact en mode replié */}
       <div className={cn("h-16 flex items-center border-b border-white/5 shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
-        <Link href="/" className="flex items-center gap-2 group min-w-0" title="MoonCRM">
-          <Image
-            src="/moon-logo.svg"
-            alt="MOON"
-            width={140}
-            height={32}
-            className={cn("h-7 w-auto opacity-95 group-hover:opacity-100 transition-opacity", showCollapsed && "h-6")}
-            priority
-          />
-          {!showCollapsed && (
-            <span
-              className="text-base tracking-wide italic"
-              style={{
-                color: "#d6cba3",
-                fontFamily: "var(--font-fraunces), Georgia, serif",
-              }}
-            >
-              CRM
-            </span>
+        <Link href="/" className="flex items-center gap-2 group min-w-0" title="Retour au dashboard">
+          {showCollapsed ? (
+            <Image
+              src="/icon.svg"
+              alt="MOON"
+              width={28}
+              height={28}
+              className="h-7 w-7 opacity-95 group-hover:opacity-100 transition-opacity"
+              priority
+            />
+          ) : (
+            <>
+              <Image
+                src="/moon-logo.svg"
+                alt="MOON"
+                width={140}
+                height={32}
+                className="h-7 w-auto opacity-95 group-hover:opacity-100 transition-opacity"
+                priority
+              />
+              <span
+                className="text-base tracking-wide italic"
+                style={{
+                  color: "#d6cba3",
+                  fontFamily: "var(--font-fraunces), Georgia, serif",
+                }}
+              >
+                CRM
+              </span>
+            </>
           )}
         </Link>
       </div>
