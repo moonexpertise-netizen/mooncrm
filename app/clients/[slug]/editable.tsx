@@ -23,18 +23,27 @@ import { setClientGroupe, updateClient, updateContact } from "./actions";
 // ============================================================================
 
 /** Classe d'un input/select.
- *  - Vide    : fond jaune pastel + bordure amber (signale qu'il faut remplir)
- *  - Rempli  : fond vert pastel + bordure emerald (signale "OK, saisi")
+ *
+ *  Direction design (refactor 2026) : on calme le visuel.
+ *    - Vide   : fond très subtil ambre (amber-50/40) + bordure amber-200
+ *    - Rempli : blanc neutre + bordure zinc-200
+ *    - Hover/Focus : bordure zinc-400 + ring zinc-400/30
+ *
+ *  Avant on avait des fonds amber-50 et emerald-50 saturés qui criaient sur
+ *  l'œil pendant une journée. Maintenant le signal "à remplir" est juste un
+ *  léger reflet chaud, pas une alerte.
  *
  *  Mobile : min-h-[44px] (cible touch iOS HIG) + text-base (16px : empêche
  *  le zoom auto Safari sur focus d'un champ).
  */
 function fieldInputClass(filled: boolean, extra = ""): string {
   return cn(
-    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded border text-base sm:text-sm transition focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
+    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded-md border text-base sm:text-sm transition-colors",
+    "focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-400",
+    "hover:border-zinc-300",
     filled
-      ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
-      : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400",
+      ? "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+      : "bg-amber-50/40 border-amber-200/80 text-zinc-900 placeholder:text-amber-700/50",
     extra
   );
 }

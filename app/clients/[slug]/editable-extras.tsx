@@ -48,15 +48,13 @@ export function ClotureSplit({
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
   ];
 
-  // Style commun aux 2 selects natifs.
-  // - Vide   : jaune pastel
-  // - Rempli : vert pastel (cohérent avec les autres champs)
+  // Style commun aux 2 selects natifs (aligné avec fieldInputClass dans editable.tsx)
   function selectClass(filled: boolean, extra = "") {
     return cn(
-      "px-2 py-1 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 transition",
+      "px-2 py-1 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-400 transition-colors hover:border-zinc-300",
       filled
-        ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
-        : "bg-amber-50 border-amber-300 text-amber-900 focus:border-amber-400",
+        ? "bg-white border-zinc-200 text-zinc-900"
+        : "bg-amber-50/40 border-amber-200/80 text-zinc-900",
       extra
     );
   }
@@ -150,10 +148,10 @@ export function EditableTextArea({
         rows={3}
         placeholder={placeholder}
         className={cn(
-          "w-full px-2 py-1 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 transition",
+          "w-full px-2 py-1 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-400 transition-colors hover:border-zinc-300",
           draft.trim()
-            ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
-            : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400"
+            ? "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+            : "bg-amber-50/40 border-amber-200/80 text-zinc-900 placeholder:text-amber-700/50"
         )}
       />
     </div>
@@ -209,10 +207,11 @@ export function EditableGestionTns({
 
   const filled = display !== null;
   const selectClass = cn(
-    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded border text-base sm:text-sm transition focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30",
+    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-0 rounded-md border text-base sm:text-sm transition-colors hover:border-zinc-300",
+    "focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-400",
     filled
-      ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
-      : "bg-amber-50 border-amber-300 text-amber-900 focus:border-amber-400"
+      ? "bg-white border-zinc-200 text-zinc-900"
+      : "bg-amber-50/40 border-amber-200/80 text-zinc-900"
   );
 
   return (
