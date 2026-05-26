@@ -301,7 +301,7 @@ export function Sidebar() {
           />
           {!showCollapsed && (
             <span
-              className="text-base tracking-wide"
+              className="text-base tracking-wide italic"
               style={{
                 color: "#d6cba3",
                 fontFamily: "var(--font-fraunces), Georgia, serif",

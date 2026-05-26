@@ -24,6 +24,11 @@ export type ClientRow = {
 
 type SortKey = "denomination" | "groupe_nom" | "activite" | "pipeline_statut" | "arr";
 
+/** Largeur (en px) personnalisée par colonne, persistée en localStorage. */
+type ColumnWidths = Partial<Record<SortKey, number>>;
+const WIDTHS_STORAGE_KEY = "moon.clients-table.column-widths";
+const MIN_COLUMN_WIDTH = 60;
+
 export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,6 +56,45 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
     key: "denomination",
     dir: "asc",
   });
+
+  // Largeurs personnalisées par colonne. Vide au début → la table est en
+  // table-auto (auto-fit au contenu). Quand l'utilisateur drag un bord, on
+  // mémorise la largeur de cette colonne (les autres restent auto-fit).
+  const [columnWidths, setColumnWidths] = useState<ColumnWidths>({});
+
+  // Lecture initiale depuis localStorage (1× au mount)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(WIDTHS_STORAGE_KEY);
+      if (stored) setColumnWidths(JSON.parse(stored));
+    } catch {
+      // ignore JSON malformé
+    }
+  }, []);
+
+  const setColumnWidth = useCallback((key: SortKey, width: number) => {
+    setColumnWidths((prev) => {
+      const next: ColumnWidths = { ...prev, [key]: width };
+      try {
+        localStorage.setItem(WIDTHS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore quota plein
+      }
+      return next;
+    });
+  }, []);
+
+  // Reset des largeurs : double-clic sur un handle remet la colonne en auto-fit.
+  const resetColumnWidth = useCallback((key: SortKey) => {
+    setColumnWidths((prev) => {
+      const next: ColumnWidths = { ...prev };
+      delete next[key];
+      try {
+        localStorage.setItem(WIDTHS_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   // Synchronise les filtres en URL (pour persistance + partage du lien)
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -200,16 +244,23 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         <div>ARR cumulé : <span className="font-medium text-zinc-900 tabular-nums">{fmtEuro(totalArr)}</span></div>
       </div>
 
-      {/* Desktop : table classique */}
+      {/* Desktop : table classique. table-auto par défaut (auto-fit au contenu) ;
+          width explicite n'est appliquée que sur les colonnes redimensionnées
+          par l'utilisateur, le reste reste auto. */}
       <div className="hidden md:block rounded-lg border overflow-hidden bg-card">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-zinc-700 text-xs uppercase tracking-wide">
             <tr>
-              <Th label="Client" sortKey="denomination" sort={sort} onSort={toggleSort} />
-              <Th label="Groupe" sortKey="groupe_nom" sort={sort} onSort={toggleSort} />
-              <Th label="Activité" sortKey="activite" sort={sort} onSort={toggleSort} />
-              <Th label="Pipeline" sortKey="pipeline_statut" sort={sort} onSort={toggleSort} />
-              <Th label="ARR" sortKey="arr" sort={sort} onSort={toggleSort} align="right" />
+              <Th label="Client" sortKey="denomination" sort={sort} onSort={toggleSort}
+                width={columnWidths.denomination} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
+              <Th label="Groupe" sortKey="groupe_nom" sort={sort} onSort={toggleSort}
+                width={columnWidths.groupe_nom} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
+              <Th label="Activité" sortKey="activite" sort={sort} onSort={toggleSort}
+                width={columnWidths.activite} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
+              <Th label="Pipeline" sortKey="pipeline_statut" sort={sort} onSort={toggleSort}
+                width={columnWidths.pipeline_statut} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
+              <Th label="ARR" sortKey="arr" sort={sort} onSort={toggleSort} align="right"
+                width={columnWidths.arr} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
             </tr>
           </thead>
           <tbody>
@@ -335,18 +386,54 @@ function Th({
   sort,
   onSort,
   align = "left",
+  width,
+  onResize,
+  onResetWidth,
 }: {
   label: string;
   sortKey: SortKey;
   sort: { key: SortKey; dir: "asc" | "desc" };
   onSort: (k: SortKey) => void;
   align?: "left" | "right";
+  /** Largeur explicite (px) si l'utilisateur a redimensionné. Undefined = auto-fit. */
+  width?: number;
+  onResize?: (key: SortKey, width: number) => void;
+  onResetWidth?: (key: SortKey) => void;
 }) {
   const active = sort.key === sortKey;
+  const thRef = useRef<HTMLTableCellElement>(null);
+
+  function startResize(e: React.MouseEvent | React.PointerEvent) {
+    if (!onResize || !thRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = "clientX" in e ? e.clientX : 0;
+    const startWidth = thRef.current.offsetWidth;
+    // Pendant le drag, on désactive la sélection texte de la page (sinon
+    // ça highlight les cellules) et on met le cursor en col-resize partout.
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    function onMove(ev: MouseEvent) {
+      const delta = ev.clientX - startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + delta);
+      onResize!(sortKey, newWidth);
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
   return (
     <th
+      ref={thRef}
+      style={width ? { width: `${width}px` } : undefined}
       className={cn(
-        "px-3 py-2 font-medium select-none",
+        "relative px-3 py-2 font-medium select-none group/th",
         align === "right" ? "text-right" : "text-left"
       )}
     >
@@ -362,6 +449,17 @@ function Th({
           {active ? (sort.dir === "asc" ? "▲" : "▼") : ""}
         </span>
       </button>
+      {/* Drag handle (bord droit). Double-clic = reset auto-fit.
+          Visible discrètement au hover de la cellule, doré pendant le drag. */}
+      {onResize && (
+        <span
+          onMouseDown={startResize}
+          onDoubleClick={() => onResetWidth?.(sortKey)}
+          className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-[hsl(var(--gold))]/40 active:bg-[hsl(var(--gold))] transition-colors group-hover/th:bg-zinc-200"
+          title="Drag = redimensionner · Double-clic = auto-fit"
+          aria-hidden
+        />
+      )}
     </th>
   );
 }
