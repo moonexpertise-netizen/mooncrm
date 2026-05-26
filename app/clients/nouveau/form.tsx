@@ -137,6 +137,8 @@ export default function NouveauClientForm() {
   const [dirigeantPrenom, setDirigeantPrenom] = useState<string>("");
   const [dirigeantNomFamille, setDirigeantNomFamille] = useState<string>("");
   const [dirigeantQualite, setDirigeantQualite] = useState<string>("");
+  const [dirigeantEmail, setDirigeantEmail] = useState<string>("");
+  const [dirigeantTelephone, setDirigeantTelephone] = useState<string>("");
   const [addDirigeantAsContact, setAddDirigeantAsContact] = useState(true);
 
   // Date de clôture 1ère mission (= fin_mission_date) — par défaut 31/12 année en cours
@@ -355,6 +357,8 @@ export default function NouveauClientForm() {
                   prenom: dirigeantPrenom.trim() || null,
                   nom: dirigeantNomFamille.trim(),
                   qualite: dirigeantQualite || null,
+                  email: dirigeantEmail.trim() || null,
+                  telephone: dirigeantTelephone.trim() || null,
                 }
               : null,
         });
@@ -515,6 +519,30 @@ export default function NouveauClientForm() {
                   onChange={(e) => setDirigeantNomFamille(e.target.value)}
                   placeholder="ex. PEREZ"
                   className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(dirigeantNomFamille))}
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Téléphone dirigeant" hint="Pour rappels / SMS de relance">
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={dirigeantTelephone}
+                  onChange={(e) => setDirigeantTelephone(e.target.value)}
+                  placeholder="06 12 34 56 78"
+                  className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(dirigeantTelephone))}
+                />
+              </Field>
+              <Field label="Email dirigeant" hint="Si différent de l'email du dossier">
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={dirigeantEmail}
+                  onChange={(e) => setDirigeantEmail(e.target.value)}
+                  placeholder="prenom@example.com"
+                  className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(dirigeantEmail))}
                 />
               </Field>
             </div>

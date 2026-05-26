@@ -33,12 +33,15 @@ type Payload = {
   /**
    * Dirigeant à rattacher comme contact. `prenom` et `nom` sont stockés
    * séparément en DB depuis la migration 0027. `civilite` requise pour la LDM.
+   * `email` et `telephone` optionnels (peuvent être ajoutés plus tard).
    */
   interlocuteur?: {
     civilite: "M." | "Mme" | "Mlle" | null;
     prenom: string | null;
     nom: string;
     qualite: string | null;
+    email?: string | null;
+    telephone?: string | null;
   } | null;
 };
 
@@ -130,11 +133,13 @@ export async function createClientFromSiren(payload: Payload) {
     const prenom = payload.interlocuteur.prenom?.trim() || null;
     const civilite = payload.interlocuteur.civilite ?? null;
     const role = payload.interlocuteur.qualite ?? null;
+    const emailDirigeant = payload.interlocuteur.email?.trim() || null;
+    const telephoneDirigeant = payload.interlocuteur.telephone?.trim() || null;
 
     // Réutilise le contact s'il existe déjà (match exact prénom + nom)
     const { data: existing } = await sb
       .from("contacts")
-      .select("id, civilite")
+      .select("id, civilite, email, telephone")
       .eq("nom", nomFamille)
       .eq("prenom", prenom ?? "")
       .maybeSingle();
@@ -142,14 +147,26 @@ export async function createClientFromSiren(payload: Payload) {
     let contactId: string;
     if (existing) {
       contactId = existing.id;
-      // Si la civilité n'était pas connue, on la met à jour avec celle saisie
-      if (!existing.civilite && civilite) {
-        await sb.from("contacts").update({ civilite }).eq("id", contactId);
+      // Complète les champs manquants avec ce qu'on a saisi cette fois.
+      // On ne SURÉCRIT JAMAIS un champ existant (au cas où l'autre dossier a
+      // une info plus récente / valide).
+      const patch: Record<string, string | null> = {};
+      if (!existing.civilite && civilite) patch.civilite = civilite;
+      if (!existing.email && emailDirigeant) patch.email = emailDirigeant;
+      if (!existing.telephone && telephoneDirigeant) patch.telephone = telephoneDirigeant;
+      if (Object.keys(patch).length > 0) {
+        await sb.from("contacts").update(patch).eq("id", contactId);
       }
     } else {
       const { data: inserted, error: e2 } = await sb
         .from("contacts")
-        .insert({ nom: nomFamille, prenom, civilite })
+        .insert({
+          nom: nomFamille,
+          prenom,
+          civilite,
+          email: emailDirigeant,
+          telephone: telephoneDirigeant,
+        })
         .select("id")
         .single();
       if (e2) throw new Error(e2.message);
