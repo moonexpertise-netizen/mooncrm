@@ -10,6 +10,7 @@ import {
   SIDEBAR_STORAGE_KEY,
 } from "./sidebar";
 import { ClientSwitcher } from "./client-switcher";
+import CommandPalette from "./command-palette";
 import { TRACKERS } from "@/app/obligations/trackers";
 
 /**
@@ -102,6 +103,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      {/* Cmd+K / Ctrl+K : palette globale de navigation (clients + routes) */}
+      <CommandPalette />
       <Suspense fallback={null}>
         <Sidebar />
       </Suspense>
