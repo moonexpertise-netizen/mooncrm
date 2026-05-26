@@ -136,44 +136,44 @@ function ConfirmModalRender({
         aria-hidden
       />
 
-      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-modal border border-zinc-200/70 overflow-hidden animate-slide-up-fade">
+      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
         {/* Header */}
         <div
           className={cn(
             "px-5 py-4 border-b flex items-start gap-3",
             isDanger
-              ? "bg-rose-50 border-rose-200"
-              : "bg-zinc-50 border-zinc-200"
+              ? "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20"
+              : "bg-zinc-50 dark:bg-white/[0.03] border-zinc-200 dark:border-white/[0.06]"
           )}
         >
           <div
             className={cn(
               "shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full",
-              isDanger ? "bg-rose-100" : "bg-zinc-200"
+              isDanger ? "bg-rose-100 dark:bg-rose-500/20" : "bg-zinc-200 dark:bg-white/[0.08]"
             )}
           >
             <Icon
               className={cn(
                 "h-5 w-5",
-                isDanger ? "text-rose-600" : "text-zinc-600"
+                isDanger ? "text-rose-600 dark:text-rose-400" : "text-zinc-600 dark:text-zinc-300"
               )}
             />
           </div>
           <div className="flex-1 min-w-0">
             <h3
               id="confirm-modal-title"
-              className="text-sm font-semibold text-zinc-900"
+              className="text-sm font-semibold text-zinc-900 dark:text-zinc-50"
             >
               {title}
             </h3>
             {description && (
-              <div className="text-xs text-zinc-600 mt-0.5">{description}</div>
+              <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">{description}</div>
             )}
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+            className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
             aria-label="Fermer"
           >
             <X className="h-4 w-4" />
@@ -183,11 +183,11 @@ function ConfirmModalRender({
         {/* Body : type-to-confirm */}
         {typeToConfirm && (
           <div className="px-5 py-4">
-            <div className="rounded-lg bg-zinc-50 border border-zinc-200 px-3 py-2">
-              <div className="text-[11px] text-zinc-500 mb-1">
+            <div className="rounded-lg bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/[0.08] px-3 py-2">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">
                 Pour confirmer, tape exactement :
               </div>
-              <div className="text-sm font-semibold text-zinc-900 mb-2 select-all">
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-2 select-all">
                 {typeToConfirm}
               </div>
               <input
@@ -199,7 +199,7 @@ function ConfirmModalRender({
                   if (e.key === "Enter" && matches) onConfirm();
                 }}
                 placeholder="Tape ici…"
-                className="w-full px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 transition"
+                className="w-full px-2.5 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-white/[0.20] focus-visible:ring-offset-1 dark:focus-visible:ring-offset-0 transition"
                 autoComplete="off"
               />
             </div>
@@ -207,11 +207,11 @@ function ConfirmModalRender({
         )}
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-zinc-50 border-t border-zinc-200 flex items-center justify-end gap-2">
+        <div className="px-5 py-3 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-200 dark:border-white/[0.06] flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 rounded-md text-sm text-zinc-700 hover:bg-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
           >
             {cancelLabel}
           </button>
@@ -224,9 +224,9 @@ function ConfirmModalRender({
               "px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
               isDanger
                 ? matches
-                  ? "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400"
-                  : "bg-rose-200 text-rose-50 cursor-not-allowed"
-                : "bg-zinc-900 text-white hover:bg-zinc-800 focus-visible:ring-zinc-400"
+                  ? "bg-rose-600 dark:bg-rose-500 text-white hover:bg-rose-700 dark:hover:bg-rose-600 focus-visible:ring-rose-400"
+                  : "bg-rose-200 dark:bg-rose-500/30 text-rose-50 dark:text-rose-300/70 cursor-not-allowed"
+                : "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:ring-zinc-400"
             )}
           >
             {confirmLabel}
@@ -308,19 +308,19 @@ function AlertModalRender({
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-modal border border-zinc-200/70 overflow-hidden animate-slide-up-fade">
-        <div className="px-5 py-4 border-b bg-zinc-50 border-zinc-200">
-          <h3 className="text-sm font-semibold text-zinc-900">{title}</h3>
+      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
+        <div className="px-5 py-4 border-b bg-zinc-50 dark:bg-white/[0.03] border-zinc-200 dark:border-white/[0.06]">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
           {description && (
-            <div className="text-xs text-zinc-600 mt-1">{description}</div>
+            <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{description}</div>
           )}
         </div>
-        <div className="px-5 py-3 bg-zinc-50 border-t border-zinc-200 flex justify-end">
+        <div className="px-5 py-3 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-200 dark:border-white/[0.06] flex justify-end">
           <button
             type="button"
             onClick={onClose}
             ref={(el) => el?.focus()}
-            className="px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
+            className="px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
           >
             OK
           </button>

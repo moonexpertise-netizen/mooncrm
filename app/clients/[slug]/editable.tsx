@@ -39,11 +39,14 @@ import { setClientGroupe, updateClient, updateContact } from "./actions";
 function fieldInputClass(filled: boolean, extra = ""): string {
   return cn(
     "w-full px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg border text-base sm:text-sm transition-all",
-    "focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.07] focus:border-zinc-900 focus:bg-white",
-    "hover:border-zinc-300",
+    // Focus : ring large semi-transparent + bordure marquee. En dark, on
+    // utilise une bordure claire pour contraster avec le fond sombre.
+    "focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]",
+    "focus:border-zinc-900 dark:focus:border-zinc-300 focus:bg-white dark:focus:bg-white/[0.06]",
+    "hover:border-zinc-300 dark:hover:border-white/[0.16]",
     filled
-      ? "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-      : "bg-zinc-50/70 border-zinc-200/60 text-zinc-900 placeholder:text-zinc-400",
+      ? "bg-white dark:bg-white/[0.04] border-zinc-200 dark:border-white/[0.08] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+      : "bg-zinc-50/70 dark:bg-white/[0.02] border-zinc-200/60 dark:border-white/[0.06] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
     extra
   );
 }

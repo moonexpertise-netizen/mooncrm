@@ -90,8 +90,8 @@ function extractDirigeantParts(
 /** Classes de fond pour les inputs : ambre si vide, blanc sinon. */
 function inputFill(value: string): string {
   return value.trim()
-    ? "border-zinc-200 bg-white text-zinc-900 hover:border-zinc-300 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]"
-    : "border-zinc-200/60 bg-zinc-50/70 text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-300 focus:bg-white focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]";
+    ? "border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/[0.16] focus:border-zinc-900 dark:focus:border-zinc-300 focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]"
+    : "border-zinc-200/60 dark:border-white/[0.06] bg-zinc-50/70 dark:bg-white/[0.02] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 hover:border-zinc-300 dark:hover:border-white/[0.16] focus:bg-white dark:focus:bg-white/[0.06] focus:border-zinc-900 dark:focus:border-zinc-300 focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]";
 }
 
 /**

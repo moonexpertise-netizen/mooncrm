@@ -148,7 +148,7 @@ export default async function ClientLayout({
                 <span className="text-zinc-500 ml-1">{client.activite}</span>
               )}
               {groupeNom && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] border border-[hsl(var(--gold))]/15 font-medium">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border border-[hsl(var(--gold))]/15 font-medium">
                   Groupe · {groupeNom}
                 </span>
               )}

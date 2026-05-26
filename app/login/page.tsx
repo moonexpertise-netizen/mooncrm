@@ -83,7 +83,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Adresse mail"
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm placeholder:text-zinc-400 transition-all hover:border-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 px-3 py-2.5 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all hover:border-zinc-300 dark:hover:border-white/[0.16] focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]"
             />
             <input
               type="password"
@@ -93,12 +93,12 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={mode === "signin" ? "Mot de passe" : "Choisir un mot de passe (6+ caractères)"}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm placeholder:text-zinc-400 transition-all hover:border-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 px-3 py-2.5 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all hover:border-zinc-300 dark:hover:border-white/[0.16] focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]"
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-zinc-900 text-white py-2.5 text-sm font-medium shadow-card hover:bg-zinc-800 hover:shadow-card-hover transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+              className="w-full rounded-lg bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 py-2.5 text-sm font-medium shadow-card hover:bg-zinc-800 dark:hover:bg-white hover:shadow-card-hover transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
             >
               {loading
                 ? "…"
@@ -107,12 +107,12 @@ export default function LoginPage() {
                 : "Créer mon compte"}
             </button>
             {error && (
-              <p className="text-sm text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+              <p className="text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
             {info && (
-              <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+              <p className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg px-3 py-2">
                 {info}
               </p>
             )}

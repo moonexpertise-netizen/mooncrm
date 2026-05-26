@@ -183,23 +183,23 @@ export default function CommandPalette() {
         aria-hidden
       />
       <div
-        className="relative w-full max-w-xl rounded-2xl bg-white shadow-modal border border-zinc-200/70 overflow-hidden animate-slide-up-fade"
+        className="relative w-full max-w-xl rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
         onKeyDown={handleKeyDown}
       >
         {/* Search input */}
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-100">
-          <Search className="h-4 w-4 text-zinc-400 shrink-0" />
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-100 dark:border-white/[0.06]">
+          <Search className="h-4 w-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rechercher un client, une page…"
-            className="flex-1 bg-transparent text-[15px] focus:outline-none placeholder:text-zinc-400"
+            className="flex-1 bg-transparent text-[15px] text-zinc-900 dark:text-zinc-100 focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
             autoComplete="off"
             spellCheck={false}
           />
-          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-[10px] text-zinc-500 font-medium">
+          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.04] text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
             Esc
           </kbd>
         </div>
@@ -257,15 +257,15 @@ export default function CommandPalette() {
         </div>
 
         {/* Footer hints */}
-        <div className="px-3 py-2 border-t border-zinc-200 bg-zinc-50/50 flex items-center justify-between text-[10px] text-zinc-500">
+        <div className="px-3 py-2 border-t border-zinc-200 dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03] flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="inline-block px-1 rounded border border-zinc-200 bg-white">↑</kbd>
-              <kbd className="inline-block px-1 rounded border border-zinc-200 bg-white">↓</kbd>
+              <kbd className="inline-block px-1 rounded border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04]">↑</kbd>
+              <kbd className="inline-block px-1 rounded border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04]">↓</kbd>
               naviguer
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="inline-block px-1 rounded border border-zinc-200 bg-white">↵</kbd>
+              <kbd className="inline-block px-1 rounded border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04]">↵</kbd>
               ouvrir
             </span>
           </div>
@@ -311,7 +311,9 @@ function ItemRow({
       onMouseEnter={onHover}
       className={cn(
         "flex items-center justify-between gap-2 px-3 py-2 text-sm transition-colors",
-        selected ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+        selected
+          ? "bg-zinc-100 dark:bg-white/[0.08] text-zinc-900 dark:text-zinc-50"
+          : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
       )}
     >
       <div className="min-w-0 flex-1">
