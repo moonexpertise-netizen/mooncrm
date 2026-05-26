@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import type { ConditionNa } from "../parcours-engine";
+import type { ConditionsNa } from "../parcours-engine";
 
 /**
  * Server actions pour l'éditeur de parcours d'onboarding
@@ -184,7 +184,7 @@ export async function reorderEtapes(parcoursId: string, orderedIds: string[]) {
  */
 export async function updateEtapeConditions(
   etapeId: string,
-  conditions: ConditionNa[]
+  conditions: ConditionsNa
 ) {
   const sb = await createClient();
   const { error } = await sb

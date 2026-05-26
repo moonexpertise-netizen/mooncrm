@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { evaluateConditions, type ConditionNa, type ClientContext } from "./parcours-engine";
+import { shouldBeNa, type ClientContext } from "./parcours-engine";
 
 /**
  * Server actions du module Onboarding.
@@ -25,7 +25,9 @@ type EtapeRow = {
   libelle: string;
   ordre: number;
   categorie: string | null;
-  conditions_na: ConditionNa[] | null;
+  // Tolérant : peut être nouveau format (objet ConditionsNa) ou legacy (array)
+  // — shouldBeNa() / normalize() gèrent les deux formes.
+  conditions_na: unknown;
 };
 
 /**
@@ -116,21 +118,19 @@ export async function initializeOnboardingForClient(clientId: string) {
     // sinon on tombe sur "2G" par défaut.
     const cat = (etape.categorie as Categorie) || "2G";
 
-    // Évaluation des conditions de N/A
-    const matched = evaluateConditions(etape.conditions_na, ctx);
+    // Évaluation des conditions de N/A (nouveau format avec combinator + multi-values)
+    const isNa = shouldBeNa(etape.conditions_na, ctx);
     const labels = defaultLibelleByKey.get(etape.task_key) ?? { a_faire: null, na: null };
 
-    if (matched) {
-      // Une condition matche → tâche créée en NON_APPLICABLE
+    if (isNa) {
       toInsert.push({
         client_id: clientId,
         task_key: etape.task_key,
         categorie: cat,
         statut_logique: "NON_APPLICABLE",
-        statut_detail: matched.reason ?? labels.na ?? "Non applicable",
+        statut_detail: labels.na ?? "Non applicable",
       });
     } else {
-      // Aucune condition ne matche → tâche créée en A_FAIRE
       toInsert.push({
         client_id: clientId,
         task_key: etape.task_key,

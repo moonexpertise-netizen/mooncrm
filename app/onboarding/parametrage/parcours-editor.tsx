@@ -43,11 +43,15 @@ import {
   updateRubrique,
 } from "./actions";
 import {
+  COMBINATOR_LABEL,
   FIELD_LABEL,
   OP_LABEL,
+  normalize,
+  type Combinator,
   type ConditionField,
-  type ConditionNa,
+  type ConditionItem,
   type ConditionOp,
+  type ConditionsNa,
 } from "../parcours-engine";
 import { formatNumber, type NumberingStyle } from "./numbering";
 
@@ -64,7 +68,8 @@ export type EtapeRow = {
   ordre: number;
   categorie: string | null;
   rubrique_id: string | null;
-  conditions_na: ConditionNa[] | null;
+  // Tolérant : nouveau format (objet) ou legacy (array). normalize() fait la conversion.
+  conditions_na: unknown;
 };
 
 export type RubriqueRow = {
@@ -259,7 +264,7 @@ export default function ParcoursEditor({
     });
   }
 
-  function onUpdateConditions(etapeId: string, conditions: ConditionNa[]) {
+  function onUpdateConditions(etapeId: string, conditions: ConditionsNa) {
     setLocalEtapes((state) =>
       state.map((e) =>
         e.id === etapeId ? { ...e, conditions_na: conditions } : e
@@ -422,7 +427,7 @@ function ContainerSection({
   onToggleExpand: (id: string) => void;
   onUpdateEtape: (id: string, patch: Partial<EtapeRow>) => void;
   onDeleteEtape: (id: string, libelle: string) => void;
-  onUpdateConditions: (id: string, c: ConditionNa[]) => void;
+  onUpdateConditions: (id: string, c: ConditionsNa) => void;
 }) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -474,7 +479,7 @@ function RubriqueSection({
   onMoveRubrique: (dir: -1 | 1) => void;
   onUpdateEtape: (id: string, patch: Partial<EtapeRow>) => void;
   onDeleteEtape: (id: string, libelle: string) => void;
-  onUpdateConditions: (id: string, c: ConditionNa[]) => void;
+  onUpdateConditions: (id: string, c: ConditionsNa) => void;
 }) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -587,7 +592,7 @@ function SortableEtapeList({
   onToggleExpand: (id: string) => void;
   onUpdateEtape: (id: string, patch: Partial<EtapeRow>) => void;
   onDeleteEtape: (id: string, libelle: string) => void;
-  onUpdateConditions: (id: string, c: ConditionNa[]) => void;
+  onUpdateConditions: (id: string, c: ConditionsNa) => void;
 }) {
   const ids = useMemo(() => etapes.map((e) => e.id), [etapes]);
   // useDroppable : rend le wrapper du container "droppable" pour qu'on puisse
@@ -655,12 +660,12 @@ function SortableEtapeCard({
   onToggleExpand: () => void;
   onUpdate: (patch: Partial<EtapeRow>) => void;
   onDelete: () => void;
-  onUpdateConditions: (c: ConditionNa[]) => void;
+  onUpdateConditions: (c: ConditionsNa) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: etape.id });
-  const conditions = etape.conditions_na ?? [];
-  const conditionsCount = conditions.length;
+  const conditions = normalize(etape.conditions_na);
+  const conditionsCount = conditions.items.length;
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -834,68 +839,133 @@ function InlineText({
 }
 
 // ============================================================================
-//  ConditionsEditor (inchangé)
+//  ConditionsEditor : nouveau modèle
+//
+//  Une étape a un objet { combinator: AND|OR, items: ConditionItem[] }.
+//  Chaque item = un champ × un opérateur × plusieurs valeurs (multi-select).
+//
+//  Sémantique :
+//    - Au sein d'un item : op=eq matche si valeur du dossier ∈ values,
+//                          op=neq matche si valeur du dossier ∉ values
+//    - Entre items : AND (tout doit matcher) ou OR (au moins un)
 // ============================================================================
 
 const FIELDS: ConditionField[] = ["origine", "gestion_tns", "forme", "activite"];
-const OPS: ConditionOp[] = ["eq", "neq", "in", "not_in"];
+const OPS: ConditionOp[] = ["eq", "neq"];
 
-const FIELD_VALUES: Partial<Record<ConditionField, string[]>> = {
+// Valeurs proposées en multi-select pour les champs catégoriels
+const FIELD_VALUES: Partial<Record<ConditionField, Array<{ value: string; label: string }>>> = {
   origine: [
-    "1 - Création",
-    "2 - Reprise",
-    "3 - Reprise sans EC",
-    "4 - Interne",
-    "5 - Sous-traitance",
+    { value: "1 - Création", label: "1 - Création" },
+    { value: "2 - Reprise", label: "2 - Reprise (avec EC)" },
+    { value: "3 - Reprise sans EC", label: "3 - Reprise sans EC" },
+    { value: "4 - Interne", label: "4 - Interne" },
+    { value: "5 - Sous-traitance", label: "5 - Sous-traitance" },
   ],
   forme: [
     "ASSO", "SA", "SCI", "EI", "SARL", "SAS", "SELARL", "SELAS",
     "SCM", "SC", "EURL", "SASU", "INDIV", "AARPI", "LMNP",
-  ],
+  ].map((v) => ({ value: v, label: v })),
 };
 
 function ConditionsEditor({
   conditions,
   onChange,
 }: {
-  conditions: ConditionNa[];
-  onChange: (c: ConditionNa[]) => void;
+  conditions: ConditionsNa;
+  onChange: (c: ConditionsNa) => void;
 }) {
-  function updateAt(idx: number, patch: Partial<ConditionNa>) {
-    const next = conditions.map((c, i) => (i === idx ? { ...c, ...patch } : c));
-    onChange(next);
-  }
-  function removeAt(idx: number) {
-    onChange(conditions.filter((_, i) => i !== idx));
-  }
-  function addCondition() {
-    onChange([
+  const items = conditions.items;
+
+  function updateItem(idx: number, patch: Partial<ConditionItem>) {
+    onChange({
       ...conditions,
-      { field: "origine", op: "eq", value: "1 - Création" },
-    ]);
+      items: items.map((it, i) => (i === idx ? { ...it, ...patch } : it)),
+    });
+  }
+  function removeItem(idx: number) {
+    onChange({
+      ...conditions,
+      items: items.filter((_, i) => i !== idx),
+    });
+  }
+  function addItem() {
+    onChange({
+      ...conditions,
+      items: [
+        ...items,
+        { field: "origine", op: "eq", values: [] },
+      ],
+    });
+  }
+  function setCombinator(c: Combinator) {
+    onChange({ ...conditions, combinator: c });
   }
 
   return (
     <div className="space-y-2 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-medium mb-1">
-        Conditions de N/A automatique (évaluées en OR)
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wide text-zinc-500 font-medium">
+          Tâche N/A si
+        </span>
+        {items.length > 1 && (
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded bg-zinc-100 border border-zinc-200">
+            <button
+              type="button"
+              onClick={() => setCombinator("AND")}
+              className={cn(
+                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                conditions.combinator === "AND"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              )}
+              title="Toutes les conditions doivent être vraies"
+            >
+              ET (toutes)
+            </button>
+            <button
+              type="button"
+              onClick={() => setCombinator("OR")}
+              className={cn(
+                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                conditions.combinator === "OR"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              )}
+              title="Au moins une condition doit être vraie"
+            >
+              OU (au moins une)
+            </button>
+          </div>
+        )}
       </div>
-      {conditions.length === 0 && (
+
+      {items.length === 0 && (
         <div className="text-xs text-zinc-400 italic">
           Aucune condition. La tâche sera créée en « À faire » pour tous les dossiers.
         </div>
       )}
-      {conditions.map((c, i) => (
-        <ConditionRow
-          key={i}
-          condition={c}
-          onUpdate={(p) => updateAt(i, p)}
-          onRemove={() => removeAt(i)}
-        />
-      ))}
+
+      <div className="space-y-1.5">
+        {items.map((it, i) => (
+          <div key={i}>
+            <ConditionRow
+              item={it}
+              onUpdate={(p) => updateItem(i, p)}
+              onRemove={() => removeItem(i)}
+            />
+            {i < items.length - 1 && (
+              <div className="text-center text-[10px] font-bold text-zinc-400 my-0.5 select-none">
+                {COMBINATOR_LABEL[conditions.combinator]}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
       <button
         type="button"
-        onClick={addCondition}
+        onClick={addItem}
         className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
       >
         <Plus className="h-3 w-3" />
@@ -906,42 +976,34 @@ function ConditionsEditor({
 }
 
 function ConditionRow({
-  condition,
+  item,
   onUpdate,
   onRemove,
 }: {
-  condition: ConditionNa;
-  onUpdate: (patch: Partial<ConditionNa>) => void;
+  item: ConditionItem;
+  onUpdate: (patch: Partial<ConditionItem>) => void;
   onRemove: () => void;
 }) {
-  const isList = condition.op === "in" || condition.op === "not_in";
-  const isBoolField = condition.field === "gestion_tns";
-  const valueAsString = (() => {
-    if (isList && Array.isArray(condition.value)) return condition.value.join(", ");
-    if (isBoolField && typeof condition.value === "boolean")
-      return condition.value ? "true" : "false";
-    return String(condition.value ?? "");
-  })();
-  function parseValue(raw: string): string | boolean | string[] {
-    if (isBoolField) return raw === "true";
-    if (isList) {
-      return raw.split(",").map((s) => s.trim()).filter(Boolean);
-    }
-    return raw;
+  const isBoolField = item.field === "gestion_tns";
+  const hint = FIELD_VALUES[item.field];
+
+  function toggleValue(v: string | boolean) {
+    const present = item.values.some((x) => x === v);
+    const next = present ? item.values.filter((x) => x !== v) : [...item.values, v];
+    onUpdate({ values: next });
   }
-  const valuesHint = FIELD_VALUES[condition.field];
 
   return (
     <div className="flex items-start gap-1.5 flex-wrap bg-white border border-zinc-200 rounded p-2 text-xs">
+      {/* Champ */}
       <select
-        value={condition.field}
+        value={item.field}
         onChange={(e) => {
           const newField = e.target.value as ConditionField;
-          const newValue =
-            newField === "gestion_tns" ? false : FIELD_VALUES[newField]?.[0] ?? "";
-          onUpdate({ field: newField, value: newValue });
+          // Reset values quand on change de champ (les anciennes valeurs ne correspondent plus)
+          onUpdate({ field: newField, values: [] });
         }}
-        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 shrink-0"
       >
         {FIELDS.map((f) => (
           <option key={f} value={f}>
@@ -949,10 +1011,12 @@ function ConditionRow({
           </option>
         ))}
       </select>
+
+      {/* Opérateur */}
       <select
-        value={condition.op}
+        value={item.op}
         onChange={(e) => onUpdate({ op: e.target.value as ConditionOp })}
-        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 shrink-0"
       >
         {OPS.map((o) => (
           <option key={o} value={o}>
@@ -960,43 +1024,86 @@ function ConditionRow({
           </option>
         ))}
       </select>
-      {isBoolField ? (
-        <select
-          value={valueAsString}
-          onChange={(e) => onUpdate({ value: parseValue(e.target.value) })}
-          className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400"
-        >
-          <option value="true">true (TNS)</option>
-          <option value="false">false (Non TNS)</option>
-        </select>
-      ) : valuesHint && !isList ? (
-        <select
-          value={valueAsString}
-          onChange={(e) => onUpdate({ value: parseValue(e.target.value) })}
-          className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 min-w-[150px]"
-        >
-          {valuesHint.map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type="text"
-          value={valueAsString}
-          onChange={(e) => onUpdate({ value: parseValue(e.target.value) })}
-          placeholder={isList ? "valeur1, valeur2, …" : "valeur"}
-          className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 min-w-[180px]"
-        />
-      )}
+
+      {/* Valeurs (multi-select via checkboxes pour booléen, sinon pills toggle) */}
+      <div className="flex items-center gap-1 flex-wrap flex-1 min-w-[200px]">
+        {isBoolField ? (
+          // gestion_tns : 2 options (TNS / Non TNS) → cases toggle
+          <>
+            <ToggleValue
+              label="TNS (true)"
+              active={item.values.some((x) => x === true)}
+              onClick={() => toggleValue(true)}
+            />
+            <ToggleValue
+              label="Non TNS (false)"
+              active={item.values.some((x) => x === false)}
+              onClick={() => toggleValue(false)}
+            />
+          </>
+        ) : hint ? (
+          hint.map((opt) => (
+            <ToggleValue
+              key={opt.value}
+              label={opt.label}
+              active={item.values.some((x) => x === opt.value)}
+              onClick={() => toggleValue(opt.value)}
+            />
+          ))
+        ) : (
+          // activite : text libre — on garde une simple liste séparée par virgules
+          <input
+            type="text"
+            value={item.values.filter((x): x is string => typeof x === "string").join(", ")}
+            onChange={(e) =>
+              onUpdate({
+                values: e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              })
+            }
+            placeholder="valeur1, valeur2, …"
+            className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 flex-1 min-w-[180px]"
+          />
+        )}
+      </div>
+
       <button
         type="button"
         onClick={onRemove}
-        className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto"
+        className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto shrink-0"
         title="Supprimer la condition"
       >
         <Trash2 className="h-3 w-3" />
       </button>
     </div>
+  );
+}
+
+/** Pill toggle pour une valeur dans le multi-select. */
+function ToggleValue({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "px-2 py-0.5 rounded-full text-[11px] border transition-all active:scale-95",
+        active
+          ? "bg-zinc-900 text-white border-zinc-900"
+          : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50"
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
