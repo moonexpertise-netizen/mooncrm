@@ -1,5 +1,5 @@
 import { loadDashboardData } from "./_dashboard/dashboard-data";
-import DashboardCharts from "./_dashboard/dashboard-charts";
+import DashboardChartsLoader from "./_dashboard/dashboard-charts-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export default async function DashboardPage() {
           Vue d&apos;ensemble · pipeline, signatures, production
         </p>
       </div>
-      <DashboardCharts data={data} />
+      <DashboardChartsLoader data={data} />
     </div>
   );
 }
