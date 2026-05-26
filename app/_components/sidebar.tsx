@@ -300,7 +300,15 @@ export function Sidebar() {
             priority
           />
           {!showCollapsed && (
-            <span className="text-[hsl(var(--gold))] text-sm font-display tracking-wide">CRM</span>
+            <span
+              className="text-base tracking-wide"
+              style={{
+                color: "#d6cba3",
+                fontFamily: "var(--font-fraunces), Georgia, serif",
+              }}
+            >
+              CRM
+            </span>
           )}
         </Link>
       </div>

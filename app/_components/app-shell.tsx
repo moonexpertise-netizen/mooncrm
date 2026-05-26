@@ -114,22 +114,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           marginLeft: isMobile ? 0 : mounted ? (collapsed ? 56 : 240) : 240,
         }}
       >
-        {/* Bandeau supérieur : hamburger mobile + titre de section + switcher.
-            Sticky pour rester visible. */}
-        <div className="sticky top-0 z-30 bg-[hsl(var(--background))]/85 backdrop-blur border-b border-zinc-200/60">
+        {/* Bandeau supérieur sombre (cohérence avec la sidebar) :
+            hamburger mobile + titre de section + switcher. Sticky. */}
+        <div className="sticky top-0 z-30 bg-[#0D1122] border-b border-white/10">
           <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 py-2 flex items-center gap-2 md:justify-between">
             {/* Hamburger : visible uniquement sur mobile */}
             <button
               type="button"
               onClick={openMobileSidebar}
               aria-label="Ouvrir le menu"
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-700 hover:bg-zinc-100 transition-colors shrink-0"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-200 hover:bg-white/10 transition-colors shrink-0"
             >
               <Menu className="h-5 w-5" />
             </button>
             {/* Titre de section : sert de repère "où je suis" sur mobile.
                 Caché en desktop (la sidebar fait déjà ce rôle). */}
-            <h1 className="md:hidden text-sm font-semibold text-zinc-900 truncate flex-1 min-w-0">
+            <h1 className="md:hidden text-sm font-semibold text-zinc-100 truncate flex-1 min-w-0">
               {pageLabel(pathname)}
             </h1>
             {/* ClientSwitcher : caché sur mobile (le drawer + liste Clients
