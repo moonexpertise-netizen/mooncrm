@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -65,11 +66,47 @@ function origineToType(origine: string | null): OrigineType {
  * un tri "Progression ↑" met automatiquement les dossiers à finir en haut).
  */
 export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [tnsFilter, setTnsFilter] = useState<TnsFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sort, setSort] = useState<SortMode>("pct");
+  // Filtres persistés dans l'URL (?q=&type=&tns=&status=&sort=) pour survivre
+  // au F5, au router.refresh(), et aux switches Liste ↔ Matrice. Quand
+  // l'utilisateur clique "Onboarding" dans la sidebar (URL sans params),
+  // l'état repart à zéro automatiquement.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(
+    () => (searchParams.get("type") as TypeFilter) || "all"
+  );
+  const [tnsFilter, setTnsFilter] = useState<TnsFilter>(
+    () => (searchParams.get("tns") as TnsFilter) || "all"
+  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    () => (searchParams.get("status") as StatusFilter) || "all"
+  );
+  const [sort, setSort] = useState<SortMode>(
+    () => (searchParams.get("sort") as SortMode) || "pct"
+  );
+
+  // Sync state → URL (debounced 200ms pour ne pas écrire à chaque keystroke)
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const writeParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (typeFilter !== "all") params.set("type", typeFilter);
+    if (tnsFilter !== "all") params.set("tns", tnsFilter);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (sort !== "pct") params.set("sort", sort);
+    const qs = params.toString();
+    router.replace(`/onboarding${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [search, typeFilter, tnsFilter, statusFilter, sort, router]);
+
+  useEffect(() => {
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(writeParams, 200);
+    return () => {
+      if (syncTimer.current) clearTimeout(syncTimer.current);
+    };
+  }, [writeParams]);
 
   // Annotate rows with derived Type once
   const annotated = useMemo(

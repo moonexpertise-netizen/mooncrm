@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
@@ -156,11 +156,44 @@ export default function MatriceTable({
   optionsByKey: Record<string, OnboardingStatusOption[]>;
 }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [tnsFilter, setTnsFilter] = useState<TnsFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("pct");
+  // Filtres persistés dans l'URL (cf. /onboarding qui fait pareil) : F5 et
+  // switch d'onglet Liste ↔ Matrice ne perdent rien.
+  const searchParams = useSearchParams();
+
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(
+    () => (searchParams.get("type") as TypeFilter) || "all"
+  );
+  const [tnsFilter, setTnsFilter] = useState<TnsFilter>(
+    () => (searchParams.get("tns") as TnsFilter) || "all"
+  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    () => (searchParams.get("status") as StatusFilter) || "all"
+  );
+  const [sortMode, setSortMode] = useState<SortMode>(
+    () => (searchParams.get("sort") as SortMode) || "pct"
+  );
+
+  // Sync state → URL (debounced 200ms)
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const writeParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (typeFilter !== "all") params.set("type", typeFilter);
+    if (tnsFilter !== "all") params.set("tns", tnsFilter);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (sortMode !== "pct") params.set("sort", sortMode);
+    const qs = params.toString();
+    router.replace(`/onboarding/matrice${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [search, typeFilter, tnsFilter, statusFilter, sortMode, router]);
+
+  useEffect(() => {
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(writeParams, 200);
+    return () => {
+      if (syncTimer.current) clearTimeout(syncTimer.current);
+    };
+  }, [writeParams]);
 
   // State local + sync via prop : pattern plus fiable que React useOptimistic
   // ici, parce que useOptimistic revert à la fin de la transition or
