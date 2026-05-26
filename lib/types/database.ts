@@ -52,7 +52,7 @@ export type OnboardingTaskKey =
   | "tally_crea_pdc" | "abo_moon" | "mandat_moon" | "mandat_impots" | "impot_gouv"
   | "cfe_1447" | "acces_pennylane" | "ob_pennylane"
   | "depot_kbis_banque"
-  | "confrere" | "reprise_compta"
+  | "confrere"
   | "affiliation_tns" | "option_ir_is" | "previ_tns";
 
 export type OnboardingCategorie = "2G" | "2C" | "2R" | "2T";

@@ -24,8 +24,6 @@ const ONBOARDING_LABEL: Record<string, string> = {
   option_ir_is: "Lettre d'option IR/IS",
   previ_tns: "Prévisionnel TNS réalisé",
   affiliation_tns: "Affiliation TNS réalisée",
-  // Tâches historiques (legacy, peuvent exister sur d'anciens dossiers)
-  reprise_compta: "Reprise compta",
 };
 
 /**
