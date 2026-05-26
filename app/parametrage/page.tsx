@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { isClientBillable } from "@/lib/billable";
 import ParametrageGrid, { type Row } from "./grid";
 
 export const dynamic = "force-dynamic";
 
 const CURRENT_YEAR = 2026;
-const PIPELINE_OK = new Set(["7 - LDM signée", "Z - Interne"]);
-const ORIGINE_OK = new Set(["Z - Sous-traitance"]);
 
 export default async function ParametragePage({
   searchParams,
@@ -23,12 +22,7 @@ export default async function ParametragePage({
     .select("id, slug, denomination, siren, pipeline_statut, origine, debut_obligations, groupes(nom)")
     .order("denomination");
 
-  const filtered = (clients ?? []).filter((c) => {
-    return (
-      (c.pipeline_statut && PIPELINE_OK.has(c.pipeline_statut)) ||
-      (c.origine && ORIGINE_OK.has(c.origine))
-    );
-  });
+  const filtered = (clients ?? []).filter(isClientBillable);
   const clientIds = filtered.map((c) => c.id);
 
   // Perf : 2 & 3 sont indépendantes une fois clientIds connu. On parallélise

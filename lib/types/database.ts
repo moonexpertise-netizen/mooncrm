@@ -10,10 +10,10 @@ export type Activite = string;
 
 export type Origine =
   | "1 - Création"
-  | "2 - Création par Tiers"
-  | "3 - Reprise"
-  | "4 - Reprise sans EC"
-  | "Z - Sous-traitance";
+  | "2 - Reprise"
+  | "3 - Reprise sans EC"
+  | "4 - Interne"
+  | "5 - Sous-traitance";
 
 export type Regime = "IR" | "IS";
 
@@ -26,6 +26,7 @@ export type PipelineStatut =
   | "6 - LDM envoyée"
   | "7 - LDM signée"
   | "Z - Interne"
+  | "Z - Sous-traitance"
   | "Z - Prospect perdu"
   | "Z - Résiliée";
 

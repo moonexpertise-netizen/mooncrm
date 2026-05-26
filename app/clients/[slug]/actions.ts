@@ -20,7 +20,8 @@ export type PipelineStatut =
   | "1 - Tally à envoyer" | "2 - Tally à compléter"
   | "3 - PC à préparer" | "4 - PC envoyée" | "5 - PC acceptée"
   | "6 - LDM envoyée" | "7 - LDM signée"
-  | "Z - Interne" | "Z - Prospect perdu" | "Z - Résiliée";
+  | "Z - Interne" | "Z - Sous-traitance"
+  | "Z - Prospect perdu" | "Z - Résiliée";
 
 // ---------------------------------------------------------------------------
 // MOTEUR D'OBLIGATIONS · génération idempotente des instances pour une année
@@ -197,16 +198,42 @@ async function activateSubInternal(clientId: string, type: TypeObligation, annee
 
 /**
  * Met à jour le statut pipeline du client (client-level, pas par année).
+ *
+ * Auto-sync Pipeline ↔ Origine :
+ *   pipeline 'Z - Interne'         → origine '4 - Interne'
+ *   pipeline 'Z - Sous-traitance'  → origine '5 - Sous-traitance'
+ *
+ * On ne touche à l'origine que si elle est vide ou incohérente avec le
+ * nouveau pipeline (pour ne pas écraser un choix manuel de Benjamin sur
+ * un dossier qui passerait temporairement par un état Z).
  */
 export async function setPipelineStatut(
   clientId: string,
   statut: PipelineStatut | null
 ) {
   const sb = await createClient();
-  const { error } = await sb
-    .from("clients")
-    .update({ pipeline_statut: statut })
-    .eq("id", clientId);
+
+  const patch: { pipeline_statut: PipelineStatut | null; origine?: string } = {
+    pipeline_statut: statut,
+  };
+
+  if (statut === "Z - Interne" || statut === "Z - Sous-traitance") {
+    // Lit l'origine actuelle pour décider si on l'écrase
+    const { data: c } = await sb
+      .from("clients")
+      .select("origine")
+      .eq("id", clientId)
+      .single();
+    const targetOrigine =
+      statut === "Z - Interne" ? "4 - Interne" : "5 - Sous-traitance";
+    // On écrase uniquement si vide. Si Benjamin a choisi manuellement
+    // '1 - Création' sur un dossier en Z - Interne, on respecte son choix.
+    if (!c?.origine) {
+      patch.origine = targetOrigine;
+    }
+  }
+
+  const { error } = await sb.from("clients").update(patch).eq("id", clientId);
   if (error) throw new Error(error.message);
   // Perf : pas de revalidatePath, force-dynamic + optimistic UI s'en chargent.
 }

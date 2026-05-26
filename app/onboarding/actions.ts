@@ -67,11 +67,13 @@ const TASK_TO_CAT: Record<string, Categorie> = {
  * d'affichage métier (1 = première à faire).
  */
 function taskKeysFor(origine: string | null, gestionTns: boolean | null): string[] {
-  const isCreation =
-    origine?.startsWith("1 -") === true || origine?.startsWith("2 -") === true;
+  // Nomenclature canonique (cf. migrations 0038/0039) :
+  //   1 - Création / 2 - Reprise / 3 - Reprise sans EC / 4 - Interne / 5 - Sous-traitance
+  const isCreation = origine === "1 - Création";
   const isReprise =
-    origine?.startsWith("3 -") === true || origine?.startsWith("4 -") === true;
-  // Sous-traitance ou origine inconnue : checklist allégée (juste les communes).
+    origine === "2 - Reprise" || origine === "3 - Reprise sans EC";
+  // Interne / Sous-traitance / origine inconnue : checklist allégée
+  // (juste les communes, pas de KBIS banque ni de reprise confrère).
 
   // Liste de base (commune)
   const tasks: string[] = [

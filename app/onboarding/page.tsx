@@ -1,10 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { isClientBillable } from "@/lib/billable";
 import OnboardingList, { type OnboardingRow } from "./onboarding-list";
 
 export const dynamic = "force-dynamic";
-
-const PIPELINE_OK = new Set(["7 - LDM signée", "Z - Interne"]);
-const ORIGINE_OK = new Set(["Z - Sous-traitance"]);
 
 /**
  * Vue globale onboarding : liste de tous les clients actifs avec leur
@@ -22,12 +20,7 @@ export default async function OnboardingPage() {
     .select("id, slug, denomination, siren, pipeline_statut, origine")
     .order("denomination");
 
-  const billable = (clients ?? []).filter((c) => {
-    return (
-      (c.pipeline_statut && PIPELINE_OK.has(c.pipeline_statut)) ||
-      (c.origine && ORIGINE_OK.has(c.origine))
-    );
-  });
+  const billable = (clients ?? []).filter(isClientBillable);
   const clientIds = billable.map((c) => c.id);
 
   // 2. Tâches d'onboarding pour ces clients
@@ -66,15 +59,5 @@ export default async function OnboardingPage() {
     };
   });
 
-  return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Onboarding</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Suivi de l&apos;intégration des nouveaux dossiers · dossiers signés / internes / sous-traitance
-        </p>
-      </div>
-      <OnboardingList rows={rows} />
-    </div>
-  );
+  return <OnboardingList rows={rows} />;
 }

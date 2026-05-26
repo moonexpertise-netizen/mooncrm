@@ -64,6 +64,7 @@ export const PIPELINE_COLORS: Record<string, string> = {
   "6 - LDM envoyée": "bg-violet-100 text-violet-800 border-violet-200",
   "7 - LDM signée": "bg-emerald-100 text-emerald-800 border-emerald-200",
   "Z - Interne": "bg-zinc-100 text-zinc-700 border-zinc-200",
+  "Z - Sous-traitance": "bg-sky-50 text-sky-700 border-sky-200",
   "Z - Prospect perdu": "bg-rose-100 text-rose-700 border-rose-200",
   "Z - Résiliée": "bg-rose-100 text-rose-700 border-rose-200",
 };

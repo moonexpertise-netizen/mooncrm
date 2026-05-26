@@ -18,27 +18,38 @@ export type OnboardingRow = {
 };
 
 type Filter = "all" | "in_progress" | "complete" | "not_started" | "no_tasks";
-type TypeFilter = "all" | "creation" | "reprise" | "soustraitance" | "autre";
+type TypeFilter = "all" | "creation" | "reprise" | "interne" | "soustraitance" | "autre";
 
-/** Type métier dérivé de l'origine (utilisé pour le suivi transverse). */
-type OrigineType = "creation" | "reprise" | "soustraitance" | "autre";
+/** Type métier dérivé de l'origine (utilisé pour le suivi transverse).
+ *
+ *   1 - Création          → "creation"
+ *   2 - Reprise           → "reprise"
+ *   3 - Reprise sans EC   → "reprise"
+ *   4 - Interne           → "interne"
+ *   5 - Sous-traitance    → "soustraitance"
+ *   (null / legacy)       → "autre"
+ */
+type OrigineType = "creation" | "reprise" | "interne" | "soustraitance" | "autre";
 const TYPE_LABEL: Record<OrigineType, string> = {
   creation: "Création",
   reprise: "Reprise",
+  interne: "Interne",
   soustraitance: "Sous-traitance",
   autre: "Autre",
 };
 const TYPE_PILL: Record<OrigineType, string> = {
   creation: "bg-sky-50 text-sky-800 border-sky-300",
   reprise: "bg-violet-50 text-violet-800 border-violet-300",
+  interne: "bg-amber-50 text-amber-800 border-amber-300",
   soustraitance: "bg-zinc-100 text-zinc-700 border-zinc-300",
   autre: "bg-zinc-50 text-zinc-500 border-zinc-200",
 };
 function origineToType(origine: string | null): OrigineType {
   if (!origine) return "autre";
-  if (origine.startsWith("1 -") || origine.startsWith("2 -")) return "creation";
-  if (origine.startsWith("3 -") || origine.startsWith("4 -")) return "reprise";
-  if (origine.startsWith("Z -")) return "soustraitance";
+  if (origine === "1 - Création") return "creation";
+  if (origine === "2 - Reprise" || origine === "3 - Reprise sans EC") return "reprise";
+  if (origine === "4 - Interne") return "interne";
+  if (origine === "5 - Sous-traitance") return "soustraitance";
   return "autre";
 }
 
@@ -71,6 +82,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     > = {
       creation: { count: 0, done: 0, total: 0 },
       reprise: { count: 0, done: 0, total: 0 },
+      interne: { count: 0, done: 0, total: 0 },
       soustraitance: { count: 0, done: 0, total: 0 },
       autre: { count: 0, done: 0, total: 0 },
     };
@@ -140,6 +152,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     all: annotated.length,
     creation: byType.creation.count,
     reprise: byType.reprise.count,
+    interne: byType.interne.count,
     soustraitance: byType.soustraitance.count,
     autre: byType.autre.count,
   };
@@ -147,7 +160,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   return (
     <div className="space-y-4">
       {/* Bandeau transverse : agrégat par Type */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <TypeSummaryCard
           type="creation"
           stats={byType.creation}
@@ -162,6 +175,14 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
           active={typeFilter === "reprise"}
           onClick={() =>
             setTypeFilter((prev) => (prev === "reprise" ? "all" : "reprise"))
+          }
+        />
+        <TypeSummaryCard
+          type="interne"
+          stats={byType.interne}
+          active={typeFilter === "interne"}
+          onClick={() =>
+            setTypeFilter((prev) => (prev === "interne" ? "all" : "interne"))
           }
         />
         <TypeSummaryCard
@@ -220,6 +241,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
         <TypePill label="Tous" value="all" current={typeFilter} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
         <TypePill label="Création" value="creation" current={typeFilter} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
         <TypePill label="Reprise" value="reprise" current={typeFilter} count={typeCounts.reprise} type="reprise" onClick={() => setTypeFilter("reprise")} />
+        <TypePill label="Interne" value="interne" current={typeFilter} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
         <TypePill label="Sous-traitance" value="soustraitance" current={typeFilter} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
         {typeCounts.autre > 0 && (
           <TypePill label="Autre" value="autre" current={typeFilter} count={typeCounts.autre} type="autre" onClick={() => setTypeFilter("autre")} />

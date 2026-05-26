@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { isClientBillable } from "@/lib/billable";
 import { TRACKERS, slugForType } from "./trackers";
 import SommaireCards, { type TrackerStat } from "./sommaire-cards";
 
@@ -8,9 +9,6 @@ export const dynamic = "force-dynamic";
 
 const CURRENT_YEAR = 2026;
 const AVAILABLE_YEARS = [2024, 2025, 2026];
-
-const PIPELINE_OK = new Set(["7 - LDM signée", "Z - Interne"]);
-const ORIGINE_OK = new Set(["Z - Sous-traitance"]);
 
 export default async function ObligationsSommaire({
   searchParams,
@@ -67,10 +65,7 @@ export default async function ObligationsSommaire({
 
   for (const r of (rows ?? []) as unknown as Row[]) {
     const c = r.clients;
-    const ok =
-      (c.pipeline_statut && PIPELINE_OK.has(c.pipeline_statut)) ||
-      (c.origine && ORIGINE_OK.has(c.origine));
-    if (!ok) continue;
+    if (!isClientBillable(c)) continue;
 
     const slug = slugForType(r.type);
     if (!slug) continue;

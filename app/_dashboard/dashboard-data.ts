@@ -76,8 +76,12 @@ const PIPELINE_HEX: Record<string, string> = {
   "Z - Résiliée": "#ef4444",
 };
 
+// Dossiers actifs côté MOON (signés + internes).
 const ACTIFS = new Set(["7 - LDM signée", "Z - Interne"]);
+// Idem + sous-traitance (pipeline ou origine, on couvre les deux conventions).
 const ACTIFS_OU_ST = new Set([...ACTIFS, "Z - Sous-traitance"]);
+// Origines équivalentes à "en sous-traitance" (nouvelle nomenclature + legacy).
+const ORIGINES_ST = new Set(["5 - Sous-traitance", "Z - Sous-traitance"]);
 
 export async function loadDashboardData(): Promise<DashboardData> {
   const sb = await createClient();
@@ -130,7 +134,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   // --- KPI globaux ---
   function isActif(c: { pipeline_statut: string | null; origine: string | null }) {
     if (c.pipeline_statut && ACTIFS.has(c.pipeline_statut)) return true;
-    if (c.origine === "Z - Sous-traitance") return true;
+    if (c.origine && ORIGINES_ST.has(c.origine)) return true;
     return false;
   }
   const actifs = cs.filter(isActif);
@@ -264,7 +268,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     if (
       !(
         (c.pipeline_statut && ACTIFS_OU_ST.has(c.pipeline_statut)) ||
-        c.origine === "Z - Sous-traitance"
+        (c.origine && ORIGINES_ST.has(c.origine))
       )
     )
       continue;

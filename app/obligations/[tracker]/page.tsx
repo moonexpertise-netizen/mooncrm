@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isClientBillable as clientIsBillable } from "@/lib/billable";
 import { getTracker } from "../trackers";
 import { countCommentsByObligation } from "../comments-actions";
 import TrackerTable, { type StatusOption, type TrackerRow } from "./tracker-table";
@@ -9,18 +10,6 @@ import TrackerTable, { type StatusOption, type TrackerRow } from "./tracker-tabl
 export const dynamic = "force-dynamic";
 
 const CURRENT_YEAR = 2026;
-
-// Filtre métier : ne sont retenus dans les trackers que les dossiers qui sont
-// soit signés (6 - LDM Signée), soit internes (Z - Interne), soit en
-// sous-traitance (origine Z - Sous-traitance).
-const PIPELINE_OK = new Set(["7 - LDM signée", "Z - Interne"]);
-const ORIGINE_OK = new Set(["Z - Sous-traitance"]);
-
-function clientIsBillable(c: { pipeline_statut: string | null; origine: string | null }): boolean {
-  if (c.pipeline_statut && PIPELINE_OK.has(c.pipeline_statut)) return true;
-  if (c.origine && ORIGINE_OK.has(c.origine)) return true;
-  return false;
-}
 
 export default async function ObligationsPage({
   params,
