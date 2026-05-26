@@ -264,18 +264,19 @@ h3 { font-weight: 600; }
     background-color: hsl(var(--card));
   }
 
-  /* Fonds neutres pleins -> overlays blanc Notion */
-  .dark :where(.bg-zinc-50) { background-color: rgba(255,255,255,0.030); }
-  .dark :where(.bg-zinc-100) { background-color: rgba(255,255,255,0.055); }
-  .dark :where(.bg-zinc-50\/40) { background-color: rgba(255,255,255,0.022); }
-  .dark :where(.bg-zinc-50\/50) { background-color: rgba(255,255,255,0.028); }
-  .dark :where(.bg-zinc-50\/60) { background-color: rgba(255,255,255,0.030); }
-  .dark :where(.bg-zinc-50\/70) { background-color: rgba(255,255,255,0.035); }
-  .dark :where(.bg-zinc-50\/80) { background-color: rgba(255,255,255,0.040); }
-  .dark :where(.bg-zinc-100\/70) { background-color: rgba(255,255,255,0.040); }
+  /* Fonds neutres pleins -> gris OPAQUES Notion (pas d'overlay blanc
+     qui s'accumule de facon imprevisible sur les surfaces colorees). */
+  .dark :where(.bg-zinc-50) { background-color: hsl(0 0% 12%); }       /* fond a peine plus clair que bg */
+  .dark :where(.bg-zinc-100) { background-color: hsl(0 0% 14.5%); }    /* #252525 */
+  .dark :where(.bg-zinc-50\/40) { background-color: hsl(0 0% 12% / 0.5); }
+  .dark :where(.bg-zinc-50\/50) { background-color: hsl(0 0% 12% / 0.6); }
+  .dark :where(.bg-zinc-50\/60) { background-color: hsl(0 0% 12% / 0.7); }
+  .dark :where(.bg-zinc-50\/70) { background-color: hsl(0 0% 12% / 0.8); }
+  .dark :where(.bg-zinc-50\/80) { background-color: hsl(0 0% 12% / 0.9); }
+  .dark :where(.bg-zinc-100\/70) { background-color: hsl(0 0% 14.5% / 0.8); }
 
-  /* bg-zinc-200 (drop zones, kbd) -> overlay plus marque */
-  .dark :where(.bg-zinc-200) { background-color: rgba(255,255,255,0.10); }
+  /* bg-zinc-200 (drop zones, kbd) -> gris plus marque opaque */
+  .dark :where(.bg-zinc-200) { background-color: hsl(0 0% 18%); }      /* #2E2E2E */
   /* bg-zinc-900 plein (CTA) -> CTA inverse blanc casse */
   .dark :where(.bg-zinc-900):not([class*="bg-zinc-900\/"]) {
     background-color: hsl(var(--foreground));
@@ -297,20 +298,21 @@ h3 { font-weight: 600; }
    * zinc-100 plus marque, zinc-200 actif).
    * ================================================================== */
 
-  /* Hovers calibres sur Notion surface hover (#2F2F2F vs surface #202020).
-     6 pts d'ecart en lightness => overlay blanc ~7.5-9% selon intensite. */
-  .dark :where(.hover\:bg-zinc-50:hover) { background-color: rgba(255,255,255,0.075); }
-  .dark :where(.hover\:bg-zinc-100:hover) { background-color: rgba(255,255,255,0.10); }
-  .dark :where(.hover\:bg-zinc-200:hover) { background-color: rgba(255,255,255,0.14); }
+  /* Hovers Notion-style : fonds OPAQUES gris (#2A2A2A typiquement),
+     pas d'overlay blanc qui s'accumule avec les barres de progression
+     ou les badges colores. Donne un hover subtil mais propre. */
+  .dark :where(.hover\:bg-zinc-50:hover) { background-color: hsl(0 0% 16%); }      /* #292929 */
+  .dark :where(.hover\:bg-zinc-100:hover) { background-color: hsl(0 0% 18.5%); }   /* #2F2F2F */
+  .dark :where(.hover\:bg-zinc-200:hover) { background-color: hsl(0 0% 22%); }     /* #383838 */
 
   /* Hovers neutres avec transparence dans la classe d'origine */
-  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: rgba(255,255,255,0.060); }
-  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: rgba(255,255,255,0.050); }
-  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: rgba(255,255,255,0.045); }
+  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: hsl(0 0% 16% / 0.7); }
+  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: hsl(0 0% 16% / 0.55); }
+  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: hsl(0 0% 16% / 0.45); }
 
-  /* Active states pousses (clic sur tactile) */
-  .dark :where(.active\:bg-zinc-100:active) { background-color: rgba(255,255,255,0.13); }
-  .dark :where(.active\:bg-zinc-200:active) { background-color: rgba(255,255,255,0.17); }
+  /* Active states (clic sur tactile) — un peu plus marques */
+  .dark :where(.active\:bg-zinc-100:active) { background-color: hsl(0 0% 20%); }
+  .dark :where(.active\:bg-zinc-200:active) { background-color: hsl(0 0% 24%); }
 
   /* === TEXTES ZINC ==============================================
    *
@@ -431,20 +433,27 @@ h3 { font-weight: 600; }
   .dark :where(.bg-sky-200) { background-color: hsl(202 48% 26%); }
   .dark :where(.bg-violet-200) { background-color: hsl(266 32% 30%); }
 
-  /* Hovers rows colorés — versions overlay subtle "Notion" plutôt que
-     fonds opaques (donne un look beaucoup plus integre) */
-  .dark :where(.hover\:bg-emerald-50:hover) { background-color: hsl(149 24% 17% / 0.7); }
-  .dark :where(.hover\:bg-amber-50:hover) { background-color: hsl(36 36% 18% / 0.7); }
-  .dark :where(.hover\:bg-amber-50\/70:hover) { background-color: hsl(36 36% 18% / 0.5); }
-  .dark :where(.hover\:bg-amber-100:hover) { background-color: hsl(36 36% 26%); }
-  .dark :where(.hover\:bg-rose-50:hover) { background-color: hsl(348 30% 18% / 0.7); }
-  .dark :where(.hover\:bg-rose-100:hover) { background-color: hsl(348 33% 25%); }
-  .dark :where(.hover\:bg-sky-50:hover) { background-color: hsl(202 40% 18% / 0.7); }
+  /* Hovers rows colores : TRES SUBTILS, restent dans la teinte.
+     Notion ne fait jamais de hover dramatique sur du colore.
+     Toutes les opacites attendues sont remplies pour eviter le fallback
+     Tailwind natif qui rendrait un jaune/rose pale (illisible). */
+  .dark :where(.hover\:bg-emerald-50:hover) { background-color: hsl(149 24% 20%); }
+  .dark :where(.hover\:bg-emerald-50\/40:hover) { background-color: hsl(149 24% 18% / 0.7); }
+  .dark :where(.hover\:bg-amber-50:hover) { background-color: hsl(36 36% 20%); }
+  .dark :where(.hover\:bg-amber-50\/70:hover) { background-color: hsl(36 36% 20% / 0.8); }
+  .dark :where(.hover\:bg-amber-50\/40:hover) { background-color: hsl(36 36% 18% / 0.7); }
+  .dark :where(.hover\:bg-amber-50\/30:hover) { background-color: hsl(36 36% 18% / 0.55); }
+  .dark :where(.hover\:bg-amber-100:hover) { background-color: hsl(36 36% 27%); }
+  .dark :where(.hover\:bg-rose-50:hover) { background-color: hsl(348 30% 21%); }
+  .dark :where(.hover\:bg-rose-50\/40:hover) { background-color: hsl(348 30% 18% / 0.7); }
+  .dark :where(.hover\:bg-rose-100:hover) { background-color: hsl(348 33% 26%); }
+  .dark :where(.hover\:bg-sky-50:hover) { background-color: hsl(202 40% 21%); }
+  .dark :where(.hover\:bg-sky-50\/40:hover) { background-color: hsl(202 40% 18% / 0.7); }
 
   /* group hovers (cards en hover global) */
   .dark :where(.group:hover .group-hover\/row\:bg-amber-100),
   .dark :where(.group\/row:hover .group-hover\/row\:bg-amber-100) {
-    background-color: hsl(36 36% 24%);
+    background-color: hsl(36 36% 26%);
   }
 
   /* === STATUS TEXTS (Notion exact) ==================================
