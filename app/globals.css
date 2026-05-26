@@ -298,16 +298,29 @@ h3 { font-weight: 600; }
    * zinc-100 plus marque, zinc-200 actif).
    * ================================================================== */
 
-  /* Hovers Notion-style : ULTRA subtils, juste un cran plus clair.
-     Notion = +2 points de lightness max sur le hover, pas +10. */
-  .dark .hover\:bg-zinc-50:hover { background-color: hsl(0 0% 13.5%); }    /* a peine plus clair que card (12.5%) */
-  .dark .hover\:bg-zinc-100:hover { background-color: hsl(0 0% 15.5%); }   /* +3 points */
-  .dark .hover\:bg-zinc-200:hover { background-color: hsl(0 0% 18%); }     /* +5 points */
+  /* Transition douce automatique sur tous les hovers neutres en dark
+     pour rendre le changement perceptible meme si la classe d'origine
+     n'a pas declare de transition. ~80ms ease-out (Notion-feeling). */
+  .dark .hover\:bg-zinc-50,
+  .dark .hover\:bg-zinc-100,
+  .dark .hover\:bg-zinc-200,
+  .dark .hover\:bg-zinc-50\/50,
+  .dark .hover\:bg-zinc-50\/40,
+  .dark .hover\:bg-zinc-50\/30 {
+    transition: background-color 80ms ease-out, border-color 80ms ease-out;
+  }
+
+  /* Hovers Notion-style : VISIBLES mais jamais blancs.
+     Card est a #202020 (12.5% lightness). Le hover doit etre clairement
+     perceptible (+4-5 pts) sans jamais devenir blanc casse. */
+  .dark .hover\:bg-zinc-50:hover { background-color: hsl(0 0% 17%); }      /* #2B2B2B - bien visible mais pas blanc */
+  .dark .hover\:bg-zinc-100:hover { background-color: hsl(0 0% 19%); }     /* #303030 */
+  .dark .hover\:bg-zinc-200:hover { background-color: hsl(0 0% 22%); }     /* #383838 - hover plus marque */
 
   /* Hovers neutres avec transparence dans la classe d'origine */
-  .dark .hover\:bg-zinc-50\/50:hover { background-color: hsl(0 0% 13.5% / 0.7); }
-  .dark .hover\:bg-zinc-50\/40:hover { background-color: hsl(0 0% 13.5% / 0.55); }
-  .dark .hover\:bg-zinc-50\/30:hover { background-color: hsl(0 0% 13.5% / 0.45); }
+  .dark .hover\:bg-zinc-50\/50:hover { background-color: hsl(0 0% 17% / 0.8); }
+  .dark .hover\:bg-zinc-50\/40:hover { background-color: hsl(0 0% 17% / 0.65); }
+  .dark .hover\:bg-zinc-50\/30:hover { background-color: hsl(0 0% 17% / 0.55); }
 
   /* Active states (clic sur tactile) â€” legerement plus marques */
   .dark .active\:bg-zinc-100:active { background-color: hsl(0 0% 18%); }

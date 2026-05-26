@@ -678,8 +678,9 @@ function BucketBtn({
       className={cn(
         "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2",
         active
-          ? "bg-zinc-900 text-white shadow-card"
-          : "bg-white text-zinc-700 border border-zinc-200 hover:border-zinc-300 hover:text-zinc-900"
+          ? // CTA actif : noir en light, blanc casse en dark (texte inverse)
+            "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 shadow-card"
+          : "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900"
       )}
     >
       {tone && (
@@ -689,7 +690,11 @@ function BucketBtn({
       <span
         className={cn(
           "tabular-nums text-xs font-medium px-1.5 py-0.5 rounded",
-          active ? "bg-white/15 text-white/90" : "bg-zinc-100 text-zinc-600"
+          // Quand actif : le bouton a un fond blanc casse en dark, donc le
+          // chiffre doit etre sombre (pas blanc, sinon invisible).
+          active
+            ? "bg-white/15 dark:bg-zinc-900/15 text-white/90 dark:text-zinc-900"
+            : "bg-zinc-100 text-zinc-600"
         )}
       >
         {count}
