@@ -106,26 +106,6 @@ function taskKeysFor(origine: string | null, gestionTns: boolean | null): string
 }
 
 /**
- * Ordre canonique de toutes les task_keys possibles (utilisé pour trier
- * l'affichage côté UI quand on lit en DB sans connaître l'origine).
- */
-export const TASK_ORDER: string[] = [
-  "tally_crea_pdc",
-  "acces_pennylane",
-  "depot_kbis_banque",
-  "confrere",
-  "abo_moon",
-  "mandat_moon",
-  "impot_gouv",
-  "mandat_impots",
-  "cfe_1447",
-  "ob_pennylane",
-  "option_ir_is",
-  "previ_tns",
-  "affiliation_tns",
-];
-
-/**
  * Initialise (ou complète) les tâches d'onboarding d'un client.
  *
  * Idempotent : si la tâche existe déjà, on la laisse telle quelle (statut

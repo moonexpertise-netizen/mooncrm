@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "../_components";
 import { loadClient } from "../_data";
-import { TASK_ORDER } from "@/app/onboarding/actions";
+import { TASK_ORDER } from "@/app/onboarding/task-order";
 import OnboardingEditor, {
   type OnboardingTask,
   type OnboardingStatusOption,
