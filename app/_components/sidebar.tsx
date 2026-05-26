@@ -91,6 +91,25 @@ function broadcastCollapse(collapsed: boolean) {
   window.dispatchEvent(new CustomEvent(SIDEBAR_EVENT, { detail: collapsed }));
 }
 
+/**
+ * Transforme un email en nom d'affichage humain pour éviter d'afficher
+ * l'email complet dans l'UI (risque info exploitable par un attaquant qui
+ * regarde l'écran).
+ *
+ * Ex. "benjamin.perez@moonexpertise.fr" → "Benjamin Perez"
+ *     "j.dupont@example.com" → "J. Dupont"
+ *     "admin" → "Admin"
+ */
+function displayNameFromEmail(email: string): string {
+  if (!email) return "Utilisateur";
+  const local = email.split("@")[0] ?? email;
+  return local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -470,8 +489,11 @@ export function Sidebar() {
       <div className="border-t border-white/5 shrink-0">
         {!showCollapsed ? (
           <div className="px-3 py-3">
-            <div className="text-xs text-zinc-100 font-medium truncate" title={me?.email}>
-              {me?.email ?? "…"}
+            {/* Affiche le nom déduit de l'email (sans révéler l'email complet,
+                ni dans le texte ni en tooltip) pour ne pas donner d'info
+                exploitable à quelqu'un qui regarderait l'écran. */}
+            <div className="text-xs text-zinc-100 font-medium truncate">
+              {me ? displayNameFromEmail(me.email) : "…"}
             </div>
             <div className="text-[11px] text-zinc-500 truncate">
               {me?.isAdmin ? "Administrateur" : "MOON Expertise"}
