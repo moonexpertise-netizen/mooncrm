@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/app/_components/page-header";
 import PipelineKanban, { type PipelineCard } from "./kanban";
 import type { PipelineStatut } from "@/app/clients/[slug]/actions";
 
@@ -13,7 +14,7 @@ export default async function PipelinePage() {
 
   if (error) {
     return (
-      <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+      <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
         Erreur de chargement : {error.message}
       </div>
     );
@@ -32,12 +33,10 @@ export default async function PipelinePage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {cards.length} dossier{cards.length > 1 ? "s" : ""} · glisse une carte pour changer le statut.
-        </p>
-      </div>
+      <PageHeader
+        title="Pipeline"
+        description={`${cards.length} dossier${cards.length > 1 ? "s" : ""} · glisse une carte pour changer le statut`}
+      />
       <PipelineKanban cards={cards} />
     </div>
   );

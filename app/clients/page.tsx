@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/app/_components/page-header";
 import ClientsTable, { type ClientRow } from "./clients-table";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +17,7 @@ export default async function ClientsPage() {
 
   if (error) {
     return (
-      <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+      <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
         Erreur de chargement : {error.message}
       </div>
     );
@@ -38,20 +41,19 @@ export default async function ClientsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {rows.length} fiche{rows.length > 1 ? "s" : ""} au total.
-          </p>
-        </div>
-        <a
-          href="/clients/nouveau"
-          className="px-3 py-2 rounded-md bg-[#0D1122] text-white text-sm font-medium hover:bg-[#0D1122]/85 transition-colors flex items-center gap-1.5 shadow-sm"
-        >
-          <span className="text-base leading-none">+</span> Nouveau client
-        </a>
-      </div>
+      <PageHeader
+        title="Clients"
+        description={`${rows.length} fiche${rows.length > 1 ? "s" : ""} au total`}
+        actions={
+          <Link
+            href="/clients/nouveau"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            Nouveau client
+          </Link>
+        }
+      />
       <ClientsTable rows={rows} />
     </div>
   );
