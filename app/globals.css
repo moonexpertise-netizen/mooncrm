@@ -313,18 +313,18 @@ h3 { font-weight: 600; }
   /* Hovers Notion-style : VISIBLES mais jamais blancs.
      Card est a #202020 (12.5% lightness). Le hover doit etre clairement
      perceptible (+4-5 pts) sans jamais devenir blanc casse. */
-  .dark .hover\:bg-zinc-50:hover { background-color: hsl(0 0% 17%); }      /* #2B2B2B - bien visible mais pas blanc */
-  .dark .hover\:bg-zinc-100:hover { background-color: hsl(0 0% 19%); }     /* #303030 */
-  .dark .hover\:bg-zinc-200:hover { background-color: hsl(0 0% 22%); }     /* #383838 - hover plus marque */
+  .dark .hover\:bg-zinc-50:hover { background-color: hsl(0 0% 20.5%); }    /* #343434 - hover bien visible */
+  .dark .hover\:bg-zinc-100:hover { background-color: hsl(0 0% 23%); }     /* #3B3B3B */
+  .dark .hover\:bg-zinc-200:hover { background-color: hsl(0 0% 27%); }     /* #454545 - hover marque */
 
   /* Hovers neutres avec transparence dans la classe d'origine */
-  .dark .hover\:bg-zinc-50\/50:hover { background-color: hsl(0 0% 17% / 0.8); }
-  .dark .hover\:bg-zinc-50\/40:hover { background-color: hsl(0 0% 17% / 0.65); }
-  .dark .hover\:bg-zinc-50\/30:hover { background-color: hsl(0 0% 17% / 0.55); }
+  .dark .hover\:bg-zinc-50\/50:hover { background-color: hsl(0 0% 20.5% / 0.85); }
+  .dark .hover\:bg-zinc-50\/40:hover { background-color: hsl(0 0% 20.5% / 0.7); }
+  .dark .hover\:bg-zinc-50\/30:hover { background-color: hsl(0 0% 20.5% / 0.6); }
 
   /* Active states (clic sur tactile) â€” legerement plus marques */
-  .dark .active\:bg-zinc-100:active { background-color: hsl(0 0% 18%); }
-  .dark .active\:bg-zinc-200:active { background-color: hsl(0 0% 22%); }
+  .dark .active\:bg-zinc-100:active { background-color: hsl(0 0% 26%); }
+  .dark .active\:bg-zinc-200:active { background-color: hsl(0 0% 30%); }
 
   /* === TEXTES ZINC ==============================================
    *
