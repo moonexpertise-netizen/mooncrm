@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
@@ -649,95 +650,97 @@ function MatrixCell({
       >
         <StatusDot statut={cell.statut_logique} />
       </button>
-      {isOpen && pos && (
-        <div
-          style={{
-            position: "fixed",
-            left: `${pos.left}px`,
-            top: `${pos.top}px`,
-            transform: pos.openUp
-              ? "translate(-50%, calc(-100% - 8px))"
-              : "translate(-50%, 8px)",
-            zIndex: 1000,
-          }}
-          className="bg-white border rounded-lg shadow-xl min-w-[240px] text-left animate-slide-up-fade overflow-hidden"
-        >
-          {/* Titre + statut actuel */}
-          <div className="px-3 py-2 border-b">
-            <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-              {TASK_LONG_LABEL[taskKey] ?? taskKey}
-            </div>
-            {cell.statut_detail ? (
-              <span
-                className={cn(
-                  "inline-block px-2 py-0.5 rounded-md text-[11px] font-medium border",
-                  statutColorClass(
-                    cell.statut_logique,
-                    options.find((o) => o.libelle === cell.statut_detail)?.color
-                  )
-                )}
-              >
-                {cell.statut_detail}
-              </span>
-            ) : (
-              <span className="text-[11px] text-zinc-400">Aucun statut sélectionné</span>
-            )}
-          </div>
-          {/* Options groupées */}
-          <div className="max-h-[300px] overflow-y-auto py-1">
-            {options.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-zinc-500">
-                Pas de libellés disponibles pour cette tâche.
+      {isOpen && pos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp
+                ? "translate(-50%, calc(-100% - 8px))"
+                : "translate(-50%, 8px)",
+              zIndex: 1000,
+            }}
+            className="bg-white border rounded-lg shadow-xl min-w-[240px] text-left animate-slide-up-fade overflow-hidden"
+          >
+            {/* Titre + statut actuel */}
+            <div className="px-3 py-2 border-b">
+              <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                {TASK_LONG_LABEL[taskKey] ?? taskKey}
               </div>
-            ) : (
-              STATUT_GROUP_ORDER.map((groupKey) => {
-                const opts = grouped[groupKey];
-                if (opts.length === 0) return null;
-                return (
-                  <div key={groupKey} className="py-0.5">
-                    <div className="px-3 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wide text-zinc-400 font-medium">
-                      {STATUT_GROUP_LABEL[groupKey]}
-                    </div>
-                    {opts.map((opt) => (
-                      <button
-                        key={opt.libelle}
-                        onClick={() => onPick(opt.libelle, opt.statut_logique)}
-                        className={cn(
-                          "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
-                          cell.statut_detail === opt.libelle && "bg-zinc-50"
-                        )}
-                      >
-                        <span
+              {cell.statut_detail ? (
+                <span
+                  className={cn(
+                    "inline-block px-2 py-0.5 rounded-md text-[11px] font-medium border",
+                    statutColorClass(
+                      cell.statut_logique,
+                      options.find((o) => o.libelle === cell.statut_detail)?.color
+                    )
+                  )}
+                >
+                  {cell.statut_detail}
+                </span>
+              ) : (
+                <span className="text-[11px] text-zinc-400">Aucun statut sélectionné</span>
+              )}
+            </div>
+            {/* Options groupées */}
+            <div className="max-h-[300px] overflow-y-auto py-1">
+              {options.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-zinc-500">
+                  Pas de libellés disponibles pour cette tâche.
+                </div>
+              ) : (
+                STATUT_GROUP_ORDER.map((groupKey) => {
+                  const opts = grouped[groupKey];
+                  if (opts.length === 0) return null;
+                  return (
+                    <div key={groupKey} className="py-0.5">
+                      <div className="px-3 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wide text-zinc-400 font-medium">
+                        {STATUT_GROUP_LABEL[groupKey]}
+                      </div>
+                      {opts.map((opt) => (
+                        <button
+                          key={opt.libelle}
+                          onClick={() => onPick(opt.libelle, opt.statut_logique)}
                           className={cn(
-                            "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
-                            statutColorClass(opt.statut_logique, opt.color)
+                            "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
+                            cell.statut_detail === opt.libelle && "bg-zinc-50"
                           )}
                         >
-                          {opt.libelle}
-                        </span>
-                        {cell.statut_detail === opt.libelle && (
-                          <span className="text-zinc-400 ml-auto text-xs">✓</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })
-            )}
-          </div>
-          {/* Footer reset */}
-          {cell.statut_detail && (
-            <div className="border-t bg-zinc-50/50">
-              <button
-                onClick={onReset}
-                className="w-full px-3 py-2 text-left text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
-              >
-                Réinitialiser
-              </button>
+                          <span
+                            className={cn(
+                              "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
+                              statutColorClass(opt.statut_logique, opt.color)
+                            )}
+                          >
+                            {opt.libelle}
+                          </span>
+                          {cell.statut_detail === opt.libelle && (
+                            <span className="text-zinc-400 ml-auto text-xs">✓</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })
+              )}
             </div>
-          )}
-        </div>
-      )}
+            {/* Footer reset */}
+            {cell.statut_detail && (
+              <div className="border-t bg-zinc-50/50">
+                <button
+                  onClick={onReset}
+                  className="w-full px-3 py-2 text-left text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+                >
+                  Réinitialiser
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -815,50 +818,52 @@ function OrigineChip({
       >
         {TYPE_LABEL[type]}
       </button>
-      {isOpen && pos && (
-        <div
-          style={{
-            position: "fixed",
-            left: `${pos.left}px`,
-            top: `${pos.top}px`,
-            transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
-            zIndex: 1000,
-          }}
-          className="bg-white border rounded-lg shadow-xl min-w-[220px] animate-slide-up-fade overflow-hidden"
-        >
-          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
-            Origine du dossier
-          </div>
-          {ORIGINE_VALUES.map((v) => {
-            const t = origineToType(v);
-            return (
-              <button
-                key={v}
-                onClick={() => onSet(v)}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 flex items-center gap-2 transition-colors"
-              >
-                <span
-                  className={cn(
-                    "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
-                    TYPE_PILL[t]
-                  )}
+      {isOpen && pos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="bg-white border rounded-lg shadow-xl min-w-[220px] animate-slide-up-fade overflow-hidden"
+          >
+            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
+              Origine du dossier
+            </div>
+            {ORIGINE_VALUES.map((v) => {
+              const t = origineToType(v);
+              return (
+                <button
+                  key={v}
+                  onClick={() => onSet(v)}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 flex items-center gap-2 transition-colors"
                 >
-                  {v}
-                </span>
-                {origine === v && <span className="text-zinc-400 ml-auto text-xs">✓</span>}
+                  <span
+                    className={cn(
+                      "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
+                      TYPE_PILL[t]
+                    )}
+                  >
+                    {v}
+                  </span>
+                  {origine === v && <span className="text-zinc-400 ml-auto text-xs">✓</span>}
+                </button>
+              );
+            })}
+            <div className="border-t">
+              <button
+                onClick={() => onSet(null)}
+                className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+              >
+                Réinitialiser
               </button>
-            );
-          })}
-          <div className="border-t">
-            <button
-              onClick={() => onSet(null)}
-              className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -940,48 +945,50 @@ function TnsChip({
       >
         {label}
       </button>
-      {isOpen && pos && (
-        <div
-          style={{
-            position: "fixed",
-            left: `${pos.left}px`,
-            top: `${pos.top}px`,
-            transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
-            zIndex: 1000,
-          }}
-          className="bg-white border rounded-lg shadow-xl min-w-[180px] animate-slide-up-fade overflow-hidden"
-        >
-          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
-            Gestion TNS
-          </div>
-          <button
-            onClick={() => onSet(true)}
-            className="w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50/60 flex items-center gap-2 transition-colors"
+      {isOpen && pos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="bg-white border rounded-lg shadow-xl min-w-[180px] animate-slide-up-fade overflow-hidden"
           >
-            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] border bg-emerald-50 text-emerald-800 border-emerald-300">
-              TNS
-            </span>
-            {value === true && <span className="text-zinc-400 ml-auto">✓</span>}
-          </button>
-          <button
-            onClick={() => onSet(false)}
-            className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors"
-          >
-            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] border bg-zinc-100 text-zinc-600 border-zinc-300">
-              Non TNS
-            </span>
-            {value === false && <span className="text-zinc-400 ml-auto">✓</span>}
-          </button>
-          <div className="border-t">
+            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
+              Gestion TNS
+            </div>
             <button
-              onClick={() => onSet(null)}
-              className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+              onClick={() => onSet(true)}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50/60 flex items-center gap-2 transition-colors"
             >
-              Réinitialiser
+              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] border bg-emerald-50 text-emerald-800 border-emerald-300">
+                TNS
+              </span>
+              {value === true && <span className="text-zinc-400 ml-auto">✓</span>}
             </button>
-          </div>
-        </div>
-      )}
+            <button
+              onClick={() => onSet(false)}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors"
+            >
+              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] border bg-zinc-100 text-zinc-600 border-zinc-300">
+                Non TNS
+              </span>
+              {value === false && <span className="text-zinc-400 ml-auto">✓</span>}
+            </button>
+            <div className="border-t">
+              <button
+                onClick={() => onSet(null)}
+                className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+              >
+                Réinitialiser
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
