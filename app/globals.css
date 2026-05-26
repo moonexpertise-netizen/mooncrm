@@ -3,24 +3,24 @@
 @tailwind utilities;
 
 /* ============================================================================
-   DESIGN SYSTEM MOON CRM — v2 (refonte premium)
+   DESIGN SYSTEM MOON CRM â€” v2 (refonte premium)
 
-   Direction : SaaS B2B moderne, calme, lisible, premium. Références Attio /
-   Linear / Stripe / Notion. Sidebar dark MOON conservée (identité), reste
-   de l'app sur fond clair avec cards blanches à ombre subtile.
+   Direction : SaaS B2B moderne, calme, lisible, premium. RÃ©fÃ©rences Attio /
+   Linear / Stripe / Notion. Sidebar dark MOON conservÃ©e (identitÃ©), reste
+   de l'app sur fond clair avec cards blanches Ã  ombre subtile.
    ============================================================================ */
 
 @layer base {
   :root {
     /* ============ THEME CLAIR (defaut) ============ */
     /* Surfaces ------------------------------------------------------------- */
-    --background: 240 8% 97%;           /* #f6f6f8  fond page très doux */
+    --background: 240 8% 97%;           /* #f6f6f8  fond page trÃ¨s doux */
     --foreground: 226 45% 10%;          /* #0D1122  encre MOON */
     --card: 0 0% 100%;                  /* #ffffff  cartes */
     --card-foreground: 226 45% 10%;
     --muted: 240 5% 96%;                /* #f4f4f5  zinc-100 */
     --muted-foreground: 240 4% 46%;     /* #71717a  zinc-500 */
-    --border: 240 6% 92%;               /* #e9eaec  bordures très discrètes */
+    --border: 240 6% 92%;               /* #e9eaec  bordures trÃ¨s discrÃ¨tes */
     --border-strong: 240 6% 84%;        /* #d1d2d6  bordure marquee (zinc-300) */
 
     /* Surfaces secondaires (light) --------------------------------------- */
@@ -36,17 +36,17 @@
     --accent: 240 5% 96%;               /* hover doux */
     --accent-foreground: 226 45% 10%;
 
-    /* Sidebar (un peu adouci par rapport au noir pur, garde l'identité MOON) */
-    --sidebar: 230 35% 9%;              /* #0e1019  navy MOON légèrement adouci */
+    /* Sidebar (un peu adouci par rapport au noir pur, garde l'identitÃ© MOON) */
+    --sidebar: 230 35% 9%;              /* #0e1019  navy MOON lÃ©gÃ¨rement adouci */
     --sidebar-foreground: 240 5% 84%;
     --sidebar-border: 240 5% 100% / 0.06;
 
-    /* Accent doré MOON --------------------------------------------------- */
-    --gold: 34 32% 52%;                 /* #a88962  doré principal */
-    --gold-soft: 36 40% 88%;            /* #ecdfca  doré pâle (fond) */
-    --gold-dark: 32 30% 32%;            /* #6e5a3f  doré foncé (hover) */
+    /* Accent dorÃ© MOON --------------------------------------------------- */
+    --gold: 34 32% 52%;                 /* #a88962  dorÃ© principal */
+    --gold-soft: 36 40% 88%;            /* #ecdfca  dorÃ© pÃ¢le (fond) */
+    --gold-dark: 32 30% 32%;            /* #6e5a3f  dorÃ© foncÃ© (hover) */
 
-    /* Sémantique (4 tons seulement) -------------------------------------- */
+    /* SÃ©mantique (4 tons seulement) -------------------------------------- */
     --success: 158 64% 40%;
     --success-soft: 152 76% 96%;
     --warning: 38 92% 50%;
@@ -56,7 +56,7 @@
     --info: 199 89% 48%;
     --info-soft: 204 100% 97%;
 
-    /* Ombres calibrées — beaucoup plus subtiles ------------------------- */
+    /* Ombres calibrÃ©es â€” beaucoup plus subtiles ------------------------- */
     --shadow-sm: 0 1px 2px 0 rgba(15, 17, 34, 0.04);
     --shadow-md: 0 2px 8px -2px rgba(15, 17, 34, 0.06), 0 1px 2px -1px rgba(15, 17, 34, 0.04);
     --shadow-lg: 0 10px 24px -8px rgba(15, 17, 34, 0.10), 0 4px 8px -4px rgba(15, 17, 34, 0.05);
@@ -108,7 +108,7 @@
     --border: 0 0% 21.5%;               /* #373737  bordure subtile mais visible */
     --border-strong: 0 0% 29%;          /* #4A4A4A  bordure marquee (hover/focus) */
 
-    /* Surfaces hiérarchisées (3 niveaux) ---------------------------------- */
+    /* Surfaces hiÃ©rarchisÃ©es (3 niveaux) ---------------------------------- */
     --surface: 0 0% 12.5%;              /* card #202020 */
     --surface-muted: 0 0% 11%;          /* zone interne contraste leger */
     --surface-elevated: 0 0% 14.5%;     /* modal, popover, dropdown #252525 */
@@ -203,7 +203,7 @@ body {
   font-feature-settings: "ss01";
 }
 
-/* Hiérarchie typographique fixe ---------------------------------------- */
+/* HiÃ©rarchie typographique fixe ---------------------------------------- */
 h1, h2, h3, h4 {
   font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   letter-spacing: -0.018em;
@@ -235,7 +235,7 @@ h3 { font-weight: 600; }
    ============================================================================
 
    Le codebase utilise massivement des classes Tailwind hardcodees (bg-white,
-   bg-zinc-50, text-zinc-700, border-zinc-200…) ecrites avant l'introduction
+   bg-zinc-50, text-zinc-700, border-zinc-200â€¦) ecrites avant l'introduction
    du dark mode. Plutot que de patcher ~50 fichiers, on intercepte les
    patterns les plus communs au niveau CSS quand l'utilisateur est en dark.
 
@@ -243,7 +243,7 @@ h3 { font-weight: 600; }
    critiques ont aussi des dark: variants Tailwind explicites qui ont la
    priorite (cascade : la classe explicite gagne en specificite).
 
-   Note de specificite : on utilise `:where(...)` pour eviter de bumper la
+   Note de specificite : on utilise `...` pour eviter de bumper la
    specificite, ce qui permet aux dark:bg-* explicites de gagner.
    ========================================================================= */
 
@@ -260,25 +260,25 @@ h3 { font-weight: 600; }
    * ================================================================== */
 
   /* bg-white plein (cards) -> card surface */
-  .dark :where(.bg-white):not([class*="bg-white\/"]) {
+  .dark .bg-white:not([class*="bg-white\/"]) {
     background-color: hsl(var(--card));
   }
 
   /* Fonds neutres pleins -> gris OPAQUES Notion (pas d'overlay blanc
      qui s'accumule de facon imprevisible sur les surfaces colorees). */
-  .dark :where(.bg-zinc-50) { background-color: hsl(0 0% 12%); }       /* fond a peine plus clair que bg */
-  .dark :where(.bg-zinc-100) { background-color: hsl(0 0% 14.5%); }    /* #252525 */
-  .dark :where(.bg-zinc-50\/40) { background-color: hsl(0 0% 12% / 0.5); }
-  .dark :where(.bg-zinc-50\/50) { background-color: hsl(0 0% 12% / 0.6); }
-  .dark :where(.bg-zinc-50\/60) { background-color: hsl(0 0% 12% / 0.7); }
-  .dark :where(.bg-zinc-50\/70) { background-color: hsl(0 0% 12% / 0.8); }
-  .dark :where(.bg-zinc-50\/80) { background-color: hsl(0 0% 12% / 0.9); }
-  .dark :where(.bg-zinc-100\/70) { background-color: hsl(0 0% 14.5% / 0.8); }
+  .dark .bg-zinc-50 { background-color: hsl(0 0% 12%); }       /* fond a peine plus clair que bg */
+  .dark .bg-zinc-100 { background-color: hsl(0 0% 14.5%); }    /* #252525 */
+  .dark .bg-zinc-50\/40 { background-color: hsl(0 0% 12% / 0.5); }
+  .dark .bg-zinc-50\/50 { background-color: hsl(0 0% 12% / 0.6); }
+  .dark .bg-zinc-50\/60 { background-color: hsl(0 0% 12% / 0.7); }
+  .dark .bg-zinc-50\/70 { background-color: hsl(0 0% 12% / 0.8); }
+  .dark .bg-zinc-50\/80 { background-color: hsl(0 0% 12% / 0.9); }
+  .dark .bg-zinc-100\/70 { background-color: hsl(0 0% 14.5% / 0.8); }
 
   /* bg-zinc-200 (drop zones, kbd) -> gris plus marque opaque */
-  .dark :where(.bg-zinc-200) { background-color: hsl(0 0% 18%); }      /* #2E2E2E */
+  .dark .bg-zinc-200 { background-color: hsl(0 0% 18%); }      /* #2E2E2E */
   /* bg-zinc-900 plein (CTA) -> CTA inverse blanc casse */
-  .dark :where(.bg-zinc-900):not([class*="bg-zinc-900\/"]) {
+  .dark .bg-zinc-900:not([class*="bg-zinc-900\/"]) {
     background-color: hsl(var(--foreground));
     color: hsl(var(--background));
   }
@@ -287,9 +287,9 @@ h3 { font-weight: 600; }
      sont remappes vers surface-elevated (sticky bars) ou primary CTA
      (boutons) selon le contexte. On unifie tout sur surface-elevated
      car c'est utilise pour les sticky toolbars (cas majoritaire). */
-  .dark :where(.bg-\[\#0D1122\]) { background-color: hsl(var(--surface-elevated)); }
-  .dark :where(.hover\:bg-\[\#0D1122\]\/85:hover) { background-color: hsl(0 0% 22%); }
-  .dark :where(.bg-\[\#0D1122\]\/85) { background-color: hsl(var(--surface-elevated) / 0.92); }
+  .dark .bg-\[\#0D1122\] { background-color: hsl(var(--surface-elevated)); }
+  .dark .hover\:bg-\[\#0D1122\]\/85:hover { background-color: hsl(0 0% 22%); }
+  .dark .bg-\[\#0D1122\]\/85 { background-color: hsl(var(--surface-elevated) / 0.92); }
 
   /* === HOVERS NEUTRES (le coeur du look Notion) ====================
    *
@@ -300,18 +300,18 @@ h3 { font-weight: 600; }
 
   /* Hovers Notion-style : ULTRA subtils, juste un cran plus clair.
      Notion = +2 points de lightness max sur le hover, pas +10. */
-  .dark :where(.hover\:bg-zinc-50:hover) { background-color: hsl(0 0% 13.5%); }    /* a peine plus clair que card (12.5%) */
-  .dark :where(.hover\:bg-zinc-100:hover) { background-color: hsl(0 0% 15.5%); }   /* +3 points */
-  .dark :where(.hover\:bg-zinc-200:hover) { background-color: hsl(0 0% 18%); }     /* +5 points */
+  .dark .hover\:bg-zinc-50:hover { background-color: hsl(0 0% 13.5%); }    /* a peine plus clair que card (12.5%) */
+  .dark .hover\:bg-zinc-100:hover { background-color: hsl(0 0% 15.5%); }   /* +3 points */
+  .dark .hover\:bg-zinc-200:hover { background-color: hsl(0 0% 18%); }     /* +5 points */
 
   /* Hovers neutres avec transparence dans la classe d'origine */
-  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: hsl(0 0% 13.5% / 0.7); }
-  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: hsl(0 0% 13.5% / 0.55); }
-  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: hsl(0 0% 13.5% / 0.45); }
+  .dark .hover\:bg-zinc-50\/50:hover { background-color: hsl(0 0% 13.5% / 0.7); }
+  .dark .hover\:bg-zinc-50\/40:hover { background-color: hsl(0 0% 13.5% / 0.55); }
+  .dark .hover\:bg-zinc-50\/30:hover { background-color: hsl(0 0% 13.5% / 0.45); }
 
-  /* Active states (clic sur tactile) — legerement plus marques */
-  .dark :where(.active\:bg-zinc-100:active) { background-color: hsl(0 0% 18%); }
-  .dark :where(.active\:bg-zinc-200:active) { background-color: hsl(0 0% 22%); }
+  /* Active states (clic sur tactile) â€” legerement plus marques */
+  .dark .active\:bg-zinc-100:active { background-color: hsl(0 0% 18%); }
+  .dark .active\:bg-zinc-200:active { background-color: hsl(0 0% 22%); }
 
   /* === TEXTES ZINC ==============================================
    *
@@ -322,24 +322,24 @@ h3 { font-weight: 600; }
    * On mappe vers ces valeurs PURES (pas d'opacite qui rend illisible).
    * ================================================================ */
 
-  .dark :where(.text-zinc-900) { color: hsl(0 0% 94.5%); }    /* #F1F1F1 principal */
-  .dark :where(.text-zinc-800) { color: hsl(0 0% 90%); }
-  .dark :where(.text-zinc-700) { color: hsl(0 0% 85%); }
-  .dark :where(.text-zinc-600) { color: hsl(0 0% 81%); }      /* #CFCFCF secondaire */
-  .dark :where(.text-zinc-500) { color: hsl(0 0% 75%); }
-  .dark :where(.text-zinc-400) { color: hsl(0 0% 66%); }      /* #A8A8A8 tertiaire */
-  .dark :where(.text-zinc-300) { color: hsl(0 0% 58%); }
-  .dark :where(.hover\:text-zinc-900:hover) { color: hsl(0 0% 94.5%); }
-  .dark :where(.hover\:text-zinc-700:hover) { color: hsl(0 0% 85%); }
-  .dark :where(.hover\:text-zinc-200:hover) { color: hsl(0 0% 90%); }
-  .dark :where(.hover\:text-zinc-100:hover) { color: hsl(0 0% 94.5%); }
-  .dark :where(.group:hover .group-hover\:text-zinc-900) { color: hsl(0 0% 94.5%); }
+  .dark .text-zinc-900 { color: hsl(0 0% 94.5%); }    /* #F1F1F1 principal */
+  .dark .text-zinc-800 { color: hsl(0 0% 90%); }
+  .dark .text-zinc-700 { color: hsl(0 0% 85%); }
+  .dark .text-zinc-600 { color: hsl(0 0% 81%); }      /* #CFCFCF secondaire */
+  .dark .text-zinc-500 { color: hsl(0 0% 75%); }
+  .dark .text-zinc-400 { color: hsl(0 0% 66%); }      /* #A8A8A8 tertiaire */
+  .dark .text-zinc-300 { color: hsl(0 0% 58%); }
+  .dark .hover\:text-zinc-900:hover { color: hsl(0 0% 94.5%); }
+  .dark .hover\:text-zinc-700:hover { color: hsl(0 0% 85%); }
+  .dark .hover\:text-zinc-200:hover { color: hsl(0 0% 90%); }
+  .dark .hover\:text-zinc-100:hover { color: hsl(0 0% 94.5%); }
+  .dark .group:hover .group-hover\:text-zinc-900 { color: hsl(0 0% 94.5%); }
 
   /* white/N (sidebar items) : on garde l'opacite mais on remonte la valeur
      pour compenser l'effet de luminosite percu */
-  .dark :where(.text-white\/40) { color: hsl(0 0% 66%); }     /* tertiaire */
-  .dark :where(.text-white\/50) { color: hsl(0 0% 70%); }
-  .dark :where(.text-white\/60) { color: hsl(0 0% 75%); }
+  .dark .text-white\/40 { color: hsl(0 0% 66%); }     /* tertiaire */
+  .dark .text-white\/50 { color: hsl(0 0% 70%); }
+  .dark .text-white\/60 { color: hsl(0 0% 75%); }
 
   /* === BORDURES ZINC ============================================
    *
@@ -351,29 +351,29 @@ h3 { font-weight: 600; }
    * grace au fond ~12% (contraste 9 pts minimum).
    * ================================================================ */
 
-  .dark :where(.border-zinc-100) { border-color: hsl(0 0% 21.5%); }   /* #373737 */
-  .dark :where(.border-zinc-200) { border-color: hsl(0 0% 21.5%); }
-  .dark :where(.border-zinc-200\/70) { border-color: hsl(0 0% 21.5% / 0.85); }
-  .dark :where(.border-zinc-200\/80) { border-color: hsl(0 0% 21.5% / 0.9); }
-  .dark :where(.border-zinc-200\/60) { border-color: hsl(0 0% 21.5% / 0.75); }
-  .dark :where(.border-zinc-300) { border-color: hsl(0 0% 29%); }     /* #4A4A4A */
-  .dark :where(.divide-zinc-100 > * + *) { border-color: hsl(0 0% 21.5%); }
-  .dark :where(.divide-zinc-200 > * + *) { border-color: hsl(0 0% 21.5%); }
-  .dark :where(.hover\:border-zinc-300:hover) { border-color: hsl(0 0% 35%); }
-  .dark :where(.hover\:border-zinc-400:hover) { border-color: hsl(0 0% 35%); }
+  .dark .border-zinc-100 { border-color: hsl(0 0% 21.5%); }   /* #373737 */
+  .dark .border-zinc-200 { border-color: hsl(0 0% 21.5%); }
+  .dark .border-zinc-200\/70 { border-color: hsl(0 0% 21.5% / 0.85); }
+  .dark .border-zinc-200\/80 { border-color: hsl(0 0% 21.5% / 0.9); }
+  .dark .border-zinc-200\/60 { border-color: hsl(0 0% 21.5% / 0.75); }
+  .dark .border-zinc-300 { border-color: hsl(0 0% 29%); }     /* #4A4A4A */
+  .dark .divide-zinc-100 > * + * { border-color: hsl(0 0% 21.5%); }
+  .dark .divide-zinc-200 > * + * { border-color: hsl(0 0% 21.5%); }
+  .dark .hover\:border-zinc-300:hover { border-color: hsl(0 0% 35%); }
+  .dark .hover\:border-zinc-400:hover { border-color: hsl(0 0% 35%); }
 
   /* === PLACEHOLDERS / FOCUS RINGS ================================
    *
-   * Placeholders : #9A9A9A (lightness 60%) — visible mais distinct
+   * Placeholders : #9A9A9A (lightness 60%) â€” visible mais distinct
    * de la valeur saisie. Focus border : #8F8F8F.
    * ================================================================ */
 
-  .dark :where(.placeholder\:text-zinc-400::placeholder) { color: hsl(0 0% 60%); }   /* #9A9A9A */
-  .dark :where(.placeholder\:text-zinc-500::placeholder) { color: hsl(0 0% 60%); }
-  .dark :where(.ring-zinc-900\/\[0\.07\]) { --tw-ring-color: hsl(0 0% 100% / 0.12); }
-  .dark :where(.focus\:ring-zinc-900\/\[0\.07\]:focus) { --tw-ring-color: hsl(0 0% 100% / 0.12); }
-  .dark :where(.focus\:border-zinc-900:focus) { border-color: hsl(0 0% 56%); }       /* #8F8F8F focus */
-  .dark :where(.focus\:bg-white:focus) { background-color: hsl(var(--muted)); }
+  .dark .placeholder\:text-zinc-400::placeholder { color: hsl(0 0% 60%); }   /* #9A9A9A */
+  .dark .placeholder\:text-zinc-500::placeholder { color: hsl(0 0% 60%); }
+  .dark .ring-zinc-900\/\[0\.07\] { --tw-ring-color: hsl(0 0% 100% / 0.12); }
+  .dark .focus\:ring-zinc-900\/\[0\.07\]:focus { --tw-ring-color: hsl(0 0% 100% / 0.12); }
+  .dark .focus\:border-zinc-900:focus { border-color: hsl(0 0% 56%); }       /* #8F8F8F focus */
+  .dark .focus\:bg-white:focus { background-color: hsl(var(--muted)); }
 
   /* === STATUS BACKGROUNDS (Notion-style) =======================
    *
@@ -391,74 +391,74 @@ h3 { font-weight: 600; }
    * Pas de border sur ces badges (Notion non plus), uniquement bg + texte.
    * ============================================================== */
 
-  /* Famille -50 (badges discrets, cards alerte) — un cran plus subtil */
-  .dark :where(.bg-emerald-50) { background-color: hsl(149 24% 17%); }
-  .dark :where(.bg-emerald-50\/60) { background-color: hsl(149 24% 17% / 0.6); }
-  .dark :where(.bg-emerald-50\/30) { background-color: hsl(149 24% 17% / 0.3); }
-  .dark :where(.bg-amber-50) { background-color: hsl(36 36% 18%); }
-  .dark :where(.bg-amber-50\/40) { background-color: hsl(36 36% 18% / 0.4); }
-  .dark :where(.bg-amber-50\/60) { background-color: hsl(36 36% 18% / 0.6); }
-  .dark :where(.bg-amber-50\/30) { background-color: hsl(36 36% 18% / 0.3); }
-  .dark :where(.bg-amber-50\/70) { background-color: hsl(36 36% 18% / 0.7); }
-  .dark :where(.bg-rose-50) { background-color: hsl(348 30% 18%); }
-  .dark :where(.bg-rose-50\/60) { background-color: hsl(348 30% 18% / 0.6); }
-  .dark :where(.bg-sky-50) { background-color: hsl(202 40% 18%); }
-  .dark :where(.bg-sky-50\/60) { background-color: hsl(202 40% 18% / 0.6); }
-  .dark :where(.bg-violet-50) { background-color: hsl(266 28% 22%); }
-  .dark :where(.bg-fuchsia-50) { background-color: hsl(300 28% 22%); }
-  .dark :where(.bg-blue-50) { background-color: hsl(218 40% 20%); }
+  /* Famille -50 (badges discrets, cards alerte) â€” un cran plus subtil */
+  .dark .bg-emerald-50 { background-color: hsl(149 24% 17%); }
+  .dark .bg-emerald-50\/60 { background-color: hsl(149 24% 17% / 0.6); }
+  .dark .bg-emerald-50\/30 { background-color: hsl(149 24% 17% / 0.3); }
+  .dark .bg-amber-50 { background-color: hsl(36 36% 18%); }
+  .dark .bg-amber-50\/40 { background-color: hsl(36 36% 18% / 0.4); }
+  .dark .bg-amber-50\/60 { background-color: hsl(36 36% 18% / 0.6); }
+  .dark .bg-amber-50\/30 { background-color: hsl(36 36% 18% / 0.3); }
+  .dark .bg-amber-50\/70 { background-color: hsl(36 36% 18% / 0.7); }
+  .dark .bg-rose-50 { background-color: hsl(348 30% 18%); }
+  .dark .bg-rose-50\/60 { background-color: hsl(348 30% 18% / 0.6); }
+  .dark .bg-sky-50 { background-color: hsl(202 40% 18%); }
+  .dark .bg-sky-50\/60 { background-color: hsl(202 40% 18% / 0.6); }
+  .dark .bg-violet-50 { background-color: hsl(266 28% 22%); }
+  .dark .bg-fuchsia-50 { background-color: hsl(300 28% 22%); }
+  .dark .bg-blue-50 { background-color: hsl(218 40% 20%); }
 
   /* Famille -100 (badges principaux PIPELINE_COLORS, statut cells)
-     — tons Notion exacts : satures sombres avec saturation modérée */
-  .dark :where(.bg-emerald-100) { background-color: hsl(149 24% 19%); }
-  .dark :where(.bg-amber-100) { background-color: hsl(36 36% 24%); }
-  .dark :where(.bg-rose-100) { background-color: hsl(348 33% 23%); }
-  .dark :where(.bg-sky-100) { background-color: hsl(202 45% 21%); }
-  .dark :where(.bg-violet-100) { background-color: hsl(266 28% 24%); }
-  .dark :where(.bg-fuchsia-100) { background-color: hsl(300 32% 24%); }
-  .dark :where(.bg-blue-100) { background-color: hsl(218 45% 22%); }
-  .dark :where(.bg-red-100) { background-color: hsl(6 38% 25%); }
-  .dark :where(.bg-pink-100) { background-color: hsl(343 36% 24%); }
-  .dark :where(.bg-pink-200) { background-color: hsl(343 40% 30%); }
-  .dark :where(.bg-blue-200) { background-color: hsl(218 48% 28%); }
-  .dark :where(.hover\:bg-pink-200:hover) { background-color: hsl(343 40% 30%); }
-  .dark :where(.hover\:bg-blue-200:hover) { background-color: hsl(218 48% 28%); }
+     â€” tons Notion exacts : satures sombres avec saturation modÃ©rÃ©e */
+  .dark .bg-emerald-100 { background-color: hsl(149 24% 19%); }
+  .dark .bg-amber-100 { background-color: hsl(36 36% 24%); }
+  .dark .bg-rose-100 { background-color: hsl(348 33% 23%); }
+  .dark .bg-sky-100 { background-color: hsl(202 45% 21%); }
+  .dark .bg-violet-100 { background-color: hsl(266 28% 24%); }
+  .dark .bg-fuchsia-100 { background-color: hsl(300 32% 24%); }
+  .dark .bg-blue-100 { background-color: hsl(218 45% 22%); }
+  .dark .bg-red-100 { background-color: hsl(6 38% 25%); }
+  .dark .bg-pink-100 { background-color: hsl(343 36% 24%); }
+  .dark .bg-pink-200 { background-color: hsl(343 40% 30%); }
+  .dark .bg-blue-200 { background-color: hsl(218 48% 28%); }
+  .dark .hover\:bg-pink-200:hover { background-color: hsl(343 40% 30%); }
+  .dark .hover\:bg-blue-200:hover { background-color: hsl(218 48% 28%); }
 
   /* Famille -200 (pastilles avatar dans modales, icon backgrounds)
-     — un cran plus claire que -100 pour les icons rondes */
-  .dark :where(.bg-emerald-200) { background-color: hsl(149 28% 25%); }
-  .dark :where(.bg-amber-200) { background-color: hsl(36 40% 28%); }
-  .dark :where(.bg-rose-200) { background-color: hsl(348 36% 28%); }
-  .dark :where(.bg-sky-200) { background-color: hsl(202 48% 26%); }
-  .dark :where(.bg-violet-200) { background-color: hsl(266 32% 30%); }
+     â€” un cran plus claire que -100 pour les icons rondes */
+  .dark .bg-emerald-200 { background-color: hsl(149 28% 25%); }
+  .dark .bg-amber-200 { background-color: hsl(36 40% 28%); }
+  .dark .bg-rose-200 { background-color: hsl(348 36% 28%); }
+  .dark .bg-sky-200 { background-color: hsl(202 48% 26%); }
+  .dark .bg-violet-200 { background-color: hsl(266 32% 30%); }
 
   /* Hovers rows colores : TRES SUBTILS, restent dans la teinte.
      Notion ne fait jamais de hover dramatique sur du colore.
      Toutes les opacites attendues sont remplies pour eviter le fallback
      Tailwind natif qui rendrait un jaune/rose pale (illisible). */
-  .dark :where(.hover\:bg-emerald-50:hover) { background-color: hsl(149 24% 20%); }
-  .dark :where(.hover\:bg-emerald-50\/40:hover) { background-color: hsl(149 24% 18% / 0.7); }
-  .dark :where(.hover\:bg-amber-50:hover) { background-color: hsl(36 36% 20%); }
-  .dark :where(.hover\:bg-amber-50\/70:hover) { background-color: hsl(36 36% 20% / 0.8); }
-  .dark :where(.hover\:bg-amber-50\/40:hover) { background-color: hsl(36 36% 18% / 0.7); }
-  .dark :where(.hover\:bg-amber-50\/30:hover) { background-color: hsl(36 36% 18% / 0.55); }
-  .dark :where(.hover\:bg-amber-100:hover) { background-color: hsl(36 36% 27%); }
-  .dark :where(.hover\:bg-rose-50:hover) { background-color: hsl(348 30% 21%); }
-  .dark :where(.hover\:bg-rose-50\/40:hover) { background-color: hsl(348 30% 18% / 0.7); }
-  .dark :where(.hover\:bg-rose-100:hover) { background-color: hsl(348 33% 26%); }
-  .dark :where(.hover\:bg-sky-50:hover) { background-color: hsl(202 40% 21%); }
-  .dark :where(.hover\:bg-sky-50\/40:hover) { background-color: hsl(202 40% 18% / 0.7); }
+  .dark .hover\:bg-emerald-50:hover { background-color: hsl(149 24% 20%); }
+  .dark .hover\:bg-emerald-50\/40:hover { background-color: hsl(149 24% 18% / 0.7); }
+  .dark .hover\:bg-amber-50:hover { background-color: hsl(36 36% 20%); }
+  .dark .hover\:bg-amber-50\/70:hover { background-color: hsl(36 36% 20% / 0.8); }
+  .dark .hover\:bg-amber-50\/40:hover { background-color: hsl(36 36% 18% / 0.7); }
+  .dark .hover\:bg-amber-50\/30:hover { background-color: hsl(36 36% 18% / 0.55); }
+  .dark .hover\:bg-amber-100:hover { background-color: hsl(36 36% 27%); }
+  .dark .hover\:bg-rose-50:hover { background-color: hsl(348 30% 21%); }
+  .dark .hover\:bg-rose-50\/40:hover { background-color: hsl(348 30% 18% / 0.7); }
+  .dark .hover\:bg-rose-100:hover { background-color: hsl(348 33% 26%); }
+  .dark .hover\:bg-sky-50:hover { background-color: hsl(202 40% 21%); }
+  .dark .hover\:bg-sky-50\/40:hover { background-color: hsl(202 40% 18% / 0.7); }
 
   /* group hovers (cards en hover global) */
-  .dark :where(.group:hover .group-hover\/row\:bg-amber-100),
-  .dark :where(.group\/row:hover .group-hover\/row\:bg-amber-100) {
+  .dark .group:hover .group-hover\/row\:bg-amber-100,
+  .dark .group\/row:hover .group-hover\/row\:bg-amber-100 {
     background-color: hsl(36 36% 26%);
   }
 
   /* === STATUS TEXTS (Notion exact) ==================================
    *
    * Notion utilise des textes vifs (saturation 40-55%) avec une lightness
-   * de 65-75% — lisible sur les fonds tinted -100/-200 ci-dessus.
+   * de 65-75% â€” lisible sur les fonds tinted -100/-200 ci-dessus.
    * Reference :
    *   text on green bg  : #67ab7d (149 30% 54%)
    *   text on orange bg : #cb7c4b (24 55% 55%)
@@ -470,39 +470,39 @@ h3 { font-weight: 600; }
    * ============================================================== */
 
   /* Famille -500/600 (compteurs, icones, accent foreground) */
-  .dark :where(.text-emerald-500) { color: hsl(149 40% 60%); }
-  .dark :where(.text-emerald-600) { color: hsl(149 42% 56%); }
-  .dark :where(.text-amber-500) { color: hsl(38 70% 62%); }
-  .dark :where(.text-amber-600) { color: hsl(38 72% 58%); }
-  .dark :where(.text-rose-500) { color: hsl(348 60% 68%); }
-  .dark :where(.text-rose-600) { color: hsl(348 60% 64%); }
-  .dark :where(.text-sky-500) { color: hsl(202 55% 62%); }
-  .dark :where(.text-sky-600) { color: hsl(202 55% 58%); }
-  .dark :where(.text-violet-500) { color: hsl(266 50% 70%); }
-  .dark :where(.text-violet-600) { color: hsl(266 50% 66%); }
+  .dark .text-emerald-500 { color: hsl(149 40% 60%); }
+  .dark .text-emerald-600 { color: hsl(149 42% 56%); }
+  .dark .text-amber-500 { color: hsl(38 70% 62%); }
+  .dark .text-amber-600 { color: hsl(38 72% 58%); }
+  .dark .text-rose-500 { color: hsl(348 60% 68%); }
+  .dark .text-rose-600 { color: hsl(348 60% 64%); }
+  .dark .text-sky-500 { color: hsl(202 55% 62%); }
+  .dark .text-sky-600 { color: hsl(202 55% 58%); }
+  .dark .text-violet-500 { color: hsl(266 50% 70%); }
+  .dark .text-violet-600 { color: hsl(266 50% 66%); }
 
   /* Famille -700/800/900 (label texte sur fonds -100 tinted) */
-  .dark :where(.text-emerald-700) { color: hsl(149 38% 65%); }
-  .dark :where(.text-emerald-800) { color: hsl(149 38% 70%); }
-  .dark :where(.text-emerald-900) { color: hsl(149 32% 78%); }
-  .dark :where(.text-amber-700) { color: hsl(38 65% 68%); }
-  .dark :where(.text-amber-800) { color: hsl(38 65% 72%); }
-  .dark :where(.text-amber-900) { color: hsl(38 50% 82%); }
-  .dark :where(.text-rose-700) { color: hsl(348 55% 70%); }
-  .dark :where(.text-rose-800) { color: hsl(348 55% 74%); }
-  .dark :where(.text-rose-900) { color: hsl(348 45% 84%); }
-  .dark :where(.text-sky-700) { color: hsl(202 50% 66%); }
-  .dark :where(.text-sky-800) { color: hsl(202 50% 72%); }
-  .dark :where(.text-violet-700) { color: hsl(266 48% 72%); }
-  .dark :where(.text-violet-800) { color: hsl(266 45% 76%); }
-  .dark :where(.text-fuchsia-700) { color: hsl(300 48% 72%); }
-  .dark :where(.text-fuchsia-800) { color: hsl(300 45% 76%); }
-  .dark :where(.text-blue-700) { color: hsl(218 60% 68%); }
-  .dark :where(.text-blue-800) { color: hsl(218 55% 74%); }
-  .dark :where(.text-red-700) { color: hsl(6 60% 68%); }
-  .dark :where(.text-red-800) { color: hsl(6 55% 74%); }
-  .dark :where(.text-pink-700) { color: hsl(343 55% 70%); }
-  .dark :where(.text-pink-800) { color: hsl(343 50% 76%); }
+  .dark .text-emerald-700 { color: hsl(149 38% 65%); }
+  .dark .text-emerald-800 { color: hsl(149 38% 70%); }
+  .dark .text-emerald-900 { color: hsl(149 32% 78%); }
+  .dark .text-amber-700 { color: hsl(38 65% 68%); }
+  .dark .text-amber-800 { color: hsl(38 65% 72%); }
+  .dark .text-amber-900 { color: hsl(38 50% 82%); }
+  .dark .text-rose-700 { color: hsl(348 55% 70%); }
+  .dark .text-rose-800 { color: hsl(348 55% 74%); }
+  .dark .text-rose-900 { color: hsl(348 45% 84%); }
+  .dark .text-sky-700 { color: hsl(202 50% 66%); }
+  .dark .text-sky-800 { color: hsl(202 50% 72%); }
+  .dark .text-violet-700 { color: hsl(266 48% 72%); }
+  .dark .text-violet-800 { color: hsl(266 45% 76%); }
+  .dark .text-fuchsia-700 { color: hsl(300 48% 72%); }
+  .dark .text-fuchsia-800 { color: hsl(300 45% 76%); }
+  .dark .text-blue-700 { color: hsl(218 60% 68%); }
+  .dark .text-blue-800 { color: hsl(218 55% 74%); }
+  .dark .text-red-700 { color: hsl(6 60% 68%); }
+  .dark .text-red-800 { color: hsl(6 55% 74%); }
+  .dark .text-pink-700 { color: hsl(343 55% 70%); }
+  .dark .text-pink-800 { color: hsl(343 50% 76%); }
 
   /* === BORDURES STATUS =============================================
    *
@@ -512,27 +512,32 @@ h3 { font-weight: 600; }
    * quasiment dans le rendu.
    * ============================================================== */
 
-  .dark :where(.border-emerald-100) { border-color: hsl(149 24% 25% / 0.5); }
-  .dark :where(.border-emerald-200) { border-color: hsl(149 28% 30% / 0.6); }
-  .dark :where(.border-amber-100) { border-color: hsl(36 30% 28% / 0.5); }
-  .dark :where(.border-amber-200) { border-color: hsl(36 35% 32% / 0.6); }
-  .dark :where(.border-amber-300) { border-color: hsl(36 40% 38%); }
-  .dark :where(.border-rose-100) { border-color: hsl(348 28% 28% / 0.5); }
-  .dark :where(.border-rose-200) { border-color: hsl(348 30% 32% / 0.6); }
-  .dark :where(.border-rose-300) { border-color: hsl(348 35% 38%); }
-  .dark :where(.border-sky-100) { border-color: hsl(202 32% 28% / 0.5); }
-  .dark :where(.border-sky-200) { border-color: hsl(202 36% 32% / 0.6); }
-  .dark :where(.border-sky-300) { border-color: hsl(202 42% 38%); }
-  .dark :where(.border-violet-200) { border-color: hsl(266 28% 32% / 0.6); }
-  .dark :where(.border-violet-300) { border-color: hsl(266 32% 38%); }
-  .dark :where(.border-fuchsia-300) { border-color: hsl(300 36% 38%); }
-  .dark :where(.border-blue-200) { border-color: hsl(218 36% 32% / 0.6); }
-  .dark :where(.border-pink-200) { border-color: hsl(343 30% 32% / 0.6); }
+  .dark .border-emerald-100 { border-color: hsl(149 24% 25% / 0.5); }
+  .dark .border-emerald-200 { border-color: hsl(149 28% 30% / 0.6); }
+  .dark .border-emerald-300 { border-color: hsl(149 35% 38%); }
+  .dark .border-emerald-400 { border-color: hsl(149 38% 48%); }
+  .dark .border-amber-400 { border-color: hsl(36 50% 48%); }
+  .dark .border-rose-400 { border-color: hsl(348 45% 48%); }
+  .dark .border-sky-400 { border-color: hsl(202 50% 48%); }
+  .dark .border-amber-100 { border-color: hsl(36 30% 28% / 0.5); }
+  .dark .border-amber-200 { border-color: hsl(36 35% 32% / 0.6); }
+  .dark .border-amber-300 { border-color: hsl(36 40% 38%); }
+  .dark .border-rose-100 { border-color: hsl(348 28% 28% / 0.5); }
+  .dark .border-rose-200 { border-color: hsl(348 30% 32% / 0.6); }
+  .dark .border-rose-300 { border-color: hsl(348 35% 38%); }
+  .dark .border-sky-100 { border-color: hsl(202 32% 28% / 0.5); }
+  .dark .border-sky-200 { border-color: hsl(202 36% 32% / 0.6); }
+  .dark .border-sky-300 { border-color: hsl(202 42% 38%); }
+  .dark .border-violet-200 { border-color: hsl(266 28% 32% / 0.6); }
+  .dark .border-violet-300 { border-color: hsl(266 32% 38%); }
+  .dark .border-fuchsia-300 { border-color: hsl(300 36% 38%); }
+  .dark .border-blue-200 { border-color: hsl(218 36% 32% / 0.6); }
+  .dark .border-pink-200 { border-color: hsl(343 30% 32% / 0.6); }
 
   /* === DIVIDERS COLORES (admin/users approuves) =================== */
-  .dark :where(.divide-amber-100 > * + *) { border-color: hsl(38 30% 28% / 0.6); }
-  .dark :where(.divide-rose-100 > * + *) { border-color: hsl(0 30% 28% / 0.6); }
-  .dark :where(.divide-emerald-100 > * + *) { border-color: hsl(152 30% 28% / 0.6); }
+  .dark .divide-amber-100 > * + * { border-color: hsl(38 30% 28% / 0.6); }
+  .dark .divide-rose-100 > * + * { border-color: hsl(0 30% 28% / 0.6); }
+  .dark .divide-emerald-100 > * + * { border-color: hsl(152 30% 28% / 0.6); }
 }
 
 /* Animations utilitaires ---------------------------------------------- */
@@ -565,7 +570,7 @@ h3 { font-weight: 600; }
 :root { color-scheme: light; }
 .dark { color-scheme: dark; }
 
-/* Focus standard zinc (le gold est réservé aux états actifs significatifs).
+/* Focus standard zinc (le gold est rÃ©servÃ© aux Ã©tats actifs significatifs).
    En dark, le focus passe en clair pour rester visible sur fond fonce. */
 :focus-visible {
   outline: 2px solid hsl(240 5% 65%);
@@ -583,7 +588,7 @@ button, a, select, input[type="checkbox"], input[type="radio"] {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Scrollbar discrète -------------------------------------------------- */
+/* Scrollbar discrÃ¨te -------------------------------------------------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
