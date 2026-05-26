@@ -27,7 +27,7 @@ export default function OnboardingTabs() {
   ] as const;
 
   return (
-    <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-zinc-100 border border-zinc-200">
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60">
       {tabs.map((t) => {
         const Icon = t.icon;
         const active = pathname === t.base;
@@ -37,13 +37,13 @@ export default function OnboardingTabs() {
             key={t.base}
             href={href}
             className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all",
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all",
               active
-                ? "bg-white text-zinc-900 shadow-sm font-medium"
-                : "text-zinc-600 hover:text-zinc-900"
+                ? "bg-white text-zinc-900 shadow-card font-medium"
+                : "text-zinc-600 hover:text-zinc-900 hover:bg-white/50"
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className="h-4 w-4" />
             {t.label}
           </Link>
         );
