@@ -1,183 +1,151 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { evaluateConditions, type ConditionNa, type ClientContext } from "./parcours-engine";
 
 /**
  * Server actions du module Onboarding.
  *
- * Workflow métier (cf. screen de Benjamin) :
+ * Depuis la migration 0040, la liste des étapes d'onboarding + leurs
+ * conditions de N/A automatique est stockée en DB dans les tables
+ * `onboarding_parcours` + `onboarding_etape`, et plus codée en dur.
  *
- *   La liste des tâches dépend de 2 axes :
- *     - Origine du dossier : Création (1/2) vs Reprise (3/4) vs Sous-traitance
- *     - Gestion TNS : true / false (caractéristique éditable du dossier)
+ * Le parcours par défaut (is_default=true) est appliqué à tous les nouveaux
+ * dossiers. La logique métier MOON v1 (Création / Reprise / Interne / ST,
+ * avec/sans TNS) est seedée dans la migration 0041.
  *
- *   Tâches COMMUNES (toujours) :
- *     1. Tally rempli                   (tally_crea_pdc)
- *     2. Accès Pennylane créé           (acces_pennylane)
- *     3. Abo MOON actif                 (abo_moon)
- *     4. Mandat MOON signé              (mandat_moon)
- *     5. Accès impôt.gouv               (impot_gouv)
- *     6. Mandat impôts signé/envoyé     (mandat_impots)
- *     7. 751-SD / 1447 CFE              (cfe_1447)
- *     8. Onboarding Pennylane réalisé   (ob_pennylane)
- *     9. Lettre d'option IR/IS          (option_ir_is)
- *
- *   Tâche CRÉATION uniquement :
- *    10. Dépôt KBIS auprès de la banque (depot_kbis_banque)
- *
- *   Tâche REPRISE uniquement :
- *    10. Reprise confrère               (confrere)
- *
- *   Tâches TNS (si gestion_tns = true) :
- *    11. Prévisionnel TNS réalisé       (previ_tns)
- *    12. Affiliation TNS réalisée       (affiliation_tns)
- *
- * Note : l'ancienne tâche `reprise_compta` n'est plus créée automatiquement
- * (remplacée par `confrere` dans le workflow Benjamin). Si elle existe sur
- * des dossiers historiques, on la laisse en place mais elle ne sera pas
- * recréée.
+ * Pour modifier le parcours, voir l'UI /parametrage/onboarding.
  */
 
 type Categorie = "2G" | "2C" | "2R" | "2T";
+type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
-/**
- * Mapping task_key → catégorie DB (pour insertion). Aligné avec l'enum
- * onboarding_categorie de la migration 0001.
- *
- * Note : option_ir_is est en 2G (commune à toutes origines, pas 2T).
- */
-const TASK_TO_CAT: Record<string, Categorie> = {
-  tally_crea_pdc: "2G",
-  acces_pennylane: "2G",
-  abo_moon: "2G",
-  mandat_moon: "2G",
-  impot_gouv: "2G",
-  mandat_impots: "2G",
-  cfe_1447: "2G",
-  ob_pennylane: "2G",
-  option_ir_is: "2G",
-  depot_kbis_banque: "2C",
-  confrere: "2R",
-  previ_tns: "2T",
-  affiliation_tns: "2T",
+type EtapeRow = {
+  task_key: string;
+  libelle: string;
+  ordre: number;
+  categorie: string | null;
+  conditions_na: ConditionNa[] | null;
 };
 
 /**
- * Retourne la liste des task_keys à créer pour un dossier donné, dans l'ordre
- * d'affichage métier (1 = première à faire).
- */
-function taskKeysFor(origine: string | null, gestionTns: boolean | null): string[] {
-  // Nomenclature canonique (cf. migrations 0038/0039) :
-  //   1 - Création / 2 - Reprise / 3 - Reprise sans EC / 4 - Interne / 5 - Sous-traitance
-  const isCreation = origine === "1 - Création";
-  const isReprise =
-    origine === "2 - Reprise" || origine === "3 - Reprise sans EC";
-  // Interne / Sous-traitance / origine inconnue : checklist allégée
-  // (juste les communes, pas de KBIS banque ni de reprise confrère).
-
-  // Liste de base (commune)
-  const tasks: string[] = [
-    "tally_crea_pdc",
-    "acces_pennylane",
-  ];
-
-  // Étape conditionnelle origine (3e position)
-  if (isCreation) {
-    tasks.push("depot_kbis_banque");
-  } else if (isReprise) {
-    tasks.push("confrere");
-  }
-
-  // Suite commune
-  tasks.push(
-    "abo_moon",
-    "mandat_moon",
-    "impot_gouv",
-    "mandat_impots",
-    "cfe_1447",
-    "ob_pennylane",
-    "option_ir_is"
-  );
-
-  // Tâches TNS si activé
-  if (gestionTns === true) {
-    tasks.push("previ_tns", "affiliation_tns");
-  }
-
-  return tasks;
-}
-
-/**
- * Initialise (ou complète) les tâches d'onboarding d'un client.
+ * Initialise (ou complète) les tâches d'onboarding d'un client à partir
+ * du parcours par défaut.
  *
- * Idempotent : si la tâche existe déjà, on la laisse telle quelle (statut
- * non touché). Si elle n'existe pas, on la crée en A_FAIRE avec le libellé
- * par défaut depuis status_options.
+ * Pour chaque étape du parcours :
+ *   - Si la tâche existe déjà en DB pour ce client → on ne touche à rien
+ *   - Sinon, on évalue les conditions_na contre le client :
+ *       - Si une condition matche → on crée la tâche en NON_APPLICABLE
+ *         avec statut_detail = condition.reason
+ *       - Sinon → on crée la tâche en A_FAIRE
  *
  * Appelée :
- *   - Automatiquement quand on clique "LDM signée 🎉"
- *   - Manuellement plus tard si besoin (changement gestion_tns,
- *     bascule origine, etc.) — appel sécurisé grâce à l'idempotence
+ *   - À la signature LDM (bouton "LDM signée 🎉")
+ *   - Après tout changement d'origine ou de gestion_tns côté UI
+ *   - Manuellement (re-init sur changement de parcours)
  */
 export async function initializeOnboardingForClient(clientId: string) {
   const sb = await createClient();
 
-  // 1. Origine + gestion_tns du client
+  // 1. Caractéristiques du client (champs utilisés par les conditions)
   const { data: client, error: e0 } = await sb
     .from("clients")
-    .select("origine, gestion_tns")
+    .select("origine, gestion_tns, forme, activite")
     .eq("id", clientId)
     .single();
   if (e0) throw new Error(e0.message);
-  const targetKeys = taskKeysFor(client.origine, client.gestion_tns);
+  const ctx: ClientContext = {
+    origine: client.origine,
+    gestion_tns: client.gestion_tns,
+    forme: client.forme,
+    activite: client.activite,
+  };
 
-  // 2. task_keys déjà créées (pour ne pas écraser)
+  // 2. Parcours par défaut + ses étapes (1 requête grâce à la FK)
+  const { data: parcours } = await sb
+    .from("onboarding_parcours")
+    .select("id, onboarding_etape(task_key, libelle, ordre, categorie, conditions_na)")
+    .eq("is_default", true)
+    .order("ordre", { foreignTable: "onboarding_etape", ascending: true })
+    .maybeSingle();
+  if (!parcours) {
+    // Pas de parcours par défaut configuré → on ne crée rien
+    return { created: 0, totalTasks: 0 };
+  }
+  const etapes = (parcours.onboarding_etape ?? []) as EtapeRow[];
+
+  // 3. Tâches déjà créées pour ce client (pour idempotence)
   const { data: existing } = await sb
     .from("onboarding_tasks")
     .select("task_key")
     .eq("client_id", clientId);
   const existingSet = new Set((existing ?? []).map((t) => t.task_key));
 
-  // 3. Libellés A_FAIRE par défaut depuis status_options
-  const { data: defaults } = await sb
-    .from("status_options")
-    .select("type_code, libelle, ordre")
-    .eq("scope", "onboarding")
-    .eq("statut_logique", "A_FAIRE")
-    .eq("actif", true)
-    .in("type_code", targetKeys)
-    .order("ordre");
-  const defaultLibelleByKey = new Map<string, string>();
+  // 4. Libellés par défaut (A_FAIRE et NON_APPLICABLE) depuis status_options
+  //    On en a besoin pour pré-remplir statut_detail.
+  const taskKeys = etapes.map((e) => e.task_key);
+  const { data: defaults } = taskKeys.length
+    ? await sb
+        .from("status_options")
+        .select("type_code, libelle, statut_logique, ordre")
+        .eq("scope", "onboarding")
+        .eq("actif", true)
+        .in("type_code", taskKeys)
+        .order("ordre")
+    : { data: [] as Array<{ type_code: string; libelle: string; statut_logique: string; ordre: number }> };
+  const defaultLibelleByKey = new Map<string, { a_faire: string | null; na: string | null }>();
   for (const d of defaults ?? []) {
-    if (!defaultLibelleByKey.has(d.type_code))
-      defaultLibelleByKey.set(d.type_code, d.libelle);
+    const entry = defaultLibelleByKey.get(d.type_code) ?? { a_faire: null, na: null };
+    if (d.statut_logique === "A_FAIRE" && !entry.a_faire) entry.a_faire = d.libelle;
+    if (d.statut_logique === "NON_APPLICABLE" && !entry.na) entry.na = d.libelle;
+    defaultLibelleByKey.set(d.type_code, entry);
   }
 
-  // 4. Insert des tâches manquantes uniquement
+  // 5. Construction de la liste des tâches à insérer
   const toInsert: Array<{
     client_id: string;
     task_key: string;
     categorie: Categorie;
-    statut_logique: "A_FAIRE";
+    statut_logique: StatutLogique;
     statut_detail: string | null;
   }> = [];
-  for (const key of targetKeys) {
-    if (existingSet.has(key)) continue;
-    const cat = TASK_TO_CAT[key];
-    if (!cat) continue; // sécurité : task_key inconnu
-    toInsert.push({
-      client_id: clientId,
-      task_key: key,
-      categorie: cat,
-      statut_logique: "A_FAIRE",
-      statut_detail: defaultLibelleByKey.get(key) ?? null,
-    });
+  for (const etape of etapes) {
+    if (existingSet.has(etape.task_key)) continue; // idempotence
+
+    // Catégorie : on garde le mapping historique 2G/2C/2R/2T si présent,
+    // sinon on tombe sur "2G" par défaut.
+    const cat = (etape.categorie as Categorie) || "2G";
+
+    // Évaluation des conditions de N/A
+    const matched = evaluateConditions(etape.conditions_na, ctx);
+    const labels = defaultLibelleByKey.get(etape.task_key) ?? { a_faire: null, na: null };
+
+    if (matched) {
+      // Une condition matche → tâche créée en NON_APPLICABLE
+      toInsert.push({
+        client_id: clientId,
+        task_key: etape.task_key,
+        categorie: cat,
+        statut_logique: "NON_APPLICABLE",
+        statut_detail: matched.reason ?? labels.na ?? "Non applicable",
+      });
+    } else {
+      // Aucune condition ne matche → tâche créée en A_FAIRE
+      toInsert.push({
+        client_id: clientId,
+        task_key: etape.task_key,
+        categorie: cat,
+        statut_logique: "A_FAIRE",
+        statut_detail: labels.a_faire ?? null,
+      });
+    }
   }
+
   if (toInsert.length > 0) {
     const { error: e1 } = await sb.from("onboarding_tasks").insert(toInsert);
     if (e1) throw new Error(e1.message);
   }
-  return { created: toInsert.length, totalTasks: targetKeys.length };
+  return { created: toInsert.length, totalTasks: etapes.length };
 }
 
 /**

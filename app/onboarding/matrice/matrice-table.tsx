@@ -52,38 +52,14 @@ export type MatriceRow = {
   total: number;
 };
 
-// Libellés courts pour les en-têtes (colonnes étroites). On garde le mot-clé.
-const TASK_SHORT_LABEL: Record<string, string> = {
-  tally_crea_pdc: "Tally",
-  acces_pennylane: "Pennylane",
-  depot_kbis_banque: "KBIS banque",
-  confrere: "Confrère",
-  abo_moon: "Abo MOON",
-  mandat_moon: "Mandat MOON",
-  impot_gouv: "impôt.gouv",
-  mandat_impots: "Mandat impôts",
-  cfe_1447: "CFE 1447",
-  ob_pennylane: "OB Pennylane",
-  option_ir_is: "IR/IS",
-  previ_tns: "Prévi TNS",
-  affiliation_tns: "Affiliation TNS",
-};
-
-// Libellés longs pour les tooltips
-const TASK_LONG_LABEL: Record<string, string> = {
-  tally_crea_pdc: "Tally rempli",
-  acces_pennylane: "Accès Pennylane créé",
-  depot_kbis_banque: "Dépôt KBIS auprès de la banque",
-  confrere: "Reprise confrère",
-  abo_moon: "Abonnement MOON actif",
-  mandat_moon: "Mandat de prélèvement MOON signé",
-  impot_gouv: "Accès au compte impôt.gouv",
-  mandat_impots: "Mandat des impôts signé et envoyé à la banque",
-  cfe_1447: "751-SD ou 1447 CFE signé et déposé sur messagerie",
-  ob_pennylane: "Onboarding Pennylane réalisé",
-  option_ir_is: "Lettre d'option IR/IS",
-  previ_tns: "Prévisionnel TNS réalisé",
-  affiliation_tns: "Affiliation TNS réalisée",
+/**
+ * Description d'une colonne (étape) telle que reçue depuis le parcours par
+ * défaut. Voir matrice/page.tsx pour le chargement.
+ */
+export type EtapeColumn = {
+  task_key: string;
+  nom_court: string; // affiché en entête
+  libelle: string; // affiché en tooltip + popover title
 };
 
 type OrigineType =
@@ -148,11 +124,12 @@ const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
  */
 export default function MatriceTable({
   rows,
-  taskKeys,
+  etapes,
   optionsByKey,
 }: {
   rows: MatriceRow[];
-  taskKeys: string[];
+  /** Colonnes de la matrice = étapes du parcours par défaut, dans l'ordre. */
+  etapes: EtapeColumn[];
   optionsByKey: Record<string, OnboardingStatusOption[]>;
 }) {
   const router = useRouter();
@@ -375,7 +352,7 @@ export default function MatriceTable({
 
   // Stats par colonne (taux de complétion d'une tâche sur les dossiers triés/filtrés)
   const colStats = useMemo(() => {
-    return taskKeys.map((_, i) => {
+    return etapes.map((_, i) => {
       let done = 0;
       let total = 0;
       for (const r of sorted) {
@@ -386,7 +363,7 @@ export default function MatriceTable({
       }
       return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
     });
-  }, [sorted, taskKeys]);
+  }, [sorted, etapes]);
 
   return (
     <div className="space-y-3">
@@ -448,17 +425,17 @@ export default function MatriceTable({
                 >
                   Dossier
                 </th>
-                {taskKeys.map((k, i) => (
+                {etapes.map((e, i) => (
                   <th
-                    key={k}
+                    key={e.task_key}
                     className="px-1 py-2 text-center text-[10px] font-medium text-zinc-600 border-b border-zinc-200 align-bottom"
-                    title={TASK_LONG_LABEL[k] ?? k}
+                    title={e.libelle}
                     style={{ minWidth: 60 }}
                   >
                     <div className="flex flex-col items-center gap-0.5">
                       <span className="text-zinc-400 tabular-nums">{i + 1}</span>
                       <span className="leading-tight text-[10px] text-zinc-700">
-                        {TASK_SHORT_LABEL[k] ?? k}
+                        {e.nom_court}
                       </span>
                     </div>
                   </th>
@@ -545,8 +522,8 @@ export default function MatriceTable({
                     >
                       <MatrixCell
                         cell={cell}
-                        taskKey={taskKeys[i]}
-                        options={optionsByKey[taskKeys[i]] ?? []}
+                        taskLibelle={etapes[i]?.libelle ?? etapes[i]?.task_key ?? ""}
+                        options={optionsByKey[etapes[i]?.task_key ?? ""] ?? []}
                         isOpen={
                           openPicker?.clientId === r.id && openPicker.taskIdx === i
                         }
@@ -612,7 +589,7 @@ export default function MatriceTable({
 
 function MatrixCell({
   cell,
-  taskKey,
+  taskLibelle,
   options,
   isOpen,
   onOpen,
@@ -621,7 +598,8 @@ function MatrixCell({
   onReset,
 }: {
   cell: MatriceTaskCell | null;
-  taskKey: string;
+  /** Libellé complet de la tâche (affiché en titre du popover) */
+  taskLibelle: string;
   options: OnboardingStatusOption[];
   isOpen: boolean;
   onOpen: () => void;
@@ -721,7 +699,7 @@ function MatrixCell({
             {/* Titre + statut actuel */}
             <div className="px-3 py-2 border-b">
               <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                {TASK_LONG_LABEL[taskKey] ?? taskKey}
+                {taskLibelle}
               </div>
               {cell.statut_detail ? (
                 <span

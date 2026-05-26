@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { List, LayoutGrid } from "lucide-react";
+import { List, LayoutGrid, Settings } from "lucide-react";
 
 /**
  * Sélecteur d'onglet onboarding (Liste / Matrice).
@@ -20,8 +20,10 @@ export default function OnboardingTabs() {
   const suffix = qs ? `?${qs}` : "";
 
   const tabs = [
-    { base: "/onboarding", label: "Liste", icon: List },
-    { base: "/onboarding/matrice", label: "Matrice", icon: LayoutGrid },
+    { base: "/onboarding", label: "Liste", icon: List, preserveParams: true },
+    { base: "/onboarding/matrice", label: "Matrice", icon: LayoutGrid, preserveParams: true },
+    // Le paramétrage est une vue indépendante, pas de filtres à propager
+    { base: "/onboarding/parametrage", label: "Paramétrage", icon: Settings, preserveParams: false },
   ] as const;
 
   return (
@@ -29,10 +31,11 @@ export default function OnboardingTabs() {
       {tabs.map((t) => {
         const Icon = t.icon;
         const active = pathname === t.base;
+        const href = t.preserveParams ? `${t.base}${suffix}` : t.base;
         return (
           <Link
             key={t.base}
-            href={`${t.base}${suffix}`}
+            href={href}
             className={cn(
               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all",
               active

@@ -14,7 +14,6 @@ import {
   LogOut,
   Settings2,
   ShieldCheck,
-  TrendingUp,
   Users,
   Workflow,
   type LucideIcon,
@@ -76,7 +75,6 @@ const NAV_ITEMS: NavItem[] = [
     children: buildProductionChildren(),
   },
   { href: "/onboarding", label: "Onboarding", icon: Workflow, matchPrefix: "/onboarding" },
-  { href: "/economie", label: "Économie", icon: TrendingUp, matchPrefix: "/economie" },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {

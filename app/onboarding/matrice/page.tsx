@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isClientBillable } from "@/lib/billable";
-import { TASK_ORDER } from "@/app/onboarding/task-order";
 import MatriceTable, {
+  type EtapeColumn,
   type MatriceRow,
   type StatutLogique,
   type MatriceTaskCell,
@@ -13,17 +13,17 @@ export const dynamic = "force-dynamic";
 /**
  * Vue matricielle transverse de l'onboarding.
  *
- * Format : 1 ligne par dossier × 1 colonne par tâche canonique (13 colonnes
- * dans l'ordre métier de TASK_ORDER). Chaque cellule = statut pastille
- * (terminé / en cours / à faire / N/A / absent pour ce dossier).
- *
- * Édition inline : on charge aussi `status_options` pour permettre à Benjamin
- * de cliquer une cellule et choisir un statut sans quitter la matrice. Le
- * task_id est exposé pour pouvoir cibler la bonne tâche au save.
+ * Les colonnes sont déduites du parcours par défaut (table onboarding_etape) :
+ *   - nom_court  → entête de colonne
+ *   - libelle    → tooltip + titre du popover
+ *   - ordre      → ordre des colonnes
+ * Les anciens libellés codés en dur (TASK_SHORT_LABEL / TASK_LONG_LABEL)
+ * sont remplacés par la donnée DB depuis la migration 0042.
  */
 export default async function OnboardingMatricePage() {
   const sb = await createClient();
 
+  // 1. Clients facturables
   const { data: clients } = await sb
     .from("clients")
     .select("id, slug, denomination, siren, forme, pipeline_statut, origine, gestion_tns")
@@ -32,8 +32,18 @@ export default async function OnboardingMatricePage() {
   const billable = (clients ?? []).filter(isClientBillable);
   const clientIds = billable.map((c) => c.id);
 
-  // Tâches + status_options en parallèle
-  const [{ data: tasks }, { data: options }] = await Promise.all([
+  // 2. Étapes du parcours par défaut + tâches client + status_options en parallèle
+  const [
+    { data: parcours },
+    { data: tasks },
+    { data: options },
+  ] = await Promise.all([
+    sb
+      .from("onboarding_parcours")
+      .select("id, onboarding_etape(task_key, nom_court, libelle, ordre)")
+      .eq("is_default", true)
+      .order("ordre", { foreignTable: "onboarding_etape", ascending: true })
+      .maybeSingle(),
     clientIds.length
       ? sb
           .from("onboarding_tasks")
@@ -54,7 +64,22 @@ export default async function OnboardingMatricePage() {
       .order("ordre"),
   ]);
 
-  // Index : client_id → task_key → cell
+  // Colonnes = étapes du parcours par défaut (vide si pas de parcours seedé)
+  const etapesRaw =
+    (parcours?.onboarding_etape ?? []) as Array<{
+      task_key: string;
+      nom_court: string;
+      libelle: string;
+      ordre: number;
+    }>;
+  const etapes: EtapeColumn[] = etapesRaw.map((e) => ({
+    task_key: e.task_key,
+    nom_court: e.nom_court,
+    libelle: e.libelle,
+  }));
+  const taskKeys = etapes.map((e) => e.task_key);
+
+  // 3. Index : client_id → task_key → cell
   type TaskRow = {
     id: string;
     client_id: string;
@@ -72,7 +97,7 @@ export default async function OnboardingMatricePage() {
     });
   }
 
-  // Options par task_key (pour le picker inline)
+  // 4. Options par task_key (pour le picker inline)
   const optionsByKey: Record<string, OnboardingStatusOption[]> = {};
   for (const o of options ?? []) {
     if (!optionsByKey[o.type_code]) optionsByKey[o.type_code] = [];
@@ -83,9 +108,10 @@ export default async function OnboardingMatricePage() {
     });
   }
 
+  // 5. Construction des lignes
   const rows: MatriceRow[] = billable.map((c) => {
     const taskMap = byClient.get(c.id) ?? new Map<string, MatriceTaskCell>();
-    const tasksCells: Array<MatriceTaskCell | null> = TASK_ORDER.map(
+    const tasksCells: Array<MatriceTaskCell | null> = taskKeys.map(
       (k) => taskMap.get(k) ?? null
     );
     let done = 0;
@@ -112,6 +138,6 @@ export default async function OnboardingMatricePage() {
   });
 
   return (
-    <MatriceTable rows={rows} taskKeys={TASK_ORDER} optionsByKey={optionsByKey} />
+    <MatriceTable rows={rows} etapes={etapes} optionsByKey={optionsByKey} />
   );
 }
