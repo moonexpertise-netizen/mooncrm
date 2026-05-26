@@ -131,12 +131,12 @@ function ConfirmModalRender({
       aria-labelledby="confirm-modal-title"
     >
       <div
-        className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-zinc-900/50 backdrop-blur-md"
         onClick={onCancel}
         aria-hidden
       />
 
-      <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-zinc-200 overflow-hidden animate-slide-up-fade">
+      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-modal border border-zinc-200/70 overflow-hidden animate-slide-up-fade">
         {/* Header */}
         <div
           className={cn(
@@ -304,11 +304,11 @@ function AlertModalRender({
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-zinc-900/50 backdrop-blur-md"
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-zinc-200 overflow-hidden animate-slide-up-fade">
+      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-modal border border-zinc-200/70 overflow-hidden animate-slide-up-fade">
         <div className="px-5 py-4 border-b bg-zinc-50 border-zinc-200">
           <h3 className="text-sm font-semibold text-zinc-900">{title}</h3>
           {description && (

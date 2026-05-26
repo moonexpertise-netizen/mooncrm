@@ -191,13 +191,13 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   return (
     <div className="space-y-4">
       {/* Toolbar unifiée (mêmes filtres et tri que la matrice) */}
-      <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
+      <div className="rounded-xl border border-zinc-200/70 bg-white shadow-card px-3 py-2.5 flex items-center gap-2 flex-wrap">
         <input
           type="text"
           placeholder="Filtrer par nom ou SIREN…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+          className="w-64 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-sm placeholder:text-zinc-400 transition-all hover:border-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]"
         />
         <div className="h-6 w-px bg-zinc-200 mx-1" />
         <span className="text-[11px] text-zinc-500">Type :</span>
@@ -233,11 +233,11 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
 
       {/* Liste */}
       {sorted.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-10 text-center text-sm text-zinc-500">
           Aucun dossier ne correspond aux filtres.
         </div>
       ) : (
-        <div className="rounded-lg border bg-card divide-y divide-zinc-100 overflow-hidden">
+        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card divide-y divide-zinc-100 overflow-hidden">
           {sorted.map((r) => (
             <OnboardingRowComp key={r.id} row={r} type={r.type} />
           ))}

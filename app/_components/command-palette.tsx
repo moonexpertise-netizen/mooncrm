@@ -178,16 +178,16 @@ export default function CommandPalette() {
       aria-label="Palette de commandes"
     >
       <div
-        className="absolute inset-0 bg-zinc-900/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-zinc-900/40 backdrop-blur-md"
         onClick={() => setOpen(false)}
         aria-hidden
       />
       <div
-        className="relative w-full max-w-xl rounded-xl bg-white shadow-2xl border border-zinc-200 overflow-hidden animate-slide-up-fade"
+        className="relative w-full max-w-xl rounded-2xl bg-white shadow-modal border border-zinc-200/70 overflow-hidden animate-slide-up-fade"
         onKeyDown={handleKeyDown}
       >
         {/* Search input */}
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-zinc-200">
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-100">
           <Search className="h-4 w-4 text-zinc-400 shrink-0" />
           <input
             ref={inputRef}
@@ -195,11 +195,11 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rechercher un client, une page…"
-            className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-zinc-400"
+            className="flex-1 bg-transparent text-[15px] focus:outline-none placeholder:text-zinc-400"
             autoComplete="off"
             spellCheck={false}
           />
-          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-[10px] text-zinc-500 font-medium">
+          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-[10px] text-zinc-500 font-medium">
             Esc
           </kbd>
         </div>

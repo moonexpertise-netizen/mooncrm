@@ -31,20 +31,27 @@ export default function ContactsCard({
   const [, startTransition] = useTransition();
 
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-zinc-700">
-          Contacts ({contacts.length})
-        </h3>
+    <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-zinc-100 bg-zinc-50/40">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+            Contacts
+          </h3>
+          <p className="text-[11px] text-zinc-500 mt-0.5">
+            {contacts.length} contact{contacts.length > 1 ? "s" : ""} rattaché
+            {contacts.length > 1 ? "s" : ""}
+          </p>
+        </div>
         {!adding && (
           <button
             onClick={() => setAdding(true)}
-            className="text-xs px-2.5 py-1 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 transition"
+            className="text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 shadow-card transition-all font-medium"
           >
             + Ajouter
           </button>
         )}
       </div>
+      <div className="p-5 space-y-2">
 
       {contacts.length === 0 && !adding && (
         <p className="text-sm text-muted-foreground">Aucun contact rattaché.</p>
@@ -63,6 +70,7 @@ export default function ContactsCard({
           onCancel={() => setAdding(false)}
         />
       )}
+      </div>
     </div>
   );
 }
