@@ -316,10 +316,13 @@ function InlineField({
       }}
       placeholder={placeholder}
       className={cn(
-        "px-1.5 py-0.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 transition",
+        "px-1.5 py-0.5 rounded border text-sm transition-all",
+        "focus:outline-none focus:ring-2 focus:ring-zinc-400/30 dark:focus:ring-white/15 focus:border-zinc-400 dark:focus:border-zinc-300",
         draft.trim()
-          ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 focus:border-emerald-400"
-          : "bg-amber-50 border-amber-300 text-amber-900 placeholder:text-amber-700/60 focus:border-amber-400",
+          ? // Rempli : fond neutre transparent, bordure discrete
+            "bg-transparent border-zinc-200 dark:border-white/[0.08] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/[0.18]"
+          : // Vide : signal subtle amber (jamais saturé). Texte zinc, pas amber.
+            "bg-amber-50/40 dark:bg-amber-500/[0.08] border-amber-200 dark:border-amber-500/25 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
         className
       )}
       style={{ minWidth: "120px" }}

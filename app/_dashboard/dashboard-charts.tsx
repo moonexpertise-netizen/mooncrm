@@ -441,11 +441,10 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
                     </span>
                   </div>
                   <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
-                    {/* La barre garde une opacite reduite meme au hover :
-                        ca evite que la barre devienne un fond plein sur la
-                        row (qui ecrase le texte au-dessus). */}
+                    {/* Barre tres discrete en dark (la row du #1 fait 100pct
+                        de width, donc une barre pleine ecraserait le texte). */}
                     <div
-                      className="h-full bg-[hsl(var(--gold))]/60 group-hover/row:bg-[hsl(var(--gold))]/80 transition-colors"
+                      className="h-full bg-[hsl(var(--gold))]/70 dark:bg-[hsl(var(--gold))]/35 group-hover/row:bg-[hsl(var(--gold))]/85 dark:group-hover/row:bg-[hsl(var(--gold))]/50 transition-colors"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

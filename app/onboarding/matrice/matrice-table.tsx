@@ -480,9 +480,8 @@ export default function MatriceTable({
                 <tr
                   key={r.id}
                   className={cn(
-                    "group/row transition-colors",
-                    idx % 2 === 0 ? "bg-white" : "bg-zinc-50/30",
-                    "hover:bg-amber-50/40"
+                    "group/row transition-colors bg-white",
+                    "hover:bg-zinc-50"
                   )}
                 >
                   {/* Sticky : client + chips Type + TNS */}

@@ -66,10 +66,11 @@ export default function PipelinePicker({
             className={cn(
               "px-3 py-1.5 rounded-full text-xs border transition-all duration-150 active:scale-95",
               active
-                ? // Active : couleur du statut + ring + shadow pour la visibilité
+                ? // Active : couleur du statut + ring sans offset blanc (qui
+                  // creait un halo blanc en dark mode).
                   cn(
                     colorClass ?? "bg-zinc-900 text-white border-zinc-900",
-                    "shadow-sm ring-2 ring-offset-1 ring-zinc-300 font-medium"
+                    "shadow-sm ring-2 ring-zinc-400 dark:ring-white/30 font-medium"
                   )
                 : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50"
             )}

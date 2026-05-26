@@ -298,21 +298,20 @@ h3 { font-weight: 600; }
    * zinc-100 plus marque, zinc-200 actif).
    * ================================================================== */
 
-  /* Hovers Notion-style : fonds OPAQUES gris (#2A2A2A typiquement),
-     pas d'overlay blanc qui s'accumule avec les barres de progression
-     ou les badges colores. Donne un hover subtil mais propre. */
-  .dark :where(.hover\:bg-zinc-50:hover) { background-color: hsl(0 0% 16%); }      /* #292929 */
-  .dark :where(.hover\:bg-zinc-100:hover) { background-color: hsl(0 0% 18.5%); }   /* #2F2F2F */
-  .dark :where(.hover\:bg-zinc-200:hover) { background-color: hsl(0 0% 22%); }     /* #383838 */
+  /* Hovers Notion-style : ULTRA subtils, juste un cran plus clair.
+     Notion = +2 points de lightness max sur le hover, pas +10. */
+  .dark :where(.hover\:bg-zinc-50:hover) { background-color: hsl(0 0% 13.5%); }    /* a peine plus clair que card (12.5%) */
+  .dark :where(.hover\:bg-zinc-100:hover) { background-color: hsl(0 0% 15.5%); }   /* +3 points */
+  .dark :where(.hover\:bg-zinc-200:hover) { background-color: hsl(0 0% 18%); }     /* +5 points */
 
   /* Hovers neutres avec transparence dans la classe d'origine */
-  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: hsl(0 0% 16% / 0.7); }
-  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: hsl(0 0% 16% / 0.55); }
-  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: hsl(0 0% 16% / 0.45); }
+  .dark :where(.hover\:bg-zinc-50\/50:hover) { background-color: hsl(0 0% 13.5% / 0.7); }
+  .dark :where(.hover\:bg-zinc-50\/40:hover) { background-color: hsl(0 0% 13.5% / 0.55); }
+  .dark :where(.hover\:bg-zinc-50\/30:hover) { background-color: hsl(0 0% 13.5% / 0.45); }
 
-  /* Active states (clic sur tactile) — un peu plus marques */
-  .dark :where(.active\:bg-zinc-100:active) { background-color: hsl(0 0% 20%); }
-  .dark :where(.active\:bg-zinc-200:active) { background-color: hsl(0 0% 24%); }
+  /* Active states (clic sur tactile) — legerement plus marques */
+  .dark :where(.active\:bg-zinc-100:active) { background-color: hsl(0 0% 18%); }
+  .dark :where(.active\:bg-zinc-200:active) { background-color: hsl(0 0% 22%); }
 
   /* === TEXTES ZINC ==============================================
    *
