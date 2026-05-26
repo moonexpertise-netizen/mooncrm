@@ -13,9 +13,12 @@ import {
 import {
   DndContext,
   PointerSensor,
-  closestCenter,
+  pointerWithin,
+  rectIntersection,
+  useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
   DragOverlay,
@@ -133,6 +136,19 @@ export default function ParcoursEditor({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
+
+  /**
+   * Collision custom : on regarde d'abord les containers sous le pointeur
+   * (rubriques + "sans rubrique"), puis on fallback sur rectIntersection
+   * pour viser les items individuels au sein du container.
+   *
+   * Sans ça, dropper sur une rubrique vide ne déclenchait aucune collision.
+   */
+  const collisionDetection: CollisionDetection = (args) => {
+    const inside = pointerWithin(args);
+    if (inside.length > 0) return inside;
+    return rectIntersection(args);
+  };
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeEtape = useMemo(
     () => localEtapes.find((e) => e.id === activeId) ?? null,
@@ -310,7 +326,7 @@ export default function ParcoursEditor({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
@@ -574,16 +590,32 @@ function SortableEtapeList({
   onUpdateConditions: (id: string, c: ConditionNa[]) => void;
 }) {
   const ids = useMemo(() => etapes.map((e) => e.id), [etapes]);
+  // useDroppable : rend le wrapper du container "droppable" pour qu'on puisse
+  // lâcher une étape sur une rubrique VIDE (sinon dnd-kit n'a pas de target).
+  const { setNodeRef, isOver } = useDroppable({ id: containerId });
   return (
     <SortableContext
       id={containerId}
       items={ids}
       strategy={verticalListSortingStrategy}
     >
-      <div className="divide-y divide-zinc-100" id={containerId}>
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "divide-y divide-zinc-100 transition-colors min-h-[40px]",
+          isOver && etapes.length === 0 && "bg-amber-50/40"
+        )}
+      >
         {etapes.length === 0 ? (
-          <div className="px-4 py-4 text-xs text-zinc-400 italic">
-            Déposer une étape ici (drag-and-drop)
+          <div
+            className={cn(
+              "px-4 py-4 text-xs italic transition-colors",
+              isOver ? "text-amber-700" : "text-zinc-400"
+            )}
+          >
+            {isOver
+              ? "Relâcher pour déposer ici"
+              : "Déposer une étape ici (drag-and-drop)"}
           </div>
         ) : (
           etapes.map((etape) => (
