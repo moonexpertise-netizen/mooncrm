@@ -137,7 +137,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </h1>
             {/* ClientSwitcher : caché sur mobile (le drawer + liste Clients
                 font le boulot). Sur desktop, alignement droite via ml-auto. */}
-            <div className="hidden md:block md:ml-auto">
+            <div className="hidden md:flex items-center gap-3 md:ml-auto">
+              {/* Hint Cmd+K visible en desktop pour faire découvrir la palette */}
+              <CommandPaletteHint />
               <ClientSwitcher />
             </div>
           </div>
@@ -147,5 +149,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
     </div>
+  );
+}
+
+/**
+ * Pastille discrète Cmd+K dans le ruban du haut.
+ * Pure visuelle — la palette s'ouvre via le keyboard shortcut écouté dans
+ * CommandPalette. Cliquer dessus déclenche un event keydown synthétique.
+ */
+function CommandPaletteHint() {
+  const isMac =
+    typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+  function open() {
+    // Synthétise Cmd+K / Ctrl+K pour activer le listener
+    const event = new KeyboardEvent("keydown", {
+      key: "k",
+      metaKey: isMac,
+      ctrlKey: !isMac,
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+  }
+  return (
+    <button
+      type="button"
+      onClick={open}
+      aria-label="Ouvrir la palette de recherche"
+      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-zinc-100 transition-colors text-xs border border-white/10"
+    >
+      <span>Rechercher…</span>
+      <kbd className="inline-flex items-center px-1 rounded border border-white/20 bg-white/5 text-[9px] font-medium tabular-nums">
+        {isMac ? "⌘K" : "Ctrl K"}
+      </kbd>
+    </button>
   );
 }
