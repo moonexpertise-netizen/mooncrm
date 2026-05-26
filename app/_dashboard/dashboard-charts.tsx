@@ -1,0 +1,593 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarClock,
+  Clock,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Legend,
+  Line,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ComposedChart,
+} from "recharts";
+import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
+import type { DashboardData } from "./dashboard-data";
+
+/**
+ * Composant client du dashboard. Reçoit toutes les données pré-agrégées
+ * en props et rend 6 sections de BI :
+ *
+ *  1. KPI cards top (4 indicateurs synthétiques)
+ *  2. Pipeline funnel (bar chart cliquable)
+ *  3. Signatures 12 mois (composed chart : barres + ligne cumul YTD)
+ *  4. Top 10 clients par ARR (liste cliquable)
+ *  5. Production à risque (3 voyants alerte)
+ *  6. Mix activité (donut)
+ */
+export default function DashboardCharts({ data }: { data: DashboardData }) {
+  return (
+    <div className="space-y-6">
+      <KpiCards kpi={data.kpi} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <PipelineFunnel pipeline={data.pipeline} />
+        <SignaturesParMois signaturesParMois={data.signaturesParMois} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <TopClients topClients={data.topClients} />
+        <ProductionRisque risque={data.productionRisque} />
+        <MixActivite mixActivite={data.mixActivite} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+//  KPI Cards
+// ============================================================================
+
+function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KpiCard
+        label="Clients actifs"
+        value={kpi.clientsActifs.toString()}
+        sub="LDM signée · interne · sous-traitance"
+        icon={<Users className="h-4 w-4" />}
+        href="/clients"
+      />
+      <KpiCard
+        label="MRR"
+        value={fmtEuro(kpi.mrr)}
+        sub={`ARR ${fmtEuro(kpi.arr)}`}
+        icon={<TrendingUp className="h-4 w-4" />}
+        accent="gold"
+      />
+      <KpiCard
+        label="Signatures du mois"
+        value={kpi.signaturesCeMois.toString()}
+        sub={`${fmtEuro(kpi.arrSigneCeMois)} ARR signé`}
+        icon={<CalendarClock className="h-4 w-4" />}
+        accent="emerald"
+      />
+      <KpiCard
+        label="ARR / client"
+        value={
+          kpi.clientsActifs > 0
+            ? fmtEuro(Math.round(kpi.arr / kpi.clientsActifs))
+            : "—"
+        }
+        sub="moyenne par dossier actif"
+        icon={<TrendingUp className="h-4 w-4" />}
+      />
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  icon,
+  href,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: React.ReactNode;
+  href?: string;
+  accent?: "gold" | "emerald";
+}) {
+  const accentClass = accent === "gold"
+    ? "text-[hsl(var(--gold-dark))]"
+    : accent === "emerald"
+    ? "text-emerald-600"
+    : "text-zinc-900";
+  const content = (
+    <>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+          {label}
+        </span>
+        <span className="text-zinc-400">{icon}</span>
+      </div>
+      <div className={cn("text-2xl font-semibold mt-1 tabular-nums", accentClass)}>
+        {value}
+      </div>
+      {sub && <div className="text-[11px] text-zinc-500 mt-0.5 truncate">{sub}</div>}
+    </>
+  );
+  return href ? (
+    <Link
+      href={href}
+      className="block rounded-lg border bg-card px-4 py-3 hover:border-[hsl(var(--gold))]/60 hover:shadow-sm transition-all"
+    >
+      {content}
+    </Link>
+  ) : (
+    <div className="rounded-lg border bg-card px-4 py-3">{content}</div>
+  );
+}
+
+// ============================================================================
+//  Pipeline funnel
+// ============================================================================
+
+function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
+  const router = useRouter();
+  const [mode, setMode] = useState<"count" | "arr">("count");
+
+  // Filtrer les étapes à 0 pour la lisibilité (mais on les garde si toutes à 0)
+  const visible = pipeline.filter((p) => p.count > 0);
+  const display = visible.length > 0 ? visible : pipeline;
+
+  const data = display.map((p) => ({
+    name: shortLabel(p.statut),
+    full: p.statut,
+    value: mode === "count" ? p.count : p.arr,
+    color: p.color,
+  }));
+
+  function onBarClick(payload: unknown) {
+    const data = payload as { full?: string } | undefined;
+    if (!data?.full) return;
+    router.push(`/clients?pipeline=${encodeURIComponent(data.full)}`);
+  }
+
+  return (
+    <section className="rounded-lg border bg-card p-4">
+      <header className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-900">Pipeline</h2>
+          <p className="text-[11px] text-zinc-500">
+            Clique sur une barre pour filtrer les clients
+          </p>
+        </div>
+        <div className="flex items-center gap-1 text-[10px]">
+          <SegToggle
+            options={[
+              { value: "count", label: "Nb" },
+              { value: "arr", label: "€" },
+            ]}
+            value={mode}
+            onChange={(v) => setMode(v as "count" | "arr")}
+          />
+        </div>
+      </header>
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 12, right: 8, left: -8, bottom: 30 }}>
+            <XAxis
+              dataKey="name"
+              angle={-25}
+              textAnchor="end"
+              interval={0}
+              tick={{ fontSize: 10, fill: "#71717a" }}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: "#71717a" }}
+              tickFormatter={(v) =>
+                mode === "arr" ? `${Math.round(v / 1000)}k€` : v.toString()
+              }
+            />
+            <Tooltip
+              cursor={{ fill: "rgba(0,0,0,0.04)" }}
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const p = payload[0].payload as { full: string; value: number };
+                return (
+                  <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
+                    <div className="font-medium">{p.full}</div>
+                    <div className="text-zinc-600 tabular-nums">
+                      {mode === "arr" ? fmtEuro(p.value) : `${p.value} dossier${p.value > 1 ? "s" : ""}`}
+                    </div>
+                  </div>
+                );
+              }}
+            />
+            <Bar
+              dataKey="value"
+              radius={[4, 4, 0, 0]}
+              cursor="pointer"
+              onClick={onBarClick}
+              label={{ position: "top", fontSize: 10, fill: "#52525b" }}
+            >
+              {data.map((d, i) => (
+                <Cell key={i} fill={d.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+//  Signatures par mois (12 derniers mois)
+// ============================================================================
+
+function SignaturesParMois({
+  signaturesParMois,
+}: {
+  signaturesParMois: DashboardData["signaturesParMois"];
+}) {
+  const [mode, setMode] = useState<"count" | "arr">("count");
+
+  const data = signaturesParMois.map((m) => ({
+    month: m.monthLabel,
+    value: mode === "count" ? m.count : m.arr,
+    cumul: mode === "count" ? m.cumulCountYtd : m.cumulArrYtd,
+  }));
+
+  return (
+    <section className="rounded-lg border bg-card p-4">
+      <header className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-900">
+            Signatures · 12 derniers mois
+          </h2>
+          <p className="text-[11px] text-zinc-500">
+            Barres = mois · ligne = cumul YTD (reset au 1er janvier)
+          </p>
+        </div>
+        <SegToggle
+          options={[
+            { value: "count", label: "Nb" },
+            { value: "arr", label: "€" },
+          ]}
+          value={mode}
+          onChange={(v) => setMode(v as "count" | "arr")}
+        />
+      </header>
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 12, right: 8, left: -8, bottom: 16 }}>
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 10, fill: "#71717a" }}
+              interval={0}
+              angle={-25}
+              textAnchor="end"
+            />
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 10, fill: "#71717a" }}
+              tickFormatter={(v) =>
+                mode === "arr" ? `${Math.round(v / 1000)}k€` : v.toString()
+              }
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fontSize: 10, fill: "#a3a3a3" }}
+              tickFormatter={(v) =>
+                mode === "arr" ? `${Math.round(v / 1000)}k€` : v.toString()
+              }
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const v = payload[0]?.value as number;
+                const c = payload[1]?.value as number;
+                return (
+                  <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
+                    <div className="font-medium">{label}</div>
+                    <div className="text-zinc-700 tabular-nums">
+                      Mois : {mode === "arr" ? fmtEuro(v) : v}
+                    </div>
+                    <div className="text-zinc-500 tabular-nums">
+                      Cumul YTD : {mode === "arr" ? fmtEuro(c) : c}
+                    </div>
+                  </div>
+                );
+              }}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+              iconType="circle"
+            />
+            <Bar
+              yAxisId="left"
+              dataKey="value"
+              fill="hsl(34, 32%, 52%)"
+              radius={[4, 4, 0, 0]}
+              name="Mois"
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="cumul"
+              stroke="#10b981"
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              name="Cumul YTD"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+//  Top 10 clients
+// ============================================================================
+
+function TopClients({ topClients }: { topClients: DashboardData["topClients"] }) {
+  const max = Math.max(...topClients.map((c) => c.arr ?? 0), 1);
+
+  return (
+    <section className="rounded-lg border bg-card p-4">
+      <header className="mb-3">
+        <h2 className="text-sm font-semibold text-zinc-900">Top 10 clients · ARR</h2>
+        <p className="text-[11px] text-zinc-500">Clic = ouvre la fiche</p>
+      </header>
+      {topClients.length === 0 ? (
+        <div className="text-xs text-zinc-400 text-center py-8">Aucun client actif.</div>
+      ) : (
+        <ul className="space-y-1.5">
+          {topClients.map((c) => {
+            const pct = ((c.arr ?? 0) / max) * 100;
+            return (
+              <li key={c.id}>
+                <Link
+                  href={`/clients/${c.slug}`}
+                  className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50 transition-colors"
+                >
+                  <div className="flex items-baseline justify-between gap-2 mb-1">
+                    <span className="text-xs font-medium text-zinc-800 truncate group-hover/row:text-[hsl(var(--gold-dark))]">
+                      {c.denomination}
+                    </span>
+                    <span className="text-[11px] tabular-nums text-zinc-700 shrink-0">
+                      {fmtEuro(c.arr)}
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
+                    <div
+                      className="h-full bg-[hsl(var(--gold))]/70 group-hover/row:bg-[hsl(var(--gold))] transition-colors"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ============================================================================
+//  Production à risque
+// ============================================================================
+
+function ProductionRisque({
+  risque,
+}: {
+  risque: DashboardData["productionRisque"];
+}) {
+  return (
+    <section className="rounded-lg border bg-card p-4">
+      <header className="mb-3">
+        <h2 className="text-sm font-semibold text-zinc-900">Production à risque</h2>
+        <p className="text-[11px] text-zinc-500">Obligations non terminées</p>
+      </header>
+      <div className="space-y-2">
+        <RisqueRow
+          label="Échéances dépassées"
+          value={risque.enRetard}
+          color="rose"
+          icon={<AlertTriangle className="h-4 w-4" />}
+          href="/obligations"
+        />
+        <RisqueRow
+          label="Échéance ≤ 7 jours"
+          value={risque.sous7Jours}
+          color="amber"
+          icon={<Clock className="h-4 w-4" />}
+          href="/obligations"
+        />
+        <RisqueRow
+          label="Échéance ≤ 30 jours"
+          value={risque.sous30Jours}
+          color="blue"
+          icon={<CalendarClock className="h-4 w-4" />}
+          href="/obligations"
+        />
+      </div>
+    </section>
+  );
+}
+
+function RisqueRow({
+  label,
+  value,
+  color,
+  icon,
+  href,
+}: {
+  label: string;
+  value: number;
+  color: "rose" | "amber" | "blue";
+  icon: React.ReactNode;
+  href: string;
+}) {
+  const palette = {
+    rose: "bg-rose-50 text-rose-700 border-rose-200",
+    amber: "bg-amber-50 text-amber-700 border-amber-200",
+    blue: "bg-blue-50 text-blue-700 border-blue-200",
+  } as const;
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 px-3 py-2 rounded-md border transition-all hover:shadow-sm",
+        value > 0 ? palette[color] : "bg-zinc-50 text-zinc-400 border-zinc-100"
+      )}
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="text-xs flex-1 font-medium">{label}</span>
+      <span className="text-base font-semibold tabular-nums">{value}</span>
+      <ArrowRight className="h-3 w-3 opacity-60" />
+    </Link>
+  );
+}
+
+// ============================================================================
+//  Mix activité (donut)
+// ============================================================================
+
+function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"] }) {
+  // Palette MOON : gold + déclinaisons + neutres
+  const COLORS = [
+    "hsl(34, 32%, 52%)", // gold
+    "#10b981",
+    "#3b82f6",
+    "#8b5cf6",
+    "#f59e0b",
+    "#06b6d4",
+    "#ef4444",
+    "#84cc16",
+    "#a1a1aa",
+  ];
+
+  return (
+    <section className="rounded-lg border bg-card p-4">
+      <header className="mb-3">
+        <h2 className="text-sm font-semibold text-zinc-900">Mix activité</h2>
+        <p className="text-[11px] text-zinc-500">
+          Répartition par secteur · dossiers actifs
+        </p>
+      </header>
+      {mixActivite.length === 0 ? (
+        <div className="text-xs text-zinc-400 text-center py-8">
+          Pas de données.
+        </div>
+      ) : (
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={mixActivite}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={40}
+                outerRadius={70}
+                paddingAngle={2}
+              >
+                {mixActivite.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const p = payload[0] as { name: string; value: number };
+                  return (
+                    <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-zinc-600 tabular-nums">
+                        {p.value} dossier{p.value > 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Legend
+                layout="vertical"
+                verticalAlign="middle"
+                align="right"
+                wrapperStyle={{ fontSize: 10, paddingLeft: 8, lineHeight: "14px" }}
+                iconType="circle"
+                iconSize={8}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ============================================================================
+//  Helpers
+// ============================================================================
+
+function shortLabel(statut: string): string {
+  // Retire le préfixe "N - " (chiffre ou Z) pour gain de place
+  return statut.replace(/^[0-9Z] - /, "");
+}
+
+// Toggle segmenté Nb/€
+function SegToggle<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-50 p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "px-2 py-0.5 text-[11px] font-medium rounded transition-colors",
+            value === o.value
+              ? "bg-white text-zinc-900 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-900"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Couleurs cohérence : la sidebar a déjà PIPELINE_COLORS, mais Recharts a besoin
+// de hex. Le data loader fournit la couleur hex via `color`. PIPELINE_COLORS
+// reste utilisé ailleurs (badges Tailwind).
+void PIPELINE_COLORS;
