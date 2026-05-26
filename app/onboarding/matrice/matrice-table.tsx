@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -153,24 +153,25 @@ export default function MatriceTable({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("pct");
 
-  // Optimistic state : la matrice subit beaucoup d'updates
-  // (1 par clic cellule). useOptimistic évite l'attente serveur.
+  // State local + sync via prop : pattern plus fiable que React useOptimistic
+  // ici, parce que useOptimistic revert à la fin de la transition or
+  // router.refresh() ne bloque pas la transition. Cf. editable.tsx qui
+  // utilise exactement ce pattern depuis longtemps en prod.
   type Patch =
     | { kind: "task"; clientId: string; taskIdx: number; statut_logique: StatutLogique; statut_detail: string | null }
     | { kind: "tns"; clientId: string; gestion_tns: boolean | null }
     | { kind: "origine"; clientId: string; origine: string | null };
 
-  const [optimisticRows, applyOptimistic] = useOptimistic<MatriceRow[], Patch>(
-    rows,
-    (state, patch) =>
+  const [localRows, setLocalRows] = useState<MatriceRow[]>(rows);
+  // Re-sync quand le serveur revient avec de nouvelles données (router.refresh)
+  useEffect(() => setLocalRows(rows), [rows]);
+
+  function applyPatch(patch: Patch) {
+    setLocalRows((state) =>
       state.map((r) => {
         if (r.id !== patch.clientId) return r;
-        if (patch.kind === "tns") {
-          return { ...r, gestion_tns: patch.gestion_tns };
-        }
-        if (patch.kind === "origine") {
-          return { ...r, origine: patch.origine };
-        }
+        if (patch.kind === "tns") return { ...r, gestion_tns: patch.gestion_tns };
+        if (patch.kind === "origine") return { ...r, origine: patch.origine };
         // patch.kind === "task"
         const cell = r.tasks[patch.taskIdx];
         if (!cell) return r;
@@ -191,15 +192,15 @@ export default function MatriceTable({
         }
         return { ...r, tasks: newTasks, done, total };
       })
-  );
+    );
+  }
 
   const [, startTransition] = useTransition();
 
-  // IMPORTANT : router.refresh() après chaque action serveur.
-  // React `useOptimistic` revient à la valeur prop à la fin de la
-  // transition ; sans refresh, on retombe sur l'ancienne donnée. Le refresh
-  // déclenche un re-fetch RSC en arrière-plan → la prop se met à jour
-  // → la sync optimistic→prop devient invisible.
+  // Pattern : (1) applyPatch immédiat = UI met à jour tout de suite,
+  // (2) action serveur en transition, (3) router.refresh propage la donnée
+  // serveur → useEffect resync localRows. Si le refresh ne s'est pas
+  // propagé immédiatement, le state local reste correct (pas de revert).
   function onPickStatus(
     clientId: string,
     taskIdx: number,
@@ -207,43 +208,39 @@ export default function MatriceTable({
     libelle: string,
     statut_logique: StatutLogique
   ) {
+    applyPatch({ kind: "task", clientId, taskIdx, statut_logique, statut_detail: libelle });
+    setOpenPicker(null);
     startTransition(async () => {
-      applyOptimistic({ kind: "task", clientId, taskIdx, statut_logique, statut_detail: libelle });
       await updateOnboardingTaskStatus(taskId, libelle);
       router.refresh();
     });
-    setOpenPicker(null);
   }
 
   function onResetStatus(clientId: string, taskIdx: number, taskId: string) {
+    applyPatch({ kind: "task", clientId, taskIdx, statut_logique: "A_FAIRE", statut_detail: null });
+    setOpenPicker(null);
     startTransition(async () => {
-      applyOptimistic({ kind: "task", clientId, taskIdx, statut_logique: "A_FAIRE", statut_detail: null });
       await updateOnboardingTaskStatus(taskId, null);
       router.refresh();
     });
-    setOpenPicker(null);
   }
 
   function onSetTns(clientId: string, value: boolean | null) {
+    applyPatch({ kind: "tns", clientId, gestion_tns: value });
+    setOpenTnsPicker(null);
     startTransition(async () => {
-      applyOptimistic({ kind: "tns", clientId, gestion_tns: value });
       await setGestionTns(clientId, value);
-      // À l'activation TNS, de nouvelles tâches sont créées côté serveur
-      // (previ_tns, affiliation_tns) — le refresh repeuple la matrice.
       router.refresh();
     });
-    setOpenTnsPicker(null);
   }
 
   function onSetOrigineRow(clientId: string, value: string | null) {
+    applyPatch({ kind: "origine", clientId, origine: value });
+    setOpenOriginePicker(null);
     startTransition(async () => {
-      applyOptimistic({ kind: "origine", clientId, origine: value });
       await setOrigine(clientId, value);
-      // À chaque changement d'origine, les tâches conditionnelles
-      // (depot_kbis_banque ou confrere) peuvent être ajoutées : refresh.
       router.refresh();
     });
-    setOpenOriginePicker(null);
   }
 
   // Picker state : 1 popover global (1 ouvert à la fois)
@@ -252,8 +249,8 @@ export default function MatriceTable({
   const [openOriginePicker, setOpenOriginePicker] = useState<string | null>(null);
 
   const annotated = useMemo(
-    () => optimisticRows.map((r) => ({ ...r, type: origineToType(r.origine) })),
-    [optimisticRows]
+    () => localRows.map((r) => ({ ...r, type: origineToType(r.origine) })),
+    [localRows]
   );
 
   const filtered = useMemo(() => {

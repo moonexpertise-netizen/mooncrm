@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageSquare } from "lucide-react";
@@ -90,17 +90,23 @@ export default function TrackerTable({
   const tableRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Optimistic state pour les cellules · patch partiel appliqué immédiatement,
-  // remplacé par le serveur au prochain refresh.
+  // State local + sync via prop. useOptimistic ne joue pas bien avec
+  // router.refresh() (revert à la fin de la transition, le refresh n'a pas
+  // forcément propagé la donnée serveur). Le state local reste correct et
+  // le useEffect re-sync quand les props arrivent.
   type Patch = {
     obligationId: string;
     statut_logique?: StatutLogique;
     statut_detail?: string | null;
     note?: string | null;
   };
-  const [optimisticRows, applyOptimistic] = useOptimistic<TrackerRow[], Patch>(
-    rows,
-    (state, patch) =>
+  const [localRows, setLocalRows] = useState<TrackerRow[]>(rows);
+  useEffect(() => setLocalRows(rows), [rows]);
+
+  // Stable (useCallback) pour que les callbacks qui en dépendent (onPick) le
+  // restent eux aussi, et que StatusCell mémo continue de fonctionner.
+  const applyPatch = useCallback((patch: Patch) => {
+    setLocalRows((state) =>
       state.map((r) => ({
         ...r,
         cells: r.cells.map((c) =>
@@ -114,7 +120,8 @@ export default function TrackerTable({
             : c
         ),
       }))
-  );
+    );
+  }, []);
 
   // Résolution du focus (`clientId_TYPE_periode`) -> cellId (`clientId|colKey`)
   useEffect(() => {
@@ -164,7 +171,7 @@ export default function TrackerTable({
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const hasStatusFilter = statusFilter.size > 0;
-    return optimisticRows.filter((r) => {
+    return localRows.filter((r) => {
       if (s) {
         const hay = `${r.denomination} ${r.siren ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
@@ -183,7 +190,7 @@ export default function TrackerTable({
       }
       return true;
     });
-  }, [optimisticRows, search, statusFilter, visibleColKeysSet]);
+  }, [localRows, search, statusFilter, visibleColKeysSet]);
 
   // Bornes nav (déclarées tôt pour être dispo dans tous les hooks/handlers)
   const maxRow = filtered.length - 1;
@@ -381,13 +388,13 @@ export default function TrackerTable({
     }
 
     if (byLibelle.size === 0) return;
-    startTransition(async () => {
-      // Patch optimiste
-      for (const [libelle, { ids, statut_logique }] of byLibelle) {
-        for (const id of ids) {
-          applyOptimistic({ obligationId: id, statut_logique, statut_detail: libelle });
-        }
+    // Patch local immédiat (hors transition pour ne pas être perdu)
+    for (const [libelle, { ids, statut_logique }] of byLibelle) {
+      for (const id of ids) {
+        applyPatch({ obligationId: id, statut_logique, statut_detail: libelle });
       }
+    }
+    startTransition(async () => {
       // Server : 1 appel par libellé
       await Promise.all(
         [...byLibelle].map(([libelle, { ids }]) =>
@@ -689,23 +696,22 @@ export default function TrackerTable({
     // Optimistic : applique le patch à chaque cellule. Pour libelle=null on
     // ne sait pas le défaut par type, on laisse le serveur trancher (on
     // affichera A_FAIRE/statut_detail à null en attendant).
-    startTransition(async () => {
-      for (const oid of obligationIds) {
-        // Look up le bon statut_logique optimistement
-        let statut_logique: StatutLogique = "A_FAIRE";
-        if (libelle) {
-          // chercher type via filtered
-          for (const r of filtered) {
-            const c = r.cells.find((cc) => cc.obligationId === oid);
-            if (c) {
-              const opt = (statusOptions[c.type] ?? []).find((o) => o.libelle === libelle);
-              if (opt) statut_logique = opt.statut_logique;
-              break;
-            }
+    // Patch local immédiat
+    for (const oid of obligationIds) {
+      let statut_logique: StatutLogique = "A_FAIRE";
+      if (libelle) {
+        for (const r of filtered) {
+          const c = r.cells.find((cc) => cc.obligationId === oid);
+          if (c) {
+            const opt = (statusOptions[c.type] ?? []).find((o) => o.libelle === libelle);
+            if (opt) statut_logique = opt.statut_logique;
+            break;
           }
         }
-        applyOptimistic({ obligationId: oid, statut_logique, statut_detail: libelle });
       }
+      applyPatch({ obligationId: oid, statut_logique, statut_detail: libelle });
+    }
+    startTransition(async () => {
       await bulkUpdateObligationStatus(obligationIds, libelle);
       router.refresh();
     });
@@ -760,26 +766,26 @@ export default function TrackerTable({
         statut_logique: (opt?.statut_logique as StatutLogique) ?? "A_FAIRE",
         statut_detail: libelle,
       };
+      applyPatch(patch);
+      setOpenCellId(null);
       startTransition(async () => {
-        applyOptimistic(patch);
-        setOpenCellId(null);
         await updateObligationStatus(obligationId, libelle);
         router.refresh();
       });
     },
-    [statusOptions, applyOptimistic, router]
+    [statusOptions, applyPatch, router]
   );
 
   const onReset = useCallback(
     (obligationId: string) => {
+      applyPatch({ obligationId, statut_logique: "A_FAIRE", statut_detail: null });
+      setOpenCellId(null);
       startTransition(async () => {
-        applyOptimistic({ obligationId, statut_logique: "A_FAIRE", statut_detail: null });
-        setOpenCellId(null);
         await updateObligationStatus(obligationId, null);
         router.refresh();
       });
     },
-    [applyOptimistic, router]
+    [applyPatch, router]
   );
 
   // (Le système de notes legacy est remplacé par les commentaires latéraux.)

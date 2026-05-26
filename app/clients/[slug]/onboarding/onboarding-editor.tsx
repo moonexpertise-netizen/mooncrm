@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn, statutColorClass } from "@/lib/utils";
 import { updateOnboardingTaskStatus } from "@/app/onboarding/actions";
@@ -52,9 +52,16 @@ export default function OnboardingEditor({
     statut_logique?: StatutLogique;
     statut_detail?: string | null;
   };
-  const [optimisticTasks, applyOptimistic] = useOptimistic<OnboardingTask[], Patch>(
-    tasks,
-    (state, patch) =>
+
+  // State local + sync via prop : pattern fiable, useOptimistic ne joue pas
+  // bien avec router.refresh() (reverts à la fin de la transition, le
+  // refresh n'a pas encore propagé la nouvelle donnée serveur → on retombe
+  // sur l'ancien statut). Cf. editable.tsx qui utilise exactement ce pattern.
+  const [localTasks, setLocalTasks] = useState<OnboardingTask[]>(tasks);
+  useEffect(() => setLocalTasks(tasks), [tasks]);
+
+  function applyPatch(patch: Patch) {
+    setLocalTasks((state) =>
       state.map((t) =>
         t.id === patch.taskId
           ? {
@@ -66,27 +73,26 @@ export default function OnboardingEditor({
             }
           : t
       )
-  );
+    );
+  }
 
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const router = useRouter();
 
-  // router.refresh() : sans ça, `useOptimistic` revient à la valeur prop à la
-  // fin de la transition et on retombe sur l'ancien statut jusqu'à un reload.
   function onPick(taskId: string, libelle: string, statut_logique: StatutLogique) {
+    applyPatch({ taskId, statut_logique, statut_detail: libelle });
+    setOpenTaskId(null);
     startTransition(async () => {
-      applyOptimistic({ taskId, statut_logique, statut_detail: libelle });
-      setOpenTaskId(null);
       await updateOnboardingTaskStatus(taskId, libelle);
       router.refresh();
     });
   }
 
   function onReset(taskId: string) {
+    applyPatch({ taskId, statut_logique: "A_FAIRE", statut_detail: null });
+    setOpenTaskId(null);
     startTransition(async () => {
-      applyOptimistic({ taskId, statut_logique: "A_FAIRE", statut_detail: null });
-      setOpenTaskId(null);
       await updateOnboardingTaskStatus(taskId, null);
       router.refresh();
     });
@@ -94,7 +100,7 @@ export default function OnboardingEditor({
 
   return (
     <div className="divide-y divide-zinc-100">
-      {optimisticTasks.map((t, i) => (
+      {localTasks.map((t, i) => (
         <TaskRow
           key={t.id}
           task={t}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
@@ -96,38 +96,45 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     currentHoverColRef.current = key;
   }
 
-  // Optimistic state : patch immédiat de la grille avant le retour serveur.
+  // State local + sync via prop. useOptimistic ne joue pas bien avec
+  // router.refresh() (revert à la fin de la transition). Le state local
+  // reste correct ; le useEffect re-sync quand le serveur retourne.
   type Patch =
     | { kind: "sub"; clientId: string; key: SubKey; active: boolean }
     | { kind: "tva"; clientId: string; mode: TvaMode | null }
     | { kind: "regime"; clientId: string; regime: "IR" | "IS" | null };
-  const [optimisticRows, applyPatch] = useOptimistic<Row[], Patch>(rows, (state, p) =>
-    state.map((r) => {
-      if (r.id !== p.clientId) return r;
-      if (p.kind === "sub") {
-        return { ...r, subs: { ...r.subs, [p.key]: p.active } };
-      }
-      if (p.kind === "tva") {
-        return { ...r, tvaMode: p.mode };
-      }
-      if (p.kind === "regime") {
-        const next: Row = { ...r, regime: p.regime };
-        if (p.regime === "IR") {
-          next.subs = { ...r.subs, IS_ACOMPTE: false, IS_SOLDE: false };
-        } else if (p.regime === "IS") {
-          next.subs = { ...r.subs, IS_SOLDE: true };
+  const [localRows, setLocalRows] = useState<Row[]>(rows);
+  useEffect(() => setLocalRows(rows), [rows]);
+
+  function applyPatch(p: Patch) {
+    setLocalRows((state) =>
+      state.map((r) => {
+        if (r.id !== p.clientId) return r;
+        if (p.kind === "sub") {
+          return { ...r, subs: { ...r.subs, [p.key]: p.active } };
         }
-        return next;
-      }
-      return r;
-    })
-  );
+        if (p.kind === "tva") {
+          return { ...r, tvaMode: p.mode };
+        }
+        if (p.kind === "regime") {
+          const next: Row = { ...r, regime: p.regime };
+          if (p.regime === "IR") {
+            next.subs = { ...r.subs, IS_ACOMPTE: false, IS_SOLDE: false };
+          } else if (p.regime === "IS") {
+            next.subs = { ...r.subs, IS_SOLDE: true };
+          }
+          return next;
+        }
+        return r;
+      })
+    );
+  }
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const hasRegime = regimeFilter.size > 0;
     const hasTva = tvaFilter.size > 0;
-    return optimisticRows.filter((r) => {
+    return localRows.filter((r) => {
       if (s) {
         const hay = `${r.denomination} ${r.siren ?? ""} ${r.groupe ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
@@ -142,7 +149,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
       }
       return true;
     });
-  }, [optimisticRows, search, regimeFilter, tvaFilter]);
+  }, [localRows, search, regimeFilter, tvaFilter]);
 
   function toggleRegime(v: "IR" | "IS" | "none") {
     setRegimeFilter((prev) => {
@@ -164,12 +171,12 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   function bulkColumn(key: SubKey, active: boolean) {
     const ids = filtered.map((r) => r.id);
     if (!ids.length) return;
+    for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
+    setColMenu(null);
     startTransition(async () => {
-      for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
       await bulkSetSubActive(ids, key, year, active);
       router.refresh();
     });
-    setColMenu(null);
   }
 
   function toggleRowSelection(id: string, e: React.MouseEvent) {
@@ -215,8 +222,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   }, []);
 
   function onToggleSub(clientId: string, key: SubKey, current: boolean) {
+    applyPatch({ kind: "sub", clientId, key, active: !current });
     startTransition(async () => {
-      applyPatch({ kind: "sub", clientId, key, active: !current });
       await setSubActive(clientId, key, year, !current);
       router.refresh();
     });
@@ -224,8 +231,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
 
   function onChangeTva(clientId: string, mode: TvaMode | "") {
     const nextMode = (mode || null) as TvaMode | null;
+    applyPatch({ kind: "tva", clientId, mode: nextMode });
     startTransition(async () => {
-      applyPatch({ kind: "tva", clientId, mode: nextMode });
       await setTva(clientId, year, nextMode);
       router.refresh();
     });
@@ -233,8 +240,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
 
   function onChangeRegime(clientId: string, r: "IR" | "IS" | "") {
     const nextRegime = (r || null) as "IR" | "IS" | null;
+    applyPatch({ kind: "regime", clientId, regime: nextRegime });
     startTransition(async () => {
-      applyPatch({ kind: "regime", clientId, regime: nextRegime });
       await setRegimeAction(clientId, year, nextRegime);
       router.refresh();
     });
@@ -243,8 +250,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   function bulkApply(key: SubKey, active: boolean) {
     if (!selectedClientIds.size) return;
     const ids = [...selectedClientIds];
+    for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
     startTransition(async () => {
-      for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
       await bulkSetSubActive(ids, key, year, active);
       router.refresh();
     });
@@ -287,12 +294,12 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     const n = selectedClientIds.size;
     if (!confirm(`Désactiver TOUTES les obligations ${year} pour ${n} client${n > 1 ? "s" : ""} ?\n\nL'historique d'échéances est conservé. Tu peux réactiver à tout moment.`)) return;
     const ids = [...selectedClientIds];
+    // Patch local immédiat : toutes les cellules de ces clients passent à false
+    const allKeys = COLS.map((c) => c.key);
+    for (const id of ids) {
+      for (const k of allKeys) applyPatch({ kind: "sub", clientId: id, key: k, active: false });
+    }
     startTransition(async () => {
-      // Patch optimiste : toutes les cellules de ces clients passent à false
-      const allKeys = COLS.map((c) => c.key);
-      for (const id of ids) {
-        for (const k of allKeys) applyPatch({ kind: "sub", clientId: id, key: k, active: false });
-      }
       await bulkDeactivateAll(ids, year);
       router.refresh();
     });
