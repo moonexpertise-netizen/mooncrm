@@ -676,11 +676,12 @@ function BucketBtn({
     <button
       onClick={onClick}
       className={cn(
-        "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2",
+        "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 border",
         active
-          ? // CTA actif : noir en light, blanc casse en dark (texte inverse)
-            "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 shadow-card"
-          : "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900"
+          ? // Actif : fond plus marque + bordure visible + font semibold.
+            // Subtle mais clairement distinct des non-actifs.
+            "bg-zinc-100 dark:bg-white/[0.10] text-zinc-900 dark:text-zinc-50 border-zinc-300 dark:border-white/20 font-semibold shadow-sm"
+          : "bg-white dark:bg-transparent text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-200"
       )}
     >
       {tone && (
@@ -690,11 +691,9 @@ function BucketBtn({
       <span
         className={cn(
           "tabular-nums text-xs font-medium px-1.5 py-0.5 rounded",
-          // Quand actif : le bouton a un fond blanc casse en dark, donc le
-          // chiffre doit etre sombre (pas blanc, sinon invisible).
           active
-            ? "bg-white/15 dark:bg-zinc-900/15 text-white/90 dark:text-zinc-900"
-            : "bg-zinc-100 text-zinc-600"
+            ? "bg-zinc-200 dark:bg-white/[0.14] text-zinc-700 dark:text-zinc-200"
+            : "bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400"
         )}
       >
         {count}
