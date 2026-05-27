@@ -35,7 +35,7 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           {title}
         </h1>
         {description && (
@@ -77,7 +77,7 @@ export function SectionTitle({
             {eyebrow}
           </div>
         )}
-        <h2 className="text-lg font-semibold tracking-tight text-zinc-900">
+        <h2 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           {title}
         </h2>
         {description && (
