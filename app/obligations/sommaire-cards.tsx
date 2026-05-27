@@ -134,16 +134,20 @@ export default function SommaireCards({
         )}
       </div>
 
-      {/* Sections par groupe — chaque section = liste de rows horizontales */}
+      {/* Sections par groupe — chaque groupe = une card distincte avec
+          header intégré + liste de trackers. Donne un effet "blocs separes". */}
       {grouped.map(({ group, rows: groupRows }) => {
         const gTodo = groupRows.reduce((s, r) => s + r.todo, 0);
         const gWip = groupRows.reduce((s, r) => s + r.wip, 0);
         const gDone = groupRows.reduce((s, r) => s + r.done, 0);
         return (
-          <section key={group.id} className="space-y-2">
-            {/* En-tête de groupe : titre + récap inline */}
-            <header className="flex items-baseline justify-between gap-3 px-1">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
+          <section
+            key={group.id}
+            className="rounded-2xl border border-zinc-200/70 bg-white shadow-card overflow-hidden"
+          >
+            {/* Header intégré à la card : bandeau bg légèrement teinté */}
+            <header className="flex items-baseline justify-between gap-3 px-4 py-2.5 border-b border-zinc-100 bg-zinc-50/40">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
                 {group.label}
               </h2>
               <div className="text-[11px] text-zinc-400 tabular-nums">
@@ -161,8 +165,8 @@ export default function SommaireCards({
               </div>
             </header>
 
-            {/* Liste des rows */}
-            <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card divide-y divide-zinc-100 overflow-hidden">
+            {/* Liste des rows — pas de bordure ext, divides internes */}
+            <div className="divide-y divide-zinc-100">
               {groupRows.map((r) => (
                 <TrackerRow
                   key={r.slug}
@@ -282,17 +286,19 @@ function TrackerRow({
 
 function Counter({ value, color }: { value: number; color: "rose" | "amber" | "emerald" }) {
   const muted = value === 0;
+  // Plus de ring-1 (qui creait une bordure claire en dark autour de chaque
+  // pill). Juste un fond tinted + texte coloré. Notion-style.
   const palette = {
-    rose: "bg-rose-50 text-rose-700 ring-rose-100",
-    amber: "bg-amber-50 text-amber-700 ring-amber-100",
-    emerald: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    rose: "bg-rose-50 text-rose-700",
+    amber: "bg-amber-50 text-amber-700",
+    emerald: "bg-emerald-50 text-emerald-700",
   } as const;
   return (
     <div
       className={cn(
-        "min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums ring-1",
+        "min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums",
         muted
-          ? "bg-zinc-50 text-zinc-300 ring-zinc-100"
+          ? "bg-transparent text-zinc-400 dark:text-zinc-600"
           : palette[color]
       )}
     >
