@@ -364,14 +364,14 @@ h3 { font-weight: 600; }
    * grace au fond ~12% (contraste 9 pts minimum).
    * ================================================================ */
 
-  .dark .border-zinc-100 { border-color: hsl(0 0% 14.5%); }   /* #252525 quasi invisible mais perceptible */
-  .dark .border-zinc-200 { border-color: hsl(0 0% 16%); }     /* #292929 */
-  .dark .border-zinc-200\/70 { border-color: hsl(0 0% 16% / 0.85); }
-  .dark .border-zinc-200\/80 { border-color: hsl(0 0% 16% / 0.9); }
-  .dark .border-zinc-200\/60 { border-color: hsl(0 0% 16% / 0.75); }
+  .dark .border-zinc-100 { border-color: hsl(0 0% 13.5%); }   /* #222222 quasi invisible */
+  .dark .border-zinc-200 { border-color: hsl(0 0% 15%); }     /* #262626 */
+  .dark .border-zinc-200\/70 { border-color: hsl(0 0% 15% / 0.85); }
+  .dark .border-zinc-200\/80 { border-color: hsl(0 0% 15% / 0.9); }
+  .dark .border-zinc-200\/60 { border-color: hsl(0 0% 15% / 0.75); }
   .dark .border-zinc-300 { border-color: hsl(0 0% 22%); }     /* #383838 plus marque (input borders) */
-  .dark .divide-zinc-100 > * + * { border-color: hsl(0 0% 14.5%); }
-  .dark .divide-zinc-200 > * + * { border-color: hsl(0 0% 16%); }
+  .dark .divide-zinc-100 > * + * { border-color: hsl(0 0% 13.5%); }
+  .dark .divide-zinc-200 > * + * { border-color: hsl(0 0% 15%); }
   .dark .hover\:border-zinc-300:hover { border-color: hsl(0 0% 26%); }
   .dark .hover\:border-zinc-400:hover { border-color: hsl(0 0% 28%); }
 
