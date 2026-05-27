@@ -64,6 +64,34 @@ function useOptimistic<T>(serverValue: T): [T, (v: T) => void, () => void] {
   return [local, setLocal, () => setLocal(serverValue)];
 }
 
+/**
+ * Champs dont la modification impacte d'autres valeurs derivees affichees
+ * dans la page (MRR, ARR calcules cote DB via trigger, libelles, etc.).
+ * Pour ces champs on declenche un router.refresh() apres save pour que les
+ * valeurs derivees (hero MRR/ARR notamment) se mettent a jour sans reload.
+ * Les autres champs (denomination, adresse, mois_cloture...) n'ont pas
+ * besoin de refresh : l'optimistic update local suffit.
+ */
+const DERIVED_TRIGGER_FIELDS = new Set([
+  "honoraires_compta",
+  "type_honos_bilans",
+  "forfait_bilan",
+  "type_honos_jur",
+  "honoraires_jur",
+  "tdb_periode",
+  "tdb_honos_periode",
+  "forfait_pilotage",
+  "type_honos_creation",
+  "honoraires_creation",
+  "type_honos_reprise",
+  "honoraires_reprise",
+  "exceptionnel",
+  "pipeline_statut", // change le bucket clients/prospects, impacte aussi le hero badge
+  "regime", // IR/IS impacte les obligations affichees
+  "origine",
+  "debut_obligations", // cree/desactive des subscriptions
+]);
+
 function useSaver(clientId: string, field: string) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -74,6 +102,12 @@ function useSaver(clientId: string, field: string) {
     startTransition(async () => {
       try {
         await updateClient(clientId, { [field]: value });
+        // Refresh server-side seulement si le champ a des derives affiches
+        // (MRR/ARR, badges, obligations). Sinon on evite le re-fetch pour
+        // garder la saisie fluide (Benjamin tape 30 champs d'affilee).
+        if (DERIVED_TRIGGER_FIELDS.has(field)) {
+          router.refresh();
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         setError(msg);
@@ -354,6 +388,7 @@ export function EditableGroupe({
   label: string;
   options: string[];
 }) {
+  const router = useRouter();
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const [, startTransition] = useTransition();
@@ -372,8 +407,13 @@ export function EditableGroupe({
     startTransition(async () => {
       try {
         await setClientGroupe(clientId, newValue);
+        // Refresh server-side : on a peut-etre cree un nouveau groupe, et
+        // l'affichage du groupe dans le hero (badge a cote de la denomination)
+        // doit refleter le changement sans reload.
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
+        toastError(e, "Echec de la sauvegarde du groupe");
         rollback();
       }
     });

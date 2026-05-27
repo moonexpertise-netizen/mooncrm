@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
 import {
   addContactToClient,
   removeContactFromClient,
@@ -76,6 +78,7 @@ export default function ContactsCard({
 }
 
 function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const { confirm, ConfirmDialog } = useConfirm();
   const { alert, AlertDialog } = useAlert();
@@ -117,8 +120,13 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         } else if (field === "telephone") {
           await updateContact(row.contactId, { telephone: v || null });
         }
+        // Refresh : le hero (boutons LDM / Signature) prend `dirigeant` en
+        // prop a partir de loadContactsLink. Sans refresh, modifier le nom
+        // ou la civilite ne se repercute pas sur ces boutons sans reload.
+        router.refresh();
       } catch (e) {
         setDisplay(previous); // rollback
+        toastError(e, "Echec de la sauvegarde du contact");
         await alert({ title: "Erreur", description: (e as Error).message });
       }
     });
@@ -146,8 +154,12 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
     startTransition(async () => {
       try {
         await updateContact(row.contactId, { civilite: v });
+        // Civilite affichee dans le hero (LDM/Signature buttons) :
+        // refresh pour propager le changement sans reload.
+        router.refresh();
       } catch (e) {
         setDisplay(previous); // rollback
+        toastError(e, "Echec de la sauvegarde de la civilite");
         await alert({ title: "Erreur", description: (e as Error).message });
       }
     });
