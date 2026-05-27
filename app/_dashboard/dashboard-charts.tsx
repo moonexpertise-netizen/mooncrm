@@ -560,9 +560,10 @@ function RisqueRow({
 // ============================================================================
 
 function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"] }) {
-  // Repensé : liste verticale type "Top clients" plutot qu'un donut Recharts.
-  // Avantages : scannable sur mobile sans label qui deborde, hover lisible,
-  // "Autres" non cliquable (parce que ce n'est pas un filtre exploitable).
+  // Liste verticale type "Top clients", catégories métier MOON regroupées
+  // (pas de libellés NAF bruts, pas de catégorie "Autres"). Les noms de
+  // catégorie ne sont pas des filtres exploitables côté /clients : affichage
+  // statistique seul, pas de lien cliquable.
   const max = Math.max(...mixActivite.map((m) => m.value), 1);
   // Palette MOON gold + neutres — barres tinted en fonction de l'index
   const BAR_TONES = [
@@ -582,7 +583,7 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
       <header className="mb-4">
         <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Mix activité</h2>
         <p className="text-xs text-zinc-500 mt-0.5">
-          Répartition par secteur · dossiers actifs · clic pour filtrer
+          Répartition par secteur métier · dossiers actifs
         </p>
       </header>
       {mixActivite.length === 0 ? (
@@ -593,48 +594,24 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
         <ul className="space-y-1.5">
           {mixActivite.map((row, i) => {
             const pct = (row.value / max) * 100;
-            const isAutres = row.name === "Autres";
-            // "Autres" agrege plusieurs petites activites, pas un filtre exploitable
-            const href = isAutres ? null : `/clients?activite=${encodeURIComponent(row.name)}`;
             const barColor = BAR_TONES[i % BAR_TONES.length];
 
-            const content = (
-              <>
+            return (
+              <li key={row.name} className="block px-2 py-1.5 -mx-2 rounded-md">
                 <div className="flex items-baseline justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium text-zinc-800 truncate group-hover/row:text-zinc-900 dark:group-hover/row:text-zinc-50">
+                  <span className="text-xs font-medium text-zinc-800 dark:text-zinc-100 truncate">
                     {row.name}
                   </span>
-                  <span className="text-[11px] tabular-nums text-zinc-600 shrink-0">
+                  <span className="text-[11px] tabular-nums text-zinc-600 dark:text-zinc-400 shrink-0">
                     {row.value} dossier{row.value > 1 ? "s" : ""}
                   </span>
                 </div>
                 <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
                   <div
-                    className={cn(
-                      "h-full transition-colors opacity-70 dark:opacity-50 group-hover/row:opacity-100 dark:group-hover/row:opacity-80",
-                      barColor
-                    )}
+                    className={cn("h-full opacity-80 dark:opacity-60", barColor)}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-              </>
-            );
-
-            return (
-              <li key={row.name}>
-                {href ? (
-                  <Link
-                    href={href}
-                    className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50 transition-colors"
-                  >
-                    {content}
-                  </Link>
-                ) : (
-                  // "Autres" : pas de lien (agrégat non filtrable), pas de hover bg
-                  <div className="group/row block px-2 py-1.5 -mx-2 rounded-md cursor-default">
-                    {content}
-                  </div>
-                )}
               </li>
             );
           })}

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { categorieActivite } from "@/lib/activite-categorie";
 
 /**
  * Loader d'agrégats pour le dashboard d'accueil.
@@ -232,17 +233,18 @@ export async function loadDashboardData(): Promise<DashboardData> {
       pipeline_statut: c.pipeline_statut,
     }));
 
-  // --- Mix par activité (top 8 + Autre) ---
-  const activiteMap = new Map<string, number>();
+  // --- Mix par catégorie métier MOON (regroupements) ---
+  // On ne montre plus les libellés NAF bruts (trop granulaires) ni de
+  // catégorie "Autres" (cul-de-sac inutile). Chaque client est rangé dans
+  // sa catégorie métier via `categorieActivite(libelleNaf)`.
+  const categorieMap = new Map<string, number>();
   for (const c of actifs) {
-    const key = c.activite || "(non renseignée)";
-    activiteMap.set(key, (activiteMap.get(key) ?? 0) + 1);
+    const key = categorieActivite(c.activite);
+    categorieMap.set(key, (categorieMap.get(key) ?? 0) + 1);
   }
-  const activiteSorted = [...activiteMap.entries()].sort((a, b) => b[1] - a[1]);
-  const top8 = activiteSorted.slice(0, 8);
-  const reste = activiteSorted.slice(8).reduce((s, [, v]) => s + v, 0);
-  const mixActivite = top8.map(([name, value]) => ({ name, value }));
-  if (reste > 0) mixActivite.push({ name: "Autre", value: reste });
+  const mixActivite = [...categorieMap.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
 
   // --- Production à risque ---
   type OblRow = {
