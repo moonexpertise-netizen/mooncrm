@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Funnel_Display, Funnel_Sans } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { AppShell } from "./_components/app-shell";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "./_components/theme-provider";
@@ -59,6 +60,21 @@ export default function RootLayout({
         </a>
         <ThemeProvider>
           <AppShell>{children}</AppShell>
+          {/* Toasts globaux (succes / erreur / info) - style minimaliste, top-right.
+              Le theme suit automatiquement html.dark grace a theme="system". */}
+          <Toaster
+            position="top-right"
+            theme="system"
+            richColors
+            closeButton
+            duration={3500}
+            toastOptions={{
+              className: "text-sm",
+              style: {
+                fontFamily: "var(--font-sans), system-ui, sans-serif",
+              },
+            }}
+          />
         </ThemeProvider>
       </body>
     </html>
