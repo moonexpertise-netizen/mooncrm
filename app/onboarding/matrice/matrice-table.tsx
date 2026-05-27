@@ -624,11 +624,21 @@ function MatrixCell({
     if (!btn) return;
     const rect = (btn as HTMLElement).getBoundingClientRect();
     const POPOVER_HEIGHT = 280;
+    const POPOVER_WIDTH = 260;
+    const MARGIN = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const openUp = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+    // Clamp horizontal : evite que le popover sorte du viewport (mobile +
+    // cellules sur les bords). Le transform translate(-50%) recentre.
+    const rawLeft = rect.left + rect.width / 2;
+    const halfW = POPOVER_WIDTH / 2;
+    const clampedLeft = Math.max(
+      MARGIN + halfW,
+      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
+    );
     setPos({
-      left: rect.left + rect.width / 2,
+      left: clampedLeft,
       top: openUp ? rect.top : rect.bottom,
       openUp,
     });
@@ -807,7 +817,8 @@ function OrigineChip({
   const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
 
-  // Position fixe (sinon clippé par l'overflow horizontal du tableau)
+  // Position fixe (sinon clippé par l'overflow horizontal du tableau).
+  // Clamp horizontal pour mobile / chips en bord d'ecran.
   useEffect(() => {
     if (!isOpen || !ref.current) {
       setPos(null);
@@ -817,11 +828,17 @@ function OrigineChip({
     if (!btn) return;
     const rect = (btn as HTMLElement).getBoundingClientRect();
     const POPOVER_HEIGHT = 240;
+    const POPOVER_WIDTH = 220;
+    const MARGIN = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const openUp = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+    const clampedLeft = Math.max(
+      MARGIN,
+      Math.min(rect.left, window.innerWidth - MARGIN - POPOVER_WIDTH)
+    );
     setPos({
-      left: rect.left,
+      left: clampedLeft,
       top: openUp ? rect.top : rect.bottom,
       openUp,
     });
@@ -935,7 +952,8 @@ function TnsChip({
   const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
 
-  // Position fixe (sinon le popover est clippé par l'overflow du tableau)
+  // Position fixe (sinon le popover est clippé par l'overflow du tableau).
+  // Clamp horizontal pour mobile / chips en bord d'ecran.
   useEffect(() => {
     if (!isOpen || !ref.current) {
       setPos(null);
@@ -945,11 +963,17 @@ function TnsChip({
     if (!btn) return;
     const rect = (btn as HTMLElement).getBoundingClientRect();
     const POPOVER_HEIGHT = 160;
+    const POPOVER_WIDTH = 180;
+    const MARGIN = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const openUp = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+    const clampedLeft = Math.max(
+      MARGIN,
+      Math.min(rect.left, window.innerWidth - MARGIN - POPOVER_WIDTH)
+    );
     setPos({
-      left: rect.left,
+      left: clampedLeft,
       top: openUp ? rect.top : rect.bottom,
       openUp,
     });
