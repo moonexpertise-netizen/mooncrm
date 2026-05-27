@@ -701,7 +701,7 @@ function SortableEtapeCard({
 
         {/* Numéro */}
         <span className="inline-flex items-center justify-center min-w-[32px] h-[26px] px-1.5 rounded-full bg-zinc-100 text-zinc-600 text-xs font-semibold tabular-nums shrink-0">
-          {number || "·"}
+          {number || "-"}
         </span>
 
         {/* Étape (nom court) */}

@@ -422,7 +422,7 @@ function NewContactForm({
               placeholder="ex. Benjamin"
               className={cn(
                 "w-full px-2 py-1.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60",
-                prenom.trim() ? "border-zinc-300 bg-white" : "border-amber-300 bg-amber-50"
+                prenom.trim() ? "border-zinc-300 bg-white dark:border-white/[0.16] dark:bg-white/[0.04] dark:text-zinc-100" : "border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/[0.08] dark:text-zinc-100"
               )}
             />
           </label>
@@ -437,7 +437,7 @@ function NewContactForm({
               placeholder="ex. PEREZ"
               className={cn(
                 "w-full px-2 py-1.5 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60",
-                nom.trim() ? "border-zinc-300 bg-white" : "border-amber-300 bg-amber-50"
+                nom.trim() ? "border-zinc-300 bg-white dark:border-white/[0.16] dark:bg-white/[0.04] dark:text-zinc-100" : "border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/[0.08] dark:text-zinc-100"
               )}
             />
           </label>
@@ -457,7 +457,7 @@ function NewContactForm({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contact@…"
-              className="w-full px-2 py-1.5 rounded border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+              className="w-full px-2 py-1.5 rounded border border-zinc-300 bg-white dark:border-white/[0.16] dark:bg-white/[0.04] dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
             />
           </label>
           <label className="block">

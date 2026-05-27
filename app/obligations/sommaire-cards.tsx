@@ -261,7 +261,7 @@ function TrackerRow({
             <span>{fmtDateFr(row.prochaineEcheance)}</span>
           </>
         ) : (
-          <span className="text-zinc-300">·</span>
+          <span className="text-zinc-300">-</span>
         )}
       </div>
 

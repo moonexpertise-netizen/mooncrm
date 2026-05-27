@@ -183,7 +183,7 @@ function TaskRow({
 
   const matchedOption = options.find((o) => o.libelle === task.statut_detail);
   const colorClass = statutColorClass(task.statut_logique, matchedOption?.color);
-  const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "·";
+  const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "-";
 
   const grouped = useMemo(() => {
     const groups: Record<StatutLogique, OnboardingStatusOption[]> = {

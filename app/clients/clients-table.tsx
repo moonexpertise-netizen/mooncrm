@@ -359,18 +359,18 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                         {r.forme}
                       </span>
                     ) : (
-                      <span className="text-zinc-300">·</span>
+                      <span className="text-zinc-300">-</span>
                     )}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-zinc-600">
                   <Link href={href} className="block">
-                    {r.groupe_nom ?? <span className="text-zinc-300">·</span>}
+                    {r.groupe_nom ?? <span className="text-zinc-300">-</span>}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-zinc-600">
                   <Link href={href} className="block">
-                    {r.activite ?? <span className="text-zinc-300">·</span>}
+                    {r.activite ?? <span className="text-zinc-300">-</span>}
                   </Link>
                 </td>
                 <td className="px-4 py-3">
@@ -378,7 +378,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     {r.pipeline_statut ? (
                       <Badge text={r.pipeline_statut} color={PIPELINE_COLORS[r.pipeline_statut]} />
                     ) : (
-                      <span className="text-zinc-300">·</span>
+                      <span className="text-zinc-300">-</span>
                     )}
                   </Link>
                 </td>

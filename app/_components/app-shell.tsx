@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Bandeau supérieur — bg adaptatif clair/sombre.
             Light : blanc translucide. Dark : graphite translucide.
             Border bas subtile dans les deux cas. */}
-        <div className="sticky top-0 z-30 bg-white/85 dark:bg-[hsl(var(--background))]/85 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/[0.06]">
+        <div className="sticky top-0 z-30 bg-white/85 dark:bg-[hsl(var(--background))]/85 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/[0.10]">
           <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 h-14 flex items-center gap-2 md:justify-between">
             {/* Hamburger : visible uniquement sur mobile */}
             <button

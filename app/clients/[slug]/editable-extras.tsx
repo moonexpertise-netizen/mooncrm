@@ -51,10 +51,12 @@ export function ClotureSplit({
   // Style commun aux 2 selects natifs (aligné avec fieldInputClass dans editable.tsx)
   function selectClass(filled: boolean, extra = "") {
     return cn(
-      "px-2 py-1 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-400 transition-colors hover:border-zinc-300",
+      "px-2 py-1 rounded-md border text-sm transition-colors",
+      "focus:outline-none focus:ring-2 focus:ring-zinc-400/40 dark:focus:ring-white/[0.10] focus:border-zinc-400 dark:focus:border-zinc-300",
+      "hover:border-zinc-300 dark:hover:border-white/[0.18]",
       filled
-        ? "bg-white border-zinc-200 text-zinc-900"
-        : "bg-amber-50/40 border-amber-200/80 text-zinc-900",
+        ? "bg-white dark:bg-white/[0.04] border-zinc-200 dark:border-white/[0.08] text-zinc-900 dark:text-zinc-100"
+        : "bg-amber-50/40 dark:bg-amber-500/[0.08] border-amber-200/80 dark:border-amber-500/25 text-zinc-900 dark:text-zinc-100",
       extra
     );
   }

@@ -1307,12 +1307,12 @@ const StatusCell = memo(function StatusCell({
   }, [options]);
 
   if (!cell.obligationId) {
-    return <span className="text-zinc-300 text-xs">·</span>;
+    return <span className="text-zinc-300 text-xs">-</span>;
   }
 
   const matchedOption = options.find((o) => o.libelle === cell.statut_detail);
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
-  const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "·";
+  const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "-";
 
   return (
     <div className="relative inline-block" ref={ref}>

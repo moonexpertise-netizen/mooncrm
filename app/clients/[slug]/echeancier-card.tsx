@@ -237,7 +237,7 @@ export default function EcheancierCard({
                       const content = (
                         <>
                           <div className="w-24 shrink-0 text-zinc-600 tabular-nums">
-                            {o.echeance ? fmtDateFr(o.echeance) : <span className="text-zinc-400">·</span>}
+                            {o.echeance ? fmtDateFr(o.echeance) : <span className="text-zinc-400">-</span>}
                           </div>
                           <div className="w-40 shrink-0 font-medium flex items-center gap-1.5">
                             {TYPE_LABEL[o.type] ?? o.type}
@@ -250,7 +250,7 @@ export default function EcheancierCard({
                           </div>
                           <div className="w-32 shrink-0 text-zinc-600">{periodeLisible(o.periode)}</div>
                           <div className="flex-1 text-xs text-zinc-500 truncate">
-                            {o.note ? <span className="italic">{o.note}</span> : (o.statut_detail ?? "·")}
+                            {o.note ? <span className="italic">{o.note}</span> : (o.statut_detail ?? "-")}
                           </div>
                           <span
                             className={cn(

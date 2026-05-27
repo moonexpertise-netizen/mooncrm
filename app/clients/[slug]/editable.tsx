@@ -564,7 +564,7 @@ export function EditableHeading({
             setEditing(false);
           }
         }}
-        className="font-display text-3xl md:text-4xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded-lg border border-zinc-300 bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.07] focus:border-zinc-900 w-full max-w-2xl"
+        className="font-display text-3xl md:text-4xl font-semibold tracking-tight px-2 py-0.5 -mx-2 rounded-lg border border-zinc-300 bg-white dark:border-white/[0.16] dark:bg-white/[0.04] dark:text-zinc-100 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10] focus:border-zinc-900 dark:focus:border-zinc-300 w-full max-w-2xl"
       />
     );
   }

@@ -272,7 +272,7 @@ export function Sidebar() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 bg-[hsl(var(--sidebar))] text-zinc-300 flex flex-col border-r border-white/[0.04]",
+          "fixed inset-y-0 left-0 z-40 bg-[hsl(var(--sidebar))] text-zinc-300 flex flex-col border-r border-white/[0.10]",
           "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
           // Mobile : drawer slide-in/out depuis la gauche
           "max-md:w-[280px]",
@@ -306,7 +306,7 @@ export function Sidebar() {
         </span>
       </button>
       {/* Logo : full moon-logo.svg en mode étendu, favicon (icon.svg) compact en mode replié */}
-      <div className={cn("h-14 flex items-center border-b border-white/[0.04] shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
+      <div className={cn("h-14 flex items-center border-b border-white/[0.10] shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
         <Link href="/" className="flex items-center gap-2 group min-w-0" title="Retour au dashboard">
           {showCollapsed ? (
             <Image
@@ -433,7 +433,7 @@ export function Sidebar() {
                               className={cn(
                                 // Bandeau : bg subtil sur toute la largeur, border haut/bas
                                 "w-full flex items-center gap-1.5 px-2.5 py-2",
-                                "bg-white/[0.04] border-y border-white/[0.06]",
+                                "bg-white/[0.06] border-y border-white/[0.06]",
                                 !isFirstHeader && "mt-2.5",
                                 "text-[10px] uppercase tracking-[0.14em] font-bold",
                                 "text-zinc-200 hover:text-[hsl(var(--gold))] hover:bg-white/[0.07] transition-colors"

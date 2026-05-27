@@ -247,7 +247,7 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
                 if (!active || !payload?.length) return null;
                 const p = payload[0].payload as { full: string; value: number };
                 return (
-                  <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
+                  <div className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.12] rounded-md shadow-md dark:shadow-pop px-2 py-1 text-xs">
                     <div className="font-medium">{p.full}</div>
                     <div className="text-zinc-600 tabular-nums">
                       {mode === "arr"
@@ -355,7 +355,7 @@ function SignaturesParMois({
                 const v = payload[0]?.value as number;
                 const c = payload[1]?.value as number;
                 return (
-                  <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
+                  <div className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.12] rounded-md shadow-md dark:shadow-pop px-2 py-1 text-xs">
                     <div className="font-medium">{label}</div>
                     <div className="text-zinc-700 tabular-nums">
                       Mois : {mode === "arr" ? fmtEuro(v) : fmtCompactCount(v)}
@@ -621,7 +621,7 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
                   if (!active || !payload?.length) return null;
                   const p = payload[0] as { name: string; value: number };
                   return (
-                    <div className="bg-white border rounded-md shadow-md px-2 py-1 text-xs">
+                    <div className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.12] rounded-md shadow-md dark:shadow-pop px-2 py-1 text-xs">
                       <div className="font-medium">{p.name}</div>
                       <div className="text-zinc-600 tabular-nums">
                         {p.value} dossier{p.value > 1 ? "s" : ""}

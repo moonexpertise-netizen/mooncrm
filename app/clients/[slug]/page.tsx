@@ -141,14 +141,14 @@ export default async function IdentiteTab({
               />
               <FieldReadonly
                 label="↳ Équivalent mensuel"
-                value={fmtEuro(client.forfait_pilotage ?? 0) ?? "·"}
+                value={fmtEuro(client.forfait_pilotage ?? 0) ?? "-"}
               />
             </>
           )}
         </div>
         <div className="border-t pt-2 mt-2 space-y-0.5">
-          <FieldReadonly label="MRR" value={fmtEuro(client.mrr ?? 0) ?? "·"} />
-          <FieldReadonly label="ARR" value={fmtEuro(client.arr ?? 0) ?? "·"} />
+          <FieldReadonly label="MRR" value={fmtEuro(client.mrr ?? 0) ?? "-"} />
+          <FieldReadonly label="ARR" value={fmtEuro(client.arr ?? 0) ?? "-"} />
         </div>
       </Card>
 
