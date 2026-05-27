@@ -234,35 +234,48 @@ export default function EcheancierCard({
                       const href = slug
                         ? `/obligations/${slug}?year=${annee}&focus=${encodeURIComponent(focus!)}`
                         : null;
+                      // Mobile : echeance + label sur la 1re ligne, periode +
+                      // detail + statut sur la 2e ligne. Plus de w-24/w-40
+                      // fixes qui debordaient sur petit ecran.
                       const content = (
                         <>
-                          <div className="w-24 shrink-0 text-zinc-600 tabular-nums">
-                            {o.echeance ? fmtDateFr(o.echeance) : <span className="text-zinc-400">-</span>}
+                          <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
+                            <div className="w-20 sm:w-24 shrink-0 text-zinc-600 dark:text-zinc-400 tabular-nums">
+                              {o.echeance ? fmtDateFr(o.echeance) : <span className="text-zinc-400 dark:text-zinc-500">-</span>}
+                            </div>
+                            <div className="sm:w-40 shrink-0 font-medium flex items-center gap-1.5 min-w-0 truncate">
+                              <span className="truncate text-zinc-900 dark:text-zinc-100">
+                                {TYPE_LABEL[o.type] ?? o.type}
+                              </span>
+                              {o.note && (
+                                <MessageSquare
+                                  className="h-3 w-3 text-amber-500 shrink-0"
+                                  aria-label={`Note · ${o.note}`}
+                                />
+                              )}
+                            </div>
+                            <div className="hidden sm:block w-32 shrink-0 text-zinc-600 dark:text-zinc-400">{periodeLisible(o.periode)}</div>
+                            <div className="hidden sm:block flex-1 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                              {o.note ? <span className="italic">{o.note}</span> : (o.statut_detail ?? "-")}
+                            </div>
                           </div>
-                          <div className="w-40 shrink-0 font-medium flex items-center gap-1.5">
-                            {TYPE_LABEL[o.type] ?? o.type}
-                            {o.note && (
-                              <MessageSquare
-                                className="h-3 w-3 text-amber-500 shrink-0"
-                                aria-label={`Note · ${o.note}`}
-                              />
-                            )}
+                          {/* Mobile : periode + statut sur la 2e ligne pour ne pas deborder */}
+                          <div className="flex items-center gap-2 sm:gap-0 w-full sm:w-auto justify-between sm:justify-end pl-20 sm:pl-0">
+                            <span className="sm:hidden text-[11px] text-zinc-500 dark:text-zinc-400">
+                              {periodeLisible(o.periode)}
+                            </span>
+                            <span
+                              className={cn(
+                                "inline-block px-1.5 py-0.5 rounded-md text-[10px] font-medium border shrink-0 transition-colors",
+                                statutColorClass(o.statut_logique, o.color)
+                              )}
+                            >
+                              {STATUT_LABEL[o.statut_logique]}
+                            </span>
+                            <span className="hidden sm:inline text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-500 dark:group-hover:text-zinc-400 group-hover:translate-x-0.5 transition-all shrink-0 w-3 text-center">
+                              ›
+                            </span>
                           </div>
-                          <div className="w-32 shrink-0 text-zinc-600">{periodeLisible(o.periode)}</div>
-                          <div className="flex-1 text-xs text-zinc-500 truncate">
-                            {o.note ? <span className="italic">{o.note}</span> : (o.statut_detail ?? "-")}
-                          </div>
-                          <span
-                            className={cn(
-                              "inline-block px-1.5 py-0.5 rounded-md text-[10px] font-medium border shrink-0 transition-colors",
-                              statutColorClass(o.statut_logique, o.color)
-                            )}
-                          >
-                            {STATUT_LABEL[o.statut_logique]}
-                          </span>
-                          <span className="text-zinc-300 group-hover:text-zinc-500 group-hover:translate-x-0.5 transition-all shrink-0 w-3 text-center">
-                            ›
-                          </span>
                         </>
                       );
                       return (
@@ -271,13 +284,13 @@ export default function EcheancierCard({
                             <Link
                               href={href}
                               prefetch={false}
-                              className="px-4 py-2 flex items-center gap-3 text-sm group hover:bg-zinc-50 transition-colors"
+                              className="px-3 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 text-sm group hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors min-h-[44px]"
                               title="Aller à la cellule dans le tableau global"
                             >
                               {content}
                             </Link>
                           ) : (
-                            <div className="px-4 py-2 flex items-center gap-3 text-sm group">
+                            <div className="px-3 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 text-sm group">
                               {content}
                             </div>
                           )}
