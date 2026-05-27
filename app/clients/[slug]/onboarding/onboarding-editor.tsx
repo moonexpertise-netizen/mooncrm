@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn, statutColorClass } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
 import { addOnboardingStatusOption, updateOnboardingTaskStatus } from "@/app/onboarding/actions";
 
 export type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
@@ -84,8 +85,12 @@ export default function OnboardingEditor({
     applyPatch({ taskId, statut_logique, statut_detail: libelle });
     setOpenTaskId(null);
     startTransition(async () => {
-      await updateOnboardingTaskStatus(taskId, libelle);
-      router.refresh();
+      try {
+        await updateOnboardingTaskStatus(taskId, libelle);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour du statut");
+      }
     });
   }
 
@@ -93,8 +98,12 @@ export default function OnboardingEditor({
     applyPatch({ taskId, statut_logique: "A_FAIRE", statut_detail: null });
     setOpenTaskId(null);
     startTransition(async () => {
-      await updateOnboardingTaskStatus(taskId, null);
-      router.refresh();
+      try {
+        await updateOnboardingTaskStatus(taskId, null);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la reinitialisation");
+      }
     });
   }
 
@@ -337,7 +346,9 @@ function CreateOptionForm({
         // Re-fetch des options server-side (la prop optionsByKey vient du serveur).
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        toastError(e, "Echec de la creation de l'option");
       }
     });
   }

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
 import {
   addOnboardingStatusOption,
   setGestionTns,
@@ -231,8 +232,12 @@ export default function MatriceTable({
     applyPatch({ kind: "task", clientId, taskIdx, statut_logique, statut_detail: libelle });
     setOpenPicker(null);
     startTransition(async () => {
-      await updateOnboardingTaskStatus(taskId, libelle);
-      router.refresh();
+      try {
+        await updateOnboardingTaskStatus(taskId, libelle);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour du statut");
+      }
     });
   }
 
@@ -240,8 +245,12 @@ export default function MatriceTable({
     applyPatch({ kind: "task", clientId, taskIdx, statut_logique: "A_FAIRE", statut_detail: null });
     setOpenPicker(null);
     startTransition(async () => {
-      await updateOnboardingTaskStatus(taskId, null);
-      router.refresh();
+      try {
+        await updateOnboardingTaskStatus(taskId, null);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la reinitialisation");
+      }
     });
   }
 
@@ -249,8 +258,12 @@ export default function MatriceTable({
     applyPatch({ kind: "tns", clientId, gestion_tns: value });
     setOpenTnsPicker(null);
     startTransition(async () => {
-      await setGestionTns(clientId, value);
-      router.refresh();
+      try {
+        await setGestionTns(clientId, value);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour TNS");
+      }
     });
   }
 
@@ -258,8 +271,12 @@ export default function MatriceTable({
     applyPatch({ kind: "origine", clientId, origine: value });
     setOpenOriginePicker(null);
     startTransition(async () => {
-      await setOrigine(clientId, value);
-      router.refresh();
+      try {
+        await setOrigine(clientId, value);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour de l'origine");
+      }
     });
   }
 
@@ -1250,7 +1267,9 @@ function CreateOptionInline({
         // Re-fetch des options server-side (optionsByKey vient du serveur).
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        toastError(e, "Echec de la creation de l'option");
       }
     });
   }

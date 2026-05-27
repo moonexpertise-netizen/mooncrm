@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn, fmtEuro } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
 import { setClientGroupe, updateClient, updateContact } from "./actions";
 
 /**
@@ -74,7 +75,12 @@ function useSaver(clientId: string, field: string) {
       try {
         await updateClient(clientId, { [field]: value });
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        // Toast d'erreur : Benjamin voit immediatement qu'une save a echoue
+        // (sinon il pourrait croire que c'est sauve alors que non). Pas de
+        // toast de succes pour ne pas spammer (50+ saves/jour).
+        toastError(e, `Echec de la sauvegarde (${field})`);
         onError?.();
       }
     });
