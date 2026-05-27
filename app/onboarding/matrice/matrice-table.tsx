@@ -414,8 +414,8 @@ export default function MatriceTable({
           Aucun dossier ne correspond aux filtres.
         </div>
       ) : (
-        <div className="rounded-lg border bg-card overflow-x-auto">
-          <table className="w-full text-sm border-separate border-spacing-0">
+        <div className="rounded-lg border bg-card overflow-x-auto -mx-3 md:mx-0" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="text-sm border-separate border-spacing-0" style={{ minWidth: "min(900px, max-content)" }}>
             <thead>
               {/* Numéro + label de colonne */}
               <tr className="bg-zinc-50">

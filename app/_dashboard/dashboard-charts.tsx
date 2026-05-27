@@ -594,15 +594,17 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
           Pas de données.
         </div>
       ) : (
-        <div className="h-48">
+        // Mobile : hauteur plus grande pour accommoder la legend en bas.
+        // Desktop : legend a droite, donc hauteur fixe 192px.
+        <div className="h-72 md:h-48">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={mixActivite}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={40}
-                outerRadius={70}
+                innerRadius={36}
+                outerRadius={64}
                 paddingAngle={2}
                 onClick={(p: unknown) => {
                   const item = p as { name?: string } | null;
@@ -632,10 +634,10 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
                 }}
               />
               <Legend
-                layout="vertical"
-                verticalAlign="middle"
-                align="right"
-                wrapperStyle={{ fontSize: 10, paddingLeft: 8, lineHeight: "14px" }}
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                wrapperStyle={{ fontSize: 10, paddingTop: 8, lineHeight: "14px" }}
                 iconType="circle"
                 iconSize={8}
                 onClick={(e: unknown) => {

@@ -432,10 +432,10 @@ export function Sidebar() {
                               onClick={() => toggleGroup(c.groupId)}
                               className={cn(
                                 // Bandeau : bg subtil sur toute la largeur, border haut/bas
-                                "w-full flex items-center gap-1.5 px-2.5 py-1.5",
+                                "w-full flex items-center gap-1.5 px-2.5 py-2",
                                 "bg-white/[0.04] border-y border-white/[0.06]",
-                                !isFirstHeader && "mt-1",
-                                "text-[9.5px] uppercase tracking-[0.14em] font-bold",
+                                !isFirstHeader && "mt-2.5",
+                                "text-[10px] uppercase tracking-[0.14em] font-bold",
                                 "text-zinc-200 hover:text-[hsl(var(--gold))] hover:bg-white/[0.07] transition-colors"
                               )}
                             >
@@ -457,11 +457,11 @@ export function Sidebar() {
                           <Link
                             href={withYear(c.href)}
                             className={cn(
-                              "block pl-6 pr-2.5 py-1 rounded-md text-[11px] transition-colors truncate",
+                              "block pl-6 pr-2.5 py-1.5 rounded-md text-[11.5px] transition-colors truncate",
                               "relative leading-tight",
                               childActive
                                 ? "text-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10 font-medium"
-                                : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                                : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08]"
                             )}
                           >
                             {childActive && (
@@ -503,7 +503,7 @@ export function Sidebar() {
                   "mt-2 w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
                   pathname.startsWith("/admin")
                     ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold))]"
-                    : "text-zinc-400 hover:text-[hsl(var(--gold))] hover:bg-white/5"
+                    : "text-zinc-400 hover:text-[hsl(var(--gold))] hover:bg-white/[0.08]"
                 )}
                 title="Gestion des utilisateurs"
               >

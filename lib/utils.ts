@@ -9,7 +9,7 @@ export const fmtNumber = (n: number) =>
   new Intl.NumberFormat("fr-FR").format(n);
 
 export const fmtEuro = (n: number | null | undefined) => {
-  if (n == null) return "·";
+  if (n == null) return "-";
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
@@ -18,9 +18,9 @@ export const fmtEuro = (n: number | null | undefined) => {
 };
 
 export const fmtDateFr = (d: string | null | undefined) => {
-  if (!d) return "·";
+  if (!d) return "-";
   const date = new Date(d);
-  if (Number.isNaN(date.getTime())) return "·";
+  if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("fr-FR").format(date);
 };
 
