@@ -685,13 +685,17 @@ function MatrixCell({
     return groups;
   })();
 
+  const currentLabel = cell.statut_detail ?? statutLabel(cell.statut_logique);
   return (
     <div className="inline-block" ref={ref}>
       <button
         data-cell-button="1"
         onClick={onOpen}
-        className="p-0.5 rounded hover:bg-zinc-100 transition-colors focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))]"
-        title={`${cell.statut_detail ?? statutLabel(cell.statut_logique)} · clic pour modifier`}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-label={`Statut : ${currentLabel}. Cliquer pour modifier.`}
+        className="p-0.5 rounded cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))]"
+        title={`${currentLabel} · clic pour modifier`}
       >
         <StatusDot statut={cell.statut_logique} />
       </button>
@@ -872,8 +876,11 @@ function OrigineChip({
       <button
         data-origine-button="1"
         onClick={onOpen}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-label={origine ? `Origine : ${origine}. Cliquer pour modifier.` : "Origine non renseignée. Cliquer pour définir."}
         className={cn(
-          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80",
+          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
           TYPE_PILL[type]
         )}
         title={origine ? `Origine : ${origine} · clic pour modifier` : "Origine non renseignée · clic pour modifier"}
@@ -1011,8 +1018,11 @@ function TnsChip({
       <button
         data-tns-button="1"
         onClick={onOpen}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-label={`Gestion TNS : ${label}. Cliquer pour modifier.`}
         className={cn(
-          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80",
+          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
           cls
         )}
         title="Caractéristique TNS · clic pour modifier"
@@ -1073,34 +1083,45 @@ function TnsChip({
 // ============================================================================
 
 function StatusDot({ statut }: { statut: StatutLogique | null }) {
+  // sr-only : le statut ne doit pas etre transmis uniquement par couleur.
+  // Le texte est invisible visuellement mais lu par les SR (WCAG 2.1).
+  const srLabel = statutLabel(statut);
   if (statut === null) {
-    return <span className="inline-block w-4 h-4 rounded border border-dashed border-zinc-200" />;
+    return (
+      <span className="inline-block w-4 h-4 rounded border border-dashed border-zinc-200 dark:border-white/[0.10]">
+        <span className="sr-only">{srLabel}</span>
+      </span>
+    );
   }
   if (statut === "TERMINE") {
     return (
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 border border-emerald-300">
-        <Check className="h-3 w-3 text-emerald-700" strokeWidth={3} />
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/40">
+        <Check className="h-3 w-3 text-emerald-700 dark:text-emerald-300" strokeWidth={3} aria-hidden="true" />
+        <span className="sr-only">{srLabel}</span>
       </span>
     );
   }
   if (statut === "NON_APPLICABLE") {
     return (
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 border border-zinc-300">
-        <Minus className="h-3 w-3 text-zinc-500" strokeWidth={3} />
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 dark:bg-white/[0.08] border border-zinc-300 dark:border-white/[0.16]">
+        <Minus className="h-3 w-3 text-zinc-500 dark:text-zinc-400" strokeWidth={3} aria-hidden="true" />
+        <span className="sr-only">{srLabel}</span>
       </span>
     );
   }
   if (statut === "EN_COURS") {
     return (
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-100 border border-sky-300">
-        <span className="inline-block w-2 h-2 bg-sky-600 rounded-[1px]" />
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-100 dark:bg-sky-500/20 border border-sky-300 dark:border-sky-500/40">
+        <span className="inline-block w-2 h-2 bg-sky-600 dark:bg-sky-400 rounded-[1px]" aria-hidden="true" />
+        <span className="sr-only">{srLabel}</span>
       </span>
     );
   }
   // A_FAIRE
   return (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-rose-50 border border-rose-200">
-      <X className="h-3 w-3 text-rose-400" strokeWidth={2.5} />
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30">
+      <X className="h-3 w-3 text-rose-400 dark:text-rose-300" strokeWidth={2.5} aria-hidden="true" />
+      <span className="sr-only">{srLabel}</span>
     </span>
   );
 }
@@ -1183,9 +1204,12 @@ function SortBtn({
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "px-2 py-0.5 rounded text-[11px] transition-colors",
-        active ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
+        "px-2 py-0.5 rounded text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1",
+        active
+          ? "bg-zinc-200 dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 font-semibold border border-zinc-300 dark:border-white/20"
+          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent"
       )}
     >
       {label}

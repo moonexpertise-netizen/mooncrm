@@ -358,6 +358,7 @@ export function Sidebar() {
                   )}
                   <Link
                     href={withYear(item.href)}
+                    aria-current={active ? "page" : undefined}
                     onClick={() => {
                       if (isProduction && !showCollapsed) setProdOpen(true);
                     }}
@@ -456,6 +457,7 @@ export function Sidebar() {
                         <li key={c.slug}>
                           <Link
                             href={withYear(c.href)}
+                            aria-current={childActive ? "page" : undefined}
                             className={cn(
                               "block pl-6 pr-2.5 py-1.5 rounded-md text-[11.5px] transition-colors truncate",
                               "relative leading-tight",

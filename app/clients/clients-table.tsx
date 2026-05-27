@@ -540,9 +540,18 @@ function Th({
     document.addEventListener("mouseup", onUp);
   }
 
+  // aria-sort : "ascending" | "descending" | "none" (WCAG 4.1.2 + ARIA 1.2)
+  const ariaSort: "ascending" | "descending" | "none" = active
+    ? sort.dir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+
   return (
     <th
       ref={thRef}
+      scope="col"
+      aria-sort={ariaSort}
       style={width ? { width: `${width}px` } : undefined}
       className={cn(
         "relative px-4 py-3 font-medium select-none group/th",
@@ -550,14 +559,16 @@ function Th({
       )}
     >
       <button
+        type="button"
         onClick={() => onSort(sortKey)}
+        aria-label={`Trier par ${label}, ${active ? (sort.dir === "asc" ? "ordre croissant" : "ordre décroissant") : "non trié"}`}
         className={cn(
-          "inline-flex items-center gap-1 hover:text-zinc-700 transition-colors",
-          active ? "text-zinc-800" : "text-zinc-500"
+          "inline-flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 rounded",
+          active ? "text-zinc-800 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"
         )}
       >
         {label}
-        <span className="text-[9px] w-2 opacity-70">
+        <span className="text-[9px] w-2 opacity-70" aria-hidden="true">
           {active ? (sort.dir === "asc" ? "▲" : "▼") : ""}
         </span>
       </button>

@@ -25,7 +25,10 @@ export default function FicheTabs({ slug }: { slug: string }) {
   ];
 
   return (
-    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60 overflow-x-auto max-w-full scrollbar-thin">
+    <nav
+      aria-label="Sections du dossier"
+      className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08] overflow-x-auto max-w-full scrollbar-thin"
+    >
       {tabs.map((t) => {
         const active = t.match(pathname);
         return (
@@ -33,17 +36,19 @@ export default function FicheTabs({ slug }: { slug: string }) {
             key={t.href}
             href={t.href}
             prefetch
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "px-3.5 py-1.5 text-sm rounded-lg transition-all whitespace-nowrap shrink-0",
+              // min-h-[44px] : cible tactile mobile WCAG / iOS HIG
+              "px-3.5 py-2 min-h-[44px] inline-flex items-center text-sm rounded-lg transition-all whitespace-nowrap shrink-0",
               active
-                ? "bg-white text-zinc-900 shadow-card font-medium"
-                : "text-zinc-600 hover:text-zinc-900 hover:bg-white/50"
+                ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
             )}
           >
             {t.label}
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }
