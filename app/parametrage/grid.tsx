@@ -360,7 +360,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
               className="px-2.5 py-1 rounded-md text-xs border border-[hsl(var(--gold))]/40 bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] hover:bg-[hsl(var(--gold))]/20 transition"
               title={`Reconduire la conf ${year} vers ${year + 1} pour tous les dossiers affichés`}
             >
-              ⟶ Reconduire tout vers {year + 1}
+              Reconduire tout vers {year + 1} ›
             </button>
             <span className="text-xs text-muted-foreground tabular-nums">
               {filtered.length} client{filtered.length > 1 ? "s" : ""}
@@ -648,7 +648,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                         className="px-2 py-1 rounded-md text-[11px] border border-[hsl(var(--gold))]/30 bg-white text-[hsl(var(--gold-dark))] hover:bg-[hsl(var(--gold))]/10 hover:border-[hsl(var(--gold))]/60 transition"
                         title={`Reconduire ce dossier vers ${year + 1}`}
                       >
-                        ⟶ {year + 1}
+                        {year + 1} ›
                       </button>
                     )}
                   </td>
