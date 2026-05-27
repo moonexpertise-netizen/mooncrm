@@ -301,10 +301,44 @@ export async function updateEtape(
   revalidateOnboarding();
 }
 
+/**
+ * Supprime une etape. Si plus aucune autre etape du systeme n'utilise son
+ * task_key, on supprime aussi en cascade toutes les onboarding_tasks
+ * orphelines correspondantes (sinon l'etape "fantome" continuerait
+ * d'apparaitre dans la fiche client et la matrice).
+ *
+ * Pas de "soft delete" : la suppression est definitive. Si Benjamin veut
+ * garder une trace, il met l'etape en N/A plutot que de la supprimer.
+ */
 export async function deleteEtape(etapeId: string) {
   const sb = await createClient();
+
+  // 1. Lire le task_key avant la suppression
+  const { data: etape } = await sb
+    .from("onboarding_etape")
+    .select("task_key")
+    .eq("id", etapeId)
+    .single();
+  const taskKey = etape?.task_key as string | undefined;
+
+  // 2. Suppression de l'etape
   const { error } = await sb.from("onboarding_etape").delete().eq("id", etapeId);
   if (error) throw new Error(error.message);
+
+  // 3. Cascade : si plus aucune etape n'utilise ce task_key, on supprime
+  //    les onboarding_tasks orphelines. Tres important pour que la
+  //    suppression cote parametrage se propage cote fiche client.
+  if (taskKey) {
+    const { data: stillUsed } = await sb
+      .from("onboarding_etape")
+      .select("id")
+      .eq("task_key", taskKey)
+      .limit(1);
+    if (!stillUsed || stillUsed.length === 0) {
+      await sb.from("onboarding_tasks").delete().eq("task_key", taskKey);
+    }
+  }
+
   revalidateOnboarding();
 }
 

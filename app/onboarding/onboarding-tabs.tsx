@@ -27,7 +27,7 @@ export default function OnboardingTabs() {
   ] as const;
 
   return (
-    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60">
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
       {tabs.map((t) => {
         const Icon = t.icon;
         const active = pathname === t.base;
@@ -39,8 +39,9 @@ export default function OnboardingTabs() {
             className={cn(
               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all",
               active
-                ? "bg-white text-zinc-900 shadow-card font-medium"
-                : "text-zinc-600 hover:text-zinc-900 hover:bg-white/50"
+                ? // Onglet actif : cadre marque + fond + ombre (meme style que YearSelector)
+                  "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
             )}
           >
             <Icon className="h-4 w-4" />
