@@ -18,8 +18,6 @@ import {
   LabelList,
   Legend,
   Line,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -562,24 +560,22 @@ function RisqueRow({
 // ============================================================================
 
 function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"] }) {
-  const router = useRouter();
-
-  // Palette MOON : gold + déclinaisons + neutres
-  const COLORS = [
-    "hsl(34, 32%, 52%)", // gold
-    "#10b981",
-    "#3b82f6",
-    "#8b5cf6",
-    "#f59e0b",
-    "#06b6d4",
-    "#ef4444",
-    "#84cc16",
-    "#a1a1aa",
+  // Repensé : liste verticale type "Top clients" plutot qu'un donut Recharts.
+  // Avantages : scannable sur mobile sans label qui deborde, hover lisible,
+  // "Autres" non cliquable (parce que ce n'est pas un filtre exploitable).
+  const max = Math.max(...mixActivite.map((m) => m.value), 1);
+  // Palette MOON gold + neutres — barres tinted en fonction de l'index
+  const BAR_TONES = [
+    "bg-[hsl(34,32%,52%)]",       // gold MOON
+    "bg-emerald-500",
+    "bg-sky-500",
+    "bg-violet-500",
+    "bg-amber-500",
+    "bg-cyan-500",
+    "bg-rose-500",
+    "bg-lime-500",
+    "bg-zinc-400",
   ];
-
-  function gotoActivite(name: string) {
-    router.push(`/clients?activite=${encodeURIComponent(name)}`);
-  }
 
   return (
     <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
@@ -594,60 +590,55 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
           Pas de données.
         </div>
       ) : (
-        // Mobile : hauteur plus grande pour accommoder la legend en bas.
-        // Desktop : legend a droite, donc hauteur fixe 192px.
-        <div className="h-72 md:h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={mixActivite}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={36}
-                outerRadius={64}
-                paddingAngle={2}
-                onClick={(p: unknown) => {
-                  const item = p as { name?: string } | null;
-                  if (item?.name) gotoActivite(item.name);
-                }}
-                style={{ cursor: "pointer" }}
-              >
-                {mixActivite.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  const p = payload[0] as { name: string; value: number };
-                  return (
-                    <div className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.12] rounded-md shadow-md dark:shadow-pop px-2 py-1 text-xs">
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-zinc-600 tabular-nums">
-                        {p.value} dossier{p.value > 1 ? "s" : ""}
-                      </div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5">
-                        Clic pour voir les dossiers
-                      </div>
-                    </div>
-                  );
-                }}
-              />
-              <Legend
-                layout="horizontal"
-                verticalAlign="bottom"
-                align="center"
-                wrapperStyle={{ fontSize: 10, paddingTop: 8, lineHeight: "14px" }}
-                iconType="circle"
-                iconSize={8}
-                onClick={(e: unknown) => {
-                  const item = e as { value?: string } | null;
-                  if (item?.value) gotoActivite(item.value);
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <ul className="space-y-1.5">
+          {mixActivite.map((row, i) => {
+            const pct = (row.value / max) * 100;
+            const isAutres = row.name === "Autres";
+            // "Autres" agrege plusieurs petites activites, pas un filtre exploitable
+            const href = isAutres ? null : `/clients?activite=${encodeURIComponent(row.name)}`;
+            const barColor = BAR_TONES[i % BAR_TONES.length];
+
+            const content = (
+              <>
+                <div className="flex items-baseline justify-between gap-2 mb-1">
+                  <span className="text-xs font-medium text-zinc-800 truncate group-hover/row:text-zinc-900 dark:group-hover/row:text-zinc-50">
+                    {row.name}
+                  </span>
+                  <span className="text-[11px] tabular-nums text-zinc-600 shrink-0">
+                    {row.value} dossier{row.value > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full transition-colors opacity-70 dark:opacity-50 group-hover/row:opacity-100 dark:group-hover/row:opacity-80",
+                      barColor
+                    )}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </>
+            );
+
+            return (
+              <li key={row.name}>
+                {href ? (
+                  <Link
+                    href={href}
+                    className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50 transition-colors"
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  // "Autres" : pas de lien (agrégat non filtrable), pas de hover bg
+                  <div className="group/row block px-2 py-1.5 -mx-2 rounded-md cursor-default">
+                    {content}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );
