@@ -14,7 +14,7 @@
  */
 
 export type ActiviteCategorie =
-  | "Avocats"
+  | "Activités juridiques"
   | "Conseil & gestion"
   | "Tech & numérique"
   | "Immobilier"
@@ -59,12 +59,11 @@ const PATTERNS: Array<{ keys: string[]; cat: ActiviteCategorie }> = [
     keys: ["publicité", "relations publiques", "communication", "édition de journaux", "edition de journaux", "audiovisuel", "production cinématographique", "radiodiffusion", "presse"],
     cat: "Communication & médias",
   },
-  // Avocats & professions juridiques (sorti de Conseil & gestion).
-  // En NAF brut, "Activités juridiques" (69.10Z) couvre essentiellement
-  // les avocats et notaires. On les groupe ici.
+  // Activités juridiques (avocats, notaires, huissiers — separe de
+  // Conseil & gestion sur demande Benjamin).
   {
     keys: ["avocat", "activités juridiques", "activites juridiques", "notaire", "huissier"],
-    cat: "Avocats",
+    cat: "Activités juridiques",
   },
   // Conseil & gestion (sans le juridique)
   {

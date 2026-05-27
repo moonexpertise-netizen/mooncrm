@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { categorieActivite, type ActiviteCategorie } from "@/lib/activite-categorie";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
@@ -68,7 +69,8 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
     searchParams.has("q") ||
     searchParams.has("bucket") ||
     searchParams.has("forme") ||
-    searchParams.has("activite");
+    searchParams.has("activite") ||
+    searchParams.has("categorie");
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [bucket, setBucket] = useState<Bucket>(() => {
@@ -83,6 +85,11 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
   });
   const [activiteFilter, setActiviteFilter] = useState<string>(
     () => searchParams.get("activite") ?? ""
+  );
+  // Filtre par catégorie métier (depuis dashboard Mix activité).
+  // Matche tous les clients dont `categorieActivite(activite)` égale ce nom.
+  const [categorieFilter, setCategorieFilter] = useState<string>(
+    () => searchParams.get("categorie") ?? ""
   );
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "denomination",
@@ -139,14 +146,15 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
     if (bucket !== "clients") params.set("bucket", bucket);
     if (formeFilter.size) params.set("forme", [...formeFilter].join("|"));
     if (activiteFilter) params.set("activite", activiteFilter);
+    if (categorieFilter) params.set("categorie", categorieFilter);
     // Sentinel : marque que l'utilisateur a explicitement choisi "Tous"
     // sans autre filtre. Sinon le prochain reload réappliquerait "clients".
-    if (bucket === "all" && !search && !formeFilter.size && !activiteFilter) {
+    if (bucket === "all" && !search && !formeFilter.size && !activiteFilter && !categorieFilter) {
       params.set("clear", "1");
     }
     const qs = params.toString();
     router.replace(`/clients${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [search, bucket, formeFilter, activiteFilter, router]);
+  }, [search, bucket, formeFilter, activiteFilter, categorieFilter, router]);
 
   useEffect(() => {
     if (syncTimer.current) clearTimeout(syncTimer.current);
@@ -165,6 +173,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         setBucket("all");
         setFormeFilter(new Set());
         setActiviteFilter("");
+        setCategorieFilter("");
       }
     }
     window.addEventListener("keydown", onKey);
@@ -205,15 +214,21 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
       if (bucketSet && !bucketSet.has(r.pipeline_statut ?? "")) return false;
       if (formeFilter.size && !formeFilter.has(r.forme ?? "")) return false;
       if (actLower && (r.activite ?? "").toLowerCase() !== actLower) return false;
+      // Filtre par categorie metier : compare la categorie calculee depuis
+      // le libelle NAF du client. Vient du dashboard Mix activite.
+      if (categorieFilter && categorieActivite(r.activite) !== (categorieFilter as ActiviteCategorie)) {
+        return false;
+      }
       return true;
     });
-  }, [rows, search, bucket, formeFilter, activiteFilter]);
+  }, [rows, search, bucket, formeFilter, activiteFilter, categorieFilter]);
 
   const hasActiveFilter =
     search !== "" ||
     bucket !== "clients" ||
     formeFilter.size > 0 ||
-    activiteFilter !== "";
+    activiteFilter !== "" ||
+    categorieFilter !== "";
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -269,6 +284,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               setBucket("all");
               setFormeFilter(new Set());
               setActiviteFilter("");
+              setCategorieFilter("");
             }}
             className="px-3 py-2 rounded-md text-sm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
           >
@@ -277,9 +293,15 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         )}
       </div>
 
-      {(formeFilter.size > 0 || activiteFilter) && (
+      {(formeFilter.size > 0 || activiteFilter || categorieFilter) && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-zinc-500">Filtres actifs :</span>
+          {categorieFilter && (
+            <FilterChip
+              label={`Secteur : ${categorieFilter}`}
+              onRemove={() => setCategorieFilter("")}
+            />
+          )}
           {activiteFilter && (
             <FilterChip
               label={`Activité : ${activiteFilter}`}

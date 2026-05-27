@@ -583,7 +583,7 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
       <header className="mb-4">
         <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Mix activité</h2>
         <p className="text-xs text-zinc-500 mt-0.5">
-          Répartition par secteur métier · dossiers actifs
+          Répartition par secteur métier · clic pour voir les dossiers
         </p>
       </header>
       {mixActivite.length === 0 ? (
@@ -597,21 +597,29 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
             const barColor = BAR_TONES[i % BAR_TONES.length];
 
             return (
-              <li key={row.name} className="block px-2 py-1.5 -mx-2 rounded-md">
-                <div className="flex items-baseline justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium text-zinc-800 dark:text-zinc-100 truncate">
-                    {row.name}
-                  </span>
-                  <span className="text-[11px] tabular-nums text-zinc-600 dark:text-zinc-400 shrink-0">
-                    {row.value} dossier{row.value > 1 ? "s" : ""}
-                  </span>
-                </div>
-                <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
-                  <div
-                    className={cn("h-full opacity-80 dark:opacity-60", barColor)}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+              <li key={row.name}>
+                <Link
+                  href={`/clients?categorie=${encodeURIComponent(row.name)}`}
+                  className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50 transition-colors"
+                >
+                  <div className="flex items-baseline justify-between gap-2 mb-1">
+                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-100 truncate group-hover/row:text-zinc-900 dark:group-hover/row:text-zinc-50">
+                      {row.name}
+                    </span>
+                    <span className="text-[11px] tabular-nums text-zinc-600 dark:text-zinc-400 shrink-0">
+                      {row.value} dossier{row.value > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full opacity-70 dark:opacity-55 group-hover/row:opacity-95 dark:group-hover/row:opacity-80 transition-opacity",
+                        barColor
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </Link>
               </li>
             );
           })}
