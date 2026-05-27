@@ -765,9 +765,29 @@ export default function NouveauClientForm() {
             value={siren}
             onChange={(e) => setSiren(e.target.value.replace(/\D/g, ""))}
             maxLength={9}
+            inputMode="numeric"
+            pattern="[0-9]{9}"
+            autoComplete="off"
+            aria-invalid={siren.length > 0 && siren.length < 9}
+            aria-describedby="siren-help"
             className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(siren))}
             placeholder="9 chiffres"
           />
+          <div
+            id="siren-help"
+            className={cn(
+              "mt-1 text-[11px]",
+              siren.length > 0 && siren.length < 9
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-zinc-400 dark:text-zinc-500"
+            )}
+          >
+            {siren.length === 0
+              ? "Optionnel · 9 chiffres si renseigne"
+              : siren.length < 9
+              ? `Il manque ${9 - siren.length} chiffre${9 - siren.length > 1 ? "s" : ""}`
+              : "OK"}
+          </div>
         </Field>
         <Field label="Forme juridique">
           <select

@@ -199,6 +199,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         placeholder="Téléphone"
         onCommit={(v) => commit("telephone", v)}
         className="text-xs tabular-nums w-full sm:w-auto"
+        type="tel"
       />
       <button
         onClick={onRemove}
