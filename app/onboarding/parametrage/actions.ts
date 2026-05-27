@@ -2,7 +2,150 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import type { ConditionsNa } from "../parcours-engine";
+import { shouldBeNa, type ClientContext, type ConditionsNa } from "../parcours-engine";
+
+// Critere "facturable" : meme regle que isClientBillable (lib/billable.ts).
+const BILLABLE_PIPELINES = [
+  "7 - LDM signée",
+  "Z - Interne",
+  "Z - Sous-traitance",
+];
+
+/**
+ * Applique une etape d'onboarding retroactivement a tous les clients
+ * facturables existants (LDM signee / interne / sous-traitance).
+ *
+ * Comportement :
+ *   - Si la tache n'existe pas pour ce client : INSERT (A_FAIRE ou
+ *     NON_APPLICABLE selon les conditions_na actuelles de l'etape).
+ *   - Si la tache existe DEJA et est au statut A_FAIRE ou NON_APPLICABLE
+ *     (statut "automatique") : UPDATE pour refleter les nouvelles conditions.
+ *   - Si la tache existe et est EN_COURS ou TERMINE (statut humain) :
+ *     ON NE TOUCHE PAS (l'utilisateur a deja agi dessus).
+ *
+ * Appelee apres createEtape et updateEtapeConditions sur le parcours par
+ * defaut. Sur un parcours non-default : no-op (aucun client ne l'utilise).
+ *
+ * Idempotent : peut etre rappelee sans risque.
+ */
+async function syncEtapeWithExistingClients(etapeId: string) {
+  const sb = await createClient();
+
+  // 1. Lire l'etape + verifier que son parcours est is_default
+  const { data: etape } = await sb
+    .from("onboarding_etape")
+    .select(
+      "task_key, categorie, conditions_na, onboarding_parcours!inner(is_default)"
+    )
+    .eq("id", etapeId)
+    .single();
+  if (!etape) return;
+  const parcoursIsDefault = (etape as unknown as {
+    onboarding_parcours: { is_default: boolean };
+  }).onboarding_parcours.is_default;
+  if (!parcoursIsDefault) return; // pas de backfill sur parcours custom
+
+  const taskKey = etape.task_key as string;
+  const categorie = (etape.categorie as string) || "2G";
+  const conditionsNa = etape.conditions_na;
+
+  // 2. Libelles par defaut depuis status_options (A_FAIRE et NON_APPLICABLE)
+  const { data: defaults } = await sb
+    .from("status_options")
+    .select("libelle, statut_logique")
+    .eq("scope", "onboarding")
+    .eq("type_code", taskKey)
+    .eq("actif", true)
+    .order("ordre");
+  let libelleAFaire: string | null = null;
+  let libelleNa: string | null = null;
+  for (const d of defaults ?? []) {
+    if (d.statut_logique === "A_FAIRE" && !libelleAFaire) libelleAFaire = d.libelle;
+    if (d.statut_logique === "NON_APPLICABLE" && !libelleNa) libelleNa = d.libelle;
+  }
+
+  // 3. Tous les clients facturables
+  const { data: clients } = await sb
+    .from("clients")
+    .select("id, origine, gestion_tns, forme, activite, pipeline_statut")
+    .in("pipeline_statut", BILLABLE_PIPELINES);
+  if (!clients || clients.length === 0) return;
+  const clientIds = clients.map((c) => c.id);
+
+  // 4. Taches existantes pour cette task_key
+  const { data: existing } = await sb
+    .from("onboarding_tasks")
+    .select("client_id, statut_logique")
+    .eq("task_key", taskKey)
+    .in("client_id", clientIds);
+  const existingByClient = new Map(
+    (existing ?? []).map((t) => [t.client_id, t.statut_logique as string])
+  );
+
+  // 5. Calculer les operations pour chaque client
+  const toInsert: Array<{
+    client_id: string;
+    task_key: string;
+    categorie: string;
+    statut_logique: "A_FAIRE" | "NON_APPLICABLE";
+    statut_detail: string | null;
+  }> = [];
+  const toUpdate: Array<{
+    client_id: string;
+    statut_logique: "A_FAIRE" | "NON_APPLICABLE";
+    statut_detail: string | null;
+  }> = [];
+
+  for (const c of clients) {
+    const ctx: ClientContext = {
+      origine: c.origine,
+      gestion_tns: c.gestion_tns,
+      forme: c.forme,
+      activite: c.activite,
+    };
+    const isNa = shouldBeNa(conditionsNa, ctx);
+    const targetStatut = isNa ? "NON_APPLICABLE" : "A_FAIRE";
+    const targetDetail = isNa
+      ? libelleNa ?? "Non applicable"
+      : libelleAFaire;
+
+    const existingStatut = existingByClient.get(c.id);
+    if (existingStatut === undefined) {
+      // Tache absente : INSERT
+      toInsert.push({
+        client_id: c.id,
+        task_key: taskKey,
+        categorie,
+        statut_logique: targetStatut,
+        statut_detail: targetDetail,
+      });
+    } else if (existingStatut === "A_FAIRE" || existingStatut === "NON_APPLICABLE") {
+      // Tache deja la, statut automatique : UPDATE si different
+      if (existingStatut !== targetStatut) {
+        toUpdate.push({
+          client_id: c.id,
+          statut_logique: targetStatut,
+          statut_detail: targetDetail,
+        });
+      }
+    }
+    // Sinon (EN_COURS / TERMINE) : on ne touche pas
+  }
+
+  // 6. Exécution des inserts
+  if (toInsert.length > 0) {
+    await sb.from("onboarding_tasks").insert(toInsert);
+  }
+  // 7. Exécution des updates (un par un car upsert ne peut pas filtrer sur statut)
+  for (const u of toUpdate) {
+    await sb
+      .from("onboarding_tasks")
+      .update({ statut_logique: u.statut_logique, statut_detail: u.statut_detail })
+      .eq("client_id", u.client_id)
+      .eq("task_key", taskKey)
+      .in("statut_logique", ["A_FAIRE", "NON_APPLICABLE"]); // safety : ne pas ecraser EN_COURS/TERMINE
+  }
+}
 
 /**
  * Server actions pour l'éditeur de parcours d'onboarding
@@ -114,17 +257,28 @@ export async function createEtape(
   const libelle = input.libelle.trim();
   const nomCourt = input.nom_court?.trim() || shortLabelFrom(libelle);
 
-  const { error } = await sb.from("onboarding_etape").insert({
-    parcours_id: parcoursId,
-    task_key: taskKey,
-    libelle,
-    nom_court: nomCourt,
-    description: input.description ?? null,
-    categorie: "2G", // défaut (la catégorie n'est plus exposée dans l'UI)
-    ordre: maxOrdre + 1,
-    conditions_na: [],
-  });
+  const { data: inserted, error } = await sb
+    .from("onboarding_etape")
+    .insert({
+      parcours_id: parcoursId,
+      task_key: taskKey,
+      libelle,
+      nom_court: nomCourt,
+      description: input.description ?? null,
+      categorie: "2G", // défaut (la catégorie n'est plus exposée dans l'UI)
+      ordre: maxOrdre + 1,
+      conditions_na: [],
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+
+  // Backfill rétroactif : applique la nouvelle étape à tous les clients
+  // facturables existants (si le parcours est is_default).
+  if (inserted?.id) {
+    await syncEtapeWithExistingClients(inserted.id);
+  }
+
   revalidateOnboarding();
 }
 
@@ -192,6 +346,12 @@ export async function updateEtapeConditions(
     .update({ conditions_na: conditions })
     .eq("id", etapeId);
   if (error) throw new Error(error.message);
+
+  // Re-evalue les taches existantes des clients : celles au statut auto
+  // (A_FAIRE / NON_APPLICABLE) basculent selon les nouvelles conditions.
+  // Les taches EN_COURS / TERMINE restent intactes (action humaine).
+  await syncEtapeWithExistingClients(etapeId);
+
   revalidateOnboarding();
 }
 
