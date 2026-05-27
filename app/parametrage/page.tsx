@@ -106,15 +106,15 @@ export default async function ParametragePage({
 function YearSelector({ year }: { year: number }) {
   const years = [year - 1, year, year + 1];
   return (
-    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60">
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
       {years.map((y) => (
         <Link
           key={y}
           href={`/parametrage?year=${y}`}
           className={
             y === year
-              ? "px-3 py-1 rounded-lg text-sm bg-white text-zinc-900 shadow-card font-medium tabular-nums"
-              : "px-3 py-1 rounded-lg text-sm text-zinc-600 hover:text-zinc-900 hover:bg-white/50 tabular-nums"
+              ? "px-3 py-1 rounded-lg text-sm bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold tabular-nums"
+              : "px-3 py-1 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] tabular-nums border border-transparent"
           }
         >
           {y}

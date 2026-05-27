@@ -135,15 +135,16 @@ function YearSelector({ year }: { year: number }) {
         <Lock className="h-2.5 w-2.5" />
         <span>Mémorisée</span>
       </div>
-      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 border border-zinc-200/60">
+      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
         {AVAILABLE_YEARS.map((y) => (
           <Link
             key={y}
             href={`/obligations?year=${y}`}
             className={
               y === year
-                ? "px-3 py-1 rounded-lg text-sm bg-white text-zinc-900 shadow-card font-medium tabular-nums"
-                : "px-3 py-1 rounded-lg text-sm text-zinc-600 hover:text-zinc-900 hover:bg-white/50 tabular-nums"
+                ? // Annee active : cadre marque + fond + ombre, tres lisible
+                  "px-3 py-1 rounded-lg text-sm bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold tabular-nums"
+                : "px-3 py-1 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] tabular-nums border border-transparent"
             }
           >
             {y}
