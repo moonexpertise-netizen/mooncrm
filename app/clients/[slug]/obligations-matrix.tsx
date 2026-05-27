@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronsRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAlert } from "@/app/_components/confirm-modal";
 import {
@@ -221,7 +221,7 @@ export default function ObligationsMatrix({
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="text-sm text-muted-foreground">
           Vue inversée : pour chaque obligation, coche les années où elle s&apos;applique.
-          Clic sur l&apos;icône <ChevronsRight className="inline h-3.5 w-3.5 text-[hsl(var(--gold))] -mt-0.5" /> à côté d&apos;une année pour la reconduire à la suivante en mode draft.
+          Clic sur l&apos;icône <ChevronRight className="inline h-3.5 w-3.5 text-[hsl(var(--gold))] -mt-0.5" /> à côté d&apos;une année pour la reconduire à la suivante en mode draft.
         </div>
 
         {/* Sélecteur Reprise à partir de — pré-remplit les années antérieures avec "—" */}
@@ -323,7 +323,7 @@ export default function ObligationsMatrix({
                           className="inline-flex items-center justify-center w-5 h-5 rounded text-[hsl(var(--gold))] hover:bg-[hsl(var(--gold))]/15 transition opacity-60 hover:opacity-100"
                           title={`Reconduire ${y} vers ${y + 1} (draft)`}
                         >
-                          <ChevronsRight className="h-3.5 w-3.5" />
+                          <ChevronRight className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
