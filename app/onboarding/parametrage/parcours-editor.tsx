@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -103,17 +103,18 @@ export default function ParcoursEditor({
   const [expandedEtapeId, setExpandedEtapeId] = useState<string | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
 
-  // State local + sync via prop pour conserver l'UI immédiate pendant le save
+  // State local + sync via prop pour conserver l'UI immediate pendant le save.
+  // Resync via useEffect (et non pas setState pendant render, qui declenche un
+  // warning React "Cannot update a component while rendering" et peut boucler).
   const [localEtapes, setLocalEtapes] = useState<EtapeRow[]>(etapes);
   const [localRubriques, setLocalRubriques] = useState<RubriqueRow[]>(rubriques);
 
-  // Resync quand les props serveur changent (post-router.refresh)
-  if (etapes !== localEtapes && etapes.length !== localEtapes.length) {
+  useEffect(() => {
     setLocalEtapes(etapes);
-  }
-  if (rubriques !== localRubriques && rubriques.length !== localRubriques.length) {
+  }, [etapes]);
+  useEffect(() => {
     setLocalRubriques(rubriques);
-  }
+  }, [rubriques]);
 
   function refresh() {
     router.refresh();

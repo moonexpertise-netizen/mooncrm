@@ -18,6 +18,18 @@ const nextConfig = {
       dynamic: 30,
       static: 300,
     },
+    // Tree-shaking aggressif des barrels lourds. Sans cette option, importer
+    // 11 icones Lucide tirait potentiellement tout le barrel (~5MB de source
+    // map). Idem pour dnd-kit et recharts/sonner.
+    // Documente : https://nextjs.org/docs/app/api-reference/next-config-js/optimizePackageImports
+    optimizePackageImports: [
+      "lucide-react",
+      "@dnd-kit/core",
+      "@dnd-kit/sortable",
+      "@dnd-kit/utilities",
+      "recharts",
+      "sonner",
+    ],
   },
 };
 
