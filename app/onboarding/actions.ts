@@ -243,3 +243,57 @@ export async function setOrigine(clientId: string, origine: string | null) {
   if (error) throw new Error(error.message);
   await initializeOnboardingForClient(clientId);
 }
+
+/**
+ * Crée un nouveau libellé (option de statut) pour une tâche d'onboarding,
+ * directement depuis le popover statut (style Notion : "Créer cette option").
+ *
+ *   taskKey      = task_key de l'étape (ex "creation_societe")
+ *   libelle      = texte saisi par l'utilisateur (ex "Dépôt de capital")
+ *   statutLogique = bucket logique (A_FAIRE / EN_COURS / TERMINE / NON_APPLICABLE)
+ *
+ * Insert dans status_options avec scope="onboarding". Idempotent grâce
+ * à la contrainte UNIQUE (scope, type_code, libelle).
+ *
+ * Renvoie le libellé créé (utile pour optimistic UI).
+ */
+export async function addOnboardingStatusOption(
+  taskKey: string,
+  libelle: string,
+  statutLogique: "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE"
+): Promise<{ libelle: string; statut_logique: string; color: string | null }> {
+  const sb = await createClient();
+  const trimmed = libelle.trim();
+  if (!trimmed) throw new Error("Le libellé ne peut pas être vide");
+  if (!taskKey) throw new Error("task_key manquant");
+
+  // Calcul de l'ordre : on prend le max existant + 1 pour le bucket logique
+  const { data: existing } = await sb
+    .from("status_options")
+    .select("ordre")
+    .eq("scope", "onboarding")
+    .eq("type_code", taskKey)
+    .order("ordre", { ascending: false })
+    .limit(1);
+  const nextOrdre = (existing?.[0]?.ordre ?? 0) + 1;
+
+  // Insert avec upsert pour idempotence (si même libellé existe déjà
+  // on retourne l'existant)
+  const { data, error } = await sb
+    .from("status_options")
+    .upsert(
+      {
+        scope: "onboarding",
+        type_code: taskKey,
+        libelle: trimmed,
+        statut_logique: statutLogique,
+        ordre: nextOrdre,
+        actif: true,
+      },
+      { onConflict: "scope,type_code,libelle", ignoreDuplicates: false }
+    )
+    .select("libelle, statut_logique, color")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
