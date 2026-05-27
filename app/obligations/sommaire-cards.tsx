@@ -165,8 +165,9 @@ export default function SommaireCards({
               </div>
             </header>
 
-            {/* Liste des rows — pas de bordure ext, divides internes */}
-            <div className="divide-y divide-zinc-100">
+            {/* Liste des rows sans divides : les rows sont separees par
+                leur padding vertical seul. Aucune ligne entre. */}
+            <div>
               {groupRows.map((r) => (
                 <TrackerRow
                   key={r.slug}
