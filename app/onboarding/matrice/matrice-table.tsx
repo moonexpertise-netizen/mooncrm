@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import {
+  addOnboardingStatusOption,
   setGestionTns,
   setOrigine,
   updateOnboardingTaskStatus,
@@ -521,6 +522,7 @@ export default function MatriceTable({
                     >
                       <MatrixCell
                         cell={cell}
+                        taskKey={etapes[i]?.task_key ?? ""}
                         taskLibelle={etapes[i]?.libelle ?? etapes[i]?.task_key ?? ""}
                         options={optionsByKey[etapes[i]?.task_key ?? ""] ?? []}
                         isOpen={
@@ -588,6 +590,7 @@ export default function MatriceTable({
 
 function MatrixCell({
   cell,
+  taskKey,
   taskLibelle,
   options,
   isOpen,
@@ -597,6 +600,8 @@ function MatrixCell({
   onReset,
 }: {
   cell: MatriceTaskCell | null;
+  /** task_key de l'étape (pour créer un nouveau libellé option) */
+  taskKey: string;
   /** Libellé complet de la tâche (affiché en titre du popover) */
   taskLibelle: string;
   options: OnboardingStatusOption[];
@@ -693,10 +698,10 @@ function MatrixCell({
                 : "translate(-50%, 8px)",
               zIndex: 1000,
             }}
-            className="bg-white border rounded-lg shadow-xl min-w-[240px] text-left animate-slide-up-fade overflow-hidden"
+            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.10] rounded-lg shadow-xl min-w-[260px] text-left animate-slide-up-fade overflow-hidden"
           >
             {/* Titre + statut actuel */}
-            <div className="px-3 py-2 border-b">
+            <div className="px-3 py-2 border-b dark:border-white/[0.06]">
               <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
                 {taskLibelle}
               </div>
@@ -719,8 +724,8 @@ function MatrixCell({
             {/* Options groupées */}
             <div className="max-h-[300px] overflow-y-auto py-1">
               {options.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-zinc-500">
-                  Pas de libellés disponibles pour cette tâche.
+                <div className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  Pas de libellés disponibles. Crée-en un ci-dessous ↓
                 </div>
               ) : (
                 STATUT_GROUP_ORDER.map((groupKey) => {
@@ -736,8 +741,8 @@ function MatrixCell({
                           key={opt.libelle}
                           onClick={() => onPick(opt.libelle, opt.statut_logique)}
                           className={cn(
-                            "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
-                            cell.statut_detail === opt.libelle && "bg-zinc-50"
+                            "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                            cell.statut_detail === opt.libelle && "bg-zinc-50 dark:bg-white/[0.04]"
                           )}
                         >
                           <span
@@ -758,12 +763,17 @@ function MatrixCell({
                 })
               )}
             </div>
+            {/* Création inline d'une nouvelle option (style Notion) */}
+            <CreateOptionInline
+              taskKey={taskKey}
+              onCreated={(libelle, sl) => onPick(libelle, sl)}
+            />
             {/* Footer reset */}
             {cell.statut_detail && (
-              <div className="border-t bg-zinc-50/50">
+              <div className="border-t dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
                 <button
                   onClick={onReset}
-                  className="w-full px-3 py-2 text-left text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
+                  className="w-full px-3 py-2 text-left text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
                 >
                   Réinitialiser
                 </button>
@@ -1156,5 +1166,90 @@ function SortBtn({
     >
       {label}
     </button>
+  );
+}
+
+// ============================================================================
+//  CreateOptionInline — création inline d'un nouveau libellé depuis la matrice
+//  (style Notion). Affiché en bas du popover statut. L'utilisateur tape un
+//  texte, choisit un bucket (À faire / En cours / Terminé / N/A), et le
+//  libellé est créé en DB puis appliqué immédiatement comme statut de la
+//  tâche en cours.
+// ============================================================================
+
+function CreateOptionInline({
+  taskKey,
+  onCreated,
+}: {
+  taskKey: string;
+  onCreated: (libelle: string, statut_logique: StatutLogique) => void;
+}) {
+  const router = useRouter();
+  const [draft, setDraft] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function submit(statut_logique: StatutLogique) {
+    const trimmed = draft.trim();
+    if (!trimmed || isPending || !taskKey) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await addOnboardingStatusOption(taskKey, trimmed, statut_logique);
+        setDraft("");
+        // Applique le nouveau libellé comme statut courant (optimistic).
+        onCreated(trimmed, statut_logique);
+        // Re-fetch des options server-side (optionsByKey vient du serveur).
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  return (
+    <div className="border-t dark:border-white/[0.06] bg-zinc-50/40 dark:bg-white/[0.02] px-3 py-2.5 space-y-2">
+      <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-medium">
+        Créer une option
+      </div>
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Nom du libellé…"
+        disabled={isPending}
+        className="w-full px-2 py-1.5 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/30 dark:focus:ring-white/15 focus:border-zinc-400 dark:focus:border-zinc-300 disabled:opacity-50"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit("A_FAIRE"); // Enter = À faire par défaut
+        }}
+      />
+      {draft.trim() && (
+        <div className="space-y-1">
+          <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+            Ajouter à :
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {STATUT_GROUP_ORDER.map((g) => (
+              <button
+                key={g}
+                onClick={() => submit(g)}
+                disabled={isPending}
+                className={cn(
+                  "px-2 py-1 rounded text-[10px] font-medium border transition-colors",
+                  "hover:bg-zinc-100 dark:hover:bg-white/[0.08]",
+                  "disabled:opacity-50",
+                  statutColorClass(g, null)
+                )}
+              >
+                {STATUT_GROUP_LABEL[g]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="text-[10px] text-rose-600 dark:text-rose-400">{error}</div>
+      )}
+    </div>
   );
 }
