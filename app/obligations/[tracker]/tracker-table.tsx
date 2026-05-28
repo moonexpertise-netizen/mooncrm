@@ -1238,8 +1238,10 @@ const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
 };
 
 /** Pour les types qui exposent une 2e pastille de facturation sous la cellule
- *  principale. Pour l'instant : AGO_DEPOT (facturation juridique). */
-const TYPES_WITH_FACTURATION = new Set(["AGO_DEPOT"]);
+ *  principale. AGO_DEPOT = facturation juridique. LIASSE_PLAQUETTE =
+ *  facturation bilan (utile uniquement pour les clients avec
+ *  type_honos_bilans = 'Facturés', mais la pastille est dispo pour tous). */
+const TYPES_WITH_FACTURATION = new Set(["AGO_DEPOT", "LIASSE_PLAQUETTE"]);
 
 const FACT_PILL_OPTIONS: Array<{ key: EtatFacturation; label: string; color: string }> = [
   { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },

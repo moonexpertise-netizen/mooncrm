@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import {
@@ -77,6 +77,7 @@ export default function CaaTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [localRows, setLocalRows] = useState(rows);
   useEffect(() => setLocalRows(rows), [rows]);
   const { confirm, ConfirmDialog } = useConfirm();
@@ -258,6 +259,22 @@ export default function CaaTable({
         <NewClientCaaForm onCancel={() => setAdding(false)} onCreated={() => { setAdding(false); router.refresh(); }} />
       )}
 
+      {editingId && (() => {
+        const target = localRows.find((r) => r.id === editingId);
+        if (!target) return null;
+        return (
+          <EditClientCaaModal
+            row={target}
+            onClose={() => setEditingId(null)}
+            onSaved={(patch) => {
+              setLocalRows((prev) => prev.map((r) => (r.id === editingId ? { ...r, ...patch } : r)));
+              setEditingId(null);
+              router.refresh();
+            }}
+          />
+        );
+      })()}
+
       {visibleRows.length === 0 ? (
         <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
           {localRows.length === 0
@@ -334,14 +351,24 @@ export default function CaaTable({
                     </>
                   )}
                   <td className="px-2 py-3 text-right">
-                    <button
-                      onClick={() => onDelete(r.id, r.denomination)}
-                      className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                      aria-label={`Supprimer ${r.denomination}`}
-                      title="Supprimer le dossier"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    <div className="inline-flex items-center gap-0.5">
+                      <button
+                        onClick={() => setEditingId(r.id)}
+                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
+                        aria-label={`Modifier ${r.denomination}`}
+                        title="Modifier le dossier"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(r.id, r.denomination)}
+                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                        aria-label={`Supprimer ${r.denomination}`}
+                        title="Supprimer le dossier"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -757,6 +784,100 @@ function FacturationPicker({
           document.body
         )}
     </div>
+  );
+}
+
+// ============================================================================
+//  EditClientCaaModal - modifie un dossier CAA existant
+// ============================================================================
+
+function EditClientCaaModal({
+  row,
+  onClose,
+  onSaved,
+}: {
+  row: CaaRow;
+  onClose: () => void;
+  onSaved: (patch: Partial<CaaRow>) => void;
+}) {
+  const [denomination, setDenomination] = useState(row.denomination);
+  const [siren, setSiren] = useState(row.siren ?? "");
+  const [forme, setForme] = useState(row.forme ?? "");
+  const [dirigeantNom, setDirigeantNom] = useState(row.dirigeant_nom ?? "");
+  const [dirigeantEmail, setDirigeantEmail] = useState(row.dirigeant_email ?? "");
+  const [dirigeantTelephone, setDirigeantTelephone] = useState(row.dirigeant_telephone ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function submit() {
+    if (!denomination.trim()) {
+      setError("Dénomination obligatoire");
+      return;
+    }
+    setError(null);
+    const patch: Record<string, string | null> = {
+      denomination: denomination.trim(),
+      siren: siren.trim() || null,
+      forme: forme.trim() || null,
+      dirigeant_nom: dirigeantNom.trim() || null,
+      dirigeant_email: dirigeantEmail.trim() || null,
+      dirigeant_telephone: dirigeantTelephone.trim() || null,
+    };
+    startTransition(async () => {
+      try {
+        await updateClientCaa(row.id, patch);
+        toastSuccess("Dossier mis à jour");
+        onSaved({
+          denomination: denomination.trim(),
+          siren: siren.trim() || null,
+          forme: forme.trim() || null,
+          dirigeant_nom: dirigeantNom.trim() || null,
+          dirigeant_email: dirigeantEmail.trim() || null,
+          dirigeant_telephone: dirigeantTelephone.trim() || null,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        toastError(e, "Echec mise à jour");
+      }
+    });
+  }
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-fade-in" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-zinc-900/50 backdrop-blur-md" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
+        <div className="px-5 py-4 border-b bg-zinc-50 dark:bg-white/[0.03] border-zinc-200 dark:border-white/[0.06] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Modifier {row.denomination}</h3>
+          <button type="button" onClick={onClose} className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label="Fermer">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input value={denomination} onChange={(e) => setDenomination(e.target.value)} placeholder="Dénomination *" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
+            <input value={siren} onChange={(e) => setSiren(e.target.value.replace(/\D/g, ""))} maxLength={9} inputMode="numeric" placeholder="SIREN" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums" />
+            <input value={forme} onChange={(e) => setForme(e.target.value)} placeholder="Forme (SAS, SARL...)" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
+            <input value={dirigeantNom} onChange={(e) => setDirigeantNom(e.target.value)} placeholder="Dirigeant (nom complet)" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
+            <input value={dirigeantEmail} onChange={(e) => setDirigeantEmail(e.target.value)} placeholder="Email dirigeant" type="email" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm sm:col-span-2" />
+            <input value={dirigeantTelephone} onChange={(e) => setDirigeantTelephone(e.target.value)} placeholder="Téléphone dirigeant" type="tel" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums" />
+          </div>
+          {error && <div className="text-[11px] text-rose-600 dark:text-rose-400">{error}</div>}
+        </div>
+
+        <div className="px-5 py-3 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-200 dark:border-white/[0.06] flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} disabled={isPending} className="px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
+            Annuler
+          </button>
+          <button type="button" onClick={submit} disabled={isPending || !denomination.trim()} className="px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {isPending ? "Sauvegarde…" : "Enregistrer"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 

@@ -591,6 +591,26 @@ create index if not exists idx_caa_obligations_etat_facturation
 
 
 -- ============================================================================
+-- ============================================================================
+--   MIGRATION 0051 : AGO "2 - Depose" -> TERMINE (vert)
+-- ============================================================================
+-- ============================================================================
+
+update public.status_options
+   set statut_logique = 'TERMINE'
+ where scope = 'obligation'
+   and type_code = 'AGO_DEPOT'
+   and libelle = '2 - Déposé'
+   and statut_logique = 'EN_COURS';
+
+update public.obligations
+   set statut_logique = 'TERMINE'
+ where type = 'AGO_DEPOT'
+   and statut_detail = '2 - Déposé'
+   and statut_logique = 'EN_COURS';
+
+
+-- ============================================================================
 --   FIN. Si tout s'est bien passe, tu dois voir "Success. No rows returned"
 --   (ou similaire) en bas de l'editeur SQL Supabase.
 -- ============================================================================

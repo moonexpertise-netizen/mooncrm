@@ -1,0 +1,80 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+
+/**
+ * Server actions partagees pour la page Facturation centralisee.
+ * 4 endpoints generiques qui pointent vers la bonne table selon la source.
+ */
+
+export type EtatFacturation = "a_facturer" | "facturee" | "payee" | "sans_facture";
+
+export type FactSource =
+  | "caa"
+  | "ir"
+  | "ago"
+  | "bilan"
+  | "mission_exc";
+
+/**
+ * Met a jour l'etat facturation d'une ligne, peu importe sa source.
+ * - caa/ir : on met a jour la row (client, annee) ; pour IR on synchronise IR+IFI
+ * - ago/bilan : on met a jour la row obligations directement par id
+ * - mission_exc : on met a jour la row missions_exceptionnelles par id
+ */
+export async function setFacturationFromCentral(
+  source: FactSource,
+  rowId: string, // obligation_id, mission_id, OU pour caa/ir : "clientId|annee"
+  etat: EtatFacturation | null
+): Promise<void> {
+  const sb = await createClient();
+
+  if (source === "ago" || source === "bilan") {
+    const { error } = await sb
+      .from("obligations")
+      .update({ etat_facturation: etat })
+      .eq("id", rowId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  if (source === "mission_exc") {
+    const { error } = await sb
+      .from("missions_exceptionnelles")
+      .update({ etat_facturation: etat })
+      .eq("id", rowId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  if (source === "caa") {
+    // rowId format : "obligationId" car 1 row par client/annee
+    const { error } = await sb
+      .from("caa_obligations")
+      .update({ etat_facturation: etat })
+      .eq("id", rowId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  if (source === "ir") {
+    // rowId = "clientIrId|annee" pour MAJ synchronisee des 2 rows (IR + IFI).
+    const [clientIrId, anneeStr] = rowId.split("|");
+    const annee = parseInt(anneeStr, 10);
+    if (!clientIrId || Number.isNaN(annee)) {
+      throw new Error("ID invalide pour IR : attendu 'clientId|annee'");
+    }
+    const { error } = await sb
+      .from("ir_obligations")
+      .update({ etat_facturation: etat })
+      .eq("client_ir_id", clientIrId)
+      .eq("annee", annee);
+    if (error) throw new Error(error.message);
+    return;
+  }
+}
+
+/**
+ * Pour missions_exceptionnelles : on doit aussi pouvoir setter etat_facturation
+ * directement. Reutilise setFacturationFromCentral avec source = mission_exc.
+ */

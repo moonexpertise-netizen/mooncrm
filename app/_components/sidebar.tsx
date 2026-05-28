@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ClipboardList,
   GitBranch,
+  GripVertical,
   LayoutDashboard,
   LogOut,
   Receipt,
@@ -18,9 +19,27 @@ import {
   ShieldCheck,
   Stamp,
   Users,
+  Wallet,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { TRACKERS, TRACKER_GROUPS } from "@/app/obligations/trackers";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -32,6 +51,9 @@ export const SIDEBAR_MOBILE_EVENT = "moon:sidebar-mobile-toggle";
 /** Année sélectionnée dans le module Production. Persistée pour rester active
  *  quand on navigue entre les sous-trackers. */
 const OBLIGATIONS_YEAR_KEY = "moon.obligations.year";
+/** Ordre custom des items de navigation (drag-and-drop). Stocke un tableau
+ *  de hrefs dans l'ordre voulu par l'utilisateur. */
+const NAV_ORDER_KEY = "moon.sidebar.nav-order";
 
 type ChildItem =
   | { kind: "header"; label: string; groupId: string }
@@ -91,6 +113,8 @@ const NAV_ITEMS: NavItem[] = [
   // apports). Placees apres Production dans la sidebar.
   { href: "/missions/ir", label: "IR", icon: Receipt, matchPrefix: "/missions/ir" },
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa" },
+  // Facturation centralisee : agrege les factures a emettre de tous les modules.
+  { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation" },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
@@ -142,6 +166,9 @@ export function Sidebar() {
   // Profile du user logué : sert à afficher email dans le footer + lien
   // Admin → Utilisateurs si is_admin. Fetch une seule fois au mount.
   const [me, setMe] = useState<{ email: string; isAdmin: boolean } | null>(null);
+  // Ordre custom des nav items (drag-and-drop). Initialise avec l'ordre
+  // par defaut puis hydratte depuis localStorage cote client.
+  const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((i) => i.href));
 
   useEffect(() => {
     const sb = createClient();
@@ -167,6 +194,20 @@ export function Sidebar() {
     if (yr) {
       const n = parseInt(yr, 10);
       if (!Number.isNaN(n)) setPersistedObligationsYear(n);
+    }
+    // Hydrate nav order. On filtre les hrefs qui n'existent plus (item supprime)
+    // et on ajoute les nouveaux a la fin (rubrique creee apres le stockage).
+    const storedOrder = localStorage.getItem(NAV_ORDER_KEY);
+    if (storedOrder) {
+      try {
+        const parsed = JSON.parse(storedOrder) as string[];
+        const validHrefs = new Set(NAV_ITEMS.map((i) => i.href));
+        const cleaned = parsed.filter((h) => validHrefs.has(h));
+        const missing = NAV_ITEMS.map((i) => i.href).filter((h) => !cleaned.includes(h));
+        setNavOrder([...cleaned, ...missing]);
+      } catch {
+        // JSON invalide -> on garde l'ordre par defaut
+      }
     }
 
     // Détection mobile : utilisé pour forcer l'affichage complet de la
@@ -251,6 +292,33 @@ export function Sidebar() {
 
   // Active tracker = 2e segment de path (ex. /obligations/ago-depot → "ago-depot")
   const activeSlug = pathname.startsWith("/obligations/") ? pathname.split("/")[2] ?? null : null;
+
+  // Drag-drop : sensors + handler
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setNavOrder((prev) => {
+      const oldIdx = prev.indexOf(String(active.id));
+      const newIdx = prev.indexOf(String(over.id));
+      if (oldIdx === -1 || newIdx === -1) return prev;
+      const next = arrayMove(prev, oldIdx, newIdx);
+      try {
+        localStorage.setItem(NAV_ORDER_KEY, JSON.stringify(next));
+      } catch {
+        // localStorage plein/bloque -> tant pis, l'etat React reste OK
+      }
+      return next;
+    });
+  }
+
+  // NAV_ITEMS ordonnes selon navOrder (custom de l'utilisateur)
+  const orderedNavItems = navOrder
+    .map((href) => NAV_ITEMS.find((i) => i.href === href))
+    .filter((i): i is NavItem => i !== undefined);
 
   // Année Production active : URL si on est sur /obligations*, sinon la
   // dernière mémorisée. Sert à propager ?year= dans les liens du sidebar.
@@ -346,10 +414,14 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Nav */}
+      {/* Nav. DndContext + SortableContext rendent chaque rubrique
+          deplacable a la souris / clavier. L'ordre est persiste dans
+          localStorage. */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
+        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={navOrder} strategy={verticalListSortingStrategy}>
         <ul className="space-y-0.5 px-2">
-          {NAV_ITEMS.map((item) => {
+          {orderedNavItems.map((item) => {
             const active = isActive(pathname, item);
             const Icon = item.icon;
             const hasChildren = item.children && item.children.length > 0;
@@ -357,7 +429,7 @@ export function Sidebar() {
             const showChildren = hasChildren && !showCollapsed && isProduction && prodOpen;
 
             return (
-              <li key={item.href} className="relative group/item">
+              <SortableNavItem key={item.href} id={item.href} className="relative group/item">
                 <div
                   className={cn(
                     "relative flex items-center rounded-lg text-sm",
@@ -435,7 +507,9 @@ export function Sidebar() {
                   </div>
                 )}
 
-                {/* Sous-menu Production - rubriques sur bandeau, sous-rubriques petites */}
+                {/* Sous-menu Production - rubriques sur bandeau, sous-rubriques petites.
+                    Note: les sous-items NE SONT PAS deplacables (ordre fixe par groupe
+                    metier). Seuls les items de premier niveau sont reorderables. */}
                 {showChildren && item.children && (
                   <ul className="mt-1 mb-2">
                     {item.children.map((c, i) => {
@@ -495,10 +569,12 @@ export function Sidebar() {
                     })}
                   </ul>
                 )}
-              </li>
+              </SortableNavItem>
             );
           })}
         </ul>
+        </SortableContext>
+        </DndContext>
       </nav>
 
       {/* User + actions */}
@@ -565,5 +641,51 @@ export function Sidebar() {
       </div>
     </aside>
     </>
+  );
+}
+
+/**
+ * Item de navigation sortable. Rend un <li> avec une poignee de drag visible
+ * uniquement au hover (icone GripVertical a gauche). Le clic sur la poignee
+ * active le drag sans interferer avec le clic sur le Link.
+ */
+function SortableNavItem({
+  id,
+  children,
+  className,
+}: {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.85 : 1,
+  };
+  return (
+    <li ref={setNodeRef} style={style} className={cn(className, isDragging && "shadow-lg")}>
+      {/* Poignee de drag : visible au hover, invisible sinon. Aligne avec
+          le bord gauche, occupe peu d'espace pour ne pas decaler le layout. */}
+      <button
+        type="button"
+        aria-label="Déplacer cette rubrique"
+        title="Glisse pour réorganiser"
+        className={cn(
+          "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 z-10",
+          "w-4 h-6 flex items-center justify-center rounded",
+          "text-zinc-500 hover:text-[hsl(var(--gold))] hover:bg-white/[0.08]",
+          "opacity-0 group-hover/item:opacity-100 focus:opacity-100 transition-opacity",
+          "cursor-grab active:cursor-grabbing touch-none"
+        )}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-3 w-3" />
+      </button>
+      {children}
+    </li>
   );
 }
