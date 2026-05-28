@@ -145,22 +145,46 @@ export default function SommaireCards({
             key={group.id}
             className="rounded-2xl border border-zinc-200/70 bg-white shadow-card overflow-hidden"
           >
-            {/* Header intégré à la card : bandeau bg légèrement teinté */}
-            <header className="flex items-baseline justify-between gap-3 px-4 py-2.5 border-b border-zinc-100 bg-zinc-50/40">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
-                {group.label}
-              </h2>
-              <div className="text-[11px] text-zinc-400 tabular-nums">
-                <span className={cn(gTodo > 0 && "text-rose-600 font-medium")}>
-                  {gTodo}
+            {/* Header integre + ligne de legende dessous : titre du groupe a
+                gauche, et 3 mini-pastilles A faire / En cours / Termine pour
+                expliciter l'ordre des compteurs ci-dessous. */}
+            <header className="flex flex-col gap-2 px-4 py-2.5 border-b border-zinc-100 bg-zinc-50/40">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
+                  {group.label}
+                </h2>
+                <div
+                  className="text-[11px] text-zinc-400 tabular-nums"
+                  title={`Totaux : ${gTodo} à traiter · ${gWip} en cours · ${gDone} terminés`}
+                >
+                  <span className={cn(gTodo > 0 && "text-rose-600 font-medium")}>
+                    {gTodo}
+                  </span>
+                  <span className="mx-1">·</span>
+                  <span className={cn(gWip > 0 && "text-amber-600 font-medium")}>
+                    {gWip}
+                  </span>
+                  <span className="mx-1">·</span>
+                  <span className={cn(gDone > 0 && "text-emerald-600 font-medium")}>
+                    {gDone}
+                  </span>
+                </div>
+              </div>
+              {/* Legende des colonnes : alignee a droite, meme largeur que les
+                  Counter dans les rows pour signaler "ces 3 colonnes = ces 3
+                  statuts". Masquee en mobile (compteurs compactes sur 1 ligne). */}
+              <div className="hidden sm:flex items-center gap-3 justify-end text-[9px] uppercase tracking-[0.06em] text-zinc-400 dark:text-zinc-500 pr-[156px]">
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500" aria-hidden />
+                  À faire
                 </span>
-                <span className="mx-1">·</span>
-                <span className={cn(gWip > 0 && "text-amber-600 font-medium")}>
-                  {gWip}
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden />
+                  En cours
                 </span>
-                <span className="mx-1">·</span>
-                <span className={cn(gDone > 0 && "text-emerald-600 font-medium")}>
-                  {gDone}
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden />
+                  Terminé
                 </span>
               </div>
             </header>
@@ -204,11 +228,16 @@ function TrackerRow({
   onClick: () => void;
 }) {
   const empty = row.total === 0;
+  // Tooltip global de la ligne : recap rapide + nb total pour le contexte.
+  const rowTitle = empty
+    ? `${row.title} · aucune obligation`
+    : `${row.title} · ${row.total} obligation${row.total > 1 ? "s" : ""} (${row.todo} à traiter, ${row.wip} en cours, ${row.done} terminés)`;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={empty}
+      title={rowTitle}
       className={cn(
         "group/row w-full flex items-center gap-3 px-3 py-2.5 text-left",
         "hover:bg-zinc-50 active:bg-zinc-100 transition-colors",
@@ -230,15 +259,19 @@ function TrackerRow({
       </div>
 
       {/* 3 compteurs alignés verticalement, largeur fixe. Le 0 est en gris
-          discret → l'œil se concentre sur ce qui n'est pas zéro. */}
+          discret → l'œil se concentre sur ce qui n'est pas zéro.
+          Tooltip explicite au survol via `title` natif (lu aussi par SR). */}
       <div className="hidden sm:flex items-center gap-1 shrink-0 tabular-nums">
-        <Counter value={row.todo} color="rose" />
-        <Counter value={row.wip} color="amber" />
-        <Counter value={row.done} color="emerald" />
+        <Counter value={row.todo} color="rose" title={`${row.todo} ${row.title} à traiter`} />
+        <Counter value={row.wip} color="amber" title={`${row.wip} ${row.title} en cours`} />
+        <Counter value={row.done} color="emerald" title={`${row.done} ${row.title} terminés`} />
       </div>
 
-      {/* Sur mobile : compteurs compactés en une ligne */}
-      <div className="sm:hidden flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums">
+      {/* Sur mobile : compteurs compactés en une ligne — meme info en tooltip. */}
+      <div
+        className="sm:hidden flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums"
+        title={`${row.todo} à traiter · ${row.wip} en cours · ${row.done} terminés`}
+      >
         <span className={cn(row.todo > 0 ? "text-rose-600 font-semibold" : "text-zinc-300")}>
           {row.todo}
         </span>
@@ -259,10 +292,15 @@ function TrackerRow({
           "hidden md:flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums w-28 justify-end",
           urgent ? "text-amber-700 font-medium" : "text-zinc-500"
         )}
+        title={
+          row.prochaineEcheance
+            ? `Prochaine échéance ${urgent ? "(urgent — dans moins de 30 j)" : ""} : ${fmtDateFr(row.prochaineEcheance)}`
+            : "Aucune échéance à venir sur ce tracker"
+        }
       >
         {row.prochaineEcheance ? (
           <>
-            <CalendarDays className={cn("h-3 w-3", urgent ? "text-amber-500" : "text-zinc-400")} />
+            <CalendarDays className={cn("h-3 w-3", urgent ? "text-amber-500" : "text-zinc-400")} aria-hidden="true" />
             <span>{fmtDateFr(row.prochaineEcheance)}</span>
           </>
         ) : (
@@ -285,7 +323,15 @@ function TrackerRow({
 //  Counter : pastille compacte d'un statut. Gris si 0, coloré sinon.
 // ============================================================================
 
-function Counter({ value, color }: { value: number; color: "rose" | "amber" | "emerald" }) {
+function Counter({
+  value,
+  color,
+  title,
+}: {
+  value: number;
+  color: "rose" | "amber" | "emerald";
+  title?: string;
+}) {
   const muted = value === 0;
   // Plus de ring-1 (qui creait une bordure claire en dark autour de chaque
   // pill). Juste un fond tinted + texte coloré. Notion-style.
@@ -296,8 +342,9 @@ function Counter({ value, color }: { value: number; color: "rose" | "amber" | "e
   } as const;
   return (
     <div
+      title={title}
       className={cn(
-        "min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums",
+        "min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums cursor-help",
         muted
           ? "bg-transparent text-zinc-400 dark:text-zinc-600"
           : palette[color]
