@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { Send, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -128,31 +128,60 @@ export default function ChatBubble() {
 
   return (
     <>
-      {/* Bulle flottante : visible en permanence */}
+      {/* Bouton flottant premium : disque sombre + etoile doree avec halo
+          doux (glow). Cercle de gradient subtil + ring fine. */}
       {!open && (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Ouvrir l'assistant"
-          className="fixed bottom-5 right-5 z-[900] inline-flex items-center justify-center w-14 h-14 rounded-full bg-[hsl(var(--gold))] text-zinc-900 shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all"
+          aria-label="Ouvrir l'assistant MOON"
+          title="Assistant MOON"
+          className="group fixed bottom-5 right-5 z-[900] inline-flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 active:scale-95"
         >
-          <MessageCircle className="h-6 w-6" aria-hidden="true" />
+          {/* Halo : couronne doree qui pulse subtilement au repos, plus
+              marquee au hover */}
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-[hsl(var(--gold))]/25 blur-xl opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+          />
+          {/* Cercle principal : gradient sombre type onyx + ring doree */}
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 ring-1 ring-[hsl(var(--gold))]/40 shadow-xl group-hover:ring-[hsl(var(--gold))]/70 group-hover:shadow-2xl transition-all duration-300"
+          />
+          {/* Etoile doree au centre + leger sparkle animation */}
+          <Sparkles
+            className="relative h-5 w-5 text-[hsl(var(--gold))] drop-shadow-[0_0_8px_hsl(var(--gold)/0.5)] group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300"
+            aria-hidden="true"
+            strokeWidth={2.5}
+          />
         </button>
       )}
 
-      {/* Drawer chat */}
+      {/* Drawer chat premium : ombres marquees, gradients sobres, typo
+          travaillee, animations douces. */}
       {open && (
-        <div className="fixed bottom-0 right-0 z-[900] h-[100dvh] md:h-[640px] md:bottom-4 md:right-4 w-full md:w-[440px] flex flex-col bg-white dark:bg-[hsl(var(--surface-elevated))] border-l md:border md:rounded-2xl border-zinc-200 dark:border-white/[0.10] shadow-2xl overflow-hidden animate-slide-in-right">
-          {/* Header */}
-          <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-zinc-200 dark:border-white/[0.08] bg-gradient-to-br from-[hsl(var(--gold))]/10 via-transparent to-transparent">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[hsl(var(--gold))]/15">
-                <Sparkles className="h-3.5 w-3.5 text-[hsl(var(--gold-dark))]" aria-hidden="true" />
+        <div className="fixed bottom-0 right-0 z-[900] h-[100dvh] md:h-[640px] md:bottom-5 md:right-5 w-full md:w-[440px] flex flex-col bg-white dark:bg-[hsl(var(--surface-elevated))] border-l md:border md:rounded-3xl border-zinc-200 dark:border-white/[0.08] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden animate-slide-up-fade">
+          {/* Header premium : fond sombre type onyx + etoile + sous-titre fin */}
+          <header className="relative flex items-center justify-between gap-2 px-5 py-4 border-b border-zinc-200 dark:border-white/[0.06] bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 dark:from-black dark:via-zinc-950 dark:to-zinc-900 text-zinc-50">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="relative inline-flex items-center justify-center w-9 h-9 rounded-full bg-zinc-800 dark:bg-zinc-950 ring-1 ring-[hsl(var(--gold))]/40 shrink-0">
+                <span
+                  aria-hidden
+                  className="absolute inset-0 rounded-full bg-[hsl(var(--gold))]/15 blur-md"
+                />
+                <Sparkles
+                  className="relative h-4 w-4 text-[hsl(var(--gold))]"
+                  aria-hidden="true"
+                  strokeWidth={2.5}
+                />
               </span>
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Assistant MOON</div>
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                  Lecture seule · données en temps réel
+                <div className="font-display text-[15px] font-semibold tracking-tight leading-tight">
+                  Assistant MOON
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mt-0.5">
+                  Lecture seule · temps réel
                 </div>
               </div>
             </div>
@@ -163,7 +192,7 @@ export default function ChatBubble() {
                   onClick={reset}
                   aria-label="Nouvelle conversation"
                   title="Nouvelle conversation"
-                  className="text-[11px] px-2 py-1 rounded text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                  className="text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] transition-colors"
                 >
                   Reset
                 </button>
@@ -172,30 +201,40 @@ export default function ChatBubble() {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Fermer"
-                className="p-1.5 rounded text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] transition-colors"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           </header>
 
-          {/* Conversation */}
+          {/* Conversation : background avec leger pattern + spacing genereux */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto p-4 space-y-3 bg-zinc-50/40 dark:bg-transparent"
+            className="flex-1 overflow-y-auto px-4 py-5 space-y-4 bg-zinc-50/60 dark:bg-zinc-950/40"
           >
             {messages.length === 0 && (
-              <div className="text-center py-8 px-2">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[hsl(var(--gold))]/10 mb-3">
-                  <Sparkles className="h-5 w-5 text-[hsl(var(--gold-dark))]" aria-hidden="true" />
+              <div className="text-center pt-6 pb-2 px-2">
+                <div className="relative inline-flex items-center justify-center w-14 h-14 mb-4">
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 rounded-full bg-[hsl(var(--gold))]/15 blur-lg"
+                  />
+                  <span className="relative inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 ring-1 ring-[hsl(var(--gold))]/30">
+                    <Sparkles
+                      className="h-5 w-5 text-[hsl(var(--gold))]"
+                      aria-hidden="true"
+                      strokeWidth={2.5}
+                    />
+                  </span>
                 </div>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  Pose-moi une question sur ton CRM
+                <p className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50 tracking-tight">
+                  Comment puis-je t&apos;aider ?
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Exemples ci-dessous, ou tape ta question.
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-[280px] mx-auto">
+                  Pose une question sur ton CRM ou clique une suggestion ci-dessous.
                 </p>
-                <div className="mt-4 grid gap-1.5 text-left">
+                <div className="mt-5 grid gap-2 text-left">
                   {[
                     "Quel est mon MRR ?",
                     "Quelles obligations en retard ?",
@@ -205,10 +244,17 @@ export default function ChatBubble() {
                     <button
                       key={q}
                       type="button"
-                      onClick={() => setDraft(q)}
-                      className="text-xs text-left px-3 py-2 rounded-md bg-white dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.08] hover:border-[hsl(var(--gold))]/40 hover:bg-zinc-50 dark:hover:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 transition-colors"
+                      onClick={() => {
+                        setDraft(q);
+                        inputRef.current?.focus();
+                      }}
+                      className="group/sugg flex items-center gap-2.5 text-sm text-left px-3.5 py-2.5 rounded-xl bg-white dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/[0.06] hover:border-[hsl(var(--gold))]/50 dark:hover:border-[hsl(var(--gold))]/40 hover:shadow-card hover:-translate-y-px text-zinc-700 dark:text-zinc-200 transition-all"
                     >
-                      {q}
+                      <Sparkles
+                        className="h-3 w-3 text-[hsl(var(--gold))]/60 group-hover/sugg:text-[hsl(var(--gold))] shrink-0 transition-colors"
+                        aria-hidden="true"
+                      />
+                      <span className="flex-1">{q}</span>
                     </button>
                   ))}
                 </div>
@@ -220,25 +266,30 @@ export default function ChatBubble() {
             ))}
 
             {loading && (
-              <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <span className="inline-flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse" style={{ animationDelay: "0ms" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse" style={{ animationDelay: "150ms" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse" style={{ animationDelay: "300ms" }} />
+              <div className="flex items-center gap-2.5 text-xs text-zinc-500 dark:text-zinc-400 px-1">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-900 dark:bg-zinc-950 ring-1 ring-[hsl(var(--gold))]/30">
+                  <Sparkles
+                    className="h-3 w-3 text-[hsl(var(--gold))] animate-pulse"
+                    aria-hidden="true"
+                  />
                 </span>
-                Réflexion…
+                <span className="inline-flex gap-1 items-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1s" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1s" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1s" }} />
+                </span>
               </div>
             )}
 
             {error && (
-              <div className="rounded-md border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3 py-2 text-xs text-rose-800 dark:text-rose-300">
+              <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-800 dark:text-rose-300">
                 {error}
               </div>
             )}
           </div>
 
-          {/* Input */}
-          <div className="border-t border-zinc-200 dark:border-white/[0.08] p-3 bg-white dark:bg-[hsl(var(--surface-elevated))]">
+          {/* Input : zone douce avec ombre interne + bouton or marquant */}
+          <div className="border-t border-zinc-200 dark:border-white/[0.06] p-3.5 bg-white dark:bg-[hsl(var(--surface-elevated))]">
             <div className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
@@ -253,8 +304,8 @@ export default function ChatBubble() {
                 placeholder="Pose ta question…"
                 disabled={loading}
                 rows={1}
-                className="flex-1 resize-none px-3 py-2 rounded-lg border border-zinc-300 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 max-h-32"
-                style={{ minHeight: "38px" }}
+                className="flex-1 resize-none px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/60 dark:bg-white/[0.03] text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-4 focus:ring-[hsl(var(--gold))]/15 focus:border-[hsl(var(--gold))]/60 focus:bg-white dark:focus:bg-white/[0.05] max-h-32 transition-all"
+                style={{ minHeight: "40px" }}
               />
               <button
                 type="button"
@@ -262,17 +313,21 @@ export default function ChatBubble() {
                 disabled={loading || !draft.trim()}
                 aria-label="Envoyer"
                 className={cn(
-                  "shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
+                  "shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl transition-all",
                   draft.trim() && !loading
-                    ? "bg-[hsl(var(--gold))] text-zinc-900 hover:bg-[hsl(var(--gold-dark))]"
-                    : "bg-zinc-100 dark:bg-white/[0.06] text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
+                    ? "bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-50 dark:to-zinc-100 text-[hsl(var(--gold))] dark:text-[hsl(var(--gold-dark))] ring-1 ring-[hsl(var(--gold))]/40 hover:ring-[hsl(var(--gold))]/70 hover:shadow-lg active:scale-95"
+                    : "bg-zinc-100 dark:bg-white/[0.04] text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
                 )}
               >
-                <Send className="h-4 w-4" aria-hidden="true" />
+                <Send className="h-4 w-4" aria-hidden="true" strokeWidth={2.5} />
               </button>
             </div>
-            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1.5 px-1">
-              ↵ envoyer · Maj+↵ saut de ligne · Esc fermer
+            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-2 px-1 flex items-center gap-2">
+              <span><kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.05] text-[9px] font-mono">↵</kbd> envoyer</span>
+              <span className="text-zinc-300 dark:text-zinc-700">·</span>
+              <span><kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.05] text-[9px] font-mono">⇧↵</kbd> saut de ligne</span>
+              <span className="text-zinc-300 dark:text-zinc-700">·</span>
+              <span><kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.05] text-[9px] font-mono">Esc</kbd> fermer</span>
             </div>
           </div>
         </div>
@@ -288,17 +343,24 @@ export default function ChatBubble() {
 function Message({ role, content }: { role: "user" | "assistant"; content: string }) {
   if (role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-br-sm bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 text-sm whitespace-pre-wrap">
+      <div className="flex justify-end animate-slide-up-fade">
+        <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-50 dark:to-zinc-100 text-white dark:text-zinc-900 text-[13px] leading-relaxed whitespace-pre-wrap shadow-card">
           {content}
         </div>
       </div>
     );
   }
-  // Rendu naïf du markdown : on ne tire pas une lib pour le MVP.
+  // Bulle assistant : carte blanche premium avec ombre douce + avatar etoile
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-sm bg-white dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.08] text-zinc-900 dark:text-zinc-100 text-sm whitespace-pre-wrap">
+    <div className="flex items-start gap-2 animate-slide-up-fade">
+      <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 ring-1 ring-[hsl(var(--gold))]/30 mt-0.5">
+        <Sparkles
+          className="h-3 w-3 text-[hsl(var(--gold))]"
+          aria-hidden="true"
+          strokeWidth={2.5}
+        />
+      </span>
+      <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md bg-white dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/[0.06] text-zinc-900 dark:text-zinc-100 text-[13px] leading-relaxed whitespace-pre-wrap shadow-card">
         {renderInlineMarkdown(content)}
       </div>
     </div>
