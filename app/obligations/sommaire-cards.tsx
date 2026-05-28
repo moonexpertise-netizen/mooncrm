@@ -229,16 +229,11 @@ function TrackerRow({
   onClick: () => void;
 }) {
   const empty = row.total === 0;
-  // Tooltip global de la ligne : recap rapide + nb total pour le contexte.
-  const rowTitle = empty
-    ? `${row.title} · aucune obligation`
-    : `${row.title} · ${row.total} obligation${row.total > 1 ? "s" : ""} (${row.todo} à traiter, ${row.wip} en cours, ${row.done} terminés)`;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={empty}
-      title={rowTitle}
       className={cn(
         "group/row w-full flex items-center gap-3 px-3 py-2.5 text-left",
         "hover:bg-zinc-50 active:bg-zinc-100 transition-colors",
