@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { Pencil, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import {
@@ -71,12 +71,16 @@ export default function IrTable({
   rows,
   mode,
   selectedYear,
+  center,
   years,
   statusOptions,
 }: {
   rows: IrRow[];
   mode: "base" | "year";
   selectedYear: number;
+  /** Centre de la fenetre 3-ans. Utilise pour les URLs Base (qui doivent
+   *  preserver le center pour ne pas reset a l'annee courante). */
+  center: number;
   years: number[];
   statusOptions: Record<string, IrStatusOption[]>;
 }) {
@@ -208,13 +212,21 @@ export default function IrTable({
     });
   }
 
-  // URL helpers pour les onglets Base / Year
-  function urlForBase() {
-    return "/missions/ir?view=base";
+  // URL helpers. On preserve "center" pour conserver la fenetre 3-ans
+  // courante (cf. logique fenetre glissante).
+  function urlForBase(c: number = center) {
+    return `/missions/ir?view=base&center=${c}`;
   }
   function urlForYear(y: number) {
     return `/missions/ir?year=${y}`;
   }
+  // Fleche < : decale la fenetre vers la gauche (center - 1). Si en mode
+  // year, on suit (la fenetre se decale, l'annee selectionnee aussi).
+  // Si en mode base, on reste en base mais on decale le center.
+  const prevCenter = center - 1;
+  const nextCenter = center + 1;
+  const urlPrev = mode === "year" ? urlForYear(prevCenter) : urlForBase(prevCenter);
+  const urlNext = mode === "year" ? urlForYear(nextCenter) : urlForBase(nextCenter);
 
   return (
     <div className={cn("space-y-3", isPending && "opacity-95")}>
@@ -238,6 +250,15 @@ export default function IrTable({
           >
             Base
           </Link>
+          {/* Fleche gauche : decale la fenetre 3-ans d'un an en arriere */}
+          <Link
+            href={urlPrev}
+            aria-label="Année précédente"
+            title={`Reculer (${prevCenter - 1} à ${prevCenter + 1})`}
+            className="px-1.5 py-1.5 rounded-lg text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
           {years.map((y) => {
             const active = mode === "year" && y === selectedYear;
             return (
@@ -256,6 +277,15 @@ export default function IrTable({
               </Link>
             );
           })}
+          {/* Fleche droite : decale la fenetre 3-ans d'un an en avant */}
+          <Link
+            href={urlNext}
+            aria-label="Année suivante"
+            title={`Avancer (${nextCenter - 1} à ${nextCenter + 1})`}
+            className="px-1.5 py-1.5 rounded-lg text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         </nav>
 
         {!adding && (

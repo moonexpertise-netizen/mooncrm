@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { Pencil, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import {
@@ -64,12 +64,15 @@ export default function CaaTable({
   rows,
   mode,
   selectedYear,
+  center,
   years,
   statusOptions,
 }: {
   rows: CaaRow[];
   mode: "base" | "year";
   selectedYear: number;
+  /** Centre de la fenetre 3-ans (cf. IR pour la logique). */
+  center: number;
   years: number[];
   statusOptions: CaaStatusOption[];
 }) {
@@ -195,12 +198,16 @@ export default function CaaTable({
     });
   }
 
-  function urlForBase() {
-    return "/missions/caa?view=base";
+  function urlForBase(c: number = center) {
+    return `/missions/caa?view=base&center=${c}`;
   }
   function urlForYear(y: number) {
     return `/missions/caa?year=${y}`;
   }
+  const prevCenter = center - 1;
+  const nextCenter = center + 1;
+  const urlPrev = mode === "year" ? urlForYear(prevCenter) : urlForBase(prevCenter);
+  const urlNext = mode === "year" ? urlForYear(nextCenter) : urlForBase(nextCenter);
 
   return (
     <div className={cn("space-y-3", isPending && "opacity-95")}>
@@ -223,6 +230,14 @@ export default function CaaTable({
           >
             Base
           </Link>
+          <Link
+            href={urlPrev}
+            aria-label="Année précédente"
+            title={`Reculer (${prevCenter - 1} à ${prevCenter + 1})`}
+            className="px-1.5 py-1.5 rounded-lg text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
           {years.map((y) => {
             const active = mode === "year" && y === selectedYear;
             return (
@@ -241,6 +256,14 @@ export default function CaaTable({
               </Link>
             );
           })}
+          <Link
+            href={urlNext}
+            aria-label="Année suivante"
+            title={`Avancer (${nextCenter - 1} à ${nextCenter + 1})`}
+            className="px-1.5 py-1.5 rounded-lg text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         </nav>
 
         {!adding && (

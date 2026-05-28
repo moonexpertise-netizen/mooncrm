@@ -4,16 +4,9 @@ import CaaTable, { type CaaCell, type CaaRow, type CaaStatusOption } from "./caa
 
 export const dynamic = "force-dynamic";
 
-// Annees disponibles : de 2020 (plancher historique pour couvrir CAA
-// anterieures) jusqu'a l'annee courante + 2 (planning d'avance).
-// S'etend automatiquement avec le temps. Si besoin de descendre plus bas,
-// modifier FLOOR_YEAR.
+// Selecteur d'annee : fenetre glissante de 3 ans centree sur "center".
+// Cf. IR page.tsx pour la logique detaillee.
 const CURRENT_YEAR = new Date().getFullYear();
-const FLOOR_YEAR = 2020;
-const AVAILABLE_YEARS = Array.from(
-  { length: CURRENT_YEAR + 2 - FLOOR_YEAR + 1 },
-  (_, i) => FLOOR_YEAR + i
-);
 
 /**
  * Page Mission CAA. Deux vues comme IR :
@@ -23,12 +16,19 @@ const AVAILABLE_YEARS = Array.from(
 export default async function CaaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; view?: string }>;
+  searchParams: Promise<{ year?: string; view?: string; center?: string }>;
 }) {
   const sp = await searchParams;
   const isBaseView = sp.view === "base" || (!sp.year && sp.view !== "year");
-  const yearParam = sp.year ? parseInt(sp.year, 10) : CURRENT_YEAR;
-  const selectedYear = AVAILABLE_YEARS.includes(yearParam) ? yearParam : CURRENT_YEAR;
+  const yearParam = sp.year ? parseInt(sp.year, 10) : null;
+  const centerParam = sp.center ? parseInt(sp.center, 10) : null;
+  const center = (yearParam && !Number.isNaN(yearParam))
+    ? yearParam
+    : (centerParam && !Number.isNaN(centerParam))
+      ? centerParam
+      : CURRENT_YEAR;
+  const selectedYear = yearParam && !Number.isNaN(yearParam) ? yearParam : center;
+  const AVAILABLE_YEARS = [center - 1, center, center + 1];
 
   const sb = await createClient();
 
@@ -108,6 +108,7 @@ export default async function CaaPage({
         rows={rows}
         mode={isBaseView ? "base" : "year"}
         selectedYear={selectedYear}
+        center={center}
         years={AVAILABLE_YEARS}
         statusOptions={options}
       />
