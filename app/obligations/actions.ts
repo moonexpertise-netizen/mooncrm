@@ -172,3 +172,20 @@ export async function updateObligationNote(obligationId: string, note: string | 
   if (error) throw new Error(error.message);
   // Perf : optimistic update côté tracker. Pas de revalidatePath.
 }
+
+/**
+ * Met à jour l'état facturation sur une obligation. Utilisé par le tracker
+ * pour le suivi facturation juridique (AGO_DEPOT principalement).
+ * etat = null : réinitialise.
+ */
+export async function setObligationFacturation(
+  obligationId: string,
+  etat: "a_facturer" | "facturee" | "payee" | "sans_facture" | null
+) {
+  const sb = await createClient();
+  const { error } = await sb
+    .from("obligations")
+    .update({ etat_facturation: etat })
+    .eq("id", obligationId);
+  if (error) throw new Error(error.message);
+}

@@ -10,9 +10,11 @@ import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import {
   createClientCaa,
   deleteClientCaa,
+  setCaaFacturation,
   setCaaObligationStatut,
   toggleCaaSubscription,
   updateClientCaa,
+  type EtatFacturation,
   type StatutLogique,
 } from "./actions";
 import { useConfirm } from "@/app/_components/confirm-modal";
@@ -27,6 +29,7 @@ export type CaaCell = {
   annee: number;
   libelle: string | null;
   statut_logique: StatutLogique;
+  etat_facturation: EtatFacturation | null;
 };
 
 export type CaaRow = {
@@ -42,6 +45,14 @@ export type CaaRow = {
   /** Map<annee, cell>. Absente = N/A pour l'annee. */
   obligations: Map<number, CaaCell>;
 };
+
+// Etats facturation : meme palette que missions exceptionnelles
+const FACT_OPTIONS: Array<{ key: EtatFacturation; label: string; color: string }> = [
+  { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
+  { key: "facturee", label: "Facturée", color: "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50" },
+  { key: "payee", label: "Payée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },
+  { key: "sans_facture", label: "Sans facture", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },
+];
 
 const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
   { key: "a_preparer", label: "À préparer", color: "bg-zinc-100 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.18]" },
@@ -98,7 +109,7 @@ export default function CaaTable({
         if (newMap.has(annee)) {
           newMap.delete(annee);
         } else {
-          newMap.set(annee, { annee, libelle: "À préparer", statut_logique: "A_FAIRE" });
+          newMap.set(annee, { annee, libelle: "À préparer", statut_logique: "A_FAIRE", etat_facturation: null });
         }
         return { ...r, obligations: newMap };
       })
@@ -122,7 +133,13 @@ export default function CaaTable({
           newMap.delete(selectedYear);
         } else {
           const sl = statusOptions.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE";
-          newMap.set(selectedYear, { annee: selectedYear, libelle, statut_logique: sl });
+          const previous = newMap.get(selectedYear);
+          newMap.set(selectedYear, {
+            annee: selectedYear,
+            libelle,
+            statut_logique: sl,
+            etat_facturation: previous?.etat_facturation ?? null,
+          });
         }
         return { ...r, obligations: newMap };
       })
@@ -133,6 +150,27 @@ export default function CaaTable({
         router.refresh();
       } catch (e) {
         toastError(e, "Echec sauvegarde statut CAA");
+      }
+    });
+  }
+
+  function onSetFacturation(clientCaaId: string, etat: EtatFacturation | null) {
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== clientCaaId) return r;
+        const existing = r.obligations.get(selectedYear);
+        if (!existing) return r;
+        const newMap = new Map(r.obligations);
+        newMap.set(selectedYear, { ...existing, etat_facturation: etat });
+        return { ...r, obligations: newMap };
+      })
+    );
+    startTransition(async () => {
+      try {
+        await setCaaFacturation(clientCaaId, selectedYear, etat);
+      } catch (e) {
+        toastError(e, "Echec sauvegarde facturation");
+        router.refresh();
       }
     });
   }
@@ -239,7 +277,10 @@ export default function CaaTable({
                     <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA · années</th>
                   </>
                 ) : (
-                  <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {selectedYear}</th>
+                  <>
+                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {selectedYear}</th>
+                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">Facturation</th>
+                  </>
                 )}
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
@@ -275,13 +316,22 @@ export default function CaaTable({
                       </td>
                     </>
                   ) : (
-                    <td className="px-2 py-3 text-center">
-                      <StatutCell
-                        cell={r.obligations.get(selectedYear) ?? null}
-                        options={statusOptions}
-                        onPick={(libelle) => onSetStatut(r.id, libelle)}
-                      />
-                    </td>
+                    <>
+                      <td className="px-2 py-3 text-center">
+                        <StatutCell
+                          cell={r.obligations.get(selectedYear) ?? null}
+                          options={statusOptions}
+                          onPick={(libelle) => onSetStatut(r.id, libelle)}
+                        />
+                      </td>
+                      <td className="px-2 py-3 text-center">
+                        <FacturationPicker
+                          value={r.obligations.get(selectedYear)?.etat_facturation ?? null}
+                          onChange={(v) => onSetFacturation(r.id, v)}
+                          disabled={!r.obligations.has(selectedYear)}
+                        />
+                      </td>
+                    </>
                   )}
                   <td className="px-2 py-3 text-right">
                     <button
@@ -577,6 +627,132 @@ function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) =
                 {value === v.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
               </button>
             ))}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
+
+// ============================================================================
+//  FacturationPicker - 4 etats. Disabled si pas de souscription pour l'annee.
+// ============================================================================
+
+function FacturationPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: EtatFacturation | null;
+  onChange: (v: EtatFacturation | null) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+  const current = value ? FACT_OPTIONS.find((o) => o.key === value) : null;
+
+  useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = FACT_OPTIONS.length * 32 + 50;
+    const POPOVER_WIDTH = 200;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const desiredLeft = rect.left + rect.width / 2 - POPOVER_WIDTH / 2;
+    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (disabled) {
+    return <span className="text-zinc-300 dark:text-zinc-600 text-xs italic">-</span>;
+  }
+
+  return (
+    <div className="inline-block">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 min-w-[90px] justify-center",
+          current
+            ? current.color
+            : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]"
+        )}
+      >
+        {current ? current.label : "-"}
+      </button>
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+          >
+            {FACT_OPTIONS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => {
+                  onChange(o.key);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                  value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
+                )}
+              >
+                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>{o.label}</span>
+                {value === o.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
+              </button>
+            ))}
+            {value !== null && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
+              >
+                Réinitialiser
+              </button>
+            )}
           </div>,
           document.body
         )}

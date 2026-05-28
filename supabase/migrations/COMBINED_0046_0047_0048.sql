@@ -545,6 +545,52 @@ create index if not exists idx_mission_exc_ldm_statut
 
 
 -- ============================================================================
+-- ============================================================================
+--   MIGRATION 0050 : etat_facturation sur obligations + ir_obligations + caa_obligations
+-- ============================================================================
+-- ============================================================================
+
+-- obligations (suivi facturation juridique AGO_DEPOT)
+alter table public.obligations
+  add column if not exists etat_facturation text;
+alter table public.obligations
+  drop constraint if exists obligations_etat_facturation_check;
+alter table public.obligations
+  add constraint obligations_etat_facturation_check
+  check (etat_facturation is null
+         or etat_facturation in ('a_facturer', 'facturee', 'payee', 'sans_facture'));
+create index if not exists idx_obligations_etat_facturation
+  on public.obligations(etat_facturation)
+  where etat_facturation is not null;
+
+-- ir_obligations
+alter table public.ir_obligations
+  add column if not exists etat_facturation text;
+alter table public.ir_obligations
+  drop constraint if exists ir_obligations_etat_facturation_check;
+alter table public.ir_obligations
+  add constraint ir_obligations_etat_facturation_check
+  check (etat_facturation is null
+         or etat_facturation in ('a_facturer', 'facturee', 'payee', 'sans_facture'));
+create index if not exists idx_ir_obligations_etat_facturation
+  on public.ir_obligations(etat_facturation)
+  where etat_facturation is not null;
+
+-- caa_obligations
+alter table public.caa_obligations
+  add column if not exists etat_facturation text;
+alter table public.caa_obligations
+  drop constraint if exists caa_obligations_etat_facturation_check;
+alter table public.caa_obligations
+  add constraint caa_obligations_etat_facturation_check
+  check (etat_facturation is null
+         or etat_facturation in ('a_facturer', 'facturee', 'payee', 'sans_facture'));
+create index if not exists idx_caa_obligations_etat_facturation
+  on public.caa_obligations(etat_facturation)
+  where etat_facturation is not null;
+
+
+-- ============================================================================
 --   FIN. Si tout s'est bien passe, tu dois voir "Success. No rows returned"
 --   (ou similaire) en bas de l'editeur SQL Supabase.
 -- ============================================================================

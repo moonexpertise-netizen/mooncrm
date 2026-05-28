@@ -8,8 +8,10 @@ import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 import {
   bulkUpdateObligationStatus,
+  setObligationFacturation,
   updateObligationStatus,
 } from "../actions";
+import { createPortal } from "react-dom";
 import CommentsPopover from "./comments-panel";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
@@ -20,6 +22,9 @@ export type StatusOption = {
   color: string | null;
 };
 
+/** Etats facturation : aligne sur missions exc/IR/CAA. */
+export type EtatFacturation = "a_facturer" | "facturee" | "payee" | "sans_facture";
+
 export type TrackerCell = {
   colKey: string;
   obligationId: string | null;
@@ -28,6 +33,9 @@ export type TrackerCell = {
   statut_detail: string | null;
   echeance: string | null;
   note: string | null;
+  /** Facturation juridique. Seulement utilise pour les types qui exposent un
+   *  suivi de facturation (ex. AGO_DEPOT). Null = pas encore decide. */
+  etat_facturation: EtatFacturation | null;
 };
 
 export type TrackerRow = {
@@ -99,6 +107,7 @@ export default function TrackerTable({
     statut_logique?: StatutLogique;
     statut_detail?: string | null;
     note?: string | null;
+    etat_facturation?: EtatFacturation | null;
   };
   const [localRows, setLocalRows] = useState<TrackerRow[]>(rows);
   useEffect(() => setLocalRows(rows), [rows]);
@@ -116,6 +125,7 @@ export default function TrackerTable({
                 statut_logique: patch.statut_logique !== undefined ? patch.statut_logique : c.statut_logique,
                 statut_detail: patch.statut_detail !== undefined ? patch.statut_detail : c.statut_detail,
                 note: patch.note !== undefined ? patch.note : c.note,
+                etat_facturation: patch.etat_facturation !== undefined ? patch.etat_facturation : c.etat_facturation,
               }
             : c
         ),
@@ -788,6 +798,19 @@ export default function TrackerTable({
     [applyPatch, router]
   );
 
+  // Facturation juridique (AGO_DEPOT) : 2e pastille sous la cellule.
+  // Optimistic update + persist async, comme le statut principal.
+  const onSetFactStable = useCallback(
+    (obligationId: string, etat: EtatFacturation | null) => {
+      applyPatch({ obligationId, etat_facturation: etat });
+      startTransition(async () => {
+        await setObligationFacturation(obligationId, etat);
+        router.refresh();
+      });
+    },
+    [applyPatch, router]
+  );
+
   // (Le système de notes legacy est remplacé par les commentaires latéraux.)
 
   // Stables : ouverture/fermeture du picker. StatusCell les appelle avec
@@ -1051,6 +1074,7 @@ export default function TrackerTable({
                         onPick={onPick}
                         onReset={onReset}
                         onOpenComments={handleOpenComments}
+                        onSetFacturation={onSetFactStable}
                       />
                     </td>
                   );
@@ -1213,6 +1237,17 @@ const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
   NON_APPLICABLE: "N/A",
 };
 
+/** Pour les types qui exposent une 2e pastille de facturation sous la cellule
+ *  principale. Pour l'instant : AGO_DEPOT (facturation juridique). */
+const TYPES_WITH_FACTURATION = new Set(["AGO_DEPOT"]);
+
+const FACT_PILL_OPTIONS: Array<{ key: EtatFacturation; label: string; color: string }> = [
+  { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
+  { key: "facturee", label: "Facturée", color: "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50" },
+  { key: "payee", label: "Payée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },
+  { key: "sans_facture", label: "Sans facture", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },
+];
+
 const StatusCell = memo(function StatusCell({
   cell,
   cellId,
@@ -1226,6 +1261,7 @@ const StatusCell = memo(function StatusCell({
   onPick,
   onReset,
   onOpenComments,
+  onSetFacturation,
 }: {
   cell: TrackerCell;
   cellId: string;
@@ -1243,6 +1279,7 @@ const StatusCell = memo(function StatusCell({
     label: string,
     anchorRect: { left: number; top: number; bottom: number; right: number }
   ) => void;
+  onSetFacturation: (obligationId: string, etat: EtatFacturation | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
@@ -1313,9 +1350,10 @@ const StatusCell = memo(function StatusCell({
   const matchedOption = options.find((o) => o.libelle === cell.statut_detail);
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
   const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "-";
+  const showFacturation = TYPES_WITH_FACTURATION.has(cell.type);
 
   return (
-    <div className="relative inline-block" ref={ref}>
+    <div className="relative inline-flex flex-col items-center gap-1" ref={ref}>
       <button
         onClick={(e) => {
           if (e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -1341,6 +1379,16 @@ const StatusCell = memo(function StatusCell({
       >
         {cell.statut_detail ?? defaultLibelle}
       </button>
+
+      {/* 2e pastille : facturation juridique (uniquement pour AGO_DEPOT pour
+          l'instant). Picker independant qui rend dans un portal pour
+          echapper au clipping de la table. */}
+      {showFacturation && cell.obligationId && (
+        <FacturationMiniPill
+          value={cell.etat_facturation}
+          onChange={(v) => onSetFacturation(cell.obligationId!, v)}
+        />
+      )}
 
       {/* Bulle commentaires (style Notion).
           - En position ABSOLUTE → sort du flux, la cellule ne se déforme pas
@@ -1507,6 +1555,7 @@ const StatusCell = memo(function StatusCell({
     prev.cell.statut_detail === next.cell.statut_detail &&
     prev.cell.echeance === next.cell.echeance &&
     prev.cell.type === next.cell.type &&
+    prev.cell.etat_facturation === next.cell.etat_facturation &&
     prev.isOpen === next.isOpen &&
     prev.isSelected === next.isSelected &&
     prev.options === next.options &&
@@ -1516,6 +1565,138 @@ const StatusCell = memo(function StatusCell({
     prev.onClose === next.onClose &&
     prev.onPick === next.onPick &&
     prev.onReset === next.onReset &&
-    prev.onOpenComments === next.onOpenComments
+    prev.onOpenComments === next.onOpenComments &&
+    prev.onSetFacturation === next.onSetFacturation
   );
 });
+
+// ============================================================================
+//  FacturationMiniPill - 2e pastille compacte sous la cellule pour les types
+//  qui exposent un suivi facturation (AGO_DEPOT). Picker independant rendu en
+//  portal pour echapper au clipping de la table.
+// ============================================================================
+
+function FacturationMiniPill({
+  value,
+  onChange,
+}: {
+  value: EtatFacturation | null;
+  onChange: (v: EtatFacturation | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+  const current = value ? FACT_PILL_OPTIONS.find((o) => o.key === value) : null;
+
+  useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = FACT_PILL_OPTIONS.length * 32 + 50;
+    const POPOVER_WIDTH = 200;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const desiredLeft = rect.left + rect.width / 2 - POPOVER_WIDTH / 2;
+    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        title="Facturation juridique"
+        className={cn(
+          "inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border transition-all hover:opacity-80 leading-tight",
+          current
+            ? current.color
+            : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]"
+        )}
+      >
+        {current ? current.label : "Fact. ?"}
+      </button>
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+          >
+            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
+              Facturation juridique
+            </div>
+            {FACT_PILL_OPTIONS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(o.key);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                  value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
+                )}
+              >
+                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
+                  {o.label}
+                </span>
+                {value === o.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
+              </button>
+            ))}
+            {value !== null && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(null);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
+              >
+                Réinitialiser
+              </button>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}

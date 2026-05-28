@@ -28,7 +28,7 @@ export type Tracker = {
 export const TRACKER_GROUPS: { id: TrackerGroup; label: string }[] = [
   { id: "tva", label: "TVA" },
   { id: "is", label: "IS · Impôt sur les sociétés" },
-  { id: "ago", label: "AGO · Dépôt · Dividendes" },
+  { id: "ago", label: "AGO" },
   { id: "bilan", label: "Suivi Bilan" },
   { id: "autres", label: "Autres déclarations" },
 ];
@@ -259,14 +259,17 @@ export const TRACKERS: Tracker[] = [
   },
   {
     slug: "ago-depot",
-    title: "AGO · Dépôt · Dividendes",
+    title: "AGO",
     group: "ago",
-    description: "Échéance clôture + 6 mois (dernier jour du mois).",
+    description: "Échéance clôture + 6 mois (dernier jour du mois). Suivi facturation juridique par année.",
     icon: "📌",
     accent: "rose",
-    notes: [{ text: "Clôture + 6 mois (clôture 31/12 → 30/06 N+1)." }],
+    notes: [
+      { text: "Clôture + 6 mois (clôture 31/12 → 30/06 N+1)." },
+      { text: "Facturation juridique : 2e pastille sous chaque cellule." },
+    ],
     types: ["AGO_DEPOT"],
-    cols: (y) => [{ key: `ago-${y}`, label: "AGO + dépôt", type: "AGO_DEPOT", periode: `${y}` }],
+    cols: (y) => [{ key: `ago-${y}`, label: "AGO", type: "AGO_DEPOT", periode: `${y}` }],
   },
 ];
 

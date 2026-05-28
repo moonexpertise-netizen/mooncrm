@@ -44,7 +44,7 @@ export default async function IrPage({
       .order("nom", { ascending: true }),
     sb
       .from("ir_obligations")
-      .select("client_ir_id, annee, type, statut_logique, statut_detail"),
+      .select("client_ir_id, annee, type, statut_logique, statut_detail, etat_facturation"),
     sb
       .from("status_options")
       .select("type_code, libelle, statut_logique, color, ordre")
@@ -54,7 +54,10 @@ export default async function IrPage({
   ]);
 
   // Index : client_id -> Map<"YYYY|IR"|"YYYY|IFI", cell>
+  // + index parallele : client_id -> Map<YYYY, etat_facturation>
+  //   (facturation est conceptuellement par annee, partagee entre IR et IFI)
   const obByClient = new Map<string, Map<string, IrObligationCell>>();
+  const factByClient = new Map<string, Map<number, string | null>>();
   for (const o of obligations ?? []) {
     if (!obByClient.has(o.client_ir_id)) obByClient.set(o.client_ir_id, new Map());
     obByClient.get(o.client_ir_id)!.set(`${o.annee}|${o.type}`, {
@@ -63,6 +66,13 @@ export default async function IrPage({
       libelle: o.statut_detail,
       statut_logique: o.statut_logique as IrStatusOption["statut_logique"],
     });
+    // Premier passe : on prend la valeur etat_facturation rencontree
+    // (les rows IR et IFI sont supposees synchronisees par setIrFacturation)
+    if (!factByClient.has(o.client_ir_id)) factByClient.set(o.client_ir_id, new Map());
+    const fm = factByClient.get(o.client_ir_id)!;
+    if (!fm.has(o.annee) || o.etat_facturation) {
+      fm.set(o.annee, o.etat_facturation ?? null);
+    }
   }
 
   const rows: IrRow[] = (clients ?? []).map((c) => ({
@@ -75,6 +85,7 @@ export default async function IrPage({
     telephone: c.telephone,
     ldm_statut: c.ldm_statut,
     obligations: obByClient.get(c.id) ?? new Map(),
+    facturations: factByClient.get(c.id) ?? new Map(),
   }));
 
   const optsByType: Record<string, IrStatusOption[]> = {};

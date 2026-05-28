@@ -39,7 +39,7 @@ export default async function CaaPage({
       .order("denomination", { ascending: true }),
     sb
       .from("caa_obligations")
-      .select("client_caa_id, annee, statut_logique, statut_detail"),
+      .select("client_caa_id, annee, statut_logique, statut_detail, etat_facturation"),
     sb
       .from("status_options")
       .select("type_code, libelle, statut_logique, color, ordre")
@@ -56,6 +56,7 @@ export default async function CaaPage({
       annee: o.annee,
       libelle: o.statut_detail,
       statut_logique: o.statut_logique as CaaStatusOption["statut_logique"],
+      etat_facturation: (o.etat_facturation ?? null) as CaaCell["etat_facturation"],
     });
   }
 

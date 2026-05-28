@@ -79,17 +79,31 @@ export default async function ObligationsPage({
     statut_logique: string;
     statut_detail: string | null;
     note: string | null;
+    etat_facturation: string | null;
   }> = [];
 
   if (clientIds.length > 0) {
-    const { data } = await supabase
+    // Try with etat_facturation. If migration 0050 pas encore appliquee,
+    // on retombe sur la query sans la colonne.
+    const { data, error } = await supabase
       .from("obligations")
-      .select("id, client_id, type, periode, echeance, statut_logique, statut_detail, note, obligation_subscriptions!inner(actif)")
+      .select("id, client_id, type, periode, echeance, statut_logique, statut_detail, note, etat_facturation, obligation_subscriptions!inner(actif)")
       .in("client_id", clientIds)
       .in("type", tracker.types)
       .eq("annee", year)
       .eq("obligation_subscriptions.actif", true);
-    obligations = data ?? [];
+    if (error) {
+      const { data: fallback } = await supabase
+        .from("obligations")
+        .select("id, client_id, type, periode, echeance, statut_logique, statut_detail, note, obligation_subscriptions!inner(actif)")
+        .in("client_id", clientIds)
+        .in("type", tracker.types)
+        .eq("annee", year)
+        .eq("obligation_subscriptions.actif", true);
+      obligations = (fallback ?? []).map((o) => ({ ...o, etat_facturation: null }));
+    } else {
+      obligations = data ?? [];
+    }
   }
 
   // 4. (status_options déjà chargé en parallèle de subs ci-dessus)
@@ -139,6 +153,7 @@ export default async function ObligationsPage({
             statut_detail: o.statut_detail,
             echeance: o.echeance,
             note: o.note,
+            etat_facturation: o.etat_facturation as "a_facturer" | "facturee" | "payee" | "sans_facture" | null,
           }
         : {
             colKey: col.key,
@@ -148,6 +163,7 @@ export default async function ObligationsPage({
             statut_detail: null,
             echeance: null,
             note: null,
+            etat_facturation: null,
           };
     }),
   }));

@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 export type LdmStatut = "a_preparer" | "propale_acceptee" | "ldm_envoyee" | "ldm_signee";
 export type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 export type IrType = "IR" | "IFI";
+export type EtatFacturation = "a_facturer" | "facturee" | "payee" | "sans_facture";
 
 /**
  * Cree un client IR (personne physique).
@@ -174,4 +175,26 @@ export async function toggleIrSubscription(
   });
   if (error) throw new Error(error.message);
   return true;
+}
+
+/**
+ * Set le statut facturation pour une annee donnee. Comme la facturation est
+ * conceptuellement liee a l'annee (pas au type IR/IFI), on met a jour TOUTES
+ * les obligations IR/IFI existantes pour ce client+annee. Si une seule existe
+ * (juste IR ou juste IFI), seule celle-la est mise a jour.
+ *
+ * etat = null : reset la facturation a "non decide".
+ */
+export async function setIrFacturation(
+  clientIrId: string,
+  annee: number,
+  etat: EtatFacturation | null
+) {
+  const sb = await createClient();
+  const { error } = await sb
+    .from("ir_obligations")
+    .update({ etat_facturation: etat })
+    .eq("client_ir_id", clientIrId)
+    .eq("annee", annee);
+  if (error) throw new Error(error.message);
 }

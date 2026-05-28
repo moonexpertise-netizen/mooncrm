@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type LdmStatut = "a_preparer" | "propale_acceptee" | "ldm_envoyee" | "ldm_signee";
 export type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
+export type EtatFacturation = "a_facturer" | "facturee" | "payee" | "sans_facture";
 
 export async function createClientCaa(input: {
   denomination: string;
@@ -141,4 +142,23 @@ export async function toggleCaaSubscription(
   });
   if (error) throw new Error(error.message);
   return true;
+}
+
+/**
+ * Set le statut facturation CAA pour une annee donnee. La ligne caa_obligations
+ * doit exister (le client doit etre souscrit a l'annee).
+ * etat = null : reset.
+ */
+export async function setCaaFacturation(
+  clientCaaId: string,
+  annee: number,
+  etat: EtatFacturation | null
+) {
+  const sb = await createClient();
+  const { error } = await sb
+    .from("caa_obligations")
+    .update({ etat_facturation: etat })
+    .eq("client_caa_id", clientCaaId)
+    .eq("annee", annee);
+  if (error) throw new Error(error.message);
 }
