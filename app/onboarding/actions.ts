@@ -299,62 +299,72 @@ export async function addOnboardingStatusOption(
 }
 
 /**
- * Renomme un libelle d'option de statut d'onboarding deja cree.
+ * Renomme un libelle d'option de statut d'onboarding deja cree, et/ou
+ * change son bucket logique (A_FAIRE / EN_COURS / TERMINE / NON_APPLICABLE)
+ * si Benjamin s'est trompe de bucket a la creation.
  *
- *   - taskKey   : identifiant technique de l'etape (ex. "creation_societe")
- *   - oldLibelle : ancien libelle (ex. "Délégation demandée")
- *   - newLibelle : nouveau libelle (ex. "Délégation envoyée")
+ *   - taskKey       : identifiant technique de l'etape
+ *   - oldLibelle    : ancien libelle
+ *   - newLibelle    : nouveau libelle (si meme, ne renomme pas)
+ *   - newBucket?    : si fourni, change aussi le statut_logique
  *
- * Met a jour le libelle dans status_options ET dans toutes les
- * onboarding_tasks qui pointaient sur l'ancien libelle (par statut_detail).
- * Sinon les anciennes taches gardent un libelle obsolete.
- *
- * Idempotent : si oldLibelle == newLibelle, no-op. Si newLibelle existe
- * deja pour cette tache, on refuse (UNIQUE constraint).
+ * Met a jour status_options ET propage sur onboarding_tasks pour que
+ * l'affichage reste coherent.
  */
 export async function renameOnboardingStatusOption(
   taskKey: string,
   oldLibelle: string,
-  newLibelle: string
+  newLibelle: string,
+  newBucket?: "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE"
 ): Promise<void> {
   const sb = await createClient();
   const trimmed = newLibelle.trim();
   if (!trimmed) throw new Error("Le libellé ne peut pas être vide");
   if (!taskKey) throw new Error("task_key manquant");
-  if (trimmed === oldLibelle) return; // no-op
 
-  // 1. Verifie qu'aucune autre option n'utilise deja le nouveau libelle
-  //    (la contrainte UNIQUE (scope, type_code, libelle) le fera de toute
-  //    facon, mais on prefere un message clair).
-  const { data: clash } = await sb
-    .from("status_options")
-    .select("id")
-    .eq("scope", "onboarding")
-    .eq("type_code", taskKey)
-    .eq("libelle", trimmed)
-    .maybeSingle();
-  if (clash) {
-    throw new Error(`Le libellé « ${trimmed} » existe déjà pour cette étape`);
+  const renaming = trimmed !== oldLibelle;
+  if (!renaming && !newBucket) return; // no-op
+
+  // Verifie qu'aucune autre option n'utilise deja le nouveau libelle
+  if (renaming) {
+    const { data: clash } = await sb
+      .from("status_options")
+      .select("id")
+      .eq("scope", "onboarding")
+      .eq("type_code", taskKey)
+      .eq("libelle", trimmed)
+      .maybeSingle();
+    if (clash) {
+      throw new Error(`Le libellé « ${trimmed} » existe déjà pour cette étape`);
+    }
   }
 
-  // 2. Update status_options
+  // Update status_options : libelle et/ou bucket
+  const patch: Record<string, string> = {};
+  if (renaming) patch.libelle = trimmed;
+  if (newBucket) patch.statut_logique = newBucket;
+
   const { error: e1 } = await sb
     .from("status_options")
-    .update({ libelle: trimmed })
+    .update(patch)
     .eq("scope", "onboarding")
     .eq("type_code", taskKey)
     .eq("libelle", oldLibelle);
   if (e1) throw new Error(e1.message);
 
-  // 3. Update onboarding_tasks qui pointaient sur l'ancien libelle
-  //    (statut_detail = oldLibelle). Important pour que l'affichage
-  //    reste coherent partout.
-  const { error: e2 } = await sb
-    .from("onboarding_tasks")
-    .update({ statut_detail: trimmed })
-    .eq("task_key", taskKey)
-    .eq("statut_detail", oldLibelle);
-  if (e2) throw new Error(e2.message);
+  // Propage sur onboarding_tasks. Si on a renomme : update statut_detail.
+  // Si on a change le bucket : update statut_logique aussi.
+  const taskPatch: Record<string, string> = {};
+  if (renaming) taskPatch.statut_detail = trimmed;
+  if (newBucket) taskPatch.statut_logique = newBucket;
+  if (Object.keys(taskPatch).length > 0) {
+    const { error: e2 } = await sb
+      .from("onboarding_tasks")
+      .update(taskPatch)
+      .eq("task_key", taskKey)
+      .eq("statut_detail", oldLibelle);
+    if (e2) throw new Error(e2.message);
+  }
 }
 
 /**

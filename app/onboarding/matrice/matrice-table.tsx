@@ -1243,13 +1243,17 @@ function OptionRow({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(opt.libelle);
+  const [draftBucket, setDraftBucket] = useState<StatutLogique>(opt.statut_logique);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Resync draft si l'option change (resync server)
   useEffect(() => {
-    if (!editing) setDraft(opt.libelle);
-  }, [opt.libelle, editing]);
+    if (!editing) {
+      setDraft(opt.libelle);
+      setDraftBucket(opt.statut_logique);
+    }
+  }, [opt.libelle, opt.statut_logique, editing]);
 
   // Focus auto sur l'input en entrant en mode edition
   useEffect(() => {
@@ -1262,22 +1266,37 @@ function OptionRow({
     }
   }, [editing]);
 
-  function commit() {
+  // commit avec eventuel changement de bucket
+  function commit(nextBucket?: StatutLogique) {
     const trimmed = draft.trim();
-    if (!trimmed || trimmed === opt.libelle) {
+    const bucket = nextBucket ?? draftBucket;
+    const renamed = trimmed && trimmed !== opt.libelle;
+    const bucketChanged = bucket !== opt.statut_logique;
+    if (!renamed && !bucketChanged) {
+      setEditing(false);
+      setDraft(opt.libelle);
+      return;
+    }
+    if (!trimmed) {
       setEditing(false);
       setDraft(opt.libelle);
       return;
     }
     startTransition(async () => {
       try {
-        await renameOnboardingStatusOption(taskKey, opt.libelle, trimmed);
-        toastSuccess("Libellé renommé");
+        await renameOnboardingStatusOption(
+          taskKey,
+          opt.libelle,
+          trimmed,
+          bucketChanged ? bucket : undefined
+        );
+        toastSuccess(bucketChanged && renamed ? "Libellé modifié" : renamed ? "Libellé renommé" : "Bucket modifié");
         setEditing(false);
         router.refresh();
       } catch (e) {
-        toastError(e, "Echec du renommage");
+        toastError(e, "Echec de la modification");
         setDraft(opt.libelle);
+        setDraftBucket(opt.statut_logique);
       }
     });
   }
@@ -1285,6 +1304,7 @@ function OptionRow({
   function cancel() {
     setEditing(false);
     setDraft(opt.libelle);
+    setDraftBucket(opt.statut_logique);
   }
 
   function onDelete() {
@@ -1301,33 +1321,67 @@ function OptionRow({
     });
   }
 
+  // Mini-pills pour choisir le bucket (en mode edition).
+  // mouseDown.preventDefault evite que le blur de l'input ferme l'edit
+  // avant qu'on click sur la pill.
+  function changeBucket(newBucket: StatutLogique) {
+    setDraftBucket(newBucket);
+    commit(newBucket);
+  }
+
   if (editing) {
     return (
-      <div className="px-3 py-1 flex items-center gap-2 bg-zinc-50 dark:bg-white/[0.04]">
-        <input
-          ref={inputRef}
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            else if (e.key === "Escape") cancel();
-          }}
-          disabled={isPending}
-          className="flex-1 px-2 py-1 rounded border border-zinc-300 dark:border-white/[0.15] bg-white dark:bg-white/[0.06] text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400/30 dark:focus:ring-white/15"
-        />
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()} // empeche le blur de l'input
-          onClick={onDelete}
-          disabled={isPending}
-          title="Supprimer ce libellé"
-          className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-          aria-label="Supprimer le libellé"
-        >
-          <X className="h-3 w-3" />
-        </button>
+      <div className="px-3 py-1.5 flex flex-col gap-1.5 bg-zinc-50 dark:bg-white/[0.04]">
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => commit()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              else if (e.key === "Escape") cancel();
+            }}
+            disabled={isPending}
+            className="flex-1 px-2 py-1 rounded border border-zinc-300 dark:border-white/[0.15] bg-white dark:bg-white/[0.06] text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400/30 dark:focus:ring-white/15"
+          />
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onDelete}
+            disabled={isPending}
+            title="Supprimer ce libellé"
+            className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+            aria-label="Supprimer le libellé"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        {/* Mini-pills pour deplacer entre buckets */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500 mr-1">
+            Bucket :
+          </span>
+          {STATUT_GROUP_ORDER.map((b) => (
+            <button
+              key={b}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => changeBucket(b)}
+              disabled={isPending}
+              className={cn(
+                "px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors disabled:opacity-50",
+                b === draftBucket
+                  ? statutColorClass(b, null) + " ring-1 ring-zinc-400 dark:ring-white/30"
+                  : "bg-white dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10] hover:bg-zinc-100 dark:hover:bg-white/[0.08]"
+              )}
+              aria-pressed={b === draftBucket}
+            >
+              {STATUT_GROUP_LABEL[b]}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
