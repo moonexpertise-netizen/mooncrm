@@ -395,7 +395,7 @@ export async function updateEtapeConditions(
  *   - à une position donnée parmi les étapes de la rubrique cible
  *
  * On recalcule les `ordre` de toutes les étapes du parcours pour rester
- * propre (1, 2, 3, ...) — léger pour < 50 étapes au total.
+ * propre (1, 2, 3, ...) - léger pour < 50 étapes au total.
  */
 export async function moveEtape(
   parcoursId: string,

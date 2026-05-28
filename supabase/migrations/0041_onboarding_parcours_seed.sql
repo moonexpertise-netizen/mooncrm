@@ -52,10 +52,10 @@ from parcours p, (values
   ( 2, 'acces_pennylane',     'Accès Pennylane créé',                                            '2G', '[]'),
   -- Création uniquement : N/A pour Reprise / Interne / Sous-traitance / null
   ( 3, 'depot_kbis_banque',   'Dépôt KBIS auprès de la banque',                                  '2C',
-      '[{"field":"origine","op":"not_in","value":["1 - Création"],"reason":"Étape de création — pas applicable hors Création"}]'),
+      '[{"field":"origine","op":"not_in","value":["1 - Création"],"reason":"Étape de création - pas applicable hors Création"}]'),
   -- Reprise uniquement (avec ou sans EC) : N/A pour Création / Interne / Sous-traitance / null
   ( 4, 'confrere',            'Reprise confrère',                                                '2R',
-      '[{"field":"origine","op":"not_in","value":["2 - Reprise","3 - Reprise sans EC"],"reason":"Étape de reprise — pas applicable hors Reprise"}]'),
+      '[{"field":"origine","op":"not_in","value":["2 - Reprise","3 - Reprise sans EC"],"reason":"Étape de reprise - pas applicable hors Reprise"}]'),
   ( 5, 'abo_moon',            'Abonnement MOON actif',                                           '2G', '[]'),
   ( 6, 'mandat_moon',         'Mandat de prélèvement MOON signé',                                '2G', '[]'),
   ( 7, 'impot_gouv',          'Accès au compte impôt.gouv',                                      '2G', '[]'),

@@ -11,7 +11,7 @@ import { setClientGroupe, updateClient, updateContact } from "./actions";
  *
  * UX : champs natifs (input/select) toujours visibles, comme dans un formulaire
  * web standard. Plus de mode "click-to-edit" qui transformait un bouton en
- * input — c'était source de décalage visuel quand on hover/clique.
+ * input - c'était source de décalage visuel quand on hover/clique.
  *
  * Save côté serveur :
  *  - inputs : déclenché au blur (sortie du champ) ou Enter
@@ -20,10 +20,10 @@ import { setClientGroupe, updateClient, updateContact } from "./actions";
  */
 
 // ============================================================================
-//  Helpers de style — uniformes partout sur la fiche
+//  Helpers de style - uniformes partout sur la fiche
 // ============================================================================
 
-/** Classe d'un input/select — refonte premium (Linear / Stripe style).
+/** Classe d'un input/select - refonte premium (Linear / Stripe style).
  *
  *  Direction design (refonte 2026) :
  *    - Vide   : fond zinc-50/60 (presque transparent) + bordure zinc-200/0 (invisible au repos)
@@ -328,7 +328,7 @@ export function EditableDate({
 }
 
 // ============================================================================
-//  EditableSelect — <select> natif toujours visible
+//  EditableSelect - <select> natif toujours visible
 // ============================================================================
 
 export function EditableSelect({
@@ -374,7 +374,7 @@ export function EditableSelect({
 }
 
 // ============================================================================
-//  EditableGroupe — input texte avec datalist (autocomplete) toujours visible
+//  EditableGroupe - input texte avec datalist (autocomplete) toujours visible
 // ============================================================================
 
 export function EditableGroupe({
@@ -515,7 +515,7 @@ export function EditableContactText({
 }
 
 // ============================================================================
-//  EditableContactCivilite — <select> natif toujours visible
+//  EditableContactCivilite - <select> natif toujours visible
 // ============================================================================
 
 export function EditableContactCivilite({
@@ -567,7 +567,7 @@ export function EditableContactCivilite({
 }
 
 // ============================================================================
-//  EditableHeading — titre du dossier en gros, en mode "click to edit"
+//  EditableHeading - titre du dossier en gros, en mode "click to edit"
 //  (un input toujours visible serait trop intrusif sur le titre principal)
 // ============================================================================
 

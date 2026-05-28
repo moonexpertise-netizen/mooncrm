@@ -9,7 +9,7 @@ import MissionExcTable, {
 export const dynamic = "force-dynamic";
 
 /**
- * Module "Missions Exceptionnelles" — gestion des missions ponctuelles non
+ * Module "Missions Exceptionnelles" - gestion des missions ponctuelles non
  * recurrentes (transferts de siege, CAA, evaluations, attestations, AG
  * extraordinaires, audits ponctuels...).
  *

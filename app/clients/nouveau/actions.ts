@@ -18,7 +18,7 @@ type Payload = {
   adresse_siege?: string | null;
   code_postal?: string | null;
   ville?: string | null;
-  // Honoraires LDM — saisis à la création pour préparer la lettre de mission
+  // Honoraires LDM - saisis à la création pour préparer la lettre de mission
   honoraires_compta?: number | null;
   forfait_bilan?: number | null;
   honoraires_jur?: number | null;

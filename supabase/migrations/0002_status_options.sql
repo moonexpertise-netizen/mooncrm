@@ -91,7 +91,7 @@ insert into public.status_options (scope, type_code, libelle, statut_logique, or
 ('obligation','TVA_TRIMESTRIELLE','EDI - Terminé','TERMINE',20),
 ('obligation','TVA_TRIMESTRIELLE','N/A','NON_APPLICABLE',90),
 
--- TVA annuelle CA12 (rarement utilisée — placeholder)
+-- TVA annuelle CA12 (rarement utilisée - placeholder)
 ('obligation','TVA_ANNUELLE_CA12','A traiter','A_FAIRE',10),
 ('obligation','TVA_ANNUELLE_CA12','EDI - Terminé','TERMINE',20),
 ('obligation','TVA_ANNUELLE_CA12','N/A','NON_APPLICABLE',90),
@@ -103,12 +103,12 @@ insert into public.status_options (scope, type_code, libelle, statut_logique, or
 ('obligation','TVS_TRIMESTRIELLE','Pas commencé','A_FAIRE',10),
 ('obligation','TVS_TRIMESTRIELLE','N/A','NON_APPLICABLE',90),
 
--- IS — acomptes
+-- IS - acomptes
 ('obligation','IS_ACOMPTE','À traiter','A_FAIRE',10),
 ('obligation','IS_ACOMPTE','EDI - Terminé','TERMINE',20),
 ('obligation','IS_ACOMPTE','N/A - Dispense','NON_APPLICABLE',90),
 
--- IS — solde
+-- IS - solde
 ('obligation','IS_SOLDE','A traiter','A_FAIRE',10),
 ('obligation','IS_SOLDE','EDI - Terminé','TERMINE',20),
 ('obligation','IS_SOLDE','N/A','NON_APPLICABLE',90),
@@ -121,7 +121,7 @@ insert into public.status_options (scope, type_code, libelle, statut_logique, or
 ('obligation','CVAE_ACOMPTE','EDI - Terminé','TERMINE',20),
 ('obligation','CVAE_ACOMPTE','N/A','NON_APPLICABLE',90),
 
--- CFE — vocabulaire spécifique
+-- CFE - vocabulaire spécifique
 ('obligation','CFE','A traiter','A_FAIRE',10),
 ('obligation','CFE','Pas d''avis','EN_COURS',15),
 ('obligation','CFE','Avis à zero','TERMINE',20),
@@ -149,7 +149,7 @@ insert into public.status_options (scope, type_code, libelle, statut_logique, or
 ('obligation','DES','EDI - Terminé','TERMINE',20),
 ('obligation','DES','N/A','NON_APPLICABLE',90),
 
--- Mission compta — vocabulaire spécifique avec préfixes numériques (Notion)
+-- Mission compta - vocabulaire spécifique avec préfixes numériques (Notion)
 ('obligation','COMPTA','0 - à traiter','A_FAIRE',10),
 ('obligation','COMPTA','6 - Transmis au client','TERMINE',20),
 ('obligation','COMPTA','Z - N/A','NON_APPLICABLE',90),

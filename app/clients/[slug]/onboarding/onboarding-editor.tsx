@@ -308,7 +308,7 @@ function TaskRow({
 }
 
 // ============================================================================
-//  CreateOptionForm — création inline d'un nouveau libellé (style Notion).
+//  CreateOptionForm - création inline d'un nouveau libellé (style Notion).
 //  Affiché en bas du popover statut. L'utilisateur tape un texte, choisit
 //  un bucket (À faire / En cours / Terminé / N/A) et le libellé est créé.
 //  Après création, le statut de la tâche est immédiatement appliqué.
@@ -394,7 +394,7 @@ function CreateOptionForm({
 }
 
 // ============================================================================
-//  OptionRow — affichage option du picker statut avec rename inline.
+//  OptionRow - affichage option du picker statut avec rename inline.
 //  Crayon visible au hover ; clic = selection ; clic crayon = edit mode.
 //  En edit mode : input + croix supprimer. Enter save / Esc cancel / blur save.
 // ============================================================================

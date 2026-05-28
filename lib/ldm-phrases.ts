@@ -1,6 +1,6 @@
 /**
  * Phrases conditionnelles insérées dans la LDM.
- * Texte EXACT issu de `LDM PRESENTATION.xlsx` (Publipostage Benjamin) — formules
+ * Texte EXACT issu de `LDM PRESENTATION.xlsx` (Publipostage Benjamin) - formules
  * répliquées en TypeScript.
  *
  * Drapeaux explicites en DB (un dossier doit avoir une décision claire,
@@ -32,7 +32,7 @@ const eur = (n: number) =>
   new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n));
 
 /**
- * Bullet "Forfait conformité (comptabilité et fiscalité)" — toujours présent.
+ * Bullet "Forfait conformité (comptabilité et fiscalité)" - toujours présent.
  *   ${compta_mois} € HT par mois à traiter, soit ${compta_an} € HT pour une année de 12 mois.
  */
 export function phraseConformite(compta: number): string {

@@ -565,7 +565,7 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
   // catégorie ne sont pas des filtres exploitables côté /clients : affichage
   // statistique seul, pas de lien cliquable.
   const max = Math.max(...mixActivite.map((m) => m.value), 1);
-  // Palette MOON gold + neutres — barres tinted en fonction de l'index
+  // Palette MOON gold + neutres - barres tinted en fonction de l'index
   const BAR_TONES = [
     "bg-[hsl(34,32%,52%)]",       // gold MOON
     "bg-emerald-500",

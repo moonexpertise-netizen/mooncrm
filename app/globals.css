@@ -624,7 +624,7 @@ h3 { font-weight: 600; }
    form controls par defaut, etc. s'adaptent automatiquement).
 
    IMPORTANT : la regle :root color-scheme ne suffit pas toujours pour les
-   <select>, <input type="date">, etc. — leurs popups systeme utilisent
+   <select>, <input type="date">, etc. - leurs popups systeme utilisent
    le rendu OS par defaut. On force color-scheme sur CHAQUE element form
    en dark mode pour que Chromium/Firefox rendent le dropdown en sombre. */
 :root { color-scheme: light; }

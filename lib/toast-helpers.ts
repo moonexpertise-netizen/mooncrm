@@ -9,7 +9,7 @@ import { toast } from "sonner";
  *   - Succès : durée courte (2.5s), pas de blabla → "Enregistré"
  *   - Erreur : durée plus longue (5s), message issu de l'erreur
  *   - Sauvegarde inline : pas de toast par défaut (trop bruyant si Benjamin
- *     fait 50 saves d'affilée) — on ne notifie qu'en cas d'erreur, sauf si
+ *     fait 50 saves d'affilée) - on ne notifie qu'en cas d'erreur, sauf si
  *     explicitement demandé via toastSaveSuccess()
  *
  * Usage :
@@ -29,7 +29,7 @@ export function toastSuccess(message: string) {
   toast.success(message, { duration: 2500 });
 }
 
-/** Toast par défaut après save inline. Silencieux par design — voir module doc. */
+/** Toast par défaut après save inline. Silencieux par design - voir module doc. */
 export function toastSaved(label: string = "Enregistré") {
   toast.success(label, { duration: 1800 });
 }

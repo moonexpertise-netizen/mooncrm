@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Card premium (refonte v2) — fiche client.
+ * Card premium (refonte v2) - fiche client.
  *
  * Header avec titre + (optionnel) sous-titre + (optionnel) action à droite.
  * Style Linear / Attio : rounded-2xl, border-zinc-200/70, shadow-card,
@@ -50,10 +50,10 @@ export function Card({
 }
 
 /**
- * Séparateur de section premium (Section 1 — Infos de base, etc.).
+ * Séparateur de section premium (Section 1 - Infos de base, etc.).
  *
  * Style Linear : eyebrow numéroté en pastille gold, titre large, line accent
- * sous le titre. Pas une simple bordure plate — un vrai séparateur visuel.
+ * sous le titre. Pas une simple bordure plate - un vrai séparateur visuel.
  */
 export function SectionTitle({
   n,

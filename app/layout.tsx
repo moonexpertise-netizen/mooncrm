@@ -17,7 +17,7 @@ const funnelSans = Funnel_Sans({
   variable: "--font-sans",
 });
 
-// Fraunces (serif chic) — utilisée pour les titres d'accent quand pertinent
+// Fraunces (serif chic) - utilisée pour les titres d'accent quand pertinent
 const fraunces = Fraunces({
   subsets: ["latin"],
   display: "swap",

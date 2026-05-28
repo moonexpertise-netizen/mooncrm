@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  *  - PDF  : route /api/clients/:id/ldm-pdf (DOCX → PDF via ConvertAPI)
  *
  * Bloqué tant qu'un dirigeant complet (civilité + prénom + nom) n'est pas
- * rattaché — sans ces infos la salutation et l'identification ne peuvent pas
+ * rattaché - sans ces infos la salutation et l'identification ne peuvent pas
  * être correctement remplies dans la LDM.
  *
  * L'email + téléphone sont nécessaires pour la signature électronique

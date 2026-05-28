@@ -122,17 +122,17 @@ export default function NouveauClientForm() {
   const [pipeline, setPipeline] = useState<string>("1 - Tally à envoyer");
   const [jourCloture, setJourCloture] = useState<string>("");
   const [moisCloture, setMoisCloture] = useState<string>("");
-  // Adresse siège — auto-fillée depuis annuaire-entreprises sur sélection
+  // Adresse siège - auto-fillée depuis annuaire-entreprises sur sélection
   const [adresseSiege, setAdresseSiege] = useState("");
   const [codePostal, setCodePostal] = useState("");
   const [ville, setVille] = useState("");
-  // Reprise à partir de — date complète YYYY-MM-DD (par défaut, 1er du mois courant)
+  // Reprise à partir de - date complète YYYY-MM-DD (par défaut, 1er du mois courant)
   const now = new Date();
   const [debutDate, setDebutDate] = useState<string>(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
   );
   // Dirigeant (contact rattaché). Pré-rempli depuis l'annuaire (cas reprise),
-  // sinon saisi à la main (cas création). Civilité obligatoire pour la LDM —
+  // sinon saisi à la main (cas création). Civilité obligatoire pour la LDM -
   // l'annuaire ne la donne pas, donc toujours à choisir manuellement.
   const [dirigeantCivilite, setDirigeantCivilite] = useState<"M." | "Mme" | "">("");
   const [dirigeantPrenom, setDirigeantPrenom] = useState<string>("");
@@ -142,7 +142,7 @@ export default function NouveauClientForm() {
   const [dirigeantTelephone, setDirigeantTelephone] = useState<string>("");
   const [addDirigeantAsContact, setAddDirigeantAsContact] = useState(true);
 
-  // Date de clôture 1ère mission (= fin_mission_date) — par défaut 31/12 année en cours
+  // Date de clôture 1ère mission (= fin_mission_date) - par défaut 31/12 année en cours
   const [clotureMission, setClotureMission] = useState<string>(
     `${now.getFullYear()}-12-31`
   );
@@ -155,7 +155,7 @@ export default function NouveauClientForm() {
   const [honosJur, setHonosJur] = useState<string>("");
   const [tdbPeriode, setTdbPeriode] = useState<"" | "Mensuel" | "Trimestriel" | "Non souscrit">("");
   const [tdbHonosPeriode, setTdbHonosPeriode] = useState<string>("");
-  // Honoraires one-shot (création + reprise) — saisies à la création
+  // Honoraires one-shot (création + reprise) - saisies à la création
   const [typeHonosCreation, setTypeHonosCreation] = useState<"" | "Facturés" | "Non souscrit">("");
   const [honosCreation, setHonosCreation] = useState<string>("");
   const [typeHonosReprise, setTypeHonosReprise] = useState<"" | "Facturés" | "Non souscrit">("");
@@ -447,7 +447,7 @@ export default function NouveauClientForm() {
       </div>
 
       {/* ====================================================================
-          SECTION 1 — INFOS DE BASE (pour la lettre de mission)
+          SECTION 1 - INFOS DE BASE (pour la lettre de mission)
       ==================================================================== */}
       <SectionTitle
         n={1}
@@ -615,7 +615,7 @@ export default function NouveauClientForm() {
       </div>
 
       {/* ====================================================================
-          SECTION 2 — HONORAIRES (pour la lettre de mission)
+          SECTION 2 - HONORAIRES (pour la lettre de mission)
       ==================================================================== */}
       <SectionTitle
         n={2}
@@ -750,7 +750,7 @@ export default function NouveauClientForm() {
       </div>
 
       {/* ====================================================================
-          SECTION 3 — DÉTAILS CRM (pas dans la LDM, mais utiles au suivi)
+          SECTION 3 - DÉTAILS CRM (pas dans la LDM, mais utiles au suivi)
       ==================================================================== */}
       <SectionTitle
         n={3}

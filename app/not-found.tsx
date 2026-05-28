@@ -22,7 +22,7 @@ export default function NotFound() {
           </h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
             L&apos;adresse demandée n&apos;existe pas (plus). Si tu venais
-            de modifier un dossier, retourne à la liste — il y est peut-être
+            de modifier un dossier, retourne à la liste - il y est peut-être
             sous un autre nom.
           </p>
         </div>

@@ -23,7 +23,7 @@ export type TrackerStat = {
 type StatusFilter = "todo" | "wip" | "done" | "urgent";
 
 /**
- * Dashboard "Suivi de production" — refonte en liste horizontale.
+ * Dashboard "Suivi de production" - refonte en liste horizontale.
  *
  * Philosophy : 1 ligne par tracker, scan rapide, info critique (échéance)
  * mise en valeur. KPI synthétiques en top sous forme de pilules cliquables
@@ -135,7 +135,7 @@ export default function SommaireCards({
         )}
       </div>
 
-      {/* Sections par groupe — chaque groupe = une card distincte avec
+      {/* Sections par groupe - chaque groupe = une card distincte avec
           header intégré + liste de trackers. Donne un effet "blocs separes". */}
       {grouped.map(({ group, rows: groupRows }) => {
         const gTodo = groupRows.reduce((s, r) => s + r.todo, 0);
@@ -263,7 +263,7 @@ function TrackerRow({
         <Counter value={row.done} color="emerald" label="Terminé" />
       </div>
 
-      {/* Sur mobile : compteurs compactés en une ligne — meme info en tooltip. */}
+      {/* Sur mobile : compteurs compactés en une ligne - meme info en tooltip. */}
       <div
         className="sm:hidden flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums"
         title={`${row.todo} à traiter · ${row.wip} en cours · ${row.done} terminés`}
@@ -290,7 +290,7 @@ function TrackerRow({
         )}
         title={
           row.prochaineEcheance
-            ? `Prochaine échéance ${urgent ? "(urgent — dans moins de 30 j)" : ""} : ${fmtDateFr(row.prochaineEcheance)}`
+            ? `Prochaine échéance ${urgent ? "(urgent - dans moins de 30 j)" : ""} : ${fmtDateFr(row.prochaineEcheance)}`
             : "Aucune échéance à venir sur ce tracker"
         }
       >

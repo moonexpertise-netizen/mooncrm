@@ -71,7 +71,7 @@ export interface Client {
   jour_cloture: number | null;
   mois_cloture: number | null;
   mois_signature: string | null;
-  /** Adresse du siège — pour la LDM. Saisi manuellement, ou auto-fill Pappers (Reprise) / Tally (Création) */
+  /** Adresse du siège - pour la LDM. Saisi manuellement, ou auto-fill Pappers (Reprise) / Tally (Création) */
   adresse_siege: string | null;
   code_postal: string | null;
   ville: string | null;

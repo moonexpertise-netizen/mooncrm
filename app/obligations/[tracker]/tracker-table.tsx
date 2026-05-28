@@ -439,7 +439,7 @@ export default function TrackerTable({
     return lines.map((l) => l.join("\t")).join("\n");
   }
 
-  // Coordonnées (row|col) des cellules sélectionnées — pour dessiner un seul
+  // Coordonnées (row|col) des cellules sélectionnées - pour dessiner un seul
   // contour englobant à la Excel (au lieu d'un ring par cellule).
   const selectedCoords = useMemo(() => {
     const s = new Set<string>();
@@ -465,7 +465,7 @@ export default function TrackerTable({
     setSelectedIds(all);
   }
 
-  // Raccourcis globaux (Escape, Cmd+Shift+L, Cmd+A, Cmd+C, Cmd+V) — fonctionnent
+  // Raccourcis globaux (Escape, Cmd+Shift+L, Cmd+A, Cmd+C, Cmd+V) - fonctionnent
   // même si le focus n'est pas sur une cellule.
   useEffect(() => {
     function onWindowKey(e: KeyboardEvent) {

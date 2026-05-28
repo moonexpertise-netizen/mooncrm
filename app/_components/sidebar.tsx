@@ -435,7 +435,7 @@ export function Sidebar() {
                   </div>
                 )}
 
-                {/* Sous-menu Production — rubriques sur bandeau, sous-rubriques petites */}
+                {/* Sous-menu Production - rubriques sur bandeau, sous-rubriques petites */}
                 {showChildren && item.children && (
                   <ul className="mt-1 mb-2">
                     {item.children.map((c, i) => {

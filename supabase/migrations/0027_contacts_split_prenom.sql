@@ -1,5 +1,5 @@
 -- Séparation prénom / nom de famille dans la table contacts.
--- Avant : un seul champ contacts.nom contenant "Prénom NOM" — saisie peu
+-- Avant : un seul champ contacts.nom contenant "Prénom NOM" - saisie peu
 --         naturelle, split heuristique au moment de la génération LDM.
 -- Après : 2 colonnes distinctes contacts.prenom + contacts.nom.
 --         contacts.nom contient désormais UNIQUEMENT le nom de famille.

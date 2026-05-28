@@ -233,9 +233,11 @@ export default function CaaTable({
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Société</th>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Dirigeant</th>
-                <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
                 {mode === "base" ? (
-                  <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA — années</th>
+                  <>
+                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
+                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA · années</th>
+                  </>
                 ) : (
                   <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {selectedYear}</th>
                 )}
@@ -259,17 +261,19 @@ export default function CaaTable({
                     {r.dirigeant_nom && <div className="font-medium text-zinc-700 dark:text-zinc-300">{r.dirigeant_nom}</div>}
                     {r.dirigeant_email && <div className="truncate max-w-[180px]">{r.dirigeant_email}</div>}
                   </td>
-                  <td className="px-4 py-3">
-                    <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
-                  </td>
                   {mode === "base" ? (
-                    <td className="px-4 py-3">
-                      <YearPills
-                        years={years}
-                        subscribedYears={new Set(r.obligations.keys())}
-                        onToggle={(year) => onToggleSubscription(r.id, year)}
-                      />
-                    </td>
+                    <>
+                      <td className="px-4 py-3">
+                        <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <YearPills
+                          years={years}
+                          subscribedYears={new Set(r.obligations.keys())}
+                          onToggle={(year) => onToggleSubscription(r.id, year)}
+                        />
+                      </td>
+                    </>
                   ) : (
                     <td className="px-2 py-3 text-center">
                       <StatutCell
@@ -298,7 +302,7 @@ export default function CaaTable({
 
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
         {visibleRows.length} mission{visibleRows.length > 1 ? "s" : ""} CAA
-        {mode === "year" ? ` souscrite${visibleRows.length > 1 ? "s" : ""} — exercice ${selectedYear}` : " — vue d'ensemble"}
+        {mode === "year" ? ` souscrite${visibleRows.length > 1 ? "s" : ""} - exercice ${selectedYear}` : " - vue d'ensemble"}
         {mode === "year" && localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
       </p>
     </div>

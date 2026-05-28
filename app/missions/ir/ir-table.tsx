@@ -45,7 +45,7 @@ export type IrRow = {
   obligations: Map<string, IrObligationCell>;
 };
 
-// Mini-pipeline LDM (4 statuts hardcodes pour l'instant — pourra etre
+// Mini-pipeline LDM (4 statuts hardcodes pour l'instant - pourra etre
 // migre en status_options scope='ldm_mission' quand Benjamin donnera la
 // liste finale)
 const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
@@ -254,11 +254,11 @@ export default function IrTable({
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Nom</th>
-                <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
                 {mode === "base" ? (
                   <>
-                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IR — années</th>
-                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI — années</th>
+                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
+                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IR · années</th>
+                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI · années</th>
                   </>
                 ) : (
                   <>
@@ -284,11 +284,11 @@ export default function IrTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
-                  </td>
                   {mode === "base" ? (
                     <>
+                      <td className="px-4 py-3">
+                        <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
+                      </td>
                       <td className="px-4 py-3">
                         <YearPills
                           years={years}
@@ -349,7 +349,7 @@ export default function IrTable({
 
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
         {visibleRows.length} dossier{visibleRows.length > 1 ? "s" : ""} IR
-        {mode === "year" ? ` souscrit${visibleRows.length > 1 ? "s" : ""} — exercice ${selectedYear}` : " — vue d'ensemble"}
+        {mode === "year" ? ` souscrit${visibleRows.length > 1 ? "s" : ""} - exercice ${selectedYear}` : " - vue d'ensemble"}
         {mode === "year" && localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
       </p>
     </div>
@@ -357,7 +357,7 @@ export default function IrTable({
 }
 
 // ============================================================================
-//  YearPills — pills cliquables pour activer/desactiver une annee (vue Base)
+//  YearPills - pills cliquables pour activer/desactiver une annee (vue Base)
 // ============================================================================
 
 function YearPills({
@@ -396,7 +396,7 @@ function YearPills({
 }
 
 // ============================================================================
-//  StatutCell — picker statut style Notion (utilise dans vue annee)
+//  StatutCell - picker statut style Notion (utilise dans vue annee)
 //  Si cell === null : affiche "N/A" en pointille (pas souscrit) avec clic
 //  qui ouvre le picker pour souscrire + choisir un statut directement.
 // ============================================================================

@@ -228,7 +228,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         onDragEnd={onDragEnd}
       >
       <div className="hidden md:block space-y-4">
-        {/* Étapes actives — grid auto-fit qui wrap si nécessaire. */}
+        {/* Étapes actives - grid auto-fit qui wrap si nécessaire. */}
         <div
           className="grid gap-3 pb-2"
           style={{
@@ -245,7 +245,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
           ))}
         </div>
 
-        {/* Terminaux — visuellement séparés en bas */}
+        {/* Terminaux - visuellement séparés en bas */}
         <div className="border-t pt-3">
           <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
             Hors pipeline actif
@@ -607,7 +607,7 @@ const Column = memo(function Column({
 });
 
 /**
- * Carte kanban — wrappée en React.memo pour éviter le re-render des 79
+ * Carte kanban - wrappée en React.memo pour éviter le re-render des 79
  * cartes à chaque mouvement (gros gain de fluidité avec dnd-kit).
  *
  * UX : drag handle dédié à GAUCHE (icône grip ⋮⋮). Le reste de la carte

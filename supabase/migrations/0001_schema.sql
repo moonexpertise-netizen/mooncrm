@@ -1,5 +1,5 @@
 -- ============================================================================
--- MoonCRM — schéma initial (Phase 1)
+-- MoonCRM - schéma initial (Phase 1)
 -- Modèle relationnel : abonnements obligation × exercice + instances générées.
 -- ============================================================================
 
@@ -175,7 +175,7 @@ create table public.onboarding_tasks (
 );
 create index idx_onboarding_client on public.onboarding_tasks(client_id);
 
--- ABONNEMENTS — le cœur du modèle.
+-- ABONNEMENTS - le cœur du modèle.
 -- 1 ligne ici = "ce client a cette obligation pour cette année (exercice)".
 -- À partir des abonnements, le moteur génère les instances dans `obligations`.
 create table public.obligation_subscriptions (
@@ -191,7 +191,7 @@ create index idx_subs_client on public.obligation_subscriptions(client_id);
 create index idx_subs_annee on public.obligation_subscriptions(annee);
 create index idx_subs_type_annee on public.obligation_subscriptions(type, annee);
 
--- INSTANCES d'obligations — générées par le moteur depuis les abonnements.
+-- INSTANCES d'obligations - générées par le moteur depuis les abonnements.
 -- 1 ligne par échéance concrète (ex : TVA janv 2026, acompte IS 15 mars 2026).
 create table public.obligations (
   id uuid primary key default gen_random_uuid(),
@@ -228,7 +228,7 @@ create table public.status_options (
 create index idx_status_options_scope_type on public.status_options(scope, type_code);
 
 -- ----------------------------------------------------------------------------
--- TRIGGERS — updated_at automatique
+-- TRIGGERS - updated_at automatique
 -- ----------------------------------------------------------------------------
 
 create or replace function public.set_updated_at()

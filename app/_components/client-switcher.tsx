@@ -122,7 +122,7 @@ export function ClientSwitcher() {
           placeholder="Aller au dossier…"
           className="w-full pl-8 pr-3 md:pr-12 py-1.5 rounded-md border border-zinc-300 bg-white text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
         />
-        {/* Indicateur de raccourci — caché sur touch */}
+        {/* Indicateur de raccourci - caché sur touch */}
         <kbd className="hidden md:inline-block absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 rounded px-1.5 py-0.5 font-mono pointer-events-none">
           Ctrl·F
         </kbd>

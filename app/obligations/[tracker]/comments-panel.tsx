@@ -296,7 +296,7 @@ function Composer({
     textareaRef.current?.focus();
   }, []);
 
-  // Auto-resize textarea — ne déclenche pas de re-render du parent (juste DOM)
+  // Auto-resize textarea - ne déclenche pas de re-render du parent (juste DOM)
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;

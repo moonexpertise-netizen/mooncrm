@@ -13,7 +13,7 @@
 
 -- 1. Sauvegarde : si tdb_honos_periode est null/0 mais forfait_pilotage > 0,
 --    on copie forfait_pilotage vers tdb_honos_periode (en supposant période
---    mensuelle — c'est le cas par défaut historique).
+--    mensuelle - c'est le cas par défaut historique).
 update public.clients
 set tdb_honos_periode = forfait_pilotage,
     tdb_periode = 'Mensuel'::tdb_periode_t

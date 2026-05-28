@@ -20,7 +20,7 @@ import {
  * achievement card via useLdmCelebration. Coherence totale avec la
  * fiche client (LDMSigneeButton + PipelinePicker).
  *
- * IMPORTANT — performance : pas de revalidatePath ici. Optimistic update
+ * IMPORTANT - performance : pas de revalidatePath ici. Optimistic update
  * + force-dynamic des pages downstream suffisent. router.refresh() du
  * caller propage les changements sur la page courante.
  */

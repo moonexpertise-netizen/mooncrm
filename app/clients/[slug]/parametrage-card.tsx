@@ -216,7 +216,7 @@ export default function ParametrageCard({
         </div>
       </Section>
 
-      {/* Bilan annuel — Liasse / Plaquette, DAS2, AGO / dépôt */}
+      {/* Bilan annuel - Liasse / Plaquette, DAS2, AGO / dépôt */}
       <Section title="Bilan annuel">
         <div className="flex flex-wrap gap-2">
           {BILAN_TYPES.map((t) => (
@@ -246,7 +246,7 @@ export default function ParametrageCard({
         </Section>
       )}
 
-      {/* Autres taxes — TVS, CVAE Acomptes */}
+      {/* Autres taxes - TVS, CVAE Acomptes */}
       <Section title="Autres taxes">
         <div className="flex flex-wrap gap-2">
           {TAXES_TYPES.map((t) => (
@@ -260,7 +260,7 @@ export default function ParametrageCard({
         </div>
       </Section>
 
-      {/* Déclarations diverses — Flat-tax 2777, IFU 2561, OSS, DES */}
+      {/* Déclarations diverses - Flat-tax 2777, IFU 2561, OSS, DES */}
       <Section title="Déclarations diverses">
         <div className="flex flex-wrap gap-2">
           {DECL_TYPES.map((t) => (
@@ -340,7 +340,7 @@ function TogglePill({
           active ? "border-emerald-500" : "border-zinc-300"
         )}
       >
-        {/* Calque unique style "coché" — opacity 100 si actif, 60% au survol sinon */}
+        {/* Calque unique style "coché" - opacity 100 si actif, 60% au survol sinon */}
         <span
           className={cn(
             "absolute inset-0 inline-flex items-center justify-center",

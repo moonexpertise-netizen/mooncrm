@@ -339,7 +339,7 @@ export default function ChatBubble() {
 }
 
 // ============================================================================
-//  Message — bulle simple. Markdown basique : **gras**, listes, sauts de ligne.
+//  Message - bulle simple. Markdown basique : **gras**, listes, sauts de ligne.
 // ============================================================================
 
 function Message({ role, content }: { role: "user" | "assistant"; content: string }) {

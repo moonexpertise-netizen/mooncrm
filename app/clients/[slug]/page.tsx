@@ -64,7 +64,7 @@ export default async function IdentiteTab({
         />
       </Card>
 
-      {/* SECTION 1 — INFOS DE BASE */}
+      {/* SECTION 1 - INFOS DE BASE */}
       <SectionTitle
         n={1}
         title="Infos de base"
@@ -108,7 +108,7 @@ export default async function IdentiteTab({
         <EditableText clientId={id} field="ville" value={client.ville} label="Ville" />
       </Card>
 
-      {/* SECTION 2 — HONORAIRES */}
+      {/* SECTION 2 - HONORAIRES */}
       <SectionTitle
         n={2}
         title="Honoraires"
@@ -170,7 +170,7 @@ export default async function IdentiteTab({
         </div>
       </Card>
 
-      {/* SECTION 3 — DÉTAILS CRM */}
+      {/* SECTION 3 - DÉTAILS CRM */}
       <SectionTitle
         n={3}
         title="Détails CRM"

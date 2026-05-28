@@ -26,7 +26,7 @@ type EtapeRow = {
   ordre: number;
   categorie: string | null;
   // Tolérant : peut être nouveau format (objet ConditionsNa) ou legacy (array)
-  // — shouldBeNa() / normalize() gèrent les deux formes.
+  // - shouldBeNa() / normalize() gèrent les deux formes.
   conditions_na: unknown;
 };
 
@@ -203,7 +203,7 @@ export async function updateOnboardingTaskStatus(
 /**
  * Met à jour la caractéristique gestion_tns d'un client et, si on active le
  * TNS, crée les tâches d'onboarding TNS manquantes (Prévi TNS, Affiliation
- * TNS) — appel idempotent à `initializeOnboardingForClient`.
+ * TNS) - appel idempotent à `initializeOnboardingForClient`.
  *
  * Utilisé à la fois depuis la fiche client (EditableGestionTns) et depuis la
  * matrice transverse onboarding (chip TNS cliquable).

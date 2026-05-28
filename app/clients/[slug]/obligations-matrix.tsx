@@ -62,7 +62,7 @@ export default function ObligationsMatrix({
   subs: Sub[];
   yearConfigs: YearConfig[];
   years: number[];
-  /** Date "Prise en charge" YYYY-MM-DD ou null — années antérieures marquées "—" */
+  /** Date "Prise en charge" YYYY-MM-DD ou null - années antérieures marquées "-" */
   debutObligations: string | null;
 }) {
   // Année de reprise (4 premiers chars), null si pas défini
@@ -233,7 +233,7 @@ export default function ObligationsMatrix({
           Clic sur l&apos;icône <ChevronRight className="inline h-3.5 w-3.5 text-[hsl(var(--gold))] -mt-0.5" /> à côté d&apos;une année pour la reconduire à la suivante en mode draft.
         </div>
 
-        {/* Sélecteur Reprise à partir de — pré-remplit les années antérieures avec "—" */}
+        {/* Sélecteur Reprise à partir de - pré-remplit les années antérieures avec "-" */}
         <div className="flex items-center gap-2 text-xs">
           <label htmlFor="debut-obligations" className="text-zinc-600 font-medium">
             Reprise à partir de
@@ -403,7 +403,7 @@ export default function ObligationsMatrix({
               })}
             </tr>
 
-            {/* Toggles — style harmonisé avec la grille paramétrage (emerald + ghost preview) */}
+            {/* Toggles - style harmonisé avec la grille paramétrage (emerald + ghost preview) */}
             {SUB_ROWS.map((row) => (
               <tr
                 key={row.key}

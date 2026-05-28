@@ -75,7 +75,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  // URL courante (path + search) — propagee aux liens fiche client comme
+  // URL courante (path + search) - propagee aux liens fiche client comme
   // ?from=... pour que le bouton retour ramene ici avec filtres + tri.
   const fromUrl = useMemo(() => {
     const qs = searchParams.toString();

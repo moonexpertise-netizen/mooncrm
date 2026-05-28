@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 // Fallback de libelles pour les anciennes taches dont la task_key n'est pas
 // (encore) dans onboarding_etape (ex. migration partielle). Pour le reste,
-// on prend le libelle depuis onboarding_etape — c'est la source de verite.
+// on prend le libelle depuis onboarding_etape - c'est la source de verite.
 const ONBOARDING_LABEL_FALLBACK: Record<string, string> = {
   tally_crea_pdc: "Tally rempli",
   acces_pennylane: "Accès Pennylane créé",

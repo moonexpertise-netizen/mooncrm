@@ -12,8 +12,8 @@ import { cn } from "@/lib/utils";
  *     - "Depuis le CRM" : génère le PDF à la volée (route /api/.../ldm-pdf)
  *     - "Drag & drop"   : upload manuel d'un PDF déjà préparé
  *  2. Récap des signataires :
- *     - Client (dirigeant) — signe en premier
- *     - MOON Expertise (Benjamin) — contresigne ensuite
+ *     - Client (dirigeant) - signe en premier
+ *     - MOON Expertise (Benjamin) - contresigne ensuite
  *  3. Bouton "Envoyer" :
  *     - V1 (actuelle) : télécharge le PDF + ouvre JeSignExpert dans un onglet
  *                       avec mailto pré-rempli en attendant les credentials API.
@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  *                       Benjamin aura récupéré ses identifiants développeur).
  *
  * Bloqué tant qu'il manque le dirigeant complet (civilité + prénom + nom +
- * email + téléphone — tous requis pour la signature électronique).
+ * email + téléphone - tous requis pour la signature électronique).
  */
 
 type DirigeantData = {
@@ -40,7 +40,7 @@ export default function SignatureButton({
 }: {
   clientId: string;
   denomination: string;
-  /** YYYY-MM-DD — sert à composer le nom de fichier ("…2026.pdf") */
+  /** YYYY-MM-DD - sert à composer le nom de fichier ("…2026.pdf") */
   finMissionDate: string | null;
   dirigeant: DirigeantData;
 }) {
@@ -154,7 +154,7 @@ export default function SignatureButton({
         pdfName = uploadedPdf.name;
       }
 
-      // Étape 2 : V1 — télécharge le PDF côté utilisateur et ouvre JeSignExpert
+      // Étape 2 : V1 - télécharge le PDF côté utilisateur et ouvre JeSignExpert
       // dans un nouvel onglet. À remplacer par un POST API JSE quand les
       // credentials seront disponibles.
       const url = URL.createObjectURL(pdfBlob);

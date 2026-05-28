@@ -5,7 +5,7 @@ import { categorieActivite } from "@/lib/activite-categorie";
  * Loader d'agrégats pour le dashboard d'accueil.
  *
  * Toutes les queries Postgres sont lancées en parallèle (Promise.all) pour
- * minimiser la latence. On agrège côté JS — les volumes sont petits (~80
+ * minimiser la latence. On agrège côté JS - les volumes sont petits (~80
  * clients, ~quelques milliers d'obligations) donc pas besoin de SQL agrégé
  * côté serveur. Si le volume monte, on switchera vers des vues matérialisées.
  */

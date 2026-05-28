@@ -186,7 +186,7 @@ export default async function ClientLayout({
         />
       </div>
 
-      {/* HERO HEADER — Card premium avec gradient subtil + métrique mise en valeur.
+      {/* HERO HEADER - Card premium avec gradient subtil + métrique mise en valeur.
           Mobile : tout en colonne. Desktop : titre + meta à gauche, MRR + actions à droite. */}
       <div className="hero-surface rounded-2xl px-5 md:px-6 py-5 md:py-6">
         <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-start lg:justify-between gap-4 lg:gap-6">
@@ -296,7 +296,7 @@ export default async function ClientLayout({
         </div>
       </div>
 
-      {/* TABS — vrais Link Next vers les sous-routes */}
+      {/* TABS - vrais Link Next vers les sous-routes */}
       <FicheTabs slug={slug} />
 
       {/* Contenu de l'onglet courant */}

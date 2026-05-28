@@ -244,7 +244,7 @@ export async function signLdmAndGetStats(clientId: string): Promise<{
   const clientMrr = client.mrr ?? 0;
   const clientArr = client.arr ?? 0;
 
-  // 2. MRR total du cabinet AVANT (clients deja signes uniquement —
+  // 2. MRR total du cabinet AVANT (clients deja signes uniquement -
   //    coherent avec dashboard-data.ts qui ne compte plus Interne / ST)
   const { data: signed } = await sb
     .from("clients")
@@ -694,7 +694,7 @@ export async function fetchInpiCloture(
     const data = await getInpiCompany(siren);
     return data?.cloture ?? null;
   } catch (e) {
-    // Log mais ne plante pas — le bouton Annuaire fonctionne sans INPI
+    // Log mais ne plante pas - le bouton Annuaire fonctionne sans INPI
     if (e instanceof InpiError) {
       console.warn("INPI cloture indisponible :", e.message);
     } else {

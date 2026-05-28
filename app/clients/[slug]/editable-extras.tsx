@@ -174,7 +174,7 @@ export function EditableTextArea({
  * À la sauvegarde, on relance `initializeOnboardingForClient` pour ajouter
  * les éventuelles tâches manquantes (idempotent : ne touche pas aux tâches
  * existantes). Si on passe de true → false, les tâches TNS déjà créées
- * restent en place — c'est volontaire (Benjamin peut les marquer N/A à la
+ * restent en place - c'est volontaire (Benjamin peut les marquer N/A à la
  * main si besoin).
  */
 export function EditableGestionTns({

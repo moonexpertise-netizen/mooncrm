@@ -5,7 +5,7 @@ import UserRow from "./user-row";
 export const dynamic = "force-dynamic";
 
 /**
- * Page admin — gestion des utilisateurs MoonCRM.
+ * Page admin - gestion des utilisateurs MoonCRM.
  * Accessible uniquement aux profiles.is_admin = true (vérifié par le
  * middleware ET par la RLS sur la table profiles).
  *

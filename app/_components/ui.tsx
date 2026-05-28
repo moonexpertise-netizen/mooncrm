@@ -5,7 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * Primitives UI premium du CRM (v2 — refonte design).
+ * Primitives UI premium du CRM (v2 - refonte design).
  *
  * Styles inspirés Linear / Attio / Stripe :
  *   - Boutons : rounded-lg, ombre légère, hover state marqué, active scale
@@ -150,7 +150,7 @@ export function StatusBadge({
 }
 
 // ============================================================================
-//  BADGE (pill plein — pour étiquettes simples non-statut)
+//  BADGE (pill plein - pour étiquettes simples non-statut)
 // ============================================================================
 
 type BadgeTone = "neutral" | "amber" | "emerald" | "rose" | "sky" | "violet" | "fuchsia";

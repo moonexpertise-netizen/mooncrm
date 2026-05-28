@@ -62,7 +62,7 @@ export default function BackButton({
 }: {
   defaultHref: string;
   defaultLabel: string;
-  /** Slug de la fiche courante — pour highlight la ligne au retour. */
+  /** Slug de la fiche courante - pour highlight la ligne au retour. */
   currentSlug: string;
 }) {
   const searchParams = useSearchParams();

@@ -1,5 +1,5 @@
 /**
- * POST /api/chat — Endpoint de l'assistant CRM MOON.
+ * POST /api/chat - Endpoint de l'assistant CRM MOON.
  *
  * Recoit la conversation (messages), appelle Claude avec les outils declares,
  * execute les tool_use dans une boucle jusqu'a obtenir une reponse textuelle,
@@ -28,7 +28,7 @@ const SYSTEM_PROMPT = `Tu es l'assistant interne du CRM MoonCRM de Benjamin Pere
 CONTEXTE METIER :
 - Le CRM gere ~80 dossiers : prospects, clients (LDM signee), internes (Benjamin et famille), sous-traitance, perdus, resilies.
 - Pipeline commercial : 1-Tally a envoyer / 2-Tally a completer / 3-PC a preparer / 4-PC envoyee / 5-PC acceptee / 6-LDM envoyee / 7-LDM signee / Z-Interne / Z-Sous-traitance / Z-Perdu / Z-Resiliee.
-- "Client" = uniquement pipeline_statut = "7 - LDM signee". Les internes et sous-traitance NE SONT PAS comptes comme clients dans les KPI business (MRR, ARR, panier moyen) — Benjamin les gere mais ils ne sont pas commerciaux.
+- "Client" = uniquement pipeline_statut = "7 - LDM signee". Les internes et sous-traitance NE SONT PAS comptes comme clients dans les KPI business (MRR, ARR, panier moyen) - Benjamin les gere mais ils ne sont pas commerciaux.
 - MRR = honoraires mensuels recurrents. ARR = MRR * 12 + honoraires juridiques. Calcules en DB.
 - Production = obligations fiscales/sociales avec echeances (TVA, IS, CFE, DAS2, COMPTA, LIASSE_PLAQUETTE, AGO_DEPOT, etc.). Sub par annee.
 - Onboarding = checklist d'etapes a accomplir apres LDM signee (Tally rempli, acces Pennylane, KBIS, mandats...).

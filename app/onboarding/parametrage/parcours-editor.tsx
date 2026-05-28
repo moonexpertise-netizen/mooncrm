@@ -1063,7 +1063,7 @@ function ConditionRow({
             />
           ))
         ) : (
-          // activite : text libre — on garde une simple liste séparée par virgules
+          // activite : text libre - on garde une simple liste séparée par virgules
           <input
             type="text"
             value={item.values.filter((x): x is string => typeof x === "string").join(", ")}

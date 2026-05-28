@@ -11,7 +11,7 @@ import { Mail } from "lucide-react";
  *
  * Le formulaire Tally embarqué dans la Gamma est statique. L'identification
  * du dossier post-remplissage se fait côté webhook via SIREN (Reprise) ou
- * email (Création) — pas de client_id puisque la Gamma n'est pas personnalisée
+ * email (Création) - pas de client_id puisque la Gamma n'est pas personnalisée
  * par prospect.
  */
 export default function TallyButton({

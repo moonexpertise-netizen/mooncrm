@@ -10,7 +10,7 @@
  * spécifiques d'abord).
  *
  * Si aucun match : retourne `Services divers` (fallback générique).
- * Pas de catégorie "Autres" — toutes les activités sont catégorisées.
+ * Pas de catégorie "Autres" - toutes les activités sont catégorisées.
  */
 
 export type ActiviteCategorie =
@@ -59,7 +59,7 @@ const PATTERNS: Array<{ keys: string[]; cat: ActiviteCategorie }> = [
     keys: ["publicité", "relations publiques", "communication", "édition de journaux", "edition de journaux", "audiovisuel", "production cinématographique", "radiodiffusion", "presse"],
     cat: "Communication & médias",
   },
-  // Activités juridiques (avocats, notaires, huissiers — separe de
+  // Activités juridiques (avocats, notaires, huissiers - separe de
   // Conseil & gestion sur demande Benjamin).
   {
     keys: ["avocat", "activités juridiques", "activites juridiques", "notaire", "huissier"],

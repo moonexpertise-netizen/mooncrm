@@ -1236,7 +1236,7 @@ function SortBtn({
 }
 
 // ============================================================================
-//  OptionRow — affichage d'une option du picker + mode edition inline
+//  OptionRow - affichage d'une option du picker + mode edition inline
 //  (renommage + suppression). Crayon visible au hover, clic = sélection
 //  du statut, clic crayon = mode edition.
 // ============================================================================
@@ -1437,7 +1437,7 @@ function OptionRow({
 }
 
 // ============================================================================
-//  CreateOptionInline — création inline d'un nouveau libellé depuis la matrice
+//  CreateOptionInline - création inline d'un nouveau libellé depuis la matrice
 //  (style Notion). Affiché en bas du popover statut. L'utilisateur tape un
 //  texte, choisit un bucket (À faire / En cours / Terminé / N/A), et le
 //  libellé est créé en DB puis appliqué immédiatement comme statut de la

@@ -216,7 +216,7 @@ function fixTemplate(templateName: string): { changed: boolean; notes: string[] 
     );
     if (cleaned !== relsXml) {
       // Si le fichier ne contient plus aucune Relationship (cas BNC qui n'a
-      // que des mailMergeSource), on le supprime entièrement — un rels vide
+      // que des mailMergeSource), on le supprime entièrement - un rels vide
       // fait planter Word à l'ouverture.
       if (!/<Relationship\b/.test(cleaned)) {
         zip.remove("word/_rels/settings.xml.rels");
@@ -236,7 +236,7 @@ function fixTemplate(templateName: string): { changed: boolean; notes: string[] 
 
   // ---------------------------------------------------------------------------
   // 7) Nettoyer les paragraphes orphelins de saut de page (`<w:br w:type=
-  //    "page"/>`) qui héritaient d'un `<w:u w:val="single"/>` parasite —
+  //    "page"/>`) qui héritaient d'un `<w:u w:val="single"/>` parasite -
   //    cet underline dessinait un trait noir en haut de la page suivante.
   //
   //    /!\ On NE SUPPRIME PAS le paragraphe entier : le saut de page lui-même
@@ -264,7 +264,7 @@ function fixTemplate(templateName: string): { changed: boolean; notes: string[] 
 
   // ---------------------------------------------------------------------------
   // 6) BNC SEULEMENT : retirer entièrement le bullet "Travaux juridiques
-  //    annuels" — les BNC n'ont pas de juridique.
+  //    annuels" - les BNC n'ont pas de juridique.
   // ---------------------------------------------------------------------------
   if (templateName === "ldm-bnc.docx") {
     if (!doStep("6")) {

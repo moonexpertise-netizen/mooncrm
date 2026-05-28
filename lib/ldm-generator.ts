@@ -125,7 +125,7 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     Cloture_mission_annee: cloture_annee,
     // Variables conformité : montant compta mensuel + compta × 12 (annuel).
     // Le template a `{Honos_mensuels} € HT par mois ... soit {Honos_annuels}
-    // € HT pour une année de 12 mois.` — on injecte juste le nombre, le `€`
+    // € HT pour une année de 12 mois.` - on injecte juste le nombre, le `€`
     // est en dur dans le template.
     Honos_mensuels: fmtNumFr(client.honoraires_compta),
     Honos_annuels: fmtNumFr(client.honoraires_compta * 12),

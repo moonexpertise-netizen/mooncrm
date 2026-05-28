@@ -30,7 +30,7 @@ export type Row = {
   groupe: string | null;
   regime: "IR" | "IS" | null;
   tvaMode: TvaMode | null;
-  /** Année de "Prise en charge" (debut_obligations) — années antérieures grisées "—" */
+  /** Année de "Prise en charge" (debut_obligations) - années antérieures grisées "-" */
   debutYear: number | null;
   subs: Record<SubKey, boolean>;
 };
@@ -414,7 +414,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
         </div>
       </div>
 
-      {/* Table — l'entête se fige en haut quand on scrolle */}
+      {/* Table - l'entête se fige en haut quand on scrolle */}
       <div className="rounded-lg border overflow-auto bg-card max-h-[calc(100vh-270px)]">
         <table className="w-full text-sm border-collapse">
           <thead ref={theadRef} className="bg-zinc-50 text-zinc-700 text-xs border-b border-zinc-200 sticky top-0 z-20 shadow-[0_1px_0_0_rgb(228_228_231)]">
@@ -622,7 +622,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                           {disabled ? (
                             v && <span className="text-[12px] text-zinc-300 leading-none">✓</span>
                           ) : (
-                            // Calque unique style "actif" — opacité 100 si actif, 60% au survol sinon
+                            // Calque unique style "actif" - opacité 100 si actif, 60% au survol sinon
                             <span
                               className={cn(
                                 "absolute inset-0 inline-flex items-center justify-center",

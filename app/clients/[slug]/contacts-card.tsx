@@ -224,7 +224,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
   );
 }
 
-/** Sélecteur compact de civilité — chip M./Mme cliquable qui cycle. */
+/** Sélecteur compact de civilité - chip M./Mme cliquable qui cycle. */
 function CivilitePicker({
   value,
   onChange,
@@ -393,7 +393,7 @@ function NewContactForm({
 
   return (
     <div className="mt-3 p-4 rounded-md border border-[hsl(var(--gold))]/30 bg-[hsl(var(--gold))]/5 space-y-3 animate-slide-up-fade">
-      {/* Identité — obligatoire pour la lettre de mission */}
+      {/* Identité - obligatoire pour la lettre de mission */}
       <div className="space-y-2">
         <div className="text-[11px] uppercase tracking-wide font-medium text-zinc-600">
           Identité <span className="text-rose-500 normal-case font-normal">· obligatoire pour la LDM</span>
@@ -457,7 +457,7 @@ function NewContactForm({
         </div>
       </div>
 
-      {/* Coordonnées — requises pour la signature électronique JeSignExpert */}
+      {/* Coordonnées - requises pour la signature électronique JeSignExpert */}
       <div className="space-y-2 pt-2 border-t border-[hsl(var(--gold))]/20">
         <div className="text-[11px] uppercase tracking-wide font-medium text-zinc-600">
           Coordonnées <span className="text-zinc-400 normal-case font-normal">· pour la signature électronique</span>
@@ -486,7 +486,7 @@ function NewContactForm({
         </div>
       </div>
 
-      {/* Rôle — facultatif */}
+      {/* Rôle - facultatif */}
       <div className="space-y-2 pt-2 border-t border-[hsl(var(--gold))]/20">
         <label className="block">
           <span className="text-[11px] text-zinc-600 mb-1 block">

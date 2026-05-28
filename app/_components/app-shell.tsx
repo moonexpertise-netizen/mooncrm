@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           marginLeft: isMobile ? 0 : mounted ? (collapsed ? 56 : 240) : 240,
         }}
       >
-        {/* Bandeau supérieur — bg adaptatif clair/sombre.
+        {/* Bandeau supérieur - bg adaptatif clair/sombre.
             Light : blanc translucide. Dark : graphite translucide.
             Border bas subtile dans les deux cas. */}
         <div className="sticky top-0 z-30 bg-white/85 dark:bg-[hsl(var(--background))]/85 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/[0.10]">
@@ -164,7 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 /**
  * Pastille discrète Cmd+K dans le ruban du haut.
- * Pure visuelle — la palette s'ouvre via le keyboard shortcut écouté dans
+ * Pure visuelle - la palette s'ouvre via le keyboard shortcut écouté dans
  * CommandPalette. Cliquer dessus déclenche un event keydown synthétique.
  */
 function CommandPaletteHint() {

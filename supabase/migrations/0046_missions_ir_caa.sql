@@ -6,7 +6,7 @@
 --   - CAA : personnes morales SPECIFIQUES (missions ponctuelles, pas EC)
 --
 -- Choix d'archi (decide avec Benjamin) :
---   - Tables completement separees (clients_ir, clients_caa) — pas de melange
+--   - Tables completement separees (clients_ir, clients_caa) - pas de melange
 --     avec public.clients (qui reste reserve a l'expertise comptable).
 --   - Trackers Production-like : 1 entree par client-annee-type, avec
 --     statut_logique + statut_detail, exactement comme obligations.
@@ -270,9 +270,9 @@ create policy p_caa_obligations_all on public.caa_obligations
 -- ============================================================================
 -- Seed status_options pour scopes 'ir' et 'caa'
 --
--- Pour IR : 4 statuts par type (IR / IFI) — "A faire", "En cours", "Projet",
+-- Pour IR : 4 statuts par type (IR / IFI) - "A faire", "En cours", "Projet",
 -- "EDI - Termine". Les statuts EDI et Termine vont sur le bucket TERMINE.
--- Pour CAA : 3 statuts — "A preparer", "En cours", "Rapport envoye".
+-- Pour CAA : 3 statuts - "A preparer", "En cours", "Rapport envoye".
 -- ============================================================================
 
 insert into public.status_options (scope, type_code, libelle, statut_logique, ordre, color, actif) values

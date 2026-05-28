@@ -140,7 +140,7 @@ const ETAT_FACTURATION_OPTIONS: Array<{
 // ============================================================================
 
 function formatEUR(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
+  if (n === null || n === undefined) return "-";
   return (
     new Intl.NumberFormat("fr-FR", {
       maximumFractionDigits: 0,
@@ -149,7 +149,7 @@ function formatEUR(n: number | null | undefined): string {
 }
 
 function formatHours(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
+  if (n === null || n === undefined) return "-";
   return (
     new Intl.NumberFormat("fr-FR", {
       maximumFractionDigits: 1,
@@ -158,7 +158,7 @@ function formatHours(n: number | null | undefined): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   // ISO YYYY-MM-DD → JJ/MM/AAAA
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
@@ -346,7 +346,7 @@ export default function MissionExcTable({
   async function onDelete(row: MissionExcRow) {
     const ok = await confirm({
       title: `Supprimer cette mission ?`,
-      description: `« ${row.mission} » pour ${row.client_denomination ?? row.client_libre ?? "—"}. Cette action est irréversible.`,
+      description: `« ${row.mission} » pour ${row.client_denomination ?? row.client_libre ?? "-"}. Cette action est irréversible.`,
       variant: "danger",
       confirmLabel: "Supprimer",
     });
@@ -536,7 +536,7 @@ function RecapCards({
       <Kpi
         label="En cours"
         value={String(recap.en_cours)}
-        subtitle={recap.a_demarrer > 0 ? `+ ${recap.a_demarrer} à démarrer` : "—"}
+        subtitle={recap.a_demarrer > 0 ? `+ ${recap.a_demarrer} à démarrer` : "-"}
         accent="sky"
       />
       <Kpi
@@ -554,7 +554,7 @@ function RecapCards({
       <Kpi
         label="Facturé non payé"
         value={formatEUR(recap.ca_facture_non_paye)}
-        subtitle={recap.ca_paye > 0 ? `${formatEUR(recap.ca_paye)} déjà payés` : "—"}
+        subtitle={recap.ca_paye > 0 ? `${formatEUR(recap.ca_paye)} déjà payés` : "-"}
         accent="sky"
       />
     </div>
@@ -961,7 +961,7 @@ function EditableNumber({
           : "text-zinc-900 dark:text-zinc-100"
       )}
     >
-      {value === null ? "—" : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(value)} ${suffix}`}
+      {value === null ? "-" : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(value)} ${suffix}`}
     </button>
   );
 }
@@ -1090,7 +1090,7 @@ function ClientPicker({
             {row.client_libre}
           </span>
         ) : (
-          <span className="text-zinc-400 dark:text-zinc-500 italic">— Choisir</span>
+          <span className="text-zinc-400 dark:text-zinc-500 italic">- Choisir</span>
         )}
       </button>
       {open &&
@@ -1243,7 +1243,7 @@ function TypePicker({
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="truncate">{value?.label ?? "— Type"}</span>
+        <span className="truncate">{value?.label ?? "- Type"}</span>
         <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
       </button>
       {open &&
@@ -1524,7 +1524,7 @@ function NewMissionForm({
           onChange={(e) => setTypeId(e.target.value || null)}
           className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm"
         >
-          <option value="">— Type —</option>
+          <option value="">- Type -</option>
           {types.map((t) => (
             <option key={t.id} value={t.id}>
               {t.label}
@@ -1541,7 +1541,7 @@ function NewMissionForm({
           }}
           className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm"
         >
-          <option value="">— Client EC (optionnel) —</option>
+          <option value="">- Client EC (optionnel) -</option>
           {clientOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.denomination}

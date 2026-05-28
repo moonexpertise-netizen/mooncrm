@@ -17,7 +17,7 @@ alter table public.clients
   add column if not exists pipeline_changed_at timestamptz;
 
 -- Backfill : pour les clients existants, on initialise avec updated_at
--- (best-effort — la vraie date d'arrivee dans le statut n'est pas tracee
+-- (best-effort - la vraie date d'arrivee dans le statut n'est pas tracee
 -- avant cette migration).
 update public.clients
    set pipeline_changed_at = coalesce(updated_at, created_at, now())
