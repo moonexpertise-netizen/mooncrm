@@ -1258,6 +1258,15 @@ const STATUT_GROUP_LABEL: Record<StatutLogique, string> = {
  *  type_honos_bilans = 'Facturés', mais la pastille est dispo pour tous). */
 const TYPES_WITH_FACTURATION = new Set(["AGO_DEPOT", "LIASSE_PLAQUETTE"]);
 
+/** Libellés de statut considérés comme "prêts à facturer" pour chaque type.
+ *  Quand la cellule est dans cet état et que etat_facturation est null,
+ *  on affiche "À facturer" par défaut. Indépendant de statut_logique pour
+ *  rester robuste si migration 0051 (AGO Déposé -> TERMINE) pas appliquée. */
+const BILLABLE_STATUT_DETAILS: Record<string, string[]> = {
+  AGO_DEPOT: ["2 - Déposé", "3 - Validé par greffe"],
+  LIASSE_PLAQUETTE: ["4 - Plaquette transmise"],
+};
+
 const FACT_PILL_OPTIONS: Array<{ key: EtatFacturation; label: string; color: string }> = [
   { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
   { key: "facturee", label: "Facturée", color: "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50" },
@@ -1416,13 +1425,22 @@ const StatusCell = memo(function StatusCell({
           Quand statut TERMINE et facturation non encore decidee, on
           affiche "À facturer" par defaut (la prestation est achevee,
           il faut maintenant emettre la facture). */}
-      {showFacturation && cell.obligationId && (
-        <FacturationMiniPill
-          value={cell.etat_facturation}
-          isReadyForBilling={cell.statut_logique === "TERMINE"}
-          onChange={(v) => onSetFacturation(cell.obligationId!, v)}
-        />
-      )}
+      {showFacturation && cell.obligationId && (() => {
+        // "Pret a facturer" : soit statut_logique TERMINE, soit libelle dans
+        // la liste billable du type (pour AGO ca couvre "2 - Depose" meme
+        // avant migration 0051 ou il est encore EN_COURS dans la DB).
+        const billableLibelles = BILLABLE_STATUT_DETAILS[cell.type] ?? [];
+        const isReady =
+          cell.statut_logique === "TERMINE" ||
+          (cell.statut_detail !== null && billableLibelles.includes(cell.statut_detail));
+        return (
+          <FacturationMiniPill
+            value={cell.etat_facturation}
+            isReadyForBilling={isReady}
+            onChange={(v) => onSetFacturation(cell.obligationId!, v)}
+          />
+        );
+      })()}
 
       {/* Bulle commentaires (style Notion).
           - En position ABSOLUTE → sort du flux, la cellule ne se déforme pas

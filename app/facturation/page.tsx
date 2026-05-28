@@ -109,15 +109,18 @@ export default async function FacturationPage({
   const irItems = [...irByKey.values()];
 
   // ============================================================================
-  // 3. AGO terminees (obligations type=AGO_DEPOT statut_logique=TERMINE)
+  // 3. AGO billables : on filtre par libelle explicitement (independamment
+  //    de statut_logique pour ne pas dependre de la migration 0051). Sont
+  //    consideres billables : "2 - Depose" et "3 - Valide par greffe".
   // ============================================================================
+  const AGO_BILLABLE_LIBELLES = ["2 - Déposé", "3 - Validé par greffe"];
   const { data: agoRows } = await sb
     .from("obligations")
     .select(
       "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination)"
     )
     .eq("type", "AGO_DEPOT")
-    .eq("statut_logique", "TERMINE");
+    .in("statut_detail", AGO_BILLABLE_LIBELLES);
 
   type AgoRow = {
     id: string;
@@ -143,17 +146,20 @@ export default async function FacturationPage({
   });
 
   // ============================================================================
-  // 4. Bilans : LIASSE_PLAQUETTE statut TERMINE + client.type_honos_bilans = 'Facturés'
-  //    Pour les clients ou bilan = inclus dans le forfait, pas de facturation
-  //    separee (donc filtrés).
+  // 4. Bilans : LIASSE_PLAQUETTE en "4 - Plaquette transmise" + client avec
+  //    type_honos_bilans = 'Facturés'. Pour les clients ou bilan = inclus
+  //    dans le forfait, pas de facturation separee (donc filtrés).
+  //    Filtre par libelle pour etre robuste (statut_logique TERMINE est aussi
+  //    OK mais le libelle est plus explicit metier).
   // ============================================================================
+  const BILAN_BILLABLE_LIBELLES = ["4 - Plaquette transmise"];
   const { data: bilanRows } = await sb
     .from("obligations")
     .select(
       "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination, forfait_bilan, type_honos_bilans)"
     )
     .eq("type", "LIASSE_PLAQUETTE")
-    .eq("statut_logique", "TERMINE");
+    .in("statut_detail", BILAN_BILLABLE_LIBELLES);
 
   type BilanRow = {
     id: string;
