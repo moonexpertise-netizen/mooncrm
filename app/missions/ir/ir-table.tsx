@@ -234,6 +234,19 @@ export default function IrTable({
     return yearRecap.get(`${year}|${type}`) ?? { a_faire: 0, en_cours: 0, termine: 0 };
   }
 
+  // Annees avec au moins une obligation IR ou IFI. En vue Base, on affiche le
+  // recap pour TOUTES ces annees pour avoir une vue globale (et savoir
+  // immediatement ce qu'il reste a faire toutes annees confondues). En vue
+  // annee, on garde la fenetre 3-ans pour cadrer l'attention.
+  const allYearsWithObligations = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of localRows) {
+      for (const cell of r.obligations.values()) set.add(cell.annee);
+    }
+    return [...set].sort((a, b) => b - a); // plus recent en premier
+  }, [localRows]);
+  const recapYears = mode === "base" ? allYearsWithObligations : years;
+
   // URL helpers. On preserve "center" pour conserver la fenetre 3-ans
   // courante (cf. logique fenetre glissante).
   function urlForBase(c: number = center) {
@@ -321,45 +334,48 @@ export default function IrTable({
         )}
       </div>
 
-      {/* Recap par annee : sommaire IR/IFI pour la fenetre 3-ans courante.
-          Permet de voir d'un coup d'oeil ce qui reste à faire par exercice
-          sans avoir à scruter chaque ligne du tableau. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {years.map((y) => {
-          const ir = statsFor(y, "IR");
-          const ifi = statsFor(y, "IFI");
-          const irTotal = ir.a_faire + ir.en_cours + ir.termine;
-          const ifiTotal = ifi.a_faire + ifi.en_cours + ifi.termine;
-          const irPct = irTotal > 0 ? Math.round((ir.termine / irTotal) * 100) : 0;
-          const ifiPct = ifiTotal > 0 ? Math.round((ifi.termine / ifiTotal) * 100) : 0;
-          const active = mode === "year" && y === selectedYear;
-          return (
-            <Link
-              key={y}
-              href={urlForYear(y)}
-              className={cn(
-                "block rounded-xl border bg-white dark:bg-[hsl(var(--card))] shadow-card p-3 space-y-2 transition-colors",
-                active
-                  ? "border-zinc-400 dark:border-white/30 ring-1 ring-zinc-300 dark:ring-white/20"
-                  : "border-zinc-200 dark:border-white/[0.08] hover:border-zinc-300 dark:hover:border-white/[0.16]"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{y}</span>
-                {(irTotal + ifiTotal) === 0 && (
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic">aucune souscription</span>
+      {/* Recap par annee. Vue Base : TOUTES les annees avec obligations (vue
+          globale, voir tout d'un coup). Vue annee : fenetre 3-ans (focus sur
+          l'annee selectionnee). Grid auto-fit pour s'adapter au nombre de
+          cards : 1 col mobile -> N cols desktop selon la largeur. */}
+      {recapYears.length > 0 && (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {recapYears.map((y) => {
+            const ir = statsFor(y, "IR");
+            const ifi = statsFor(y, "IFI");
+            const irTotal = ir.a_faire + ir.en_cours + ir.termine;
+            const ifiTotal = ifi.a_faire + ifi.en_cours + ifi.termine;
+            const irPct = irTotal > 0 ? Math.round((ir.termine / irTotal) * 100) : 0;
+            const ifiPct = ifiTotal > 0 ? Math.round((ifi.termine / ifiTotal) * 100) : 0;
+            const active = mode === "year" && y === selectedYear;
+            return (
+              <Link
+                key={y}
+                href={urlForYear(y)}
+                className={cn(
+                  "block rounded-xl border bg-white dark:bg-[hsl(var(--card))] shadow-card p-3 space-y-2 transition-colors",
+                  active
+                    ? "border-zinc-400 dark:border-white/30 ring-1 ring-zinc-300 dark:ring-white/20"
+                    : "border-zinc-200 dark:border-white/[0.08] hover:border-zinc-300 dark:hover:border-white/[0.16]"
                 )}
-              </div>
-              {irTotal > 0 && (
-                <RecapLine label="IR" stats={ir} pct={irPct} />
-              )}
-              {ifiTotal > 0 && (
-                <RecapLine label="IFI" stats={ifi} pct={ifiPct} />
-              )}
-            </Link>
-          );
-        })}
-      </div>
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{y}</span>
+                  {(irTotal + ifiTotal) === 0 && (
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic">aucune souscription</span>
+                  )}
+                </div>
+                {irTotal > 0 && (
+                  <RecapLine label="IR" stats={ir} pct={irPct} />
+                )}
+                {ifiTotal > 0 && (
+                  <RecapLine label="IFI" stats={ifi} pct={ifiPct} />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {adding && (
         <NewClientIrForm onCancel={() => setAdding(false)} onCreated={() => { setAdding(false); router.refresh(); }} />

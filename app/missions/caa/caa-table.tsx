@@ -218,6 +218,16 @@ export default function CaaTable({
     return yearRecap.get(year) ?? { a_faire: 0, en_cours: 0, termine: 0 };
   }
 
+  // Vue Base : TOUTES les annees avec missions. Vue annee : fenetre 3-ans.
+  const allYearsWithObligations = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of localRows) {
+      for (const cell of r.obligations.values()) set.add(cell.annee);
+    }
+    return [...set].sort((a, b) => b - a);
+  }, [localRows]);
+  const recapYears = mode === "base" ? allYearsWithObligations : years;
+
   function urlForBase(c: number = center) {
     return `/missions/caa?view=base&center=${c}`;
   }
@@ -297,35 +307,38 @@ export default function CaaTable({
         )}
       </div>
 
-      {/* Recap par annee : sommaire CAA pour la fenetre 3-ans courante. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {years.map((y) => {
-          const stats = statsFor(y);
-          const total = stats.a_faire + stats.en_cours + stats.termine;
-          const pct = total > 0 ? Math.round((stats.termine / total) * 100) : 0;
-          const active = mode === "year" && y === selectedYear;
-          return (
-            <Link
-              key={y}
-              href={urlForYear(y)}
-              className={cn(
-                "block rounded-xl border bg-white dark:bg-[hsl(var(--card))] shadow-card p-3 space-y-2 transition-colors",
-                active
-                  ? "border-zinc-400 dark:border-white/30 ring-1 ring-zinc-300 dark:ring-white/20"
-                  : "border-zinc-200 dark:border-white/[0.08] hover:border-zinc-300 dark:hover:border-white/[0.16]"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{y}</span>
-                {total === 0 && (
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic">aucune souscription</span>
+      {/* Recap par annee. Vue Base : TOUTES les annees avec missions (vue
+          globale). Vue annee : fenetre 3-ans (focus). */}
+      {recapYears.length > 0 && (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {recapYears.map((y) => {
+            const stats = statsFor(y);
+            const total = stats.a_faire + stats.en_cours + stats.termine;
+            const pct = total > 0 ? Math.round((stats.termine / total) * 100) : 0;
+            const active = mode === "year" && y === selectedYear;
+            return (
+              <Link
+                key={y}
+                href={urlForYear(y)}
+                className={cn(
+                  "block rounded-xl border bg-white dark:bg-[hsl(var(--card))] shadow-card p-3 space-y-2 transition-colors",
+                  active
+                    ? "border-zinc-400 dark:border-white/30 ring-1 ring-zinc-300 dark:ring-white/20"
+                    : "border-zinc-200 dark:border-white/[0.08] hover:border-zinc-300 dark:hover:border-white/[0.16]"
                 )}
-              </div>
-              {total > 0 && <CaaRecapLine stats={stats} pct={pct} />}
-            </Link>
-          );
-        })}
-      </div>
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{y}</span>
+                  {total === 0 && (
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic">aucune souscription</span>
+                  )}
+                </div>
+                {total > 0 && <CaaRecapLine stats={stats} pct={pct} />}
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {adding && (
         <NewClientCaaForm onCancel={() => setAdding(false)} onCreated={() => { setAdding(false); router.refresh(); }} />
