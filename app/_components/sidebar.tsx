@@ -169,6 +169,10 @@ export function Sidebar() {
   // Ordre custom des nav items (drag-and-drop). Initialise avec l'ordre
   // par defaut puis hydratte depuis localStorage cote client.
   const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((i) => i.href));
+  // Flag qui passe a true apres l'hydratation localStorage. Sert a desactiver
+  // les transitions/animations CSS sur le 1er render pour eviter le "shift"
+  // visible quand le state initial != etat hydrate.
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const sb = createClient();
@@ -209,6 +213,8 @@ export function Sidebar() {
         // JSON invalide -> on garde l'ordre par defaut
       }
     }
+    // Flag hydratation -> active les transitions des nav items sur le prochain render
+    setHydrated(true);
 
     // Détection mobile : utilisé pour forcer l'affichage complet de la
     // sidebar (avec labels) même si `collapsed=true` côté desktop.
@@ -357,7 +363,9 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 bg-[hsl(var(--sidebar))] text-zinc-300 flex flex-col border-r border-white/[0.10]",
-          "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          // Transitions desactivees jusqu'a hydratation localStorage pour ne pas
+          // animer la bascule d'etat initial (width et translate) au refresh.
+          hydrated && "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
           // Mobile : drawer slide-in/out depuis la gauche
           "max-md:w-[280px]",
           mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
@@ -429,7 +437,7 @@ export function Sidebar() {
             const showChildren = hasChildren && !showCollapsed && isProduction && prodOpen;
 
             return (
-              <SortableNavItem key={item.href} id={item.href} className="relative group/item">
+              <SortableNavItem key={item.href} id={item.href} animate={hydrated} className="relative group/item">
                 <div
                   className={cn(
                     "relative flex items-center rounded-lg text-sm",
@@ -653,15 +661,20 @@ function SortableNavItem({
   id,
   children,
   className,
+  animate,
 }: {
   id: string;
   children: React.ReactNode;
   className?: string;
+  /** Active les transitions CSS de dnd-kit. Sur le 1er render (avant
+   *  hydratation localStorage), on les desactive pour eviter un flash
+   *  d'animation entre l'ordre par defaut (SSR) et l'ordre custom (client). */
+  animate: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: animate ? transition : "none",
     zIndex: isDragging ? 50 : undefined,
     opacity: isDragging ? 0.85 : 1,
   };

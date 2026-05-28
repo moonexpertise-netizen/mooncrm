@@ -257,10 +257,9 @@ export default function MissionExcTable({
       livree: 0,
       a_facturer: 0,
       facturee: 0,
-      // CA potentiel/facture
+      // CA potentiel/facture (= forfait)
       ca_a_facturer: 0,
       ca_facture: 0,
-      heures_reelles_total: 0,
     };
     for (const row of localRows) {
       if (row.etat_mission === "en_cours") r.en_cours++;
@@ -268,12 +267,11 @@ export default function MissionExcTable({
       if (row.etat_mission === "livree") r.livree++;
       if (row.etat_facturation === "a_facturer") r.a_facturer++;
       if (row.etat_facturation === "facturee") r.facturee++;
-      const m = computeMontant(row).value ?? 0;
+      const m = row.forfait ?? 0;
       if (row.etat_mission !== "annulee") {
         if (row.etat_facturation === "a_facturer") r.ca_a_facturer += m;
         if (row.etat_facturation === "facturee") r.ca_facture += m;
       }
-      if (row.duree_reelle_h) r.heures_reelles_total += row.duree_reelle_h;
     }
     return r;
   }, [localRows]);
@@ -502,18 +500,13 @@ export default function MissionExcTable({
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
-          <table className="w-full text-sm min-w-[1340px]" aria-label="Missions exceptionnelles">
+          <table className="w-full text-sm min-w-[900px]" aria-label="Missions exceptionnelles">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[200px]">Client</th>
+                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[180px]">Client</th>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]">Type</th>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Mission</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[80px]" title="Durée théorique">Théo.</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[80px]" title="Durée réelle">Réel</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Taux horaire">Taux</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[100px]" title="Prix théorique = durée théorique × taux horaire">Théo. €</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Forfait d'honoraires">Forfait</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Montant à facturer (forfait si présent, sinon taux × heures réelles, sinon taux × heures théoriques)">À facturer</th>
+                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[110px]" title="Forfait d'honoraires">Forfait</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">État mission</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">Facturation</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]" title="Lettre de mission">LDM</th>
@@ -545,7 +538,6 @@ export default function MissionExcTable({
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
         {filteredRows.length} mission{filteredRows.length > 1 ? "s" : ""} affichée{filteredRows.length > 1 ? "s" : ""}
         {localRows.length !== filteredRows.length && ` sur ${localRows.length}`}
-        {recap.heures_reelles_total > 0 && ` · ${formatHours(recap.heures_reelles_total)} cumulées`}
       </p>
     </div>
   );
@@ -567,7 +559,6 @@ function RecapCards({
     facturee: number;
     ca_a_facturer: number;
     ca_facture: number;
-    heures_reelles_total: number;
   };
 }) {
   return (
@@ -661,8 +652,6 @@ function MissionRow({
   onSetType: (typeId: string | null) => void;
   onDelete: () => void;
 }) {
-  const montant = computeMontant(row);
-
   return (
     <tr className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors align-top">
       {/* Client */}
@@ -707,45 +696,8 @@ function MissionRow({
         )}
       </td>
 
-      {/* Durée théorique */}
-      <td className="px-2 py-2.5 text-right">
-        <EditableNumber
-          value={row.duree_theorique_h}
-          suffix="h"
-          step={0.5}
-          onSave={(v) => onSaveField("duree_theorique_h", v)}
-        />
-      </td>
-
-      {/* Durée réelle */}
-      <td className="px-2 py-2.5 text-right">
-        <EditableNumber
-          value={row.duree_reelle_h}
-          suffix="h"
-          step={0.5}
-          onSave={(v) => onSaveField("duree_reelle_h", v)}
-        />
-      </td>
-
-      {/* Taux horaire */}
-      <td className="px-2 py-2.5 text-right">
-        <EditableNumber
-          value={row.taux_horaire}
-          suffix="€"
-          step={5}
-          onSave={(v) => onSaveField("taux_horaire", v)}
-        />
-      </td>
-
-      {/* Prix theorique calcule = duree theorique x taux horaire (read-only) */}
-      <td className="px-2 py-2.5 text-right">
-        <PriceComputedCell
-          duree={row.duree_theorique_h}
-          taux={row.taux_horaire}
-        />
-      </td>
-
-      {/* Forfait */}
+      {/* Forfait (seul montant : durées + taux + montant calcule retires
+          pour simplifier - cf demande Benjamin) */}
       <td className="px-2 py-2.5 text-right">
         <EditableNumber
           value={row.forfait}
@@ -753,31 +705,6 @@ function MissionRow({
           step={50}
           onSave={(v) => onSaveField("forfait", v)}
         />
-      </td>
-
-      {/* Montant a facturer (priorite : forfait > taux x reel > taux x theo) */}
-      <td className="px-2 py-2.5 text-right">
-        <div className="inline-flex flex-col items-end">
-          <span
-            className={cn(
-              "text-sm font-semibold tabular-nums",
-              montant.value === null
-                ? "text-zinc-400 dark:text-zinc-500"
-                : "text-zinc-900 dark:text-zinc-100"
-            )}
-          >
-            {formatEUR(montant.value)}
-          </span>
-          {montant.source && (
-            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
-              {montant.source === "forfait"
-                ? "forfait"
-                : montant.source === "reel"
-                ? "taux × réel"
-                : "taux × théo."}
-            </span>
-          )}
-        </div>
       </td>
 
       {/* Etat mission */}
@@ -1519,8 +1446,6 @@ function NewMissionForm({
   const [clientId, setClientId] = useState<string | null>(null);
   const [clientLibre, setClientLibre] = useState("");
   const [typeId, setTypeId] = useState<string | null>(types[0]?.id ?? null);
-  const [dureeTheo, setDureeTheo] = useState("");
-  const [taux, setTaux] = useState("");
   const [forfait, setForfait] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1539,8 +1464,6 @@ function NewMissionForm({
           client_id: clientId || null,
           client_libre: clientId ? null : clientLibre || null,
           type_id: typeId,
-          duree_theorique_h: dureeTheo ? Number(dureeTheo.replace(",", ".")) : null,
-          taux_horaire: taux ? Number(taux.replace(",", ".")) : null,
           forfait: forfait ? Number(forfait.replace(",", ".")) : null,
           date_debut: dateDebut || null,
         });
@@ -1608,22 +1531,6 @@ function NewMissionForm({
           />
         )}
 
-        <input
-          value={dureeTheo}
-          onChange={(e) => setDureeTheo(e.target.value)}
-          type="number"
-          step="0.5"
-          placeholder="Durée théorique (h)"
-          className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums"
-        />
-        <input
-          value={taux}
-          onChange={(e) => setTaux(e.target.value)}
-          type="number"
-          step="5"
-          placeholder="Taux horaire (€)"
-          className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums"
-        />
         <input
           value={forfait}
           onChange={(e) => setForfait(e.target.value)}
