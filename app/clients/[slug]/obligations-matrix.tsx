@@ -171,6 +171,10 @@ export default function ObligationsMatrix({
     const current = isActive(type, annee);
     startTransition(async () => {
       await toggleSubscription(clientId, type as TypeObligation, annee, !current);
+      // Refresh : toggleSubscription cree/desactive des obligations cote
+      // serveur. La matrice doit refleter immediatement les nouvelles
+      // souscriptions sans reload.
+      router.refresh();
     });
   }
 
@@ -184,6 +188,7 @@ export default function ObligationsMatrix({
     }
     startTransition(async () => {
       await setTvaMode(clientId, annee, mode);
+      router.refresh();
     });
   }
 
@@ -197,6 +202,7 @@ export default function ObligationsMatrix({
     }
     startTransition(async () => {
       await setRegimeAction(clientId, annee, regime);
+      router.refresh();
     });
   }
 
@@ -212,6 +218,9 @@ export default function ObligationsMatrix({
       await updateClient(clientId, {
         debut_obligations: year ? `${year}-01-01` : null,
       });
+      // debut_obligations desactive les subscriptions des annees anterieures
+      // cote serveur : la matrice doit le voir sans reload.
+      router.refresh();
     });
   }
 

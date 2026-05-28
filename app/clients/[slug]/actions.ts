@@ -283,40 +283,79 @@ export async function signLdmAndGetStats(clientId: string): Promise<{
   };
 }
 
+/**
+ * Stats renvoyees quand setPipelineStatut declenche une PREMIERE signature
+ * LDM (transition prospect -> "7 - LDM signee"). Permet au client de
+ * declencher confettis + achievement card de maniere unifiee, qu'on vienne
+ * du bouton "LDM signee", du PipelinePicker (radio pills), ou du drag
+ * dans le kanban.
+ */
+export type SignatureStats = {
+  client: { denomination: string; origine: string | null; mrr: number; arr: number };
+  mrrBefore: number;
+  mrrAfter: number;
+  arrBefore: number;
+  arrAfter: number;
+};
+
 export async function setPipelineStatut(
   clientId: string,
   statut: PipelineStatut | null
-) {
+): Promise<{ signature: SignatureStats | null }> {
   const sb = await createClient();
 
-  const patch: { pipeline_statut: PipelineStatut | null; origine?: string } = {
+  // Lit l'etat AVANT pour pouvoir detecter une transition vers LDM signee.
+  // Si on passe DE != LDM signee VERS LDM signee, on declenche la procedure
+  // signature (date + onboarding + stats MRR).
+  const { data: before } = await sb
+    .from("clients")
+    .select("pipeline_statut, origine, denomination, mrr, arr, mois_signature")
+    .eq("id", clientId)
+    .single();
+  const wasSigned = before?.pipeline_statut === "7 - LDM signée";
+  const isSigningNow = statut === "7 - LDM signée" && !wasSigned;
+
+  const patch: {
+    pipeline_statut: PipelineStatut | null;
+    origine?: string;
+    mois_signature?: string;
+  } = {
     pipeline_statut: statut,
   };
 
   if (statut === "Z - Interne" || statut === "Z - Sous-traitance") {
-    // Lit l'origine actuelle pour décider si on l'écrase
-    const { data: c } = await sb
-      .from("clients")
-      .select("origine")
-      .eq("id", clientId)
-      .single();
     const targetOrigine =
       statut === "Z - Interne" ? "4 - Interne" : "5 - Sous-traitance";
-    // On écrase uniquement si vide. Si Benjamin a choisi manuellement
-    // '1 - Création' sur un dossier en Z - Interne, on respecte son choix.
-    if (!c?.origine) {
+    if (!before?.origine) {
       patch.origine = targetOrigine;
     }
+  }
+
+  // Si on signe maintenant : on date au jour J (sauf si deja date pour
+  // preserver une date historique). Cas typique : Benjamin glisse dans
+  // le pipeline vers "LDM signee" → meme effet que le bouton dedie.
+  if (isSigningNow && !before?.mois_signature) {
+    patch.mois_signature = new Date().toISOString().substring(0, 10);
+  }
+
+  // Si on signe, on prend un snapshot du MRR total AVANT le UPDATE pour
+  // pouvoir calculer le "avant -> apres" coherent dans l'achievement card.
+  let mrrBefore = 0;
+  let arrBefore = 0;
+  if (isSigningNow) {
+    const { data: signed } = await sb
+      .from("clients")
+      .select("mrr, arr")
+      .eq("pipeline_statut", "7 - LDM signée");
+    mrrBefore = (signed ?? []).reduce((s, c) => s + (c.mrr ?? 0), 0);
+    arrBefore = (signed ?? []).reduce((s, c) => s + (c.arr ?? 0), 0);
   }
 
   const { error } = await sb.from("clients").update(patch).eq("id", clientId);
   if (error) throw new Error(error.message);
 
   // Bascule sur un statut "geree" (LDM signee / Interne / Sous-traitance) :
-  // on initialise l'onboarding si ce n'est pas deja fait. Idempotent — si
-  // les taches existent deja, initializeOnboardingForClient ne touche a rien.
-  // Permet aux dossiers Internes (Benjamin + famille) et Sous-traites d'avoir
-  // un onboarding gerable sans passer par le bouton "LDM signee".
+  // on initialise l'onboarding si ce n'est pas deja fait. Idempotent.
   if (
     statut === "7 - LDM signée" ||
     statut === "Z - Interne" ||
@@ -327,7 +366,27 @@ export async function setPipelineStatut(
     );
     await initializeOnboardingForClient(clientId);
   }
-  // Perf : pas de revalidatePath, force-dynamic + optimistic UI s'en chargent.
+
+  // Si signature : retourner les stats pour la celebration cote client.
+  if (isSigningNow && before) {
+    const clientMrr = before.mrr ?? 0;
+    const clientArr = before.arr ?? 0;
+    return {
+      signature: {
+        client: {
+          denomination: before.denomination,
+          origine: before.origine,
+          mrr: clientMrr,
+          arr: clientArr,
+        },
+        mrrBefore,
+        mrrAfter: mrrBefore + clientMrr,
+        arrBefore,
+        arrAfter: arrBefore + clientArr,
+      },
+    };
+  }
+  return { signature: null };
 }
 
 /**

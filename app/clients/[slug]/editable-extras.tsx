@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
 import { updateClient } from "./actions";
 import { initializeOnboardingForClient } from "@/app/onboarding/actions";
 
@@ -19,6 +21,7 @@ export function ClotureSplit({
   jour: number | null;
   mois: number | null;
 }) {
+  const router = useRouter();
   const [localJour, setLocalJour] = useState<number | null>(jour);
   const [localMois, setLocalMois] = useState<number | null>(mois);
   const [, startTransition] = useTransition();
@@ -35,8 +38,12 @@ export function ClotureSplit({
           jour_cloture: newJour,
           mois_cloture: newMois,
         });
-      } catch {
+        // La cloture impacte les echeances calculees cote serveur :
+        // refresh pour propager dans la card Echeancier / matrice obligations.
+        router.refresh();
+      } catch (e) {
         // Rollback en cas d'erreur (rare)
+        toastError(e, "Echec de la sauvegarde de la cloture");
         setLocalJour(jour);
         setLocalMois(mois);
       }
@@ -179,6 +186,7 @@ export function EditableGestionTns({
   value: boolean | null;
   label: string;
 }) {
+  const router = useRouter();
   const [display, setDisplay] = useState<boolean | null>(value);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -200,6 +208,10 @@ export function EditableGestionTns({
         if (newValue === true) {
           await initializeOnboardingForClient(clientId);
         }
+        // Refresh : impacte la matrice onboarding (taches TNS) + le hero
+        // qui peut afficher TNS dans les badges. Sans cela, basculer TNS
+        // ne fait apparaitre les taches qu'apres reload.
+        router.refresh();
       } catch (e) {
         setDisplay(prev);
         setError(e instanceof Error ? e.message : String(e));

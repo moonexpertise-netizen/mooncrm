@@ -1,25 +1,32 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import type { PipelineStatut } from "@/app/clients/[slug]/actions";
+import {
+  setPipelineStatut,
+  type PipelineStatut,
+  type SignatureStats,
+} from "@/app/clients/[slug]/actions";
 
 /**
- * Change le statut pipeline d'un client (drag-drop Kanban).
+ * Change le statut pipeline d'un client (drag-drop Kanban ou picker mobile).
  *
- * IMPORTANT — performance : on ne fait AUCUN revalidatePath ici.
- * - Le client a déjà appliqué l'optimistic update (setLocalCards) → l'UI est
- *   à jour instantanément.
- * - Les autres pages (/clients, /parametrage, fiche client) sont déclarées
- *   `force-dynamic` et refetcheront naturellement la prochaine fois qu'on
- *   y navigue.
- * - Revalider 4 paths à chaque drag-drop ralentissait dramatiquement le
- *   Kanban (re-render serveur complet à chaque move).
+ * Delegue a setPipelineStatut qui centralise toute la logique :
+ *   - UPDATE pipeline_statut
+ *   - Auto-sync origine pour Z - Interne / Z - Sous-traitance
+ *   - Si transition vers "7 - LDM signee" : pose mois_signature + init
+ *     onboarding + calcule stats MRR pour l'achievement card cote client.
+ *
+ * Renvoie { signature: SignatureStats | null }.
+ * Le caller (Kanban) utilise res.signature pour declencher confettis +
+ * achievement card via useLdmCelebration. Coherence totale avec la
+ * fiche client (LDMSigneeButton + PipelinePicker).
+ *
+ * IMPORTANT — performance : pas de revalidatePath ici. Optimistic update
+ * + force-dynamic des pages downstream suffisent. router.refresh() du
+ * caller propage les changements sur la page courante.
  */
-export async function movePipeline(clientId: string, statut: PipelineStatut) {
-  const sb = await createClient();
-  const { error } = await sb
-    .from("clients")
-    .update({ pipeline_statut: statut })
-    .eq("id", clientId);
-  if (error) throw new Error(error.message);
+export async function movePipeline(
+  clientId: string,
+  statut: PipelineStatut
+): Promise<{ signature: SignatureStats | null }> {
+  return setPipelineStatut(clientId, statut);
 }

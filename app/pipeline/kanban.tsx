@@ -1,8 +1,11 @@
 "use client";
 
 import { memo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GripVertical, ArrowRightLeft } from "lucide-react";
+import { useLdmCelebration } from "@/app/clients/[slug]/use-ldm-celebration";
+import { toastError } from "@/lib/toast-helpers";
 import {
   DndContext,
   DragOverlay,
@@ -61,10 +64,15 @@ const SHORT_LABEL: Record<PipelineStatut, string> = {
 };
 
 export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
   // État local optimiste : appliqué immédiatement, puis revalidate côté serveur
   const [localCards, setLocalCards] = useState<PipelineCard[]>(cards);
+  // Confettis + achievement card a chaque LDM signee, peu importe le chemin
+  // (drag-drop desktop OU picker mobile). Coherent avec LDMSigneeButton
+  // et PipelinePicker sur la fiche client.
+  const { celebrate, achievementSlot } = useLdmCelebration();
 
   // Avec un drag handle dédié (grip à gauche), on peut être plus permissif
   // sur l'activation : 4px souris (réactif), delay court touch (220ms).
@@ -90,12 +98,34 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   }
 
   // Helper réutilisable : utilisé par le drag desktop ET le picker mobile.
+  // Optimistic update local immediat, puis movePipeline cote serveur (qui
+  // delegue a setPipelineStatut). Si la transition est une PREMIERE
+  // signature LDM, on declenche confettis + achievement card via
+  // useLdmCelebration. Coherent avec la fiche client (LDMSigneeButton /
+  // PipelinePicker).
   function moveCardOptimistic(cardId: string, newStatut: PipelineStatut) {
+    const previousStatut = localCards.find((c) => c.id === cardId)?.pipeline_statut;
     setLocalCards((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, pipeline_statut: newStatut } : c))
     );
     startTransition(async () => {
-      await movePipeline(cardId, newStatut);
+      try {
+        const res = await movePipeline(cardId, newStatut);
+        if (res.signature) {
+          celebrate(res.signature);
+        }
+        router.refresh();
+      } catch (e) {
+        // Rollback optimistic + toast
+        setLocalCards((prev) =>
+          prev.map((c) =>
+            c.id === cardId
+              ? { ...c, pipeline_statut: previousStatut ?? c.pipeline_statut }
+              : c
+          )
+        );
+        toastError(e, "Echec du changement de statut");
+      }
     });
   }
 
@@ -103,6 +133,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
 
   return (
     <>
+      {achievementSlot}
       {/* Vue MOBILE : liste empilée verticale par stage, picker statut sur
           chaque carte (le drag-drop tactile est trop fragile). */}
       <div className="md:hidden">

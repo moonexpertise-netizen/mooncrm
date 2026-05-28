@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn, PIPELINE_COLORS } from "@/lib/utils";
 import { setPipelineStatut, type PipelineStatut } from "./actions";
+import { useLdmCelebration } from "./use-ldm-celebration";
+import { toastError } from "@/lib/toast-helpers";
 
 const PIPELINE_VALUES: PipelineStatut[] = [
   "1 - Tally à envoyer",
@@ -37,6 +39,7 @@ export default function PipelinePicker({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [local, setLocal] = useState<PipelineStatut | null>(current);
+  const { celebrate, achievementSlot } = useLdmCelebration();
 
   // Resync quand le serveur revient
   useEffect(() => setLocal(current), [current]);
@@ -44,18 +47,32 @@ export default function PipelinePicker({
   function onChange(next: PipelineStatut | null) {
     setLocal(next); // optimistic
     startTransition(async () => {
-      await setPipelineStatut(clientId, next);
-      router.refresh();
+      try {
+        const res = await setPipelineStatut(clientId, next);
+        // Coherence : si le changement de statut declenche une signature
+        // LDM (transition vers "7 - LDM signee"), on declenche aussi
+        // confettis + achievement card. Meme pattern qu'avec le bouton
+        // "LDM signee" dedie.
+        if (res.signature) {
+          celebrate(res.signature);
+        }
+        router.refresh();
+      } catch (e) {
+        setLocal(current); // rollback
+        toastError(e, "Echec de la mise a jour du statut");
+      }
     });
   }
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap gap-2",
-        isPending && "opacity-80"
-      )}
-    >
+    <>
+      {achievementSlot}
+      <div
+        className={cn(
+          "flex flex-wrap gap-2",
+          isPending && "opacity-80"
+        )}
+      >
       {PIPELINE_VALUES.map((p) => {
         const active = local === p;
         const colorClass = PIPELINE_COLORS[p];
@@ -79,6 +96,7 @@ export default function PipelinePicker({
           </button>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }

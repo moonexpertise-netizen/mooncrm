@@ -1,24 +1,23 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { PartyPopper } from "lucide-react";
-import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
-import { signLdmAndGetStats } from "./actions";
+import { setPipelineStatut } from "./actions";
 import { useAlert } from "@/app/_components/confirm-modal";
-import AchievementCard, { type AchievementData } from "./achievement-card";
+import { useLdmCelebration } from "./use-ldm-celebration";
 
 /**
- * Bouton festif "LDM signée 🎉" :
- *  - Déclenche une animation de confettis aux couleurs MOON (gold + crème + emerald)
- *  - Enregistre la date du jour dans `mois_signature`
- *  - Passe le pipeline_statut à "7 - LDM signée"
- *  - Initialise les tâches d'onboarding (idempotent)
- *  - Affiche une carte d'achievement avec la progression du MRR du cabinet
+ * Bouton festif "LDM signée 🎉" : passe le pipeline_statut à "7 - LDM signée"
+ * via setPipelineStatut (qui gere AUSSI mois_signature + init onboarding +
+ * stats MRR cote serveur si c'est une vraie signature).
  *
- * Idempotent : si la LDM est déjà signée, on relance les confettis pour le
- * fun mais on ne re-écrit pas la date et on ne ré-affiche pas l'achievement
- * (qui n'a de sens qu'au moment de la VRAIE signature).
+ * Au retour : confettis + achievement card via le hook centralise (meme
+ * pattern qu'utilise PipelinePicker et Pipeline Kanban — coherence totale,
+ * peu importe par ou Benjamin signe la LDM).
+ *
+ * Si deja signe : juste les confettis pour le fun.
  */
 export default function LDMSigneeButton({
   clientId,
@@ -27,78 +26,32 @@ export default function LDMSigneeButton({
   clientId: string;
   alreadySigned: boolean;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [done, setDone] = useState(alreadySigned);
-  const [achievement, setAchievement] = useState<AchievementData | null>(null);
   const { alert, AlertDialog } = useAlert();
-
-  function fireConfetti() {
-    // 3 secondes de confettis en 2 sources (gauche + droite) pour un effet
-    // immersif. Couleurs MOON : gold, crème, emerald, rouge cabinet (mais
-    // sobre, pas de néon).
-    const duration = 2500;
-    const animationEnd = Date.now() + duration;
-    const colors = ["#d6cba3", "#c9a96b", "#10b981", "#0D1122"];
-    const defaults = {
-      startVelocity: 30,
-      spread: 360,
-      ticks: 60,
-      zIndex: 9999,
-      colors,
-    };
-
-    function randomInRange(min: number, max: number) {
-      return Math.random() * (max - min) + min;
-    }
-
-    const interval = window.setInterval(() => {
-      const timeLeft = animationEnd - Date.now();
-      if (timeLeft <= 0) {
-        window.clearInterval(interval);
-        return;
-      }
-      const particleCount = 50 * (timeLeft / duration);
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.05, 0.25), y: Math.random() - 0.2 },
-      });
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.75, 0.95), y: Math.random() - 0.2 },
-      });
-    }, 250);
-
-    // Burst initial centré, plus dense, pour le bang d'ouverture.
-    confetti({
-      particleCount: 120,
-      spread: 80,
-      origin: { y: 0.55 },
-      colors,
-      zIndex: 9999,
-    });
-  }
+  const { celebrate, fireConfettiOnly, achievementSlot } = useLdmCelebration();
 
   function onClick() {
-    fireConfetti();
-    if (done) return; // déjà signée → juste les confettis pour le fun
+    if (done) {
+      // Deja signe : juste les confettis pour le fun. Pas de re-signature.
+      fireConfettiOnly();
+      return;
+    }
     setDone(true);
     startTransition(async () => {
       try {
-        const res = await signLdmAndGetStats(clientId);
-        // Affiche l'achievement card avec un petit delai pour laisser
-        // les confettis "respirer" avant que la card apparaisse.
-        setTimeout(() => {
-          setAchievement({
-            denomination: res.client.denomination,
-            origine: res.client.origine,
-            clientMrr: res.client.mrr,
-            clientArr: res.client.arr,
-            mrrBefore: res.mrrBefore,
-            mrrAfter: res.mrrAfter,
-          });
-        }, 600);
+        const res = await setPipelineStatut(clientId, "7 - LDM signée");
+        if (res.signature) {
+          celebrate(res.signature);
+        } else {
+          // Defensive : pas de stats mais on a quand meme passe le pipeline.
+          fireConfettiOnly();
+        }
+        // Refresh server-side : la date mois_signature + le badge pipeline
+        // sont rendus serveur dans le hero. Sans refresh ils restaient figes
+        // jusqu'au prochain reload.
+        router.refresh();
       } catch (e) {
         setDone(alreadySigned); // rollback
         await alert({ title: "Erreur", description: (e as Error).message });
@@ -109,12 +62,7 @@ export default function LDMSigneeButton({
   return (
     <>
       {AlertDialog}
-      {achievement && (
-        <AchievementCard
-          data={achievement}
-          onClose={() => setAchievement(null)}
-        />
-      )}
+      {achievementSlot}
       <button
         type="button"
         onClick={onClick}
