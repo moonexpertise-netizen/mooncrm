@@ -47,6 +47,8 @@ const STATIC_ROUTES: Item[] = [
   { id: "r-/onboarding/matrice", kind: "route", label: "Matrice onboarding", hint: "Vue transverse", href: "/onboarding/matrice" },
   { id: "r-/onboarding/parametrage", kind: "route", label: "Parcours d'onboarding", hint: "Paramétrage des étapes", href: "/onboarding/parametrage" },
   { id: "r-/obligations", kind: "route", label: "Production", hint: "Trackers obligations", href: "/obligations" },
+  { id: "r-/missions/ir", kind: "route", label: "IR", hint: "Déclarations IR / IFI", href: "/missions/ir" },
+  { id: "r-/missions/caa", kind: "route", label: "CAA", hint: "Commissaire aux apports", href: "/missions/caa" },
   { id: "r-/parametrage", kind: "route", label: "Paramétrage obligations", hint: "Grille des souscriptions", href: "/parametrage" },
   { id: "r-/clients/nouveau", kind: "route", label: "Nouveau dossier", hint: "Créer un client", href: "/clients/nouveau" },
 ];

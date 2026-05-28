@@ -12,8 +12,10 @@ import {
   GitBranch,
   LayoutDashboard,
   LogOut,
+  Receipt,
   Settings2,
   ShieldCheck,
+  Stamp,
   Users,
   Workflow,
   type LucideIcon,
@@ -75,6 +77,10 @@ const NAV_ITEMS: NavItem[] = [
     matchPrefix: "/obligations",
     children: buildProductionChildren(),
   },
+  // Missions hors expertise comptable (declarations IR/IFI + commissaire aux
+  // apports). Placees apres Production dans la sidebar.
+  { href: "/missions/ir", label: "IR", icon: Receipt, matchPrefix: "/missions/ir" },
+  { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa" },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
