@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useTransition } from "react";
+import { memo, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GripVertical, ArrowRightLeft } from "lucide-react";
@@ -31,6 +31,9 @@ export type PipelineCard = {
   activite: string | null;
   arr: number;
   pipeline_statut: PipelineStatut | null;
+  /** ISO timestamp de la derniere bascule de pipeline_statut. Sert au tri
+   *  du kanban (dernier arrive en haut). Backfilled par migration 0047. */
+  pipeline_changed_at: string | null;
 };
 
 const ACTIVE_STAGES: PipelineStatut[] = [
@@ -63,12 +66,39 @@ const SHORT_LABEL: Record<PipelineStatut, string> = {
   "Z - Résiliée": "Résiliée",
 };
 
+/** Tri DESC par pipeline_changed_at (le plus recent en tete). Fallback
+ *  alphabetique sur denomination pour les cards sans timestamp. Coherent
+ *  avec le tri serveur dans /pipeline/page.tsx. */
+function sortByChangedAtDesc(a: PipelineCard, b: PipelineCard): number {
+  const ta = a.pipeline_changed_at;
+  const tb = b.pipeline_changed_at;
+  if (ta && tb) return tb.localeCompare(ta); // ISO 8601 string compare = chrono
+  if (ta) return -1;
+  if (tb) return 1;
+  return a.denomination.localeCompare(b.denomination, "fr");
+}
+
 export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
   // État local optimiste : appliqué immédiatement, puis revalidate côté serveur
   const [localCards, setLocalCards] = useState<PipelineCard[]>(cards);
+
+  // Index pre-trie par stage : un seul useMemo qui produit la map
+  // statut -> cards triees DESC par pipeline_changed_at. Eviter de
+  // re-trier dans chaque Column.
+  const cardsByStage = useMemo(() => {
+    const map = new Map<string, PipelineCard[]>();
+    for (const c of localCards) {
+      const key = c.pipeline_statut ?? "__none";
+      const arr = map.get(key) ?? [];
+      arr.push(c);
+      map.set(key, arr);
+    }
+    for (const arr of map.values()) arr.sort(sortByChangedAtDesc);
+    return map;
+  }, [localCards]);
   // Confettis + achievement card a chaque LDM signee, peu importe le chemin
   // (drag-drop desktop OU picker mobile). Coherent avec LDMSigneeButton
   // et PipelinePicker sur la fiche client.
@@ -104,9 +134,20 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   // useLdmCelebration. Coherent avec la fiche client (LDMSigneeButton /
   // PipelinePicker).
   function moveCardOptimistic(cardId: string, newStatut: PipelineStatut) {
-    const previousStatut = localCards.find((c) => c.id === cardId)?.pipeline_statut;
-    setLocalCards((prev) =>
-      prev.map((c) => (c.id === cardId ? { ...c, pipeline_statut: newStatut } : c))
+    const prev = localCards.find((c) => c.id === cardId);
+    const previousStatut = prev?.pipeline_statut;
+    const previousChangedAt = prev?.pipeline_changed_at ?? null;
+    // Optimistic : on bouge la carte ET on lui assigne pipeline_changed_at
+    // = maintenant. Ainsi le tri DESC remontera la carte en haut de la
+    // nouvelle colonne immediatement (avant meme que le serveur ait
+    // confirme), coherent avec ce que la DB va appliquer via trigger.
+    const nowIso = new Date().toISOString();
+    setLocalCards((s) =>
+      s.map((c) =>
+        c.id === cardId
+          ? { ...c, pipeline_statut: newStatut, pipeline_changed_at: nowIso }
+          : c
+      )
     );
     startTransition(async () => {
       try {
@@ -117,10 +158,14 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         router.refresh();
       } catch (e) {
         // Rollback optimistic + toast
-        setLocalCards((prev) =>
-          prev.map((c) =>
+        setLocalCards((s) =>
+          s.map((c) =>
             c.id === cardId
-              ? { ...c, pipeline_statut: previousStatut ?? c.pipeline_statut }
+              ? {
+                  ...c,
+                  pipeline_statut: previousStatut ?? c.pipeline_statut,
+                  pipeline_changed_at: previousChangedAt,
+                }
               : c
           )
         );
@@ -161,7 +206,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
             <Column
               key={s}
               statut={s}
-              cards={localCards.filter((c) => c.pipeline_statut === s)}
+              cards={cardsByStage.get(s) ?? []}
               activeId={activeId}
             />
           ))}
@@ -182,7 +227,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
               <Column
                 key={s}
                 statut={s}
-                cards={localCards.filter((c) => c.pipeline_statut === s)}
+                cards={cardsByStage.get(s) ?? []}
                 activeId={activeId}
                 terminal
               />
@@ -190,7 +235,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
             <Column
               key="__none"
               statut={null}
-              cards={localCards.filter((c) => c.pipeline_statut === null)}
+              cards={cardsByStage.get("__none") ?? []}
               activeId={activeId}
               terminal
             />
@@ -247,7 +292,9 @@ function MobilePipelineList({
     subset.reduce((acc, c) => acc + (c.arr ?? 0), 0);
 
   function renderSection(statut: PipelineStatut | null, label: string) {
-    const subset = cards.filter((c) => c.pipeline_statut === statut);
+    const subset = cards
+      .filter((c) => c.pipeline_statut === statut)
+      .sort(sortByChangedAtDesc);
     const isClosed = closed.has(String(statut ?? "__none"));
     const color = statut
       ? PIPELINE_COLORS[statut] ?? ""

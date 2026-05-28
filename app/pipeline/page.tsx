@@ -7,10 +7,16 @@ export const dynamic = "force-dynamic";
 
 export default async function PipelinePage() {
   const sb = await createClient();
+  // Tri : par pipeline_changed_at DESC (dernier arrive en haut, fallback
+  // alphabetique pour les NULL — au cas ou la migration 0047 n'est pas
+  // encore appliquee).
   const { data, error } = await sb
     .from("clients")
-    .select("id, slug, denomination, siren, forme, activite, arr, pipeline_statut")
-    .order("denomination");
+    .select(
+      "id, slug, denomination, siren, forme, activite, arr, pipeline_statut, pipeline_changed_at"
+    )
+    .order("pipeline_changed_at", { ascending: false, nullsFirst: false })
+    .order("denomination", { ascending: true });
 
   if (error) {
     return (
@@ -29,6 +35,7 @@ export default async function PipelinePage() {
     activite: c.activite,
     arr: Number(c.arr ?? 0),
     pipeline_statut: c.pipeline_statut as PipelineStatut | null,
+    pipeline_changed_at: c.pipeline_changed_at ?? null,
   }));
 
   return (
