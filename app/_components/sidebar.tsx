@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Briefcase,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -70,6 +71,15 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/pipeline", label: "Pipeline", icon: GitBranch, matchPrefix: "/pipeline" },
   { href: "/onboarding", label: "Onboarding", icon: Workflow, matchPrefix: "/onboarding" },
   { href: "/parametrage", label: "Paramétrage", icon: Settings2, matchPrefix: "/parametrage" },
+  // Missions ponctuelles : transferts de siege, evaluations, attestations, AG
+  // extraordinaires, audits... Place juste au-dessus de Production car c'est
+  // un autre type de production (non-recurrent).
+  {
+    href: "/missions/exceptionnelles",
+    label: "Missions exc.",
+    icon: Briefcase,
+    matchPrefix: "/missions/exceptionnelles",
+  },
   {
     href: "/obligations",
     label: "Production",
