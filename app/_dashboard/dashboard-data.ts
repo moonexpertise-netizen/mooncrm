@@ -77,10 +77,28 @@ const PIPELINE_HEX: Record<string, string> = {
   "Z - Résiliée": "#ef4444",
 };
 
-// Dossiers actifs côté MOON (signés + internes).
-const ACTIFS = new Set(["7 - LDM signée", "Z - Interne"]);
-// Idem + sous-traitance (pipeline ou origine, on couvre les deux conventions).
-const ACTIFS_OU_ST = new Set([...ACTIFS, "Z - Sous-traitance"]);
+/**
+ * Dossiers comptes comme CLIENTS dans les KPI business (nombre de clients,
+ * MRR / ARR, panier moyen, top 10, mix activite).
+ *
+ *   - "7 - LDM signee" UNIQUEMENT
+ *
+ * Les dossiers en Z - Interne (Benjamin lui-meme + famille) et Z - Sous-
+ * traitance ne sont PAS des clients reels : on les gere cote production /
+ * onboarding (cf. isClientBillable dans lib/billable.ts) mais on ne les
+ * inclut plus dans les agregats business, qui se voulaient deformes.
+ */
+const CLIENTS_LDM = new Set(["7 - LDM signée"]);
+
+/**
+ * Dossiers a gerer cote PRODUCTION (obligations, echeances, onboarding).
+ * Couvre LDM + Interne + Sous-traitance. Utilise pour productionRisque.
+ */
+const DOSSIERS_GERES = new Set([
+  "7 - LDM signée",
+  "Z - Interne",
+  "Z - Sous-traitance",
+]);
 // Origines équivalentes à "en sous-traitance" (nouvelle nomenclature + legacy).
 const ORIGINES_ST = new Set(["5 - Sous-traitance", "Z - Sous-traitance"]);
 
@@ -133,12 +151,15 @@ export async function loadDashboardData(): Promise<DashboardData> {
   }>;
 
   // --- KPI globaux ---
-  function isActif(c: { pipeline_statut: string | null; origine: string | null }) {
-    if (c.pipeline_statut && ACTIFS.has(c.pipeline_statut)) return true;
-    if (c.origine && ORIGINES_ST.has(c.origine)) return true;
-    return false;
+  // "Client" = uniquement pipeline_statut = "7 - LDM signée".
+  // Les dossiers Z - Interne (Benjamin + famille) et Z - Sous-traitance ne
+  // sont pas des clients : ils n'ont pas signe de LDM commerciale, donc on
+  // les sort de toutes les agregations business (nombre, MRR, ARR, panier
+  // moyen, top, mix activite). Cf. commentaire CLIENTS_LDM.
+  function isClient(c: { pipeline_statut: string | null }) {
+    return c.pipeline_statut !== null && CLIENTS_LDM.has(c.pipeline_statut);
   }
-  const actifs = cs.filter(isActif);
+  const actifs = cs.filter(isClient);
   const totalMrr = actifs.reduce((s, c) => s + (c.mrr ?? 0), 0);
   const totalArr = actifs.reduce((s, c) => s + (c.arr ?? 0), 0);
   const signaturesCeMois = cs.filter(
@@ -267,9 +288,12 @@ export async function loadDashboardData(): Promise<DashboardData> {
   })();
   for (const o of (obligations ?? []) as unknown as OblRow[]) {
     const c = o.clients;
+    // Production : on couvre les dossiers reellement geres (LDM + Interne +
+    // ST), pas seulement les clients commerciaux. Benjamin doit aussi voir
+    // les obligations en retard sur ses dossiers internes.
     if (
       !(
-        (c.pipeline_statut && ACTIFS_OU_ST.has(c.pipeline_statut)) ||
+        (c.pipeline_statut && DOSSIERS_GERES.has(c.pipeline_statut)) ||
         (c.origine && ORIGINES_ST.has(c.origine))
       )
     )

@@ -7,8 +7,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 
-// 3 buckets métier qui groupent les pipeline_statut.
-// Le bucket par défaut est "clients" (clients actifs).
+// Buckets metier qui groupent les pipeline_statut.
+//
+// Choix metier (cf. demande Benjamin) :
+//   - "Clients" = uniquement "7 - LDM signee" (vrais clients commerciaux).
+//   - Z - Interne (Benjamin + famille) et Z - Sous-traitance ne sont PAS
+//     des clients : on leur dedie un bucket "Internes & ST" pour qu'ils
+//     restent visibles et gerables sans fausser les agregations business
+//     (panier moyen, nombre de clients, MRR/ARR dashboard).
 const BUCKET_PIPELINES: Record<Bucket, string[]> = {
   all: [],
   prospects: [
@@ -19,7 +25,8 @@ const BUCKET_PIPELINES: Record<Bucket, string[]> = {
     "5 - PC acceptée",
     "6 - LDM envoyée",
   ],
-  clients: ["7 - LDM signée", "Z - Interne", "Z - Sous-traitance"],
+  clients: ["7 - LDM signée"],
+  internes_st: ["Z - Interne", "Z - Sous-traitance"],
   perdus: ["Z - Prospect perdu", "Z - Résiliée"],
 };
 
@@ -27,13 +34,20 @@ const BUCKET_LABEL: Record<Bucket, string> = {
   all: "Tous",
   prospects: "Prospects",
   clients: "Clients",
+  internes_st: "Internes & ST",
   perdus: "Perdus & résiliés",
 };
 
-type Bucket = "all" | "prospects" | "clients" | "perdus";
+type Bucket = "all" | "prospects" | "clients" | "internes_st" | "perdus";
 
 function isValidBucket(b: string | null): b is Bucket {
-  return b === "all" || b === "prospects" || b === "clients" || b === "perdus";
+  return (
+    b === "all" ||
+    b === "prospects" ||
+    b === "clients" ||
+    b === "internes_st" ||
+    b === "perdus"
+  );
 }
 
 export type ClientRow = {

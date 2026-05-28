@@ -65,11 +65,11 @@ function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       <KpiCard
-        label="Clients actifs"
+        label="Clients"
         value={kpi.clientsActifs.toString()}
-        sub="LDM signée · interne · sous-traitance"
+        sub="LDM signée uniquement"
         icon={<Users className="h-5 w-5" />}
-        href="/clients"
+        href="/clients?bucket=clients"
         tone="neutral"
       />
       <KpiCard
@@ -87,13 +87,13 @@ function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
         tone="emerald"
       />
       <KpiCard
-        label="ARR / client"
+        label="Panier moyen"
         value={
           kpi.clientsActifs > 0
             ? fmtEuro(Math.round(kpi.arr / kpi.clientsActifs))
             : "-"
         }
-        sub="moyenne par dossier actif"
+        sub="ARR moyen par client (LDM signée)"
         icon={<TrendingUp className="h-5 w-5" />}
         tone="violet"
       />
