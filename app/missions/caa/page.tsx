@@ -4,10 +4,12 @@ import CaaTable, { type CaaCell, type CaaRow, type CaaStatusOption } from "./caa
 
 export const dynamic = "force-dynamic";
 
-// Annees disponibles : de 2024 (plancher historique) jusqu'a l'annee
-// courante + 2 (planning d'avance). S'etend automatiquement avec le temps.
+// Annees disponibles : de 2020 (plancher historique pour couvrir CAA
+// anterieures) jusqu'a l'annee courante + 2 (planning d'avance).
+// S'etend automatiquement avec le temps. Si besoin de descendre plus bas,
+// modifier FLOOR_YEAR.
 const CURRENT_YEAR = new Date().getFullYear();
-const FLOOR_YEAR = 2024;
+const FLOOR_YEAR = 2020;
 const AVAILABLE_YEARS = Array.from(
   { length: CURRENT_YEAR + 2 - FLOOR_YEAR + 1 },
   (_, i) => FLOOR_YEAR + i
