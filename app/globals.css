@@ -578,6 +578,24 @@ h3 { font-weight: 600; }
 }
 .animate-slide-in-right { animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
 
+/* row-highlight : surlignage temporaire d'une ligne au retour depuis la
+   fiche client (cf. useHighlightRow). 2 phases :
+   - 1 sec : fond gold marque (visible de loin)
+   - 1.4 sec : fade-out vers transparent
+   Le scroll-margin sert au scrollIntoView pour ne pas coller au top
+   (laisser de la marge pour les barres sticky). */
+@keyframes row-highlight-flash {
+  0%   { background-color: hsl(var(--gold) / 0.30); box-shadow: inset 0 0 0 2px hsl(var(--gold) / 0.50); }
+  40%  { background-color: hsl(var(--gold) / 0.22); box-shadow: inset 0 0 0 2px hsl(var(--gold) / 0.30); }
+  100% { background-color: transparent;             box-shadow: inset 0 0 0 0 transparent; }
+}
+.row-highlight {
+  animation: row-highlight-flash 2.4s cubic-bezier(0.16, 1, 0.3, 1);
+  scroll-margin-top: 100px;
+  scroll-margin-bottom: 100px;
+  border-radius: 6px;
+}
+
 /* color-scheme : informe le navigateur du theme actif (scrollbars natives,
    form controls par defaut, etc. s'adaptent automatiquement).
 

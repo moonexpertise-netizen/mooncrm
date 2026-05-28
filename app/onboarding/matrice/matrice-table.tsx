@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Check, Minus, Pencil, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 import {
   addOnboardingStatusOption,
   deleteOnboardingStatusOption,
@@ -147,6 +148,9 @@ export default function MatriceTable({
     const qs = searchParams.toString();
     return `${pathname}${qs ? `?${qs}` : ""}`;
   }, [pathname, searchParams]);
+
+  // Highlight + scroll-to-row au retour depuis une fiche client
+  useHighlightRow("client");
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(
@@ -506,6 +510,7 @@ export default function MatriceTable({
               {sorted.map((r, idx) => (
                 <tr
                   key={r.id}
+                  id={`client-${r.slug}`}
                   className={cn(
                     "group/row transition-colors bg-white",
                     "hover:bg-zinc-50"

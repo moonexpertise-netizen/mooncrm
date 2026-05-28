@@ -38,12 +38,32 @@ function labelFromPath(path: string): string {
   return "Retour";
 }
 
+/**
+ * Ajoute ?highlight=<slug> a un href (en preservant les autres query params).
+ * Le slug est utilise par la liste cible pour scroller + surligner la ligne
+ * d'ou venait Benjamin.
+ */
+function withHighlight(href: string, slug: string): string {
+  try {
+    const u = new URL(href, "http://x/");
+    u.searchParams.set("highlight", slug);
+    return u.pathname + (u.search ?? "");
+  } catch {
+    // Fallback : concat manuel si parsing rate
+    const sep = href.includes("?") ? "&" : "?";
+    return `${href}${sep}highlight=${encodeURIComponent(slug)}`;
+  }
+}
+
 export default function BackButton({
   defaultHref,
   defaultLabel,
+  currentSlug,
 }: {
   defaultHref: string;
   defaultLabel: string;
+  /** Slug de la fiche courante — pour highlight la ligne au retour. */
+  currentSlug: string;
 }) {
   const searchParams = useSearchParams();
   const fromParam = searchParams.get("from");
@@ -64,9 +84,13 @@ export default function BackButton({
     }
   }
 
+  // Toujours injecter ?highlight= : meme sur le fallback /clients, la
+  // liste va scroller vers la ligne du dossier qu'on quitte.
+  const hrefWithHighlight = withHighlight(href, currentSlug);
+
   return (
     <Link
-      href={href}
+      href={hrefWithHighlight}
       aria-label={`Retour à ${label}`}
       className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors group"
     >

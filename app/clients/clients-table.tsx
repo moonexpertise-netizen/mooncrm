@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 import { categorieActivite, type ActiviteCategorie } from "@/lib/activite-categorie";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
@@ -82,6 +83,10 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
     const qs = searchParams.toString();
     return `${pathname}${qs ? `?${qs}` : ""}`;
   }, [pathname, searchParams]);
+
+  // Highlight + scroll-to-row quand on revient depuis une fiche client
+  // (le BackButton injecte ?highlight=<slug>).
+  useHighlightRow("client");
 
   // Lecture initiale depuis l'URL. Si aucun param et pas de sentinel `clear`,
   // on applique le bucket "clients" par défaut (clients actifs MOON).
@@ -393,6 +398,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               return (
               <tr
                 key={r.id}
+                id={`client-${r.slug}`}
                 className="border-t border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer group/row"
               >
                 <td className="px-4 py-3">
@@ -484,11 +490,13 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             if (bucket !== "clients") navParams.set("nav-bucket", bucket);
             if (formeFilter.size) navParams.set("nav-forme", [...formeFilter].join("|"));
             if (activiteFilter) navParams.set("nav-activite", activiteFilter);
+            navParams.set("from", fromUrl);
             const qs = navParams.toString();
             const href = `/clients/${r.slug}${qs ? `?${qs}` : ""}`;
             return (
               <Link
                 key={r.id}
+                id={`client-${r.slug}`}
                 href={href}
                 className="block rounded-xl border border-zinc-200/80 bg-white shadow-card px-3 py-3 active:bg-zinc-50 transition-all"
               >

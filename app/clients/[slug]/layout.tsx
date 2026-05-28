@@ -165,7 +165,7 @@ export default async function ClientLayout({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <BackButton defaultHref={back.href} defaultLabel={back.label} />
+        <BackButton defaultHref={back.href} defaultLabel={back.label} currentSlug={slug} />
         <NavButtons
           prev={prev}
           next={next}

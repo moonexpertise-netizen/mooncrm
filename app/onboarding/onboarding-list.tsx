@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 
 export type OnboardingRow = {
   id: string;
@@ -80,6 +81,9 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     const qs = searchParams.toString();
     return `${pathname}${qs ? `?${qs}` : ""}`;
   }, [pathname, searchParams]);
+
+  // Highlight + scroll-to-row au retour depuis une fiche client
+  useHighlightRow("client");
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(
@@ -272,6 +276,7 @@ function OnboardingRowComp({
   const noTasks = row.total === 0;
   return (
     <Link
+      id={`client-${row.slug}`}
       href={`/clients/${row.slug}/onboarding?from=${encodeURIComponent(fromUrl)}`}
       className="group/row flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
     >
