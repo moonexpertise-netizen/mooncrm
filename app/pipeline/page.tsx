@@ -28,16 +28,17 @@ export default async function PipelinePage() {
   const baseCols =
     "id, slug, denomination, siren, forme, activite, arr, pipeline_statut";
 
+  // Tentative 1 : avec pipeline_changed_at (migration 0047 appliquee)
   const first = await sb
     .from("clients")
     .select(`${baseCols}, pipeline_changed_at`)
     .order("pipeline_changed_at", { ascending: false, nullsFirst: false })
     .order("denomination", { ascending: true });
-  if (
-    first.error &&
-    /pipeline_changed_at/i.test(first.error.message)
-  ) {
-    // Colonne absente → migration 0047 pas appliquee. On retry sans.
+  if (first.error) {
+    // Toute erreur sur la 1ere tentative -> retry sans pipeline_changed_at.
+    // Couvre le cas migration non appliquee (column does not exist) et
+    // tout autre cas inattendu. Le retry est sur des colonnes garanties
+    // depuis 0001 + 0035 (slug).
     const fallback = await sb
       .from("clients")
       .select(baseCols)
@@ -46,7 +47,7 @@ export default async function PipelinePage() {
     error = fallback.error;
   } else {
     data = (first.data as unknown as ClientRow[]) ?? null;
-    error = first.error;
+    error = null;
   }
 
   if (error) {
