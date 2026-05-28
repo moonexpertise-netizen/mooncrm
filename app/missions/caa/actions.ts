@@ -52,7 +52,10 @@ export async function deleteClientCaa(clientCaaId: string) {
 }
 
 /**
- * Set le statut de la mission CAA pour une annee. Upsert sur (client, annee).
+ * Set le statut de la mission CAA pour une annee.
+ *   - Si libelle = null  : supprime la ligne (le dossier devient N/A pour
+ *     cette annee). Cf. pattern Notion : "N/A" = pas de souscription.
+ *   - Sinon : upsert.
  */
 export async function setCaaObligationStatut(
   clientCaaId: string,
@@ -61,23 +64,25 @@ export async function setCaaObligationStatut(
 ) {
   const sb = await createClient();
 
-  let statut_logique: StatutLogique = "A_FAIRE";
-  let statut_detail: string | null = null;
-  if (libelle) {
-    const { data: opt } = await sb
-      .from("status_options")
-      .select("statut_logique")
-      .eq("scope", "caa")
-      .eq("type_code", "CAA_ANNEE")
-      .eq("libelle", libelle)
-      .maybeSingle();
-    if (opt) {
-      statut_logique = opt.statut_logique as StatutLogique;
-      statut_detail = libelle;
-    } else {
-      statut_detail = libelle;
-    }
+  if (libelle === null) {
+    const { error } = await sb
+      .from("caa_obligations")
+      .delete()
+      .eq("client_caa_id", clientCaaId)
+      .eq("annee", annee);
+    if (error) throw new Error(error.message);
+    return;
   }
+
+  let statut_logique: StatutLogique = "A_FAIRE";
+  const { data: opt } = await sb
+    .from("status_options")
+    .select("statut_logique")
+    .eq("scope", "caa")
+    .eq("type_code", "CAA_ANNEE")
+    .eq("libelle", libelle)
+    .maybeSingle();
+  if (opt) statut_logique = opt.statut_logique as StatutLogique;
 
   const { error } = await sb
     .from("caa_obligations")
@@ -86,9 +91,54 @@ export async function setCaaObligationStatut(
         client_caa_id: clientCaaId,
         annee,
         statut_logique,
-        statut_detail,
+        statut_detail: libelle,
       },
       { onConflict: "client_caa_id,annee" }
     );
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Toggle souscription CAA d'un client pour une annee. Vue Base : pills.
+ * Renvoie true si souscrit apres l'op, false si N/A.
+ */
+export async function toggleCaaSubscription(
+  clientCaaId: string,
+  annee: number
+): Promise<boolean> {
+  const sb = await createClient();
+
+  const { data: existing } = await sb
+    .from("caa_obligations")
+    .select("id")
+    .eq("client_caa_id", clientCaaId)
+    .eq("annee", annee)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await sb
+      .from("caa_obligations")
+      .delete()
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return false;
+  }
+
+  const { data: defOpt } = await sb
+    .from("status_options")
+    .select("libelle")
+    .eq("scope", "caa")
+    .eq("type_code", "CAA_ANNEE")
+    .eq("statut_logique", "A_FAIRE")
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await sb.from("caa_obligations").insert({
+    client_caa_id: clientCaaId,
+    annee,
+    statut_logique: "A_FAIRE",
+    statut_detail: defOpt?.libelle ?? "À préparer",
+  });
+  if (error) throw new Error(error.message);
+  return true;
 }

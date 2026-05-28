@@ -56,8 +56,10 @@ export async function deleteClientIr(clientIrId: string) {
 }
 
 /**
- * Set le statut d'une obligation IR/IFI pour une annee. Si la ligne n'existe
- * pas, on la cree (upsert sur la cle composite client_ir_id, annee, type).
+ * Set le statut d'une obligation IR/IFI pour une annee.
+ *   - Si libelle = null  : supprime la ligne (le dossier devient N/A pour
+ *     cette annee/type). Cf. pattern Notion : "N/A" = pas de souscription.
+ *   - Si libelle != null : upsert (cree ou met a jour le statut).
  */
 export async function setIrObligationStatut(
   clientIrId: string,
@@ -67,24 +69,30 @@ export async function setIrObligationStatut(
 ) {
   const sb = await createClient();
 
+  // Reset / desouscription : on supprime carrement la ligne. La vue Base
+  // n'affichera plus la pill pour cette annee/type.
+  if (libelle === null) {
+    const { error } = await sb
+      .from("ir_obligations")
+      .delete()
+      .eq("client_ir_id", clientIrId)
+      .eq("annee", annee)
+      .eq("type", type);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
   // Trouve le statut_logique correspondant au libelle dans status_options
   let statut_logique: StatutLogique = "A_FAIRE";
-  let statut_detail: string | null = null;
-  if (libelle) {
-    const { data: opt } = await sb
-      .from("status_options")
-      .select("statut_logique")
-      .eq("scope", "ir")
-      .eq("type_code", `${type}_ANNEE`)
-      .eq("libelle", libelle)
-      .maybeSingle();
-    if (opt) {
-      statut_logique = opt.statut_logique as StatutLogique;
-      statut_detail = libelle;
-    } else {
-      // libelle inconnu : on fallback A_FAIRE
-      statut_detail = libelle;
-    }
+  const { data: opt } = await sb
+    .from("status_options")
+    .select("statut_logique")
+    .eq("scope", "ir")
+    .eq("type_code", `${type}_ANNEE`)
+    .eq("libelle", libelle)
+    .maybeSingle();
+  if (opt) {
+    statut_logique = opt.statut_logique as StatutLogique;
   }
 
   const { error } = await sb
@@ -95,9 +103,61 @@ export async function setIrObligationStatut(
         annee,
         type,
         statut_logique,
-        statut_detail,
+        statut_detail: libelle,
       },
       { onConflict: "client_ir_id,annee,type" }
     );
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Toggle l'inscription d'un client a une annee/type donnee depuis la vue
+ * Base (pills annees). Si la ligne existe, on la supprime (= N/A). Sinon
+ * on la cree au statut par defaut "A faire".
+ *
+ * Renvoie l'etat apres operation : true = souscrit, false = N/A.
+ */
+export async function toggleIrSubscription(
+  clientIrId: string,
+  annee: number,
+  type: IrType
+): Promise<boolean> {
+  const sb = await createClient();
+
+  const { data: existing } = await sb
+    .from("ir_obligations")
+    .select("id")
+    .eq("client_ir_id", clientIrId)
+    .eq("annee", annee)
+    .eq("type", type)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await sb
+      .from("ir_obligations")
+      .delete()
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return false;
+  }
+
+  // Cherche le libelle "A faire" pour ce type
+  const { data: defOpt } = await sb
+    .from("status_options")
+    .select("libelle")
+    .eq("scope", "ir")
+    .eq("type_code", `${type}_ANNEE`)
+    .eq("statut_logique", "A_FAIRE")
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await sb.from("ir_obligations").insert({
+    client_ir_id: clientIrId,
+    annee,
+    type,
+    statut_logique: "A_FAIRE",
+    statut_detail: defOpt?.libelle ?? "À faire",
+  });
+  if (error) throw new Error(error.message);
+  return true;
 }

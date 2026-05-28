@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/app/_components/page-header";
-import IrTable, { type IrRow, type IrStatusOption } from "./ir-table";
+import IrTable, { type IrObligationCell, type IrRow, type IrStatusOption } from "./ir-table";
 
 export const dynamic = "force-dynamic";
 
@@ -8,36 +8,37 @@ const CURRENT_YEAR = 2026;
 const AVAILABLE_YEARS = [2024, 2025, 2026, 2027];
 
 /**
- * Page Mission IR : liste des personnes physiques pour lesquelles MOON
- * gere les declarations IR / IFI annuelles.
+ * Page Mission IR. Deux vues :
+ *   - Base (defaut) : un overview cross-annee. Pour chaque client on liste
+ *     les annees ou il est souscrit a l'IR et a l'IFI (pills cliquables).
+ *   - Annee (?year=YYYY) : pour l'annee selectionnee, on affiche le statut
+ *     IR et IFI de chaque client (N/A si pas souscrit).
  *
- * Structure : 1 ligne par personne, 2 cellules statut par annee (IR + IFI),
- * 1 cellule statut LDM. Editable inline.
+ * Pattern Notion : meme client, plusieurs annees, statut par annee.
  */
 export default async function IrPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; view?: string }>;
 }) {
   const sp = await searchParams;
+  const isBaseView = sp.view === "base" || (!sp.year && sp.view !== "year");
   const yearParam = sp.year ? parseInt(sp.year, 10) : CURRENT_YEAR;
   const selectedYear = AVAILABLE_YEARS.includes(yearParam) ? yearParam : CURRENT_YEAR;
 
   const sb = await createClient();
 
-  const [
-    { data: clients },
-    { data: obligations },
-    { data: statusOpts },
-  ] = await Promise.all([
+  // On charge TOUS les obligations IR/IFI quelle que soit la vue, pour
+  // permettre d'afficher les pills cross-annee dans la vue Base et de
+  // savoir si un client est souscrit a une annee dans la vue Annee.
+  const [{ data: clients }, { data: obligations }, { data: statusOpts }] = await Promise.all([
     sb
       .from("clients_ir")
       .select("id, slug, civilite, prenom, nom, email, telephone, ldm_statut")
       .order("nom", { ascending: true }),
     sb
       .from("ir_obligations")
-      .select("client_ir_id, annee, type, statut_logique, statut_detail")
-      .eq("annee", selectedYear),
+      .select("client_ir_id, annee, type, statut_logique, statut_detail"),
     sb
       .from("status_options")
       .select("type_code, libelle, statut_logique, color, ordre")
@@ -46,35 +47,30 @@ export default async function IrPage({
       .order("ordre"),
   ]);
 
-  // Index obligations par client_ir_id et type
-  const obligationsByClient = new Map<
-    string,
-    { ir: { libelle: string | null; statut_logique: string } | null; ifi: { libelle: string | null; statut_logique: string } | null }
-  >();
+  // Index : client_id -> Map<"YYYY|IR"|"YYYY|IFI", cell>
+  const obByClient = new Map<string, Map<string, IrObligationCell>>();
   for (const o of obligations ?? []) {
-    const slot = obligationsByClient.get(o.client_ir_id) ?? { ir: null, ifi: null };
-    if (o.type === "IR") slot.ir = { libelle: o.statut_detail, statut_logique: o.statut_logique };
-    else if (o.type === "IFI") slot.ifi = { libelle: o.statut_detail, statut_logique: o.statut_logique };
-    obligationsByClient.set(o.client_ir_id, slot);
+    if (!obByClient.has(o.client_ir_id)) obByClient.set(o.client_ir_id, new Map());
+    obByClient.get(o.client_ir_id)!.set(`${o.annee}|${o.type}`, {
+      annee: o.annee,
+      type: o.type as "IR" | "IFI",
+      libelle: o.statut_detail,
+      statut_logique: o.statut_logique as IrStatusOption["statut_logique"],
+    });
   }
 
-  const rows: IrRow[] = (clients ?? []).map((c) => {
-    const ob = obligationsByClient.get(c.id) ?? { ir: null, ifi: null };
-    return {
-      id: c.id,
-      slug: c.slug,
-      civilite: c.civilite,
-      prenom: c.prenom,
-      nom: c.nom,
-      email: c.email,
-      telephone: c.telephone,
-      ldm_statut: c.ldm_statut,
-      ir: ob.ir,
-      ifi: ob.ifi,
-    };
-  });
+  const rows: IrRow[] = (clients ?? []).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    civilite: c.civilite,
+    prenom: c.prenom,
+    nom: c.nom,
+    email: c.email,
+    telephone: c.telephone,
+    ldm_statut: c.ldm_statut,
+    obligations: obByClient.get(c.id) ?? new Map(),
+  }));
 
-  // Status options : on les transmet par type_code (IR_ANNEE, IFI_ANNEE)
   const optsByType: Record<string, IrStatusOption[]> = {};
   for (const o of statusOpts ?? []) {
     if (!optsByType[o.type_code]) optsByType[o.type_code] = [];
@@ -85,15 +81,17 @@ export default async function IrPage({
     });
   }
 
+  const description = isBaseView
+    ? "Suivi des declarations IR et IFI · Vue d'ensemble"
+    : `Suivi des declarations IR et IFI · Exercice ${selectedYear}`;
+
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="IR · Impôts sur le Revenu"
-        description={`Suivi des déclarations IR et IFI · Exercice ${selectedYear}`}
-      />
+      <PageHeader title="IR · Impôts sur le Revenu" description={description} />
       <IrTable
         rows={rows}
-        annee={selectedYear}
+        mode={isBaseView ? "base" : "year"}
+        selectedYear={selectedYear}
         years={AVAILABLE_YEARS}
         statusOptions={optsByType}
       />

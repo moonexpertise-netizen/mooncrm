@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { Plus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
@@ -10,6 +11,7 @@ import {
   createClientCaa,
   deleteClientCaa,
   setCaaObligationStatut,
+  toggleCaaSubscription,
   updateClientCaa,
   type StatutLogique,
 } from "./actions";
@@ -19,6 +21,12 @@ export type CaaStatusOption = {
   libelle: string;
   statut_logique: StatutLogique;
   color: string | null;
+};
+
+export type CaaCell = {
+  annee: number;
+  libelle: string | null;
+  statut_logique: StatutLogique;
 };
 
 export type CaaRow = {
@@ -31,10 +39,10 @@ export type CaaRow = {
   dirigeant_email: string | null;
   dirigeant_telephone: string | null;
   ldm_statut: string;
-  caa: { libelle: string | null; statut_logique: string } | null;
+  /** Map<annee, cell>. Absente = N/A pour l'annee. */
+  obligations: Map<number, CaaCell>;
 };
 
-// Mini-pipeline LDM (identique a IR — pourra etre factorise)
 const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
   { key: "a_preparer", label: "À préparer", color: "bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.12]" },
   { key: "propale_acceptee", label: "Propale acceptée", color: "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30" },
@@ -44,12 +52,14 @@ const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
 
 export default function CaaTable({
   rows,
-  annee,
+  mode,
+  selectedYear,
   years,
   statusOptions,
 }: {
   rows: CaaRow[];
-  annee: number;
+  mode: "base" | "year";
+  selectedYear: number;
   years: number[];
   statusOptions: CaaStatusOption[];
 }) {
@@ -59,12 +69,6 @@ export default function CaaTable({
   const [localRows, setLocalRows] = useState(rows);
   useEffect(() => setLocalRows(rows), [rows]);
   const { confirm, ConfirmDialog } = useConfirm();
-
-  function changeYear(y: number) {
-    const url = new URL(window.location.href);
-    url.searchParams.set("year", String(y));
-    router.push(url.pathname + url.search);
-  }
 
   function onSetLdm(clientCaaId: string, newStatut: string) {
     setLocalRows((prev) =>
@@ -79,17 +83,46 @@ export default function CaaTable({
     });
   }
 
-  function onSetStatut(clientCaaId: string, libelle: string | null) {
+  function onToggleSubscription(clientCaaId: string, annee: number) {
     setLocalRows((prev) =>
       prev.map((r) => {
         if (r.id !== clientCaaId) return r;
-        const sl = statusOptions.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE";
-        return { ...r, caa: { libelle, statut_logique: sl } };
+        const newMap = new Map(r.obligations);
+        if (newMap.has(annee)) {
+          newMap.delete(annee);
+        } else {
+          newMap.set(annee, { annee, libelle: "À préparer", statut_logique: "A_FAIRE" });
+        }
+        return { ...r, obligations: newMap };
       })
     );
     startTransition(async () => {
       try {
-        await setCaaObligationStatut(clientCaaId, annee, libelle);
+        await toggleCaaSubscription(clientCaaId, annee);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec toggle souscription");
+      }
+    });
+  }
+
+  function onSetStatut(clientCaaId: string, libelle: string | null) {
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== clientCaaId) return r;
+        const newMap = new Map(r.obligations);
+        if (libelle === null) {
+          newMap.delete(selectedYear);
+        } else {
+          const sl = statusOptions.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE";
+          newMap.set(selectedYear, { annee: selectedYear, libelle, statut_logique: sl });
+        }
+        return { ...r, obligations: newMap };
+      })
+    );
+    startTransition(async () => {
+      try {
+        await setCaaObligationStatut(clientCaaId, selectedYear, libelle);
         router.refresh();
       } catch (e) {
         toastError(e, "Echec sauvegarde statut CAA");
@@ -117,28 +150,53 @@ export default function CaaTable({
     });
   }
 
+  function urlForBase() {
+    return "/missions/caa?view=base";
+  }
+  function urlForYear(y: number) {
+    return `/missions/caa?year=${y}`;
+  }
+
   return (
     <div className={cn("space-y-3", isPending && "opacity-95")}>
       {ConfirmDialog}
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
-          <span className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 px-2">Exercice</span>
-          {years.map((y) => (
-            <button
-              key={y}
-              onClick={() => changeYear(y)}
-              className={cn(
-                "px-3 py-1 rounded-lg text-sm tabular-nums transition-all border",
-                y === annee
-                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border-zinc-300 dark:border-white/25 shadow-card font-semibold"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border-transparent"
-              )}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
+        <nav
+          aria-label="Vue tracker CAA"
+          className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]"
+        >
+          <Link
+            href={urlForBase()}
+            aria-current={mode === "base" ? "page" : undefined}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-sm transition-all",
+              mode === "base"
+                ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
+            )}
+          >
+            Base
+          </Link>
+          {years.map((y) => {
+            const active = mode === "year" && y === selectedYear;
+            return (
+              <Link
+                key={y}
+                href={urlForYear(y)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm tabular-nums transition-all",
+                  active
+                    ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
+                )}
+              >
+                {y}
+              </Link>
+            );
+          })}
+        </nav>
 
         {!adding && (
           <button
@@ -165,10 +223,13 @@ export default function CaaTable({
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Société</th>
-                <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">SIREN / Forme</th>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Dirigeant</th>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
-                <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {annee}</th>
+                {mode === "base" ? (
+                  <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA — années</th>
+                ) : (
+                  <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {selectedYear}</th>
+                )}
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
             </thead>
@@ -176,11 +237,14 @@ export default function CaaTable({
               {localRows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors">
                   <td className="px-4 py-3">
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">{r.denomination}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400">
-                    {r.siren && <div className="tabular-nums">{r.siren}</div>}
-                    {r.forme && <div>{r.forme}</div>}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-zinc-900 dark:text-zinc-100">{r.denomination}</span>
+                      {(r.siren || r.forme) && (
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {[r.siren, r.forme].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400">
                     {r.dirigeant_nom && <div className="font-medium text-zinc-700 dark:text-zinc-300">{r.dirigeant_nom}</div>}
@@ -189,14 +253,23 @@ export default function CaaTable({
                   <td className="px-4 py-3">
                     <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
                   </td>
-                  <td className="px-2 py-3 text-center">
-                    <StatutPicker
-                      currentLibelle={r.caa?.libelle ?? null}
-                      currentLogique={(r.caa?.statut_logique as StatutLogique) ?? null}
-                      options={statusOptions}
-                      onPick={(libelle) => onSetStatut(r.id, libelle)}
-                    />
-                  </td>
+                  {mode === "base" ? (
+                    <td className="px-4 py-3">
+                      <YearPills
+                        years={years}
+                        subscribedYears={new Set(r.obligations.keys())}
+                        onToggle={(year) => onToggleSubscription(r.id, year)}
+                      />
+                    </td>
+                  ) : (
+                    <td className="px-2 py-3 text-center">
+                      <StatutCell
+                        cell={r.obligations.get(selectedYear) ?? null}
+                        options={statusOptions}
+                        onPick={(libelle) => onSetStatut(r.id, libelle)}
+                      />
+                    </td>
+                  )}
                   <td className="px-2 py-3 text-right">
                     <button
                       onClick={() => onDelete(r.id, r.denomination)}
@@ -215,14 +288,189 @@ export default function CaaTable({
       )}
 
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {localRows.length} mission{localRows.length > 1 ? "s" : ""} CAA — exercice {annee}.
+        {localRows.length} mission{localRows.length > 1 ? "s" : ""} CAA{mode === "year" ? ` — exercice ${selectedYear}` : " — vue d'ensemble"}.
       </p>
     </div>
   );
 }
 
 // ============================================================================
-//  LdmPicker (duplique de IR pour l'instant — factoriser plus tard si besoin)
+//  YearPills (idem IR)
+// ============================================================================
+
+function YearPills({
+  years,
+  subscribedYears,
+  onToggle,
+}: {
+  years: number[];
+  subscribedYears: Set<number>;
+  onToggle: (year: number) => void;
+}) {
+  return (
+    <div className="inline-flex flex-wrap items-center gap-1">
+      {years.map((y) => {
+        const subscribed = subscribedYears.has(y);
+        return (
+          <button
+            key={y}
+            type="button"
+            onClick={() => onToggle(y)}
+            aria-pressed={subscribed}
+            title={subscribed ? `Souscrit ${y} · clic pour retirer` : `Non souscrit ${y} · clic pour ajouter`}
+            className={cn(
+              "px-2 py-0.5 rounded text-[11px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
+              subscribed
+                ? "bg-zinc-200 dark:bg-white/[0.14] text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-white/[0.20]"
+                : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10] hover:text-zinc-700 dark:hover:text-zinc-300"
+            )}
+          >
+            {y}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================================
+//  StatutCell (idem IR mais sans type)
+// ============================================================================
+
+function StatutCell({
+  cell,
+  options,
+  onPick,
+}: {
+  cell: CaaCell | null;
+  options: CaaStatusOption[];
+  onPick: (libelle: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!open || !ref.current) {
+      setPos(null);
+      return;
+    }
+    const btn = ref.current.querySelector("button[data-statut-btn]");
+    if (!btn) return;
+    const rect = (btn as HTMLElement).getBoundingClientRect();
+    const POPOVER_HEIGHT = 200;
+    const POPOVER_WIDTH = 220;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const rawLeft = rect.left + rect.width / 2;
+    const halfW = POPOVER_WIDTH / 2;
+    const clampedLeft = Math.max(
+      MARGIN + halfW,
+      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
+    );
+    setPos({ left: clampedLeft, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (ref.current?.contains(t)) return;
+      if (popoverRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const isSubscribed = cell !== null;
+
+  return (
+    <div ref={ref} className="inline-block">
+      <button
+        data-statut-btn="1"
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={cn(
+          "inline-block min-w-[110px] px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
+          isSubscribed
+            ? statutColorClass(cell!.statut_logique, null)
+            : "bg-violet-50 dark:bg-violet-500/15 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-300"
+        )}
+      >
+        {isSubscribed ? cell!.libelle ?? "À préparer" : "N/A"}
+      </button>
+      {open && pos &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translate(-50%, calc(-100% - 8px))" : "translate(-50%, 8px)",
+              zIndex: 1000,
+            }}
+            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.10] rounded-lg shadow-xl min-w-[200px] overflow-hidden animate-slide-up-fade"
+          >
+            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
+              Statut CAA
+            </div>
+            <div className="py-1 max-h-[260px] overflow-y-auto">
+              {options.map((o) => (
+                <button
+                  key={o.libelle}
+                  type="button"
+                  onClick={() => {
+                    onPick(o.libelle);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                    cell?.libelle === o.libelle && "bg-zinc-50 dark:bg-white/[0.04]"
+                  )}
+                >
+                  <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", statutColorClass(o.statut_logique, o.color))}>
+                    {o.libelle}
+                  </span>
+                  {cell?.libelle === o.libelle && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
+                </button>
+              ))}
+            </div>
+            {isSubscribed && (
+              <div className="border-t dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPick(null);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                >
+                  Marquer N/A (désouscrire de cette année)
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
+
+// ============================================================================
+//  LdmPicker
 // ============================================================================
 
 function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -281,142 +529,6 @@ function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) =
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ============================================================================
-//  StatutPicker (idem IR)
-// ============================================================================
-
-function StatutPicker({
-  currentLibelle,
-  currentLogique,
-  options,
-  onPick,
-}: {
-  currentLibelle: string | null;
-  currentLogique: StatutLogique | null;
-  options: CaaStatusOption[];
-  onPick: (libelle: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-
-  useEffect(() => {
-    if (!open || !ref.current) {
-      setPos(null);
-      return;
-    }
-    const btn = ref.current.querySelector("button[data-statut-btn]");
-    if (!btn) return;
-    const rect = (btn as HTMLElement).getBoundingClientRect();
-    const POPOVER_HEIGHT = 200;
-    const POPOVER_WIDTH = 220;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const rawLeft = rect.left + rect.width / 2;
-    const halfW = POPOVER_WIDTH / 2;
-    const clampedLeft = Math.max(
-      MARGIN + halfW,
-      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
-    );
-    setPos({ left: clampedLeft, top: openUp ? rect.top : rect.bottom, openUp });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (ref.current?.contains(t)) return;
-      if (popoverRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="inline-block">
-      <button
-        data-statut-btn="1"
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={cn(
-          "inline-block min-w-[100px] px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
-          currentLibelle
-            ? statutColorClass(currentLogique ?? "A_FAIRE", null)
-            : "bg-zinc-50 dark:bg-white/[0.03] border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-400 dark:text-zinc-500"
-        )}
-      >
-        {currentLibelle ?? "—"}
-      </button>
-      {open && pos &&
-        createPortal(
-          <div
-            ref={popoverRef}
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp ? "translate(-50%, calc(-100% - 8px))" : "translate(-50%, 8px)",
-              zIndex: 1000,
-            }}
-            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.10] rounded-lg shadow-xl min-w-[200px] overflow-hidden animate-slide-up-fade"
-          >
-            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
-              Statut CAA
-            </div>
-            <div className="py-1 max-h-[260px] overflow-y-auto">
-              {options.map((o) => (
-                <button
-                  key={o.libelle}
-                  type="button"
-                  onClick={() => {
-                    onPick(o.libelle);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                    currentLibelle === o.libelle && "bg-zinc-50 dark:bg-white/[0.04]"
-                  )}
-                >
-                  <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", statutColorClass(o.statut_logique, o.color))}>
-                    {o.libelle}
-                  </span>
-                  {currentLibelle === o.libelle && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
-                </button>
-              ))}
-            </div>
-            {currentLibelle && (
-              <div className="border-t dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onPick(null);
-                    setOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
-                >
-                  Réinitialiser
-                </button>
-              </div>
-            )}
-          </div>,
-          document.body
-        )}
     </div>
   );
 }

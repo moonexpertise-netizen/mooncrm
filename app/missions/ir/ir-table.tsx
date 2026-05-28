@@ -11,6 +11,7 @@ import {
   createClientIr,
   deleteClientIr,
   setIrObligationStatut,
+  toggleIrSubscription,
   updateClientIr,
   type IrType,
   type StatutLogique,
@@ -23,6 +24,13 @@ export type IrStatusOption = {
   color: string | null;
 };
 
+export type IrObligationCell = {
+  annee: number;
+  type: IrType;
+  libelle: string | null;
+  statut_logique: StatutLogique;
+};
+
 export type IrRow = {
   id: string;
   slug: string;
@@ -32,11 +40,14 @@ export type IrRow = {
   email: string | null;
   telephone: string | null;
   ldm_statut: string;
-  ir: { libelle: string | null; statut_logique: string } | null;
-  ifi: { libelle: string | null; statut_logique: string } | null;
+  /** Map "YYYY|IR" ou "YYYY|IFI" -> cell. Si la cle est absente, le client
+   *  n'est pas souscrit a cette annee/type (= N/A dans la vue annee). */
+  obligations: Map<string, IrObligationCell>;
 };
 
-// Mini-pipeline LDM (commun a IR et CAA — sera deplace dans une lib si besoin)
+// Mini-pipeline LDM (4 statuts hardcodes pour l'instant — pourra etre
+// migre en status_options scope='ldm_mission' quand Benjamin donnera la
+// liste finale)
 const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
   { key: "a_preparer", label: "À préparer", color: "bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.12]" },
   { key: "propale_acceptee", label: "Propale acceptée", color: "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30" },
@@ -46,12 +57,14 @@ const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
 
 export default function IrTable({
   rows,
-  annee,
+  mode,
+  selectedYear,
   years,
   statusOptions,
 }: {
   rows: IrRow[];
-  annee: number;
+  mode: "base" | "year";
+  selectedYear: number;
   years: number[];
   statusOptions: Record<string, IrStatusOption[]>;
 }) {
@@ -61,12 +74,6 @@ export default function IrTable({
   const [localRows, setLocalRows] = useState(rows);
   useEffect(() => setLocalRows(rows), [rows]);
   const { confirm, ConfirmDialog } = useConfirm();
-
-  function changeYear(y: number) {
-    const url = new URL(window.location.href);
-    url.searchParams.set("year", String(y));
-    router.push(url.pathname + url.search);
-  }
 
   function onSetLdm(clientIrId: string, newStatut: string) {
     setLocalRows((prev) =>
@@ -81,20 +88,55 @@ export default function IrTable({
     });
   }
 
-  function onSetStatut(clientIrId: string, type: IrType, libelle: string | null) {
-    // Optimistic
+  function onToggleSubscription(clientIrId: string, annee: number, type: IrType) {
+    // Optimistic : on toggle la cell dans la map
     setLocalRows((prev) =>
       prev.map((r) => {
         if (r.id !== clientIrId) return r;
-        const opts = statusOptions[`${type}_ANNEE`] ?? [];
-        const sl = opts.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE";
-        const slot = { libelle, statut_logique: sl };
-        return type === "IR" ? { ...r, ir: slot } : { ...r, ifi: slot };
+        const key = `${annee}|${type}`;
+        const newMap = new Map(r.obligations);
+        if (newMap.has(key)) {
+          newMap.delete(key);
+        } else {
+          newMap.set(key, {
+            annee,
+            type,
+            libelle: "À faire",
+            statut_logique: "A_FAIRE",
+          });
+        }
+        return { ...r, obligations: newMap };
       })
     );
     startTransition(async () => {
       try {
-        await setIrObligationStatut(clientIrId, annee, type, libelle);
+        await toggleIrSubscription(clientIrId, annee, type);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec toggle souscription");
+      }
+    });
+  }
+
+  function onSetStatut(clientIrId: string, type: IrType, libelle: string | null) {
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== clientIrId) return r;
+        const key = `${selectedYear}|${type}`;
+        const newMap = new Map(r.obligations);
+        if (libelle === null) {
+          newMap.delete(key);
+        } else {
+          const opts = statusOptions[`${type}_ANNEE`] ?? [];
+          const sl = opts.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE";
+          newMap.set(key, { annee: selectedYear, type, libelle, statut_logique: sl });
+        }
+        return { ...r, obligations: newMap };
+      })
+    );
+    startTransition(async () => {
+      try {
+        await setIrObligationStatut(clientIrId, selectedYear, type, libelle);
         router.refresh();
       } catch (e) {
         toastError(e, `Echec sauvegarde ${type}`);
@@ -122,29 +164,55 @@ export default function IrTable({
     });
   }
 
+  // URL helpers pour les onglets Base / Year
+  function urlForBase() {
+    return "/missions/ir?view=base";
+  }
+  function urlForYear(y: number) {
+    return `/missions/ir?year=${y}`;
+  }
+
   return (
     <div className={cn("space-y-3", isPending && "opacity-95")}>
       {ConfirmDialog}
 
-      {/* Toolbar : selecteur d'annee + bouton ajouter */}
+      {/* Onglets Base / Year + bouton ajouter */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
-          <span className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 px-2">Exercice</span>
-          {years.map((y) => (
-            <button
-              key={y}
-              onClick={() => changeYear(y)}
-              className={cn(
-                "px-3 py-1 rounded-lg text-sm tabular-nums transition-all border",
-                y === annee
-                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border-zinc-300 dark:border-white/25 shadow-card font-semibold"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border-transparent"
-              )}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
+        <nav
+          aria-label="Vue tracker IR"
+          className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]"
+        >
+          <Link
+            href={urlForBase()}
+            aria-current={mode === "base" ? "page" : undefined}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-sm transition-all",
+              mode === "base"
+                ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
+            )}
+          >
+            Base
+          </Link>
+          {years.map((y) => {
+            const active = mode === "year" && y === selectedYear;
+            return (
+              <Link
+                key={y}
+                href={urlForYear(y)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm tabular-nums transition-all",
+                  active
+                    ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
+                )}
+              >
+                {y}
+              </Link>
+            );
+          })}
+        </nav>
 
         {!adding && (
           <button
@@ -157,7 +225,6 @@ export default function IrTable({
         )}
       </div>
 
-      {/* Formulaire creation inline */}
       {adding && (
         <NewClientIrForm onCancel={() => setAdding(false)} onCreated={() => { setAdding(false); router.refresh(); }} />
       )}
@@ -173,10 +240,18 @@ export default function IrTable({
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Nom</th>
-                <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Email / Tél</th>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
-                <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IR {annee}</th>
-                <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI {annee}</th>
+                {mode === "base" ? (
+                  <>
+                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IR — années</th>
+                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI — années</th>
+                  </>
+                ) : (
+                  <>
+                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IR {selectedYear}</th>
+                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI {selectedYear}</th>
+                  </>
+                )}
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
             </thead>
@@ -188,31 +263,59 @@ export default function IrTable({
                       <span className="font-medium text-zinc-900 dark:text-zinc-100">
                         {[r.civilite, r.prenom, r.nom].filter(Boolean).join(" ")}
                       </span>
+                      {(r.email || r.telephone) && (
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[280px]">
+                          {[r.email, r.telephone].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400">
-                    {r.email && <div className="truncate max-w-[200px]">{r.email}</div>}
-                    {r.telephone && <div className="tabular-nums">{r.telephone}</div>}
                   </td>
                   <td className="px-4 py-3">
                     <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
                   </td>
-                  <td className="px-2 py-3 text-center">
-                    <StatutPicker
-                      currentLibelle={r.ir?.libelle ?? null}
-                      currentLogique={(r.ir?.statut_logique as StatutLogique) ?? null}
-                      options={statusOptions["IR_ANNEE"] ?? []}
-                      onPick={(libelle) => onSetStatut(r.id, "IR", libelle)}
-                    />
-                  </td>
-                  <td className="px-2 py-3 text-center">
-                    <StatutPicker
-                      currentLibelle={r.ifi?.libelle ?? null}
-                      currentLogique={(r.ifi?.statut_logique as StatutLogique) ?? null}
-                      options={statusOptions["IFI_ANNEE"] ?? []}
-                      onPick={(libelle) => onSetStatut(r.id, "IFI", libelle)}
-                    />
-                  </td>
+                  {mode === "base" ? (
+                    <>
+                      <td className="px-4 py-3">
+                        <YearPills
+                          years={years}
+                          subscribedYears={new Set(
+                            Array.from(r.obligations.values())
+                              .filter((c) => c.type === "IR")
+                              .map((c) => c.annee)
+                          )}
+                          onToggle={(year) => onToggleSubscription(r.id, year, "IR")}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <YearPills
+                          years={years}
+                          subscribedYears={new Set(
+                            Array.from(r.obligations.values())
+                              .filter((c) => c.type === "IFI")
+                              .map((c) => c.annee)
+                          )}
+                          onToggle={(year) => onToggleSubscription(r.id, year, "IFI")}
+                        />
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-2 py-3 text-center">
+                        <StatutCell
+                          cell={r.obligations.get(`${selectedYear}|IR`) ?? null}
+                          options={statusOptions["IR_ANNEE"] ?? []}
+                          onPick={(libelle) => onSetStatut(r.id, "IR", libelle)}
+                        />
+                      </td>
+                      <td className="px-2 py-3 text-center">
+                        <StatutCell
+                          cell={r.obligations.get(`${selectedYear}|IFI`) ?? null}
+                          options={statusOptions["IFI_ANNEE"] ?? []}
+                          onPick={(libelle) => onSetStatut(r.id, "IFI", libelle)}
+                        />
+                      </td>
+                    </>
+                  )}
                   <td className="px-2 py-3 text-right">
                     <button
                       onClick={() => onDelete(r.id, [r.prenom, r.nom].filter(Boolean).join(" "))}
@@ -231,14 +334,195 @@ export default function IrTable({
       )}
 
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {localRows.length} dossier{localRows.length > 1 ? "s" : ""} IR — exercice {annee}.
+        {localRows.length} dossier{localRows.length > 1 ? "s" : ""} IR{mode === "year" ? ` — exercice ${selectedYear}` : " — vue d'ensemble"}.
       </p>
     </div>
   );
 }
 
 // ============================================================================
-//  LdmPicker — mini-popover pour le statut LDM (cycle dropdown simple)
+//  YearPills — pills cliquables pour activer/desactiver une annee (vue Base)
+// ============================================================================
+
+function YearPills({
+  years,
+  subscribedYears,
+  onToggle,
+}: {
+  years: number[];
+  subscribedYears: Set<number>;
+  onToggle: (year: number) => void;
+}) {
+  return (
+    <div className="inline-flex flex-wrap items-center gap-1">
+      {years.map((y) => {
+        const subscribed = subscribedYears.has(y);
+        return (
+          <button
+            key={y}
+            type="button"
+            onClick={() => onToggle(y)}
+            aria-pressed={subscribed}
+            title={subscribed ? `Souscrit ${y} · clic pour retirer` : `Non souscrit ${y} · clic pour ajouter`}
+            className={cn(
+              "px-2 py-0.5 rounded text-[11px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
+              subscribed
+                ? "bg-zinc-200 dark:bg-white/[0.14] text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-white/[0.20]"
+                : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10] hover:text-zinc-700 dark:hover:text-zinc-300"
+            )}
+          >
+            {y}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================================
+//  StatutCell — picker statut style Notion (utilise dans vue annee)
+//  Si cell === null : affiche "N/A" en pointille (pas souscrit) avec clic
+//  qui ouvre le picker pour souscrire + choisir un statut directement.
+// ============================================================================
+
+function StatutCell({
+  cell,
+  options,
+  onPick,
+}: {
+  cell: IrObligationCell | null;
+  options: IrStatusOption[];
+  onPick: (libelle: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!open || !ref.current) {
+      setPos(null);
+      return;
+    }
+    const btn = ref.current.querySelector("button[data-statut-btn]");
+    if (!btn) return;
+    const rect = (btn as HTMLElement).getBoundingClientRect();
+    const POPOVER_HEIGHT = 220;
+    const POPOVER_WIDTH = 220;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const rawLeft = rect.left + rect.width / 2;
+    const halfW = POPOVER_WIDTH / 2;
+    const clampedLeft = Math.max(
+      MARGIN + halfW,
+      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
+    );
+    setPos({
+      left: clampedLeft,
+      top: openUp ? rect.top : rect.bottom,
+      openUp,
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (ref.current?.contains(t)) return;
+      if (popoverRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const isSubscribed = cell !== null;
+
+  return (
+    <div ref={ref} className="inline-block">
+      <button
+        data-statut-btn="1"
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={cn(
+          "inline-block min-w-[90px] px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
+          isSubscribed
+            ? statutColorClass(cell!.statut_logique, null)
+            : "bg-violet-50 dark:bg-violet-500/15 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-300"
+        )}
+      >
+        {isSubscribed ? cell!.libelle ?? "À faire" : "N/A"}
+      </button>
+      {open && pos &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translate(-50%, calc(-100% - 8px))" : "translate(-50%, 8px)",
+              zIndex: 1000,
+            }}
+            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.10] rounded-lg shadow-xl min-w-[200px] overflow-hidden animate-slide-up-fade"
+          >
+            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
+              Statut
+            </div>
+            <div className="py-1 max-h-[260px] overflow-y-auto">
+              {options.map((o) => (
+                <button
+                  key={o.libelle}
+                  type="button"
+                  onClick={() => {
+                    onPick(o.libelle);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                    cell?.libelle === o.libelle && "bg-zinc-50 dark:bg-white/[0.04]"
+                  )}
+                >
+                  <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", statutColorClass(o.statut_logique, o.color))}>
+                    {o.libelle}
+                  </span>
+                  {cell?.libelle === o.libelle && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
+                </button>
+              ))}
+            </div>
+            {isSubscribed && (
+              <div className="border-t dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPick(null);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                >
+                  Marquer N/A (désouscrire de cette année)
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
+
+// ============================================================================
+//  LdmPicker
 // ============================================================================
 
 function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -297,146 +581,6 @@ function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) =
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ============================================================================
-//  StatutPicker — picker style Notion pour IR/IFI/CAA, portaillé
-// ============================================================================
-
-function StatutPicker({
-  currentLibelle,
-  currentLogique,
-  options,
-  onPick,
-}: {
-  currentLibelle: string | null;
-  currentLogique: StatutLogique | null;
-  options: IrStatusOption[];
-  onPick: (libelle: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-
-  useEffect(() => {
-    if (!open || !ref.current) {
-      setPos(null);
-      return;
-    }
-    const btn = ref.current.querySelector("button[data-statut-btn]");
-    if (!btn) return;
-    const rect = (btn as HTMLElement).getBoundingClientRect();
-    const POPOVER_HEIGHT = 220;
-    const POPOVER_WIDTH = 220;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const rawLeft = rect.left + rect.width / 2;
-    const halfW = POPOVER_WIDTH / 2;
-    const clampedLeft = Math.max(
-      MARGIN + halfW,
-      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
-    );
-    setPos({
-      left: clampedLeft,
-      top: openUp ? rect.top : rect.bottom,
-      openUp,
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (ref.current?.contains(t)) return;
-      if (popoverRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="inline-block">
-      <button
-        data-statut-btn="1"
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={cn(
-          "inline-block min-w-[80px] px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
-          currentLibelle
-            ? statutColorClass(currentLogique ?? "A_FAIRE", null)
-            : "bg-zinc-50 dark:bg-white/[0.03] border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-400 dark:text-zinc-500"
-        )}
-      >
-        {currentLibelle ?? "—"}
-      </button>
-      {open && pos &&
-        createPortal(
-          <div
-            ref={popoverRef}
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp ? "translate(-50%, calc(-100% - 8px))" : "translate(-50%, 8px)",
-              zIndex: 1000,
-            }}
-            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.10] rounded-lg shadow-xl min-w-[200px] overflow-hidden animate-slide-up-fade"
-          >
-            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
-              Statut
-            </div>
-            <div className="py-1 max-h-[260px] overflow-y-auto">
-              {options.map((o) => (
-                <button
-                  key={o.libelle}
-                  type="button"
-                  onClick={() => {
-                    onPick(o.libelle);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                    currentLibelle === o.libelle && "bg-zinc-50 dark:bg-white/[0.04]"
-                  )}
-                >
-                  <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", statutColorClass(o.statut_logique, o.color))}>
-                    {o.libelle}
-                  </span>
-                  {currentLibelle === o.libelle && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
-                </button>
-              ))}
-            </div>
-            {currentLibelle && (
-              <div className="border-t dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onPick(null);
-                    setOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
-                >
-                  Réinitialiser
-                </button>
-              </div>
-            )}
-          </div>,
-          document.body
-        )}
     </div>
   );
 }
@@ -551,6 +695,3 @@ function NewClientIrForm({
     </div>
   );
 }
-
-// Note : Link import garde pour evolution future (fiche detail)
-void Link;
