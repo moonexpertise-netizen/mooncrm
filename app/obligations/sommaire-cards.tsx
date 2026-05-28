@@ -1,10 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { cn, fmtDateFr } from "@/lib/utils";
 import { TRACKER_GROUPS, type TrackerGroup } from "./trackers";
+
+export type ClientLite = {
+  slug: string;
+  denomination: string;
+  echeance: string | null;
+  statut_detail: string | null;
+};
 
 export type TrackerStat = {
   slug: string;
@@ -17,6 +26,11 @@ export type TrackerStat = {
   total: number;
   prochaineEcheance: string | null;
   derniereAction: string | null;
+  /** Liste de clients par statut (max 20, tries par echeance). Affiches
+   *  dans le popover au survol des compteurs. */
+  todoClients: ClientLite[];
+  wipClients: ClientLite[];
+  doneClients: ClientLite[];
 };
 
 type StatusFilter = "todo" | "wip" | "done" | "urgent";
@@ -260,11 +274,32 @@ function TrackerRow({
 
       {/* 3 compteurs alignés verticalement, largeur fixe. Le 0 est en gris
           discret → l'œil se concentre sur ce qui n'est pas zéro.
-          Tooltip explicite au survol via `title` natif (lu aussi par SR). */}
+          Au survol : popover riche avec la liste des clients concernés. */}
       <div className="hidden sm:flex items-center gap-1 shrink-0 tabular-nums">
-        <Counter value={row.todo} color="rose" title={`${row.todo} ${row.title} à traiter`} />
-        <Counter value={row.wip} color="amber" title={`${row.wip} ${row.title} en cours`} />
-        <Counter value={row.done} color="emerald" title={`${row.done} ${row.title} terminés`} />
+        <Counter
+          value={row.todo}
+          color="rose"
+          label="À faire"
+          clients={row.todoClients}
+          totalCount={row.todo}
+          trackerTitle={row.title}
+        />
+        <Counter
+          value={row.wip}
+          color="amber"
+          label="En cours"
+          clients={row.wipClients}
+          totalCount={row.wip}
+          trackerTitle={row.title}
+        />
+        <Counter
+          value={row.done}
+          color="emerald"
+          label="Terminé"
+          clients={row.doneClients}
+          totalCount={row.done}
+          trackerTitle={row.title}
+        />
       </div>
 
       {/* Sur mobile : compteurs compactés en une ligne — meme info en tooltip. */}
@@ -326,32 +361,155 @@ function TrackerRow({
 function Counter({
   value,
   color,
-  title,
+  label,
+  clients,
+  totalCount,
+  trackerTitle,
 }: {
   value: number;
   color: "rose" | "amber" | "emerald";
-  title?: string;
+  label: string;
+  clients: ClientLite[];
+  /** Compte reel (peut etre > clients.length si liste tronquee a 20) */
+  totalCount: number;
+  trackerTitle: string;
 }) {
   const muted = value === 0;
-  // Plus de ring-1 (qui creait une bordure claire en dark autour de chaque
-  // pill). Juste un fond tinted + texte coloré. Notion-style.
   const palette = {
     rose: "bg-rose-50 text-rose-700",
     amber: "bg-amber-50 text-amber-700",
     emerald: "bg-emerald-50 text-emerald-700",
   } as const;
+
+  // Span (et pas button) pour eviter button imbrique dans le button TrackerRow
+  // qui est invalide HTML. tabIndex + role="button" pour le focus clavier.
+  const ref = useRef<HTMLSpanElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Position du popover : calcule au survol (mouseEnter), clamp viewport.
+  useEffect(() => {
+    if (!open || !ref.current) {
+      setPos(null);
+      return;
+    }
+    const rect = ref.current.getBoundingClientRect();
+    const POPOVER_WIDTH = 300;
+    const POPOVER_HEIGHT = 260;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    // On centre le popover au-dessus du counter, en clampant pour rester
+    // dans le viewport.
+    const rawLeft = rect.left + rect.width / 2;
+    const halfW = POPOVER_WIDTH / 2;
+    const clampedLeft = Math.max(
+      MARGIN + halfW,
+      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
+    );
+    setPos({
+      left: clampedLeft,
+      top: openUp ? rect.top : rect.bottom,
+      openUp,
+    });
+  }, [open]);
+
+  // Hover avec petit delai a la fermeture pour permettre d'aller cliquer
+  // sur un client dans le popover sans qu'il se ferme trop vite.
+  function onEnter() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setOpen(true);
+  }
+  function onLeave() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), 120);
+  }
+
+  // Eviter de stopper la propagation pour ne pas casser le clic sur la
+  // row entiere (qui navigue vers le tracker). Le popover lui-meme stoppe.
   return (
-    <div
-      title={title}
-      className={cn(
-        "min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums cursor-help",
-        muted
-          ? "bg-transparent text-zinc-400 dark:text-zinc-600"
-          : palette[color]
-      )}
-    >
-      {value}
-    </div>
+    <>
+      <span
+        ref={ref}
+        tabIndex={value > 0 ? 0 : -1}
+        role={value > 0 ? "button" : undefined}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
+        onFocus={onEnter}
+        onBlur={onLeave}
+        aria-label={value > 0 ? `${value} ${label.toLowerCase()} (survoler pour la liste)` : undefined}
+        className={cn(
+          "inline-block min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums transition-colors",
+          muted
+            ? "bg-transparent text-zinc-400 dark:text-zinc-600"
+            : palette[color],
+          !muted && "hover:brightness-95 cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+        )}
+      >
+        {value}
+      </span>
+
+      {open && pos && value > 0 && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            onMouseEnter={onEnter}
+            onMouseLeave={onLeave}
+            // empeche le clic sur le popover de declencher le navigate du parent
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp
+                ? "translate(-50%, calc(-100% - 8px))"
+                : "translate(-50%, 8px)",
+              zIndex: 1000,
+            }}
+            className="w-[300px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-xl overflow-hidden animate-slide-up-fade"
+          >
+            {/* Header du popover */}
+            <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06] bg-zinc-50/60 dark:bg-white/[0.03]">
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium">
+                  {label} · {trackerTitle}
+                </div>
+                <div className="text-[11px] tabular-nums font-semibold text-zinc-700 dark:text-zinc-200">
+                  {totalCount}
+                </div>
+              </div>
+            </div>
+            {/* Liste des clients */}
+            <ul className="max-h-[280px] overflow-y-auto py-1">
+              {clients.map((c) => (
+                <li key={`${c.slug}-${c.echeance ?? ""}`}>
+                  <Link
+                    href={`/clients/${c.slug}/obligations`}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                  >
+                    <span className="flex-1 truncate text-zinc-800 dark:text-zinc-100">
+                      {c.denomination}
+                    </span>
+                    {c.echeance && (
+                      <span className="shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+                        {fmtDateFr(c.echeance)}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+              {totalCount > clients.length && (
+                <li className="px-3 py-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 italic">
+                  … et {totalCount - clients.length} autre{totalCount - clients.length > 1 ? "s" : ""}
+                </li>
+              )}
+            </ul>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
