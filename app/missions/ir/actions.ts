@@ -13,7 +13,15 @@ export type LdmStatut = "a_preparer" | "propale_acceptee" | "ldm_envoyee" | "ldm
 export type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 export type IrType = "IR" | "IFI";
 
-/** Cree un client IR (personne physique). */
+/**
+ * Cree un client IR (personne physique).
+ *
+ * En cas d'erreur Supabase (table manquante, RLS, etc.), on logge cote
+ * serveur et on jette une Error avec le message complet (code + hint).
+ * En prod Next.js masque le .message des Server Actions, donc on copie
+ * aussi le detail dans le message lui-meme pour qu'il remonte au toast
+ * client meme en prod.
+ */
 export async function createClientIr(input: {
   prenom: string | null;
   nom: string;
@@ -34,7 +42,13 @@ export async function createClientIr(input: {
     })
     .select("id, slug")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error("[createClientIr] Supabase error:", JSON.stringify(error));
+    throw new Error(
+      `Supabase ${error.code ?? ""} : ${error.message}${error.hint ? ` · ${error.hint}` : ""}`
+    );
+  }
   return data;
 }
 
