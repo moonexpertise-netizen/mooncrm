@@ -23,16 +23,20 @@ export const dynamic = "force-dynamic";
 export default async function MissionsExcPage() {
   const sb = await createClient();
 
+  // Query missions defensive : si ldm_statut column missing (migration 0049
+  // pas appliquee), on retombe sur une query sans cette colonne.
+  const missionsCols =
+    "id, slug, client_id, client_libre, mission, type_id, description, duree_theorique_h, duree_reelle_h, taux_horaire, forfait, etat_mission, etat_facturation, ldm_statut, date_debut, date_fin, created_at, clients(slug, denomination)";
+  const missionsColsFallback =
+    "id, slug, client_id, client_libre, mission, type_id, description, duree_theorique_h, duree_reelle_h, taux_horaire, forfait, etat_mission, etat_facturation, date_debut, date_fin, created_at, clients(slug, denomination)";
   const [
-    { data: missions },
+    missionsRes,
     { data: types },
     { data: clients },
   ] = await Promise.all([
     sb
       .from("missions_exceptionnelles")
-      .select(
-        "id, slug, client_id, client_libre, mission, type_id, description, duree_theorique_h, duree_reelle_h, taux_horaire, forfait, etat_mission, etat_facturation, ldm_statut, date_debut, date_fin, created_at, clients(slug, denomination)"
-      )
+      .select(missionsCols)
       .order("date_debut", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
     sb
@@ -44,6 +48,15 @@ export default async function MissionsExcPage() {
       .select("id, slug, denomination")
       .order("denomination", { ascending: true }),
   ]);
+  let missions = missionsRes.data;
+  if (missionsRes.error && /ldm_statut/i.test(missionsRes.error.message)) {
+    const fb = await sb
+      .from("missions_exceptionnelles")
+      .select(missionsColsFallback)
+      .order("date_debut", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    missions = (fb.data ?? []).map((m) => ({ ...m, ldm_statut: "a_faire" }));
+  }
 
   // Supabase retourne la jointure clients() sous forme d'array meme avec .single
   // implicite. On normalise vers un objet (premier element ou null).

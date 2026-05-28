@@ -53,28 +53,38 @@ export type MissionExcInput = {
 export async function createMission(input: MissionExcInput) {
   if (!input.mission?.trim()) throw new Error("Mission obligatoire");
   const sb = await createClient();
-  const { data, error } = await sb
+  // baseRow : champs presents depuis migration 0048
+  const baseRow = {
+    client_id: input.client_id || null,
+    client_libre: input.client_libre?.trim() || null,
+    mission: input.mission.trim(),
+    type_id: input.type_id || null,
+    description: input.description?.trim() || null,
+    duree_theorique_h: input.duree_theorique_h ?? null,
+    duree_reelle_h: input.duree_reelle_h ?? null,
+    taux_horaire: input.taux_horaire ?? null,
+    forfait: input.forfait ?? null,
+    etat_mission: input.etat_mission ?? "a_demarrer",
+    etat_facturation: input.etat_facturation ?? "a_facturer",
+    date_debut: input.date_debut || null,
+    date_fin: input.date_fin || null,
+  };
+  // Try with ldm_statut (migration 0049). Si ldm_statut column missing,
+  // fallback sans le champ pour pas bloquer la creation.
+  let res = await sb
     .from("missions_exceptionnelles")
-    .insert({
-      client_id: input.client_id || null,
-      client_libre: input.client_libre?.trim() || null,
-      mission: input.mission.trim(),
-      type_id: input.type_id || null,
-      description: input.description?.trim() || null,
-      duree_theorique_h: input.duree_theorique_h ?? null,
-      duree_reelle_h: input.duree_reelle_h ?? null,
-      taux_horaire: input.taux_horaire ?? null,
-      forfait: input.forfait ?? null,
-      etat_mission: input.etat_mission ?? "a_demarrer",
-      etat_facturation: input.etat_facturation ?? "a_facturer",
-      ldm_statut: input.ldm_statut ?? "a_faire",
-      date_debut: input.date_debut || null,
-      date_fin: input.date_fin || null,
-    })
+    .insert({ ...baseRow, ldm_statut: input.ldm_statut ?? "a_faire" })
     .select("id, slug")
     .single();
-  if (error) throw new Error(error.message);
-  return data;
+  if (res.error && /ldm_statut/i.test(res.error.message)) {
+    res = await sb
+      .from("missions_exceptionnelles")
+      .insert(baseRow)
+      .select("id, slug")
+      .single();
+  }
+  if (res.error) throw new Error(res.error.message);
+  return res.data;
 }
 
 export async function updateMission(
