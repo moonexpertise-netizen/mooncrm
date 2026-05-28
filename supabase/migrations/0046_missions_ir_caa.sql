@@ -15,6 +15,18 @@
 -- ============================================================================
 
 -- ============================================================================
+-- 1. Relacher le CHECK constraint sur status_options.scope.
+--
+-- En 0001 le check etait : scope in ('obligation', 'onboarding'). On y
+-- ajoute 'ir' et 'caa' pour autoriser le seed plus bas + les requetes
+-- runtime du code (where scope = 'ir' / 'caa').
+-- ============================================================================
+
+alter table public.status_options drop constraint if exists status_options_scope_check;
+alter table public.status_options add constraint status_options_scope_check
+  check (scope in ('obligation', 'onboarding', 'ir', 'caa'));
+
+-- ============================================================================
 -- IR : clients_ir + ir_obligations
 -- ============================================================================
 
