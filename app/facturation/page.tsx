@@ -109,18 +109,33 @@ export default async function FacturationPage({
   const irItems = [...irByKey.values()];
 
   // ============================================================================
-  // 3. AGO billables : on filtre par libelle explicitement (independamment
-  //    de statut_logique pour ne pas dependre de la migration 0051). Sont
-  //    consideres billables : "2 - Depose" et "3 - Valide par greffe".
+  // 3. AGO billables : on recupere TOUS les AGO_DEPOT puis on filtre cote JS.
+  //    Avantages :
+  //      - Independant de la migration 0051 (statut_logique TERMINE ou EN_COURS)
+  //      - Robuste vs variantes d'encodage UTF-8 du libelle ("Déposé" peut
+  //        avoir 1 ou 2 codepoints selon normalisation NFC/NFD)
+  //      - Match permissif : tout statut contenant "depose" ou "valide" (case
+  //        et accent insensitive)
   // ============================================================================
-  const AGO_BILLABLE_LIBELLES = ["2 - Déposé", "3 - Validé par greffe"];
-  const { data: agoRows } = await sb
+  const { data: agoAll, error: agoErr } = await sb
     .from("obligations")
     .select(
       "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination)"
     )
-    .eq("type", "AGO_DEPOT")
-    .in("statut_detail", AGO_BILLABLE_LIBELLES);
+    .eq("type", "AGO_DEPOT");
+  if (agoErr) {
+    // eslint-disable-next-line no-console
+    console.error("[/facturation] AGO query error:", agoErr);
+  }
+  function isAgoBillable(statut_detail: string | null, statut_logique: string | null): boolean {
+    if (statut_logique === "TERMINE") return true;
+    if (!statut_detail) return false;
+    const norm = statut_detail.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    return norm.includes("depose") || norm.includes("valide");
+  }
+  const agoRows = (agoAll ?? []).filter((r) =>
+    isAgoBillable(r.statut_detail, r.statut_logique)
+  );
 
   type AgoRow = {
     id: string;
@@ -149,17 +164,23 @@ export default async function FacturationPage({
   // 4. Bilans : LIASSE_PLAQUETTE en "4 - Plaquette transmise" + client avec
   //    type_honos_bilans = 'Facturés'. Pour les clients ou bilan = inclus
   //    dans le forfait, pas de facturation separee (donc filtrés).
-  //    Filtre par libelle pour etre robuste (statut_logique TERMINE est aussi
-  //    OK mais le libelle est plus explicit metier).
+  //    Meme approche que AGO : fetch all + filter JS pour robustesse.
   // ============================================================================
-  const BILAN_BILLABLE_LIBELLES = ["4 - Plaquette transmise"];
-  const { data: bilanRows } = await sb
+  const { data: bilanAll } = await sb
     .from("obligations")
     .select(
       "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination, forfait_bilan, type_honos_bilans)"
     )
-    .eq("type", "LIASSE_PLAQUETTE")
-    .in("statut_detail", BILAN_BILLABLE_LIBELLES);
+    .eq("type", "LIASSE_PLAQUETTE");
+  function isBilanBillable(statut_detail: string | null, statut_logique: string | null): boolean {
+    if (statut_logique === "TERMINE") return true;
+    if (!statut_detail) return false;
+    const norm = statut_detail.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    return norm.includes("plaquette transmise") || norm.includes("plaquette transmis");
+  }
+  const bilanRows = (bilanAll ?? []).filter((r) =>
+    isBilanBillable(r.statut_detail, r.statut_logique)
+  );
 
   type BilanRow = {
     id: string;

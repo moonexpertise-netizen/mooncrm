@@ -37,7 +37,17 @@ export default async function IrPage({
   // On charge TOUS les obligations IR/IFI quelle que soit la vue, pour
   // permettre d'afficher les pills cross-annee dans la vue Base et de
   // savoir si un client est souscrit a une annee dans la vue Annee.
-  const [{ data: clients }, { data: obligations }, { data: statusOpts }] = await Promise.all([
+  // Query defensive : si etat_facturation n'existe pas (migration 0050
+  // pas appliquee), on retombe sur une query sans cette colonne.
+  type ObRow = {
+    client_ir_id: string;
+    annee: number;
+    type: string;
+    statut_logique: string;
+    statut_detail: string | null;
+    etat_facturation: string | null;
+  };
+  const [{ data: clients }, obligationsRes, { data: statusOpts }] = await Promise.all([
     sb
       .from("clients_ir")
       .select("id, slug, civilite, prenom, nom, email, telephone, ldm_statut")
@@ -52,6 +62,13 @@ export default async function IrPage({
       .eq("actif", true)
       .order("ordre"),
   ]);
+  let obligations: ObRow[] | null = obligationsRes.data as ObRow[] | null;
+  if (obligationsRes.error) {
+    const { data: fb } = await sb
+      .from("ir_obligations")
+      .select("client_ir_id, annee, type, statut_logique, statut_detail");
+    obligations = (fb ?? []).map((r) => ({ ...r, etat_facturation: null })) as ObRow[];
+  }
 
   // Index : client_id -> Map<"YYYY|IR"|"YYYY|IFI", cell>
   // + index parallele : client_id -> Map<YYYY, etat_facturation>

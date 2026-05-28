@@ -30,7 +30,16 @@ export default async function CaaPage({
 
   const sb = await createClient();
 
-  const [{ data: clients }, { data: obligations }, { data: statusOpts }] = await Promise.all([
+  // Query defensive : si etat_facturation n'existe pas (migration 0050
+  // pas appliquee), on retombe sur une query sans cette colonne.
+  type ObRow = {
+    client_caa_id: string;
+    annee: number;
+    statut_logique: string;
+    statut_detail: string | null;
+    etat_facturation: string | null;
+  };
+  const [{ data: clients }, obligationsRes, { data: statusOpts }] = await Promise.all([
     sb
       .from("clients_caa")
       .select(
@@ -47,6 +56,13 @@ export default async function CaaPage({
       .eq("actif", true)
       .order("ordre"),
   ]);
+  let obligations: ObRow[] | null = obligationsRes.data as ObRow[] | null;
+  if (obligationsRes.error) {
+    const { data: fb } = await sb
+      .from("caa_obligations")
+      .select("client_caa_id, annee, statut_logique, statut_detail");
+    obligations = (fb ?? []).map((r) => ({ ...r, etat_facturation: null })) as ObRow[];
+  }
 
   // Index : client_caa_id -> Map<year, cell>
   const obByClient = new Map<string, Map<number, CaaCell>>();
