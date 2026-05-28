@@ -235,6 +235,22 @@ export async function setPipelineStatut(
 
   const { error } = await sb.from("clients").update(patch).eq("id", clientId);
   if (error) throw new Error(error.message);
+
+  // Bascule sur un statut "geree" (LDM signee / Interne / Sous-traitance) :
+  // on initialise l'onboarding si ce n'est pas deja fait. Idempotent — si
+  // les taches existent deja, initializeOnboardingForClient ne touche a rien.
+  // Permet aux dossiers Internes (Benjamin + famille) et Sous-traites d'avoir
+  // un onboarding gerable sans passer par le bouton "LDM signee".
+  if (
+    statut === "7 - LDM signée" ||
+    statut === "Z - Interne" ||
+    statut === "Z - Sous-traitance"
+  ) {
+    const { initializeOnboardingForClient } = await import(
+      "@/app/onboarding/actions"
+    );
+    await initializeOnboardingForClient(clientId);
+  }
   // Perf : pas de revalidatePath, force-dynamic + optimistic UI s'en chargent.
 }
 

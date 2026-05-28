@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isClientBillable } from "@/lib/billable";
 import { Card } from "../_components";
 import { loadClient } from "../_data";
 import OnboardingEditor, {
   type OnboardingTask,
   type OnboardingStatusOption,
 } from "./onboarding-editor";
+import StartOnboardingButton from "./start-onboarding-button";
 
 export const dynamic = "force-dynamic";
 
@@ -118,15 +120,26 @@ export default async function OnboardingTab({
   ).length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
+  // Le dossier est-il deja "gere" (LDM signee / Interne / Sous-traitance) ?
+  // On peut alors proposer un bouton de lancement manuel, meme sans LDM.
+  const billable = isClientBillable({
+    pipeline_statut: client.pipeline_statut,
+    origine: client.origine,
+  });
+
   return (
     <div className="space-y-4">
       {/* Header progression */}
       <Card title="Progression onboarding">
         {total === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucune tâche d&apos;onboarding pour ce client. Elles sont créées
-            automatiquement au moment de la signature LDM (bouton « LDM signée 🎉 »).
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {billable
+                ? "Aucune tâche d'onboarding pour ce dossier. Tu peux les générer maintenant à partir du parcours par défaut."
+                : "Aucune tâche d'onboarding pour ce client. Elles sont créées automatiquement au moment de la signature LDM (bouton « LDM signée 🎉 »), ou quand le dossier passe en Interne / Sous-traitance."}
+            </p>
+            {billable && <StartOnboardingButton clientId={client.id} />}
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="flex items-baseline justify-between gap-2">
