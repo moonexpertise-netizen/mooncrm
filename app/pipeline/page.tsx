@@ -21,12 +21,15 @@ export default async function PipelinePage() {
     arr: number | null;
     pipeline_statut: string | null;
     pipeline_changed_at?: string | null;
+    mois_signature: string | null;
   };
 
   let data: ClientRow[] | null = null;
   let error: { message: string } | null = null;
+  // mois_signature : disponible depuis migration 0016, garanti present.
+  // Utilise pour trier la colonne "7 - LDM signee" par date de signature.
   const baseCols =
-    "id, slug, denomination, siren, forme, activite, arr, pipeline_statut";
+    "id, slug, denomination, siren, forme, activite, arr, pipeline_statut, mois_signature";
 
   // Tentative 1 : avec pipeline_changed_at (migration 0047 appliquee)
   const first = await sb
@@ -68,6 +71,7 @@ export default async function PipelinePage() {
     arr: Number(c.arr ?? 0),
     pipeline_statut: c.pipeline_statut as PipelineStatut | null,
     pipeline_changed_at: c.pipeline_changed_at ?? null,
+    mois_signature: c.mois_signature ?? null,
   }));
 
   return (

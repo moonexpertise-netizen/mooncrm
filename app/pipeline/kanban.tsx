@@ -34,6 +34,9 @@ export type PipelineCard = {
   /** ISO timestamp de la derniere bascule de pipeline_statut. Sert au tri
    *  du kanban (dernier arrive en haut). Backfilled par migration 0047. */
   pipeline_changed_at: string | null;
+  /** Date de signature LDM (YYYY-MM-DD). Sert au tri specifique de la
+   *  colonne "7 - LDM signee" : les plus recemment signes en haut. */
+  mois_signature: string | null;
 };
 
 const ACTIVE_STAGES: PipelineStatut[] = [
@@ -66,15 +69,33 @@ const SHORT_LABEL: Record<PipelineStatut, string> = {
   "Z - Résiliée": "Résiliée",
 };
 
-/** Tri DESC par pipeline_changed_at (le plus recent en tete). Fallback
- *  alphabetique sur denomination pour les cards sans timestamp. Coherent
- *  avec le tri serveur dans /pipeline/page.tsx. */
-function sortByChangedAtDesc(a: PipelineCard, b: PipelineCard): number {
+/** Tri DESC d'une colonne kanban.
+ *
+ *  - Colonne "7 - LDM signee" : par mois_signature DESC (les plus
+ *    recemment signes en tete). C'est la date metier qui compte la,
+ *    pas la date de bascule pipeline.
+ *  - Toutes les autres colonnes : par pipeline_changed_at DESC (dernier
+ *    arrive en tete). Sert au signal "qui a bouge recemment".
+ *
+ *  Fallback alphabetique sur denomination si les timestamps sont absents
+ *  (migration 0047 pas encore appliquee, ou signature pas encore datee).
+ */
+function sortColumnDesc(a: PipelineCard, b: PipelineCard): number {
+  // Les cards d'une meme colonne ont le meme pipeline_statut. On regarde
+  // a.pipeline_statut (b.pipeline_statut est garanti egal).
+  if (a.pipeline_statut === "7 - LDM signée") {
+    const ma = a.mois_signature;
+    const mb = b.mois_signature;
+    if (ma && mb && ma !== mb) return mb.localeCompare(ma);
+    if (ma && !mb) return -1;
+    if (mb && !ma) return 1;
+    // Tie-break : pipeline_changed_at, puis denomination
+  }
   const ta = a.pipeline_changed_at;
   const tb = b.pipeline_changed_at;
-  if (ta && tb) return tb.localeCompare(ta); // ISO 8601 string compare = chrono
-  if (ta) return -1;
-  if (tb) return 1;
+  if (ta && tb && ta !== tb) return tb.localeCompare(ta);
+  if (ta && !tb) return -1;
+  if (tb && !ta) return 1;
   return a.denomination.localeCompare(b.denomination, "fr");
 }
 
@@ -96,7 +117,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
       arr.push(c);
       map.set(key, arr);
     }
-    for (const arr of map.values()) arr.sort(sortByChangedAtDesc);
+    for (const arr of map.values()) arr.sort(sortColumnDesc);
     return map;
   }, [localCards]);
   // Confettis + achievement card a chaque LDM signee, peu importe le chemin
@@ -137,15 +158,26 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
     const prev = localCards.find((c) => c.id === cardId);
     const previousStatut = prev?.pipeline_statut;
     const previousChangedAt = prev?.pipeline_changed_at ?? null;
-    // Optimistic : on bouge la carte ET on lui assigne pipeline_changed_at
-    // = maintenant. Ainsi le tri DESC remontera la carte en haut de la
-    // nouvelle colonne immediatement (avant meme que le serveur ait
-    // confirme), coherent avec ce que la DB va appliquer via trigger.
+    const previousMoisSignature = prev?.mois_signature ?? null;
+    // Optimistic : pipeline_changed_at = maintenant pour le tri DESC.
+    // Si on bascule vers "7 - LDM signee" pour la 1ere fois et qu'il n'y
+    // a pas de mois_signature, on en pose une (date du jour) pour que la
+    // colonne soit triee correctement immediatement. Le serveur fera
+    // pareil via setPipelineStatut.
     const nowIso = new Date().toISOString();
+    const today = nowIso.substring(0, 10);
+    const isSigningNow =
+      newStatut === "7 - LDM signée" && previousStatut !== "7 - LDM signée";
     setLocalCards((s) =>
       s.map((c) =>
         c.id === cardId
-          ? { ...c, pipeline_statut: newStatut, pipeline_changed_at: nowIso }
+          ? {
+              ...c,
+              pipeline_statut: newStatut,
+              pipeline_changed_at: nowIso,
+              mois_signature:
+                isSigningNow && !c.mois_signature ? today : c.mois_signature,
+            }
           : c
       )
     );
@@ -165,6 +197,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
                   ...c,
                   pipeline_statut: previousStatut ?? c.pipeline_statut,
                   pipeline_changed_at: previousChangedAt,
+                  mois_signature: previousMoisSignature,
                 }
               : c
           )
@@ -294,7 +327,7 @@ function MobilePipelineList({
   function renderSection(statut: PipelineStatut | null, label: string) {
     const subset = cards
       .filter((c) => c.pipeline_statut === statut)
-      .sort(sortByChangedAtDesc);
+      .sort(sortColumnDesc);
     const isClosed = closed.has(String(statut ?? "__none"));
     const color = statut
       ? PIPELINE_COLORS[statut] ?? ""
