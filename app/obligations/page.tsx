@@ -9,7 +9,17 @@ import SommaireCards, { type TrackerStat } from "./sommaire-cards";
 export const dynamic = "force-dynamic";
 
 const CURRENT_YEAR = 2026;
-const AVAILABLE_YEARS = [2024, 2025, 2026];
+// Fenetre glissante : 4 annees avant + courante + 1 apres. Permet a Benjamin
+// de remonter sur les exercices passes (ex. clotures decalees, repreneurs
+// d'exercice incomplet) sans avoir a modifier le code a chaque rentree.
+const AVAILABLE_YEARS = [
+  CURRENT_YEAR - 4,
+  CURRENT_YEAR - 3,
+  CURRENT_YEAR - 2,
+  CURRENT_YEAR - 1,
+  CURRENT_YEAR,
+  CURRENT_YEAR + 1,
+];
 
 export default async function ObligationsSommaire({
   searchParams,
