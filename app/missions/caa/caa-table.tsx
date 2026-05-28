@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
@@ -198,6 +198,26 @@ export default function CaaTable({
     });
   }
 
+  // Recap par annee : compte les missions CAA par statut_logique pour le
+  // sommaire au-dessus du tableau.
+  const yearRecap = useMemo(() => {
+    type Stats = { a_faire: number; en_cours: number; termine: number };
+    const map = new Map<number, Stats>();
+    for (const r of localRows) {
+      for (const cell of r.obligations.values()) {
+        if (!map.has(cell.annee)) map.set(cell.annee, { a_faire: 0, en_cours: 0, termine: 0 });
+        const s = map.get(cell.annee)!;
+        if (cell.statut_logique === "A_FAIRE") s.a_faire++;
+        else if (cell.statut_logique === "EN_COURS") s.en_cours++;
+        else if (cell.statut_logique === "TERMINE") s.termine++;
+      }
+    }
+    return map;
+  }, [localRows]);
+  function statsFor(year: number): { a_faire: number; en_cours: number; termine: number } {
+    return yearRecap.get(year) ?? { a_faire: 0, en_cours: 0, termine: 0 };
+  }
+
   function urlForBase(c: number = center) {
     return `/missions/caa?view=base&center=${c}`;
   }
@@ -275,6 +295,36 @@ export default function CaaTable({
             Nouveau dossier CAA
           </button>
         )}
+      </div>
+
+      {/* Recap par annee : sommaire CAA pour la fenetre 3-ans courante. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {years.map((y) => {
+          const stats = statsFor(y);
+          const total = stats.a_faire + stats.en_cours + stats.termine;
+          const pct = total > 0 ? Math.round((stats.termine / total) * 100) : 0;
+          const active = mode === "year" && y === selectedYear;
+          return (
+            <Link
+              key={y}
+              href={urlForYear(y)}
+              className={cn(
+                "block rounded-xl border bg-white dark:bg-[hsl(var(--card))] shadow-card p-3 space-y-2 transition-colors",
+                active
+                  ? "border-zinc-400 dark:border-white/30 ring-1 ring-zinc-300 dark:ring-white/20"
+                  : "border-zinc-200 dark:border-white/[0.08] hover:border-zinc-300 dark:hover:border-white/[0.16]"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{y}</span>
+                {total === 0 && (
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic">aucune souscription</span>
+                )}
+              </div>
+              {total > 0 && <CaaRecapLine stats={stats} pct={pct} />}
+            </Link>
+          );
+        })}
       </div>
 
       {adding && (
@@ -411,6 +461,45 @@ export default function CaaTable({
 // ============================================================================
 //  YearPills (idem IR)
 // ============================================================================
+
+// ============================================================================
+//  CaaRecapLine - ligne de stats pour le sommaire par annee.
+// ============================================================================
+
+function CaaRecapLine({
+  stats,
+  pct,
+}: {
+  stats: { a_faire: number; en_cours: number; termine: number };
+  pct: number;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] tabular-nums">
+          <span className={cn(stats.a_faire > 0 ? "text-rose-600 dark:text-rose-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+            {stats.a_faire} à faire
+          </span>
+          <span className="text-zinc-300 dark:text-zinc-600">·</span>
+          <span className={cn(stats.en_cours > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+            {stats.en_cours} en cours
+          </span>
+          <span className="text-zinc-300 dark:text-zinc-600">·</span>
+          <span className={cn(stats.termine > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+            {stats.termine} fait
+          </span>
+        </div>
+        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">{pct}%</span>
+      </div>
+      <div className="h-1 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden">
+        <div
+          className="h-full bg-emerald-500 dark:bg-emerald-400/70 transition-[width] duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function YearPills({
   years,
