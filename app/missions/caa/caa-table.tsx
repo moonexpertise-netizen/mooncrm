@@ -54,7 +54,7 @@ const FACT_OPTIONS: Array<{ key: EtatFacturation; label: string; color: string }
 ];
 
 const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
-  { key: "a_preparer", label: "À préparer", color: "bg-zinc-100 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.18]" },
+  { key: "a_preparer", label: "À préparer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
   { key: "propale_acceptee", label: "Propale acceptée", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
   { key: "ldm_envoyee", label: "LDM envoyée", color: "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50" },
   { key: "ldm_signee", label: "LDM signée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },

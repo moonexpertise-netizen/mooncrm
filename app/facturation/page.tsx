@@ -26,8 +26,13 @@ export default async function FacturationPage({
   searchParams: Promise<{ etat?: string; source?: string }>;
 }) {
   const sp = await searchParams;
-  const filterEtat = sp.etat as FactItem["etat_facturation"] | "all" | undefined;
-  const filterSource = sp.source as FactSource | "all" | undefined;
+  // Default = "a_facturer" pour coller au comportement UI (qui affiche le tab
+  // "À facturer" actif par defaut). Avant : sp.etat undefined -> aucun filtre
+  // applique -> les items deja factures apparaissaient dans le tab "À facturer".
+  const filterEtat: FactItem["etat_facturation"] | "all" =
+    (sp.etat as FactItem["etat_facturation"] | "all" | undefined) ?? "a_facturer";
+  const filterSource: FactSource | "all" =
+    (sp.source as FactSource | "all" | undefined) ?? "all";
 
   const sb = await createClient();
 
@@ -314,8 +319,8 @@ export default async function FacturationPage({
       <FacturationCenter
         items={filtered}
         totalCount={allItems.length}
-        filterEtat={filterEtat ?? "a_facturer"}
-        filterSource={filterSource ?? "all"}
+        filterEtat={filterEtat}
+        filterSource={filterSource}
       />
     </div>
   );

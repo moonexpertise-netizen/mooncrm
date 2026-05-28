@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Server actions du tracker CAA (Commissaire aux Apports).
+ * Server actions du tracker CAA (Commissariat aux apports).
  * Modele : clients_caa + caa_obligations. Cf. migration 0046.
  */
 

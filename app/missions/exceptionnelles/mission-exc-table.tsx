@@ -87,7 +87,7 @@ const ETAT_MISSION_OPTIONS: Array<{
     key: "a_demarrer",
     label: "À démarrer",
     color:
-      "bg-zinc-100 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.18]",
+      "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50",
   },
   {
     key: "en_cours",
@@ -146,7 +146,7 @@ const LDM_STATUT_OPTIONS: Array<{
     key: "a_faire",
     label: "À faire",
     color:
-      "bg-zinc-100 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.18]",
+      "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50",
   },
   {
     key: "na",

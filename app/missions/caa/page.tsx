@@ -103,7 +103,7 @@ export default async function CaaPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader title="CAA · Commissaire aux Apports" description={description} />
+      <PageHeader title="CAA · Commissariat aux apports" description={description} />
       <CaaTable
         rows={rows}
         mode={isBaseView ? "base" : "year"}
