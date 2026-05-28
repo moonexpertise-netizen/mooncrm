@@ -428,7 +428,16 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
         <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={navOrder} strategy={verticalListSortingStrategy}>
-        <ul className="space-y-0.5 px-2">
+        {/* Nav cachee jusqu'a hydratation localStorage. Evite que les items
+            apparaissent dans l'ordre SSR (NAV_ITEMS par defaut) puis se
+            re-arrangent quand React applique l'ordre client (localStorage).
+            La hauteur est preservee donc pas de layout shift. */}
+        <ul
+          className={cn(
+            "space-y-0.5 px-2",
+            !hydrated && "invisible"
+          )}
+        >
           {orderedNavItems.map((item) => {
             const active = isActive(pathname, item);
             const Icon = item.icon;
