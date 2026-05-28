@@ -214,8 +214,8 @@ export default function ChatBubble() {
             className="flex-1 overflow-y-auto px-4 py-5 space-y-4 bg-zinc-50/60 dark:bg-zinc-950/40"
           >
             {messages.length === 0 && (
-              <div className="text-center pt-8 pb-2 px-2">
-                <div className="relative inline-flex items-center justify-center w-14 h-14 mb-4">
+              <div className="text-center pt-6 pb-2 px-2">
+                <div className="relative inline-flex items-center justify-center w-14 h-14 mb-3">
                   <span
                     aria-hidden
                     className="absolute inset-0 rounded-full bg-[hsl(var(--gold))]/15 blur-lg"
@@ -232,8 +232,32 @@ export default function ChatBubble() {
                   Comment puis-je t&apos;aider ?
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-[260px] mx-auto">
-                  Pose une question sur ton CRM.
+                  Pose une question ou clique une suggestion.
                 </p>
+                <div className="mt-4 grid gap-1.5 text-left">
+                  {[
+                    "Quel est mon MRR ?",
+                    "Quelles obligations en retard ?",
+                    "Combien j'ai signé ce mois ?",
+                    "Top 5 clients par ARR",
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => {
+                        setDraft(q);
+                        inputRef.current?.focus();
+                      }}
+                      className="group/sugg flex items-center gap-2 text-[13px] text-left px-3 py-2 rounded-lg bg-white dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/[0.06] hover:border-[hsl(var(--gold))]/40 hover:bg-zinc-50 dark:hover:bg-white/[0.06] text-zinc-700 dark:text-zinc-200 transition-all"
+                    >
+                      <Sparkles
+                        className="h-3 w-3 text-[hsl(var(--gold))]/70 group-hover/sugg:text-[hsl(var(--gold))] shrink-0 transition-colors"
+                        aria-hidden="true"
+                      />
+                      <span className="flex-1 truncate">{q}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -322,7 +346,7 @@ function Message({ role, content }: { role: "user" | "assistant"; content: strin
   if (role === "user") {
     return (
       <div className="flex justify-end animate-slide-up-fade">
-        <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-50 dark:to-zinc-100 text-white dark:text-zinc-900 text-[13px] leading-relaxed whitespace-pre-wrap shadow-card">
+        <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-zinc-900 dark:bg-zinc-800 text-zinc-50 text-[13px] leading-relaxed whitespace-pre-wrap shadow-card ring-1 ring-[hsl(var(--gold))]/20">
           {content}
         </div>
       </div>
