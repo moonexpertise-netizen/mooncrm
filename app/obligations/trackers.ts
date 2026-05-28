@@ -19,7 +19,17 @@ export type Tracker = {
   /** Règles métier en bullets · affichées dans la carte dashboard */
   notes?: Array<{ highlight?: string; text: string }>;
   types: string[]; // types d'obligation regroupés dans ce tracker
-  cols: (year: number) => Array<{ key: string; label: string; type: string; periode: string }>;
+  cols: (year: number) => Array<{
+    key: string;
+    label: string;
+    type: string;
+    periode: string;
+    /** Type de rendu de la cellule. "status" (default) = picker statut
+     *  Notion-like. "facturation" = picker facturation (a_facturer / facturee
+     *  / sans_facture). Permet d'avoir 2 colonnes pour une meme obligation :
+     *  une pour le statut metier, une pour la facturation. */
+    kind?: "status" | "facturation";
+  }>;
 };
 
 /**
@@ -248,28 +258,35 @@ export const TRACKERS: Tracker[] = [
     slug: "liasses-plaquettes",
     title: "Liasses & Plaquettes",
     group: "bilan",
-    description: "Échéance clôture + 3 mois + 18 jours.",
+    description: "Échéance clôture + 3 mois + 18 jours. Colonne facturation séparée pour les bilans facturés.",
     icon: "📄",
     accent: "emerald",
-    notes: [{ text: "Clôture + 3 mois + 18 jours (clôture 31/12 → 18/05 N+1)." }],
+    notes: [
+      { text: "Clôture + 3 mois + 18 jours (clôture 31/12 → 18/05 N+1)." },
+      { text: "Facturation bilan : colonne séparée à côté du statut (visible si type_honos_bilans = 'Facturés')." },
+    ],
     types: ["LIASSE_PLAQUETTE"],
     cols: (y) => [
       { key: `liasse-${y}`, label: "Liasse", type: "LIASSE_PLAQUETTE", periode: `${y}` },
+      { key: `liasse-fact-${y}`, label: "Facturation", type: "LIASSE_PLAQUETTE", periode: `${y}`, kind: "facturation" },
     ],
   },
   {
     slug: "ago-depot",
     title: "AGO",
     group: "ago",
-    description: "Échéance clôture + 6 mois (dernier jour du mois). Suivi facturation juridique par année.",
+    description: "Échéance clôture + 6 mois (dernier jour du mois). Colonne facturation juridique séparée.",
     icon: "📌",
     accent: "rose",
     notes: [
       { text: "Clôture + 6 mois (clôture 31/12 → 30/06 N+1)." },
-      { text: "Facturation juridique : 2e pastille sous chaque cellule." },
+      { text: "Facturation juridique : colonne séparée à côté du statut AGO." },
     ],
     types: ["AGO_DEPOT"],
-    cols: (y) => [{ key: `ago-${y}`, label: "AGO", type: "AGO_DEPOT", periode: `${y}` }],
+    cols: (y) => [
+      { key: `ago-${y}`, label: "AGO", type: "AGO_DEPOT", periode: `${y}` },
+      { key: `ago-fact-${y}`, label: "Facturation jur.", type: "AGO_DEPOT", periode: `${y}`, kind: "facturation" },
+    ],
   },
 ];
 

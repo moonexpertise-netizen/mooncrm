@@ -218,15 +218,17 @@ export default function CaaTable({
     return yearRecap.get(year) ?? { a_faire: 0, en_cours: 0, termine: 0 };
   }
 
-  // Vue Base : TOUTES les annees avec missions. Vue annee : fenetre 3-ans.
-  const allYearsWithObligations = useMemo(() => {
+  // Vue Base : TOUTES les annees avec missions + fenetre 3-ans (pour ne pas
+  // avoir un panel vide si rien n'est encore souscrit). Vue annee : fenetre.
+  const recapYears = useMemo(() => {
+    if (mode === "year") return years;
     const set = new Set<number>();
     for (const r of localRows) {
       for (const cell of r.obligations.values()) set.add(cell.annee);
     }
+    for (const y of years) set.add(y);
     return [...set].sort((a, b) => b - a);
-  }, [localRows]);
-  const recapYears = mode === "base" ? allYearsWithObligations : years;
+  }, [mode, localRows, years]);
 
   function urlForBase(c: number = center) {
     return `/missions/caa?view=base&center=${c}`;

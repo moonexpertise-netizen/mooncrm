@@ -235,17 +235,20 @@ export default function IrTable({
   }
 
   // Annees avec au moins une obligation IR ou IFI. En vue Base, on affiche le
-  // recap pour TOUTES ces annees pour avoir une vue globale (et savoir
-  // immediatement ce qu'il reste a faire toutes annees confondues). En vue
-  // annee, on garde la fenetre 3-ans pour cadrer l'attention.
-  const allYearsWithObligations = useMemo(() => {
+  // recap pour TOUTES ces annees + la fenetre 3-ans (current +/- 1). Si l'user
+  // n'a aucune souscription, il voit quand meme les annees recentes pour
+  // pouvoir souscrire. Tri descendant (plus recent en haut).
+  const recapYears = useMemo(() => {
+    if (mode === "year") return years;
     const set = new Set<number>();
     for (const r of localRows) {
       for (const cell of r.obligations.values()) set.add(cell.annee);
     }
-    return [...set].sort((a, b) => b - a); // plus recent en premier
-  }, [localRows]);
-  const recapYears = mode === "base" ? allYearsWithObligations : years;
+    // Ajoute aussi la fenetre 3-ans pour ne pas avoir un panel vide
+    // quand l'utilisateur n'a pas encore souscrit.
+    for (const y of years) set.add(y);
+    return [...set].sort((a, b) => b - a);
+  }, [mode, localRows, years]);
 
   // URL helpers. On preserve "center" pour conserver la fenetre 3-ans
   // courante (cf. logique fenetre glissante).

@@ -66,7 +66,16 @@ export default function TrackerTable({
   currentUserEmail,
 }: {
   rows: TrackerRow[];
-  cols: Array<{ key: string; label: string; type: string; periode: string }>;
+  cols: Array<{
+    key: string;
+    label: string;
+    type: string;
+    periode: string;
+    /** "facturation" = colonne dediee qui rend uniquement la pastille
+     *  facturation (a_facturer / facturee / sans_facture). Cf. trackers.ts
+     *  pour AGO et LIASSE_PLAQUETTE qui exposent 2 colonnes par annee. */
+    kind?: "status" | "facturation";
+  }>;
   statusOptions: Record<string, StatusOption[]>;
   focus?: string | null;
   initialCommentCounts: Record<string, number>;
@@ -1075,22 +1084,30 @@ export default function TrackerTable({
                       )}
                       onMouseDown={(e) => onCellMouseDown(e, c.obligationId, rowIndex, colIndex)}
                     >
-                      <StatusCell
-                        cell={c}
-                        cellId={cellId}
-                        isOpen={openCellId === cellId}
-                        isSelected={isSelected}
-                        options={statusOptions[c.type] ?? []}
-                        commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
-                        rowLabel={`${r.denomination} · ${cols.find((col) => col.key === c.colKey)?.label ?? c.type}`}
-                        typeHonosBilans={r.type_honos_bilans}
-                        onOpen={handleOpen}
-                        onClose={handleClose}
-                        onPick={onPick}
-                        onReset={onReset}
-                        onOpenComments={handleOpenComments}
-                        onSetFacturation={onSetFactStable}
-                      />
+                      {cols.find((col) => col.key === c.colKey)?.kind === "facturation" ? (
+                        <FacturationOnlyCell
+                          cell={c}
+                          typeHonosBilans={r.type_honos_bilans}
+                          onSetFacturation={onSetFactStable}
+                        />
+                      ) : (
+                        <StatusCell
+                          cell={c}
+                          cellId={cellId}
+                          isOpen={openCellId === cellId}
+                          isSelected={isSelected}
+                          options={statusOptions[c.type] ?? []}
+                          commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
+                          rowLabel={`${r.denomination} · ${cols.find((col) => col.key === c.colKey)?.label ?? c.type}`}
+                          typeHonosBilans={r.type_honos_bilans}
+                          onOpen={handleOpen}
+                          onClose={handleClose}
+                          onPick={onPick}
+                          onReset={onReset}
+                          onOpenComments={handleOpenComments}
+                          onSetFacturation={onSetFactStable}
+                        />
+                      )}
                     </td>
                   );
                 })}
@@ -1380,19 +1397,9 @@ const StatusCell = memo(function StatusCell({
   const matchedOption = options.find((o) => o.libelle === cell.statut_detail);
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
   const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "-";
-  // Affichage de la 2e pastille facturation :
-  //   - AGO_DEPOT : toujours (facturation juridique)
-  //   - LIASSE_PLAQUETTE : seulement si bilan facturé séparément (type_honos_bilans = 'Facturés').
-  //     Si bilan inclus dans forfait ou non renseigné, pas de facturation à suivre.
-  const showFacturation =
-    cell.type === "AGO_DEPOT"
-      ? true
-      : cell.type === "LIASSE_PLAQUETTE"
-        ? typeHonosBilans === "Facturés"
-        : TYPES_WITH_FACTURATION.has(cell.type);
 
   return (
-    <div className="relative inline-flex flex-col items-center gap-1" ref={ref}>
+    <div className="relative inline-block" ref={ref}>
       <button
         onClick={(e) => {
           if (e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -1419,28 +1426,6 @@ const StatusCell = memo(function StatusCell({
         {cell.statut_detail ?? defaultLibelle}
       </button>
 
-      {/* 2e pastille : facturation juridique (AGO_DEPOT) ou bilan
-          (LIASSE_PLAQUETTE avec type_honos_bilans = 'Facturés'). Picker
-          independant qui rend dans un portal pour echapper au clipping.
-          Quand statut TERMINE et facturation non encore decidee, on
-          affiche "À facturer" par defaut (la prestation est achevee,
-          il faut maintenant emettre la facture). */}
-      {showFacturation && cell.obligationId && (() => {
-        // "Pret a facturer" : soit statut_logique TERMINE, soit libelle dans
-        // la liste billable du type (pour AGO ca couvre "2 - Depose" meme
-        // avant migration 0051 ou il est encore EN_COURS dans la DB).
-        const billableLibelles = BILLABLE_STATUT_DETAILS[cell.type] ?? [];
-        const isReady =
-          cell.statut_logique === "TERMINE" ||
-          (cell.statut_detail !== null && billableLibelles.includes(cell.statut_detail));
-        return (
-          <FacturationMiniPill
-            value={cell.etat_facturation}
-            isReadyForBilling={isReady}
-            onChange={(v) => onSetFacturation(cell.obligationId!, v)}
-          />
-        );
-      })()}
 
       {/* Bulle commentaires (style Notion).
           - En position ABSOLUTE → sort du flux, la cellule ne se déforme pas
@@ -1628,6 +1613,51 @@ const StatusCell = memo(function StatusCell({
 //  qui exposent un suivi facturation (AGO_DEPOT). Picker independant rendu en
 //  portal pour echapper au clipping de la table.
 // ============================================================================
+
+// ============================================================================
+//  FacturationOnlyCell - rendu dedie aux colonnes col.kind = 'facturation'.
+//  Affiche uniquement la pastille facturation, pas de statut metier, pas de
+//  commentaires, pas de popover statut. Filtre LIASSE_PLAQUETTE : pastille
+//  cachee si bilan inclus / non renseigne.
+// ============================================================================
+
+function FacturationOnlyCell({
+  cell,
+  typeHonosBilans,
+  onSetFacturation,
+}: {
+  cell: TrackerCell;
+  typeHonosBilans: string | null;
+  onSetFacturation: (obligationId: string, etat: EtatFacturation | null) => void;
+}) {
+  // Pas d'obligation -> dash discret
+  if (!cell.obligationId) {
+    return <span className="text-zinc-300 dark:text-zinc-600 text-xs">-</span>;
+  }
+  // LIASSE_PLAQUETTE : facturation pertinente uniquement si bilan facture
+  if (cell.type === "LIASSE_PLAQUETTE" && typeHonosBilans !== "Facturés") {
+    return (
+      <span
+        className="text-zinc-300 dark:text-zinc-600 text-xs italic"
+        title={typeHonosBilans === "Inclus" ? "Bilan inclus dans le forfait" : "Type honos bilans à renseigner"}
+      >
+        -
+      </span>
+    );
+  }
+  // "Pret a facturer" : statut TERMINE ou libelle dans la liste billable.
+  const billableLibelles = BILLABLE_STATUT_DETAILS[cell.type] ?? [];
+  const isReady =
+    cell.statut_logique === "TERMINE" ||
+    (cell.statut_detail !== null && billableLibelles.includes(cell.statut_detail));
+  return (
+    <FacturationMiniPill
+      value={cell.etat_facturation}
+      isReadyForBilling={isReady}
+      onChange={(v) => onSetFacturation(cell.obligationId!, v)}
+    />
+  );
+}
 
 function FacturationMiniPill({
   value,
