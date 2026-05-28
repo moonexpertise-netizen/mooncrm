@@ -30,7 +30,7 @@ alter table public.status_options add constraint status_options_scope_check
 -- IR : clients_ir + ir_obligations
 -- ============================================================================
 
-create table public.clients_ir (
+create table if not exists public.clients_ir (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null,
   -- Identite personne physique
@@ -51,10 +51,11 @@ create table public.clients_ir (
   updated_at timestamptz not null default now()
 );
 
-create index idx_clients_ir_nom on public.clients_ir(nom);
-create index idx_clients_ir_ldm_statut on public.clients_ir(ldm_statut);
+create index if not exists idx_clients_ir_nom on public.clients_ir(nom);
+create index if not exists idx_clients_ir_ldm_statut on public.clients_ir(ldm_statut);
 
 -- Trigger updated_at
+drop trigger if exists trg_clients_ir_updated on public.clients_ir;
 create trigger trg_clients_ir_updated
   before update on public.clients_ir
   for each row execute function public.set_updated_at();
@@ -109,13 +110,14 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_clients_ir_set_slug on public.clients_ir;
 create trigger trg_clients_ir_set_slug
   before insert or update on public.clients_ir
   for each row execute function public.clients_ir_set_slug();
 
 -- Dossiers IR / IFI par annee. 1 ligne = 1 obligation pour un client une annee.
 -- type : 'IR' ou 'IFI' (deux obligations distinctes, peuvent coexister).
-create table public.ir_obligations (
+create table if not exists public.ir_obligations (
   id uuid primary key default gen_random_uuid(),
   client_ir_id uuid not null references public.clients_ir(id) on delete cascade,
   annee int not null,
@@ -130,10 +132,11 @@ create table public.ir_obligations (
   unique (client_ir_id, annee, type)
 );
 
-create index idx_ir_obligations_client on public.ir_obligations(client_ir_id);
-create index idx_ir_obligations_annee on public.ir_obligations(annee);
-create index idx_ir_obligations_statut on public.ir_obligations(statut_logique);
+create index if not exists idx_ir_obligations_client on public.ir_obligations(client_ir_id);
+create index if not exists idx_ir_obligations_annee on public.ir_obligations(annee);
+create index if not exists idx_ir_obligations_statut on public.ir_obligations(statut_logique);
 
+drop trigger if exists trg_ir_obligations_updated on public.ir_obligations;
 create trigger trg_ir_obligations_updated
   before update on public.ir_obligations
   for each row execute function public.set_updated_at();
@@ -142,7 +145,7 @@ create trigger trg_ir_obligations_updated
 -- CAA : clients_caa + caa_obligations
 -- ============================================================================
 
-create table public.clients_caa (
+create table if not exists public.clients_caa (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null,
   -- Identite personne morale
@@ -160,9 +163,10 @@ create table public.clients_caa (
   updated_at timestamptz not null default now()
 );
 
-create index idx_clients_caa_denomination on public.clients_caa(denomination);
-create index idx_clients_caa_ldm_statut on public.clients_caa(ldm_statut);
+create index if not exists idx_clients_caa_denomination on public.clients_caa(denomination);
+create index if not exists idx_clients_caa_ldm_statut on public.clients_caa(ldm_statut);
 
+drop trigger if exists trg_clients_caa_updated on public.clients_caa;
 create trigger trg_clients_caa_updated
   before update on public.clients_caa
   for each row execute function public.set_updated_at();
@@ -212,12 +216,13 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_clients_caa_set_slug on public.clients_caa;
 create trigger trg_clients_caa_set_slug
   before insert or update on public.clients_caa
   for each row execute function public.clients_caa_set_slug();
 
 -- Dossier CAA par annee : 1 mission CAA par annee maximum (mission ponctuelle).
-create table public.caa_obligations (
+create table if not exists public.caa_obligations (
   id uuid primary key default gen_random_uuid(),
   client_caa_id uuid not null references public.clients_caa(id) on delete cascade,
   annee int not null,
@@ -231,10 +236,11 @@ create table public.caa_obligations (
   unique (client_caa_id, annee)
 );
 
-create index idx_caa_obligations_client on public.caa_obligations(client_caa_id);
-create index idx_caa_obligations_annee on public.caa_obligations(annee);
-create index idx_caa_obligations_statut on public.caa_obligations(statut_logique);
+create index if not exists idx_caa_obligations_client on public.caa_obligations(client_caa_id);
+create index if not exists idx_caa_obligations_annee on public.caa_obligations(annee);
+create index if not exists idx_caa_obligations_statut on public.caa_obligations(statut_logique);
 
+drop trigger if exists trg_caa_obligations_updated on public.caa_obligations;
 create trigger trg_caa_obligations_updated
   before update on public.caa_obligations
   for each row execute function public.set_updated_at();
@@ -248,12 +254,16 @@ alter table public.clients_caa enable row level security;
 alter table public.ir_obligations enable row level security;
 alter table public.caa_obligations enable row level security;
 
+drop policy if exists p_clients_ir_all on public.clients_ir;
 create policy p_clients_ir_all on public.clients_ir
   for all to authenticated using (true) with check (true);
+drop policy if exists p_clients_caa_all on public.clients_caa;
 create policy p_clients_caa_all on public.clients_caa
   for all to authenticated using (true) with check (true);
+drop policy if exists p_ir_obligations_all on public.ir_obligations;
 create policy p_ir_obligations_all on public.ir_obligations
   for all to authenticated using (true) with check (true);
+drop policy if exists p_caa_obligations_all on public.caa_obligations;
 create policy p_caa_obligations_all on public.caa_obligations
   for all to authenticated using (true) with check (true);
 
