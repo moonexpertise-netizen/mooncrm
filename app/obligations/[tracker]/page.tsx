@@ -34,7 +34,7 @@ export default async function ObligationsPage({
   const [{ data: subs }, { data: opts }] = await Promise.all([
     supabase
       .from("obligation_subscriptions")
-      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine)")
+      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans)")
       .eq("annee", year)
       .eq("actif", true)
       .in("type", tracker.types),
@@ -57,6 +57,7 @@ export default async function ObligationsPage({
       siren: string | null;
       pipeline_statut: string | null;
       origine: string | null;
+      type_honos_bilans: string | null;
     };
   };
 
@@ -142,6 +143,7 @@ export default async function ObligationsPage({
     siren: c.siren,
     pipeline: c.pipeline_statut,
     origine: c.origine,
+    type_honos_bilans: c.type_honos_bilans,
     cells: cols.map((col) => {
       const o = oblByKey.get(`${c.id}|${col.type}|${col.periode}`);
       return o

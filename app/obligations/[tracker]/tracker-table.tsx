@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
+import { toastError } from "@/lib/toast-helpers";
 import {
   bulkUpdateObligationStatus,
   setObligationFacturation,
@@ -45,6 +46,12 @@ export type TrackerRow = {
   siren: string | null;
   pipeline: string | null;
   origine: string | null;
+  /** Type de honoraires bilans : 'Facturés' (separes du forfait) /
+   *  'Inclus' (dans le forfait) / null (a renseigner).
+   *  Utilise pour decider d'afficher ou pas la pastille facturation
+   *  sur les cellules LIASSE_PLAQUETTE : seulement 'Facturés' = facturation
+   *  separee a suivre. */
+  type_honos_bilans: string | null;
   cells: TrackerCell[];
 };
 
@@ -798,14 +805,21 @@ export default function TrackerTable({
     [applyPatch, router]
   );
 
-  // Facturation juridique (AGO_DEPOT) : 2e pastille sous la cellule.
-  // Optimistic update + persist async, comme le statut principal.
+  // Facturation juridique (AGO_DEPOT) ou bilan (LIASSE_PLAQUETTE) : 2e pastille
+  // sous la cellule. Optimistic update + persist async + try/catch pour ne pas
+  // crasher la page si l'ecriture echoue (ex: migration 0050 pas encore
+  // appliquee, RLS, etc.). En cas d'erreur on revert via router.refresh().
   const onSetFactStable = useCallback(
     (obligationId: string, etat: EtatFacturation | null) => {
       applyPatch({ obligationId, etat_facturation: etat });
       startTransition(async () => {
-        await setObligationFacturation(obligationId, etat);
-        router.refresh();
+        try {
+          await setObligationFacturation(obligationId, etat);
+          router.refresh();
+        } catch (e) {
+          toastError(e, "Echec sauvegarde facturation");
+          router.refresh();
+        }
       });
     },
     [applyPatch, router]
@@ -1069,6 +1083,7 @@ export default function TrackerTable({
                         options={statusOptions[c.type] ?? []}
                         commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
                         rowLabel={`${r.denomination} · ${cols.find((col) => col.key === c.colKey)?.label ?? c.type}`}
+                        typeHonosBilans={r.type_honos_bilans}
                         onOpen={handleOpen}
                         onClose={handleClose}
                         onPick={onPick}
@@ -1259,6 +1274,7 @@ const StatusCell = memo(function StatusCell({
   options,
   commentCount,
   rowLabel,
+  typeHonosBilans,
   onPick,
   onReset,
   onOpenComments,
@@ -1273,6 +1289,10 @@ const StatusCell = memo(function StatusCell({
   options: StatusOption[];
   commentCount: number;
   rowLabel: string;
+  /** Pour LIASSE_PLAQUETTE : la pastille facturation n'apparait QUE si la
+   *  facturation bilan est separee ('Facturés'). 'Inclus' ou null = pas de
+   *  facturation a suivre. */
+  typeHonosBilans: string | null;
   onPick: (obligationId: string, libelle: string, type: string) => void;
   onReset: (obligationId: string) => void;
   onOpenComments: (
@@ -1351,7 +1371,16 @@ const StatusCell = memo(function StatusCell({
   const matchedOption = options.find((o) => o.libelle === cell.statut_detail);
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
   const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "-";
-  const showFacturation = TYPES_WITH_FACTURATION.has(cell.type);
+  // Affichage de la 2e pastille facturation :
+  //   - AGO_DEPOT : toujours (facturation juridique)
+  //   - LIASSE_PLAQUETTE : seulement si bilan facturé séparément (type_honos_bilans = 'Facturés').
+  //     Si bilan inclus dans forfait ou non renseigné, pas de facturation à suivre.
+  const showFacturation =
+    cell.type === "AGO_DEPOT"
+      ? true
+      : cell.type === "LIASSE_PLAQUETTE"
+        ? typeHonosBilans === "Facturés"
+        : TYPES_WITH_FACTURATION.has(cell.type);
 
   return (
     <div className="relative inline-flex flex-col items-center gap-1" ref={ref}>
@@ -1381,12 +1410,16 @@ const StatusCell = memo(function StatusCell({
         {cell.statut_detail ?? defaultLibelle}
       </button>
 
-      {/* 2e pastille : facturation juridique (uniquement pour AGO_DEPOT pour
-          l'instant). Picker independant qui rend dans un portal pour
-          echapper au clipping de la table. */}
+      {/* 2e pastille : facturation juridique (AGO_DEPOT) ou bilan
+          (LIASSE_PLAQUETTE avec type_honos_bilans = 'Facturés'). Picker
+          independant qui rend dans un portal pour echapper au clipping.
+          Quand statut TERMINE et facturation non encore decidee, on
+          affiche "À facturer" par defaut (la prestation est achevee,
+          il faut maintenant emettre la facture). */}
       {showFacturation && cell.obligationId && (
         <FacturationMiniPill
           value={cell.etat_facturation}
+          isReadyForBilling={cell.statut_logique === "TERMINE"}
           onChange={(v) => onSetFacturation(cell.obligationId!, v)}
         />
       )}
@@ -1557,6 +1590,7 @@ const StatusCell = memo(function StatusCell({
     prev.cell.echeance === next.cell.echeance &&
     prev.cell.type === next.cell.type &&
     prev.cell.etat_facturation === next.cell.etat_facturation &&
+    prev.typeHonosBilans === next.typeHonosBilans &&
     prev.isOpen === next.isOpen &&
     prev.isSelected === next.isSelected &&
     prev.options === next.options &&
@@ -1579,16 +1613,24 @@ const StatusCell = memo(function StatusCell({
 
 function FacturationMiniPill({
   value,
+  isReadyForBilling,
   onChange,
 }: {
   value: EtatFacturation | null;
+  /** True quand la prestation est achevee (statut_logique = TERMINE) : on
+   *  affiche "À facturer" par defaut au lieu du placeholder "Fact. ?". */
+  isReadyForBilling: boolean;
   onChange: (v: EtatFacturation | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-  const current = value ? FACT_PILL_OPTIONS.find((o) => o.key === value) : null;
+  // Si la prestation est achevee et que rien n'a ete decide, on affiche par
+  // defaut "À facturer" (sans ecrire en DB - la valeur reelle reste null).
+  const effective: EtatFacturation | null =
+    value === null && isReadyForBilling ? "a_facturer" : value;
+  const current = effective ? FACT_PILL_OPTIONS.find((o) => o.key === effective) : null;
 
   useEffect(() => {
     if (!open || !btnRef.current) {
@@ -1634,15 +1676,19 @@ function FacturationMiniPill({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        title="Facturation juridique"
+        title={
+          isReadyForBilling
+            ? "Facturation - prestation terminée"
+            : "Facturation - prestation pas encore terminée"
+        }
         className={cn(
           "inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border transition-all hover:opacity-80 leading-tight",
           current
             ? current.color
-            : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]"
+            : "bg-transparent text-zinc-300 dark:text-zinc-600 border-dashed border-zinc-200 dark:border-white/[0.08]"
         )}
       >
-        {current ? current.label : "Fact. ?"}
+        {current ? current.label : "-"}
       </button>
       {open &&
         pos &&
