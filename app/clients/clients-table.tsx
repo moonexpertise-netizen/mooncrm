@@ -202,14 +202,22 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
 
   // Compteurs par bucket (pour afficher dans les boutons)
   const bucketCounts = useMemo(() => {
-    const c = { all: rows.length, prospects: 0, clients: 0, perdus: 0 };
+    const c = {
+      all: rows.length,
+      prospects: 0,
+      clients: 0,
+      internes_st: 0,
+      perdus: 0,
+    };
     const setProspects = new Set(BUCKET_PIPELINES.prospects);
     const setClients = new Set(BUCKET_PIPELINES.clients);
+    const setInternesSt = new Set(BUCKET_PIPELINES.internes_st);
     const setPerdus = new Set(BUCKET_PIPELINES.perdus);
     for (const r of rows) {
       const p = r.pipeline_statut ?? "";
       if (setProspects.has(p)) c.prospects++;
       else if (setClients.has(p)) c.clients++;
+      else if (setInternesSt.has(p)) c.internes_st++;
       else if (setPerdus.has(p)) c.perdus++;
     }
     return c;
@@ -269,11 +277,12 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Buckets métier : Prospects / Clients (défaut) / Perdus */}
+      {/* Buckets metier : Prospects / Clients / Internes & ST / Perdus */}
       <div className="flex flex-wrap items-center gap-1.5">
         <BucketBtn label="Tous" active={bucket === "all"} count={bucketCounts.all} onClick={() => setBucket("all")} />
         <BucketBtn label="Prospects" active={bucket === "prospects"} count={bucketCounts.prospects} tone="amber" onClick={() => setBucket("prospects")} />
         <BucketBtn label="Clients" active={bucket === "clients"} count={bucketCounts.clients} tone="emerald" onClick={() => setBucket("clients")} />
+        <BucketBtn label="Internes & ST" active={bucket === "internes_st"} count={bucketCounts.internes_st} tone="sky" onClick={() => setBucket("internes_st")} />
         <BucketBtn label="Perdus & résiliés" active={bucket === "perdus"} count={bucketCounts.perdus} tone="rose" onClick={() => setBucket("perdus")} />
       </div>
 
@@ -711,13 +720,14 @@ function BucketBtn({
   label: string;
   active: boolean;
   count: number;
-  tone?: "amber" | "emerald" | "rose";
+  tone?: "amber" | "emerald" | "rose" | "sky";
   onClick: () => void;
 }) {
   const accentDot = {
     amber: "bg-amber-500",
     emerald: "bg-emerald-500",
     rose: "bg-rose-500",
+    sky: "bg-sky-500",
   } as const;
   return (
     <button
