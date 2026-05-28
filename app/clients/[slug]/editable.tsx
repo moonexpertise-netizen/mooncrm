@@ -463,6 +463,7 @@ export function EditableContactText({
   placeholder?: string;
   required?: boolean;
 }) {
+  const router = useRouter();
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const [, startTransition] = useTransition();
@@ -485,6 +486,10 @@ export function EditableContactText({
     startTransition(async () => {
       try {
         await updateContact(contactId, { [field]: newValue });
+        // Refresh : le hero "Dirigeant" et les boutons LDM/Signature
+        // utilisent la prop client/contact rendue serveur. Sans refresh,
+        // ils restent avec l'ancien nom / email apres edit ici.
+        router.refresh();
       } catch (e) {
         rollback();
         setError(e instanceof Error ? e.message : String(e));
@@ -522,6 +527,7 @@ export function EditableContactCivilite({
   value: "M." | "Mme" | "Mlle" | null;
   label: string;
 }) {
+  const router = useRouter();
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -534,6 +540,9 @@ export function EditableContactCivilite({
     startTransition(async () => {
       try {
         await updateContact(contactId, { civilite: newValue });
+        // Civilite affichee dans le hero (LDM/Signature buttons + nom
+        // complet). Sans refresh, le hero garde l'ancienne civilite.
+        router.refresh();
       } catch (e) {
         rollback();
         setError(e instanceof Error ? e.message : String(e));

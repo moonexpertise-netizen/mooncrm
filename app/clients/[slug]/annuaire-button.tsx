@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Building2, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { libelleFromNaf } from "@/lib/naf-libelles";
@@ -82,6 +83,7 @@ export default function AnnuaireButton({
   current: CurrentData;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AnnuaireData | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -263,6 +265,11 @@ export default function AnnuaireButton({
         await importFromAnnuaire(clientId, patch);
         setOpen(false);
         setData(null); // force re-fetch au prochain ouverture
+        // Import massif : adresse, code postal, ville, activite, forme,
+        // jour/mois cloture, dirigeant. Tout est visible sur la fiche.
+        // Sans refresh, les valeurs en base sont mises a jour mais la
+        // fiche montre les anciennes.
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }

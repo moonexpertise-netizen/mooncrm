@@ -7,16 +7,47 @@ export const dynamic = "force-dynamic";
 
 export default async function PipelinePage() {
   const sb = await createClient();
-  // Tri : par pipeline_changed_at DESC (dernier arrive en haut, fallback
-  // alphabetique pour les NULL — au cas ou la migration 0047 n'est pas
-  // encore appliquee).
-  const { data, error } = await sb
+
+  // Defensive : tente de selectionner pipeline_changed_at (migration 0047)
+  // pour le tri par arrivee. Si la colonne n'existe pas encore en DB,
+  // fallback sur tri alphabetique sans casser la page.
+  type ClientRow = {
+    id: string;
+    slug: string;
+    denomination: string;
+    siren: string | null;
+    forme: string | null;
+    activite: string | null;
+    arr: number | null;
+    pipeline_statut: string | null;
+    pipeline_changed_at?: string | null;
+  };
+
+  let data: ClientRow[] | null = null;
+  let error: { message: string } | null = null;
+  const baseCols =
+    "id, slug, denomination, siren, forme, activite, arr, pipeline_statut";
+
+  const first = await sb
     .from("clients")
-    .select(
-      "id, slug, denomination, siren, forme, activite, arr, pipeline_statut, pipeline_changed_at"
-    )
+    .select(`${baseCols}, pipeline_changed_at`)
     .order("pipeline_changed_at", { ascending: false, nullsFirst: false })
     .order("denomination", { ascending: true });
+  if (
+    first.error &&
+    /pipeline_changed_at/i.test(first.error.message)
+  ) {
+    // Colonne absente → migration 0047 pas appliquee. On retry sans.
+    const fallback = await sb
+      .from("clients")
+      .select(baseCols)
+      .order("denomination");
+    data = (fallback.data as unknown as ClientRow[]) ?? null;
+    error = fallback.error;
+  } else {
+    data = (first.data as unknown as ClientRow[]) ?? null;
+    error = first.error;
+  }
 
   if (error) {
     return (

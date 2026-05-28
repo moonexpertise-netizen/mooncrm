@@ -93,24 +93,37 @@ export default function ParametrageCard({
     const next = !active.has(type);
     startTransition(async () => {
       await toggleSubscription(clientId, type, annee, next);
+      // Refresh : la matrice obligations + le hero "Obligations actives"
+      // doivent refleter le toggle immediatement. La query serveur recree
+      // / desactive les obligations periodiques.
+      router.refresh();
     });
   }
 
   function onTvaChange(mode: Tva | null) {
     startTransition(async () => {
       await setTvaMode(clientId, annee, mode);
+      // TVA_MENSUELLE vs TVA_TRIMESTRIELLE recree des subscriptions
+      // periodiques cote serveur, visibles dans la matrice et l'echeancier.
+      router.refresh();
     });
   }
 
   function onRegimeChange(r: Regime | null) {
     startTransition(async () => {
       await setRegime(clientId, annee, r);
+      // IR/IS active/desactive IS_SOLDE, recree les obligations matrice,
+      // change badges hero. Refresh imperatif.
+      router.refresh();
     });
   }
 
   function onPipelineChange(p: PipelineStatut | null) {
     startTransition(async () => {
       await setPipelineStatut(clientId, p);
+      // pipeline_statut impacte le hero badge + bucket clients/prospects
+      // + kanban-position si on navigue ensuite.
+      router.refresh();
     });
   }
 
