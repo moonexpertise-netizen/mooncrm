@@ -297,3 +297,104 @@ export async function addOnboardingStatusOption(
   if (error) throw new Error(error.message);
   return data;
 }
+
+/**
+ * Renomme un libelle d'option de statut d'onboarding deja cree.
+ *
+ *   - taskKey   : identifiant technique de l'etape (ex. "creation_societe")
+ *   - oldLibelle : ancien libelle (ex. "Délégation demandée")
+ *   - newLibelle : nouveau libelle (ex. "Délégation envoyée")
+ *
+ * Met a jour le libelle dans status_options ET dans toutes les
+ * onboarding_tasks qui pointaient sur l'ancien libelle (par statut_detail).
+ * Sinon les anciennes taches gardent un libelle obsolete.
+ *
+ * Idempotent : si oldLibelle == newLibelle, no-op. Si newLibelle existe
+ * deja pour cette tache, on refuse (UNIQUE constraint).
+ */
+export async function renameOnboardingStatusOption(
+  taskKey: string,
+  oldLibelle: string,
+  newLibelle: string
+): Promise<void> {
+  const sb = await createClient();
+  const trimmed = newLibelle.trim();
+  if (!trimmed) throw new Error("Le libellé ne peut pas être vide");
+  if (!taskKey) throw new Error("task_key manquant");
+  if (trimmed === oldLibelle) return; // no-op
+
+  // 1. Verifie qu'aucune autre option n'utilise deja le nouveau libelle
+  //    (la contrainte UNIQUE (scope, type_code, libelle) le fera de toute
+  //    facon, mais on prefere un message clair).
+  const { data: clash } = await sb
+    .from("status_options")
+    .select("id")
+    .eq("scope", "onboarding")
+    .eq("type_code", taskKey)
+    .eq("libelle", trimmed)
+    .maybeSingle();
+  if (clash) {
+    throw new Error(`Le libellé « ${trimmed} » existe déjà pour cette étape`);
+  }
+
+  // 2. Update status_options
+  const { error: e1 } = await sb
+    .from("status_options")
+    .update({ libelle: trimmed })
+    .eq("scope", "onboarding")
+    .eq("type_code", taskKey)
+    .eq("libelle", oldLibelle);
+  if (e1) throw new Error(e1.message);
+
+  // 3. Update onboarding_tasks qui pointaient sur l'ancien libelle
+  //    (statut_detail = oldLibelle). Important pour que l'affichage
+  //    reste coherent partout.
+  const { error: e2 } = await sb
+    .from("onboarding_tasks")
+    .update({ statut_detail: trimmed })
+    .eq("task_key", taskKey)
+    .eq("statut_detail", oldLibelle);
+  if (e2) throw new Error(e2.message);
+}
+
+/**
+ * Supprime (soft : actif=false) un libelle d'option de statut.
+ * Les taches qui l'utilisaient sont remises a statut A_FAIRE + detail null
+ * (cf. updateOnboardingTaskStatus avec libelle=null).
+ */
+export async function deleteOnboardingStatusOption(
+  taskKey: string,
+  libelle: string
+): Promise<void> {
+  const sb = await createClient();
+  if (!taskKey || !libelle) throw new Error("task_key et libelle requis");
+
+  // 1. Desactive l'option (on garde la ligne pour preserver l'historique
+  //    audit). actif=false la masque dans tous les pickers cote UI.
+  const { error: e1 } = await sb
+    .from("status_options")
+    .update({ actif: false })
+    .eq("scope", "onboarding")
+    .eq("type_code", taskKey)
+    .eq("libelle", libelle);
+  if (e1) throw new Error(e1.message);
+
+  // 2. Reset les taches qui utilisaient cette option : retour a A_FAIRE
+  //    avec le libelle "A faire" par defaut si dispo, sinon null.
+  const { data: def } = await sb
+    .from("status_options")
+    .select("libelle")
+    .eq("scope", "onboarding")
+    .eq("type_code", taskKey)
+    .eq("statut_logique", "A_FAIRE")
+    .eq("actif", true)
+    .order("ordre")
+    .limit(1)
+    .maybeSingle();
+  const { error: e2 } = await sb
+    .from("onboarding_tasks")
+    .update({ statut_logique: "A_FAIRE", statut_detail: def?.libelle ?? null })
+    .eq("task_key", taskKey)
+    .eq("statut_detail", libelle);
+  if (e2) throw new Error(e2.message);
+}

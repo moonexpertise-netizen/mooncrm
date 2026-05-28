@@ -2,9 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Pencil, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
-import { toastError } from "@/lib/toast-helpers";
-import { addOnboardingStatusOption, updateOnboardingTaskStatus } from "@/app/onboarding/actions";
+import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import {
+  addOnboardingStatusOption,
+  deleteOnboardingStatusOption,
+  renameOnboardingStatusOption,
+  updateOnboardingTaskStatus,
+} from "@/app/onboarding/actions";
 
 export type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
@@ -264,26 +270,13 @@ function TaskRow({
                       {STATUT_GROUP_LABEL[groupKey]}
                     </div>
                     {opts.map((opt) => (
-                      <button
+                      <OptionRow
                         key={opt.libelle}
-                        onClick={() => onPick(opt.libelle, opt.statut_logique)}
-                        className={cn(
-                          "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                          task.statut_detail === opt.libelle && "bg-zinc-50 dark:bg-white/[0.04]"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
-                            statutColorClass(opt.statut_logique, opt.color)
-                          )}
-                        >
-                          {opt.libelle}
-                        </span>
-                        {task.statut_detail === opt.libelle && (
-                          <span className="text-zinc-400 ml-auto text-xs">✓</span>
-                        )}
-                      </button>
+                        opt={opt}
+                        taskKey={task.task_key}
+                        isSelected={task.statut_detail === opt.libelle}
+                        onPick={() => onPick(opt.libelle, opt.statut_logique)}
+                      />
                     ))}
                   </div>
                 );
@@ -396,6 +389,151 @@ function CreateOptionForm({
       {error && (
         <div className="text-[10px] text-rose-600 dark:text-rose-400">{error}</div>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+//  OptionRow — affichage option du picker statut avec rename inline.
+//  Crayon visible au hover ; clic = selection ; clic crayon = edit mode.
+//  En edit mode : input + croix supprimer. Enter save / Esc cancel / blur save.
+// ============================================================================
+
+function OptionRow({
+  opt,
+  taskKey,
+  isSelected,
+  onPick,
+}: {
+  opt: OnboardingStatusOption;
+  taskKey: string;
+  isSelected: boolean;
+  onPick: () => void;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(opt.libelle);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(opt.libelle);
+  }, [opt.libelle, editing]);
+
+  useEffect(() => {
+    if (editing) {
+      const t = setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [editing]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === opt.libelle) {
+      setEditing(false);
+      setDraft(opt.libelle);
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await renameOnboardingStatusOption(taskKey, opt.libelle, trimmed);
+        toastSuccess("Libellé renommé");
+        setEditing(false);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec du renommage");
+        setDraft(opt.libelle);
+      }
+    });
+  }
+
+  function cancel() {
+    setEditing(false);
+    setDraft(opt.libelle);
+  }
+
+  function onDelete() {
+    if (isPending) return;
+    if (!confirm(`Supprimer le libellé « ${opt.libelle} » ? Les tâches qui l'utilisent reviendront à "À faire".`)) return;
+    startTransition(async () => {
+      try {
+        await deleteOnboardingStatusOption(taskKey, opt.libelle);
+        toastSuccess("Libellé supprimé");
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec suppression");
+      }
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="px-3 py-1 flex items-center gap-2 bg-zinc-50 dark:bg-white/[0.04]">
+        <input
+          ref={inputRef}
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            else if (e.key === "Escape") cancel();
+          }}
+          disabled={isPending}
+          className="flex-1 px-2 py-1 rounded border border-zinc-300 dark:border-white/[0.15] bg-white dark:bg-white/[0.06] text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400/30 dark:focus:ring-white/15"
+        />
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onDelete}
+          disabled={isPending}
+          title="Supprimer ce libellé"
+          className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+          aria-label="Supprimer le libellé"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "group/optrow w-full px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+        isSelected && "bg-zinc-50 dark:bg-white/[0.04]"
+      )}
+    >
+      <button
+        type="button"
+        onClick={onPick}
+        className="flex-1 text-left flex items-center gap-2 min-w-0"
+      >
+        <span
+          className={cn(
+            "inline-block px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap",
+            statutColorClass(opt.statut_logique, opt.color)
+          )}
+        >
+          {opt.libelle}
+        </span>
+        {isSelected && <span className="text-zinc-400 dark:text-zinc-500 text-xs">✓</span>}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+        title="Renommer ce libellé"
+        aria-label={`Renommer ${opt.libelle}`}
+        className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/[0.10] opacity-0 group-hover/optrow:opacity-100 transition-opacity focus:opacity-100"
+      >
+        <Pencil className="h-3 w-3" aria-hidden="true" />
+      </button>
     </div>
   );
 }
