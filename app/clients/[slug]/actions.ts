@@ -207,6 +207,82 @@ async function activateSubInternal(clientId: string, type: TypeObligation, annee
  * nouveau pipeline (pour ne pas écraser un choix manuel de Benjamin sur
  * un dossier qui passerait temporairement par un état Z).
  */
+/**
+ * Signature LDM "all-in-one" : enregistre la date du jour, bascule le
+ * pipeline a "7 - LDM signee", initialise l'onboarding (idempotent),
+ * et renvoie les stats MRR avant/apres pour l'achievement card.
+ *
+ * Calcul MRR du cabinet :
+ *   - mrrBefore : somme des mrr des clients deja en LDM signee
+ *   - mrrClient : mrr du client qu'on signe (genere par trigger DB)
+ *   - mrrAfter  : mrrBefore + mrrClient
+ *
+ * Renvoie aussi le nom du client et l'origine pour personnaliser
+ * l'affichage.
+ *
+ * Idempotent partiel : si le client est deja signe, on relance juste
+ * les confettis cote UI (handled par l'appelant) sans toucher mois_signature
+ * existant. Mais l'action est appelee uniquement quand pas deja signe
+ * (le bouton fait ce check cote UI).
+ */
+export async function signLdmAndGetStats(clientId: string): Promise<{
+  client: { denomination: string; origine: string | null; mrr: number; arr: number };
+  mrrBefore: number;
+  mrrAfter: number;
+  arrBefore: number;
+  arrAfter: number;
+}> {
+  const sb = await createClient();
+
+  // 1. Snapshot du client AVANT (mrr, arr, denomination, origine)
+  const { data: client, error: eClient } = await sb
+    .from("clients")
+    .select("denomination, origine, mrr, arr")
+    .eq("id", clientId)
+    .single();
+  if (eClient) throw new Error(eClient.message);
+  const clientMrr = client.mrr ?? 0;
+  const clientArr = client.arr ?? 0;
+
+  // 2. MRR total du cabinet AVANT (clients deja signes uniquement —
+  //    coherent avec dashboard-data.ts qui ne compte plus Interne / ST)
+  const { data: signed } = await sb
+    .from("clients")
+    .select("mrr, arr")
+    .eq("pipeline_statut", "7 - LDM signée");
+  const mrrBefore = (signed ?? []).reduce((s, c) => s + (c.mrr ?? 0), 0);
+  const arrBefore = (signed ?? []).reduce((s, c) => s + (c.arr ?? 0), 0);
+
+  // 3. Mutation : date + pipeline + onboarding init en parallele
+  const today = new Date().toISOString().substring(0, 10);
+  const { initializeOnboardingForClient } = await import(
+    "@/app/onboarding/actions"
+  );
+  await Promise.all([
+    sb
+      .from("clients")
+      .update({ mois_signature: today, pipeline_statut: "7 - LDM signée" })
+      .eq("id", clientId)
+      .then(({ error }) => {
+        if (error) throw new Error(error.message);
+      }),
+    initializeOnboardingForClient(clientId),
+  ]);
+
+  return {
+    client: {
+      denomination: client.denomination,
+      origine: client.origine,
+      mrr: clientMrr,
+      arr: clientArr,
+    },
+    mrrBefore,
+    mrrAfter: mrrBefore + clientMrr,
+    arrBefore,
+    arrAfter: arrBefore + clientArr,
+  };
+}
+
 export async function setPipelineStatut(
   clientId: string,
   statut: PipelineStatut | null

@@ -578,6 +578,30 @@ h3 { font-weight: 600; }
 }
 .animate-slide-in-right { animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
 
+/* Achievement card : pop "jeu video" depuis le bas avec petit overshoot
+   (bounce subtil) puis settle. Sur mobile : meme behavior mais translate
+   horizontal annule par le -translate-x-1/2 inline. */
+@keyframes achievement-pop {
+  0%   { opacity: 0; transform: translateY(40px) scale(0.92); }
+  60%  { opacity: 1; transform: translateY(-6px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-achievement-pop {
+  animation: achievement-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* Sur mobile, on garde le centrage horizontal absolu via translate(-50%).
+   On override l'animation pour ne pas casser le -translate-x-1/2. */
+@media (max-width: 767px) {
+  @keyframes achievement-pop-mobile {
+    0%   { opacity: 0; transform: translate(-50%, 40px) scale(0.92); }
+    60%  { opacity: 1; transform: translate(-50%, -6px) scale(1.02); }
+    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  }
+  .animate-achievement-pop {
+    animation: achievement-pop-mobile 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
 /* row-highlight : surlignage temporaire d'une ligne au retour depuis la
    fiche client (cf. useHighlightRow). 2 phases :
    - 1 sec : fond gold marque (visible de loin)

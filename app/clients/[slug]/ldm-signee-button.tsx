@@ -4,19 +4,21 @@ import { useState, useTransition } from "react";
 import { PartyPopper } from "lucide-react";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
-import { updateClient, setPipelineStatut } from "./actions";
-import { initializeOnboardingForClient } from "@/app/onboarding/actions";
+import { signLdmAndGetStats } from "./actions";
 import { useAlert } from "@/app/_components/confirm-modal";
+import AchievementCard, { type AchievementData } from "./achievement-card";
 
 /**
  * Bouton festif "LDM signée 🎉" :
  *  - Déclenche une animation de confettis aux couleurs MOON (gold + crème + emerald)
  *  - Enregistre la date du jour dans `mois_signature`
  *  - Passe le pipeline_statut à "7 - LDM signée"
+ *  - Initialise les tâches d'onboarding (idempotent)
+ *  - Affiche une carte d'achievement avec la progression du MRR du cabinet
  *
  * Idempotent : si la LDM est déjà signée, on relance les confettis pour le
- * fun mais on ne re-écrit pas la date (pas envie d'écraser une vraie date
- * de signature antérieure).
+ * fun mais on ne re-écrit pas la date et on ne ré-affiche pas l'achievement
+ * (qui n'a de sens qu'au moment de la VRAIE signature).
  */
 export default function LDMSigneeButton({
   clientId,
@@ -27,6 +29,7 @@ export default function LDMSigneeButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const [done, setDone] = useState(alreadySigned);
+  const [achievement, setAchievement] = useState<AchievementData | null>(null);
   const { alert, AlertDialog } = useAlert();
 
   function fireConfetti() {
@@ -80,18 +83,22 @@ export default function LDMSigneeButton({
   function onClick() {
     fireConfetti();
     if (done) return; // déjà signée → juste les confettis pour le fun
-    const today = new Date().toISOString().substring(0, 10); // YYYY-MM-DD
     setDone(true);
     startTransition(async () => {
       try {
-        // Parallélise les 3 actions : update date + pipeline + init onboarding.
-        // L'init des tâches d'onboarding est idempotente (ne re-écrit pas si
-        // déjà créées), donc safe à appeler plusieurs fois.
-        await Promise.all([
-          updateClient(clientId, { mois_signature: today }),
-          setPipelineStatut(clientId, "7 - LDM signée"),
-          initializeOnboardingForClient(clientId),
-        ]);
+        const res = await signLdmAndGetStats(clientId);
+        // Affiche l'achievement card avec un petit delai pour laisser
+        // les confettis "respirer" avant que la card apparaisse.
+        setTimeout(() => {
+          setAchievement({
+            denomination: res.client.denomination,
+            origine: res.client.origine,
+            clientMrr: res.client.mrr,
+            clientArr: res.client.arr,
+            mrrBefore: res.mrrBefore,
+            mrrAfter: res.mrrAfter,
+          });
+        }, 600);
       } catch (e) {
         setDone(alreadySigned); // rollback
         await alert({ title: "Erreur", description: (e as Error).message });
@@ -102,27 +109,33 @@ export default function LDMSigneeButton({
   return (
     <>
       {AlertDialog}
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={isPending}
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-all",
-        "hover:shadow-sm active:scale-95",
-        done
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-          : "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] border-[hsl(var(--gold))]/40 hover:bg-[hsl(var(--gold))]/20",
-        isPending && "opacity-60 cursor-wait"
+      {achievement && (
+        <AchievementCard
+          data={achievement}
+          onClose={() => setAchievement(null)}
+        />
       )}
-      title={
-        done
-          ? "LDM déjà signée — clique pour fêter à nouveau 🎉"
-          : "Marquer le dossier comme signé : pipeline → LDM signée + date du jour"
-      }
-    >
-      <PartyPopper className="h-3.5 w-3.5" />
-      {done ? "LDM signée" : "LDM signée 🎉"}
-    </button>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={isPending}
+        className={cn(
+          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-all",
+          "hover:shadow-sm active:scale-95",
+          done
+            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+            : "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] border-[hsl(var(--gold))]/40 hover:bg-[hsl(var(--gold))]/20",
+          isPending && "opacity-60 cursor-wait"
+        )}
+        title={
+          done
+            ? "LDM déjà signée — clique pour fêter à nouveau 🎉"
+            : "Marquer le dossier comme signé : pipeline → LDM signée + date du jour"
+        }
+      >
+        <PartyPopper className="h-3.5 w-3.5" />
+        {done ? "LDM signée" : "LDM signée 🎉"}
+      </button>
     </>
   );
 }
