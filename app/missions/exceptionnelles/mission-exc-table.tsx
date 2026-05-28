@@ -463,7 +463,7 @@ export default function MissionExcTable({
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
-          <table className="w-full text-sm min-w-[1100px]" aria-label="Missions exceptionnelles">
+          <table className="w-full text-sm min-w-[1200px]" aria-label="Missions exceptionnelles">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[200px]">Client</th>
@@ -472,8 +472,9 @@ export default function MissionExcTable({
                 <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[80px]" title="Durée théorique">Théo.</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[80px]" title="Durée réelle">Réel</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Taux horaire">Taux</th>
+                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[100px]" title="Prix théorique = durée théorique × taux horaire">Théo. €</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Forfait d'honoraires">Forfait</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Montant calculé (forfait si présent, sinon taux × heures)">Montant</th>
+                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Montant à facturer (forfait si présent, sinon taux × heures réelles, sinon taux × heures théoriques)">À facturer</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">État mission</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">Facturation</th>
                 <th scope="col" className="px-2 py-2.5 w-10" />
@@ -695,6 +696,14 @@ function MissionRow({
         />
       </td>
 
+      {/* Prix theorique calcule = duree theorique x taux horaire (read-only) */}
+      <td className="px-2 py-2.5 text-right">
+        <PriceComputedCell
+          duree={row.duree_theorique_h}
+          taux={row.taux_horaire}
+        />
+      </td>
+
       {/* Forfait */}
       <td className="px-2 py-2.5 text-right">
         <EditableNumber
@@ -705,7 +714,7 @@ function MissionRow({
         />
       </td>
 
-      {/* Montant calcule */}
+      {/* Montant a facturer (priorite : forfait > taux x reel > taux x theo) */}
       <td className="px-2 py-2.5 text-right">
         <div className="inline-flex flex-col items-end">
           <span
@@ -855,6 +864,39 @@ function EditableText({
 }
 
 // ============================================================================
+//  PriceComputedCell : cellule read-only affichant durée × taux
+// ============================================================================
+
+function PriceComputedCell({
+  duree,
+  taux,
+}: {
+  duree: number | null;
+  taux: number | null;
+}) {
+  const computable =
+    duree !== null && duree !== undefined && taux !== null && taux !== undefined;
+  const value = computable ? (duree as number) * (taux as number) : null;
+  return (
+    <span
+      className={cn(
+        "inline-block px-1.5 py-0.5 tabular-nums text-sm",
+        computable
+          ? "text-violet-700 dark:text-violet-300 font-medium"
+          : "text-zinc-300 dark:text-zinc-600 italic"
+      )}
+      title={
+        computable
+          ? `${duree} h × ${taux} € = ${formatEUR(value)}`
+          : "Renseigne durée théorique + taux horaire pour calculer"
+      }
+    >
+      {formatEUR(value)}
+    </span>
+  );
+}
+
+// ============================================================================
 //  EditableNumber : champ numerique avec suffixe (h / €)
 // ============================================================================
 
@@ -941,14 +983,35 @@ function ClientPicker({
   const [search, setSearch] = useState("");
   const [editingLibre, setEditingLibre] = useState(false);
   const [libreInput, setLibreInput] = useState(row.client_libre ?? "");
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
 
   useEffect(() => setLibreInput(row.client_libre ?? ""), [row.client_libre]);
 
   useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = 360;
+    const POPOVER_WIDTH = 300;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const desiredLeft = rect.left;
+    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -999,8 +1062,9 @@ function ClientPicker({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div className="inline-block w-full">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full text-left -mx-1.5 px-1.5 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
@@ -1029,70 +1093,84 @@ function ClientPicker({
           <span className="text-zinc-400 dark:text-zinc-500 italic">— Choisir</span>
         )}
       </button>
-      {open && (
-        <div className="absolute z-50 left-0 top-full mt-1 min-w-[280px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-xl overflow-hidden">
-          <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06]">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoFocus
-              placeholder="Rechercher un client EC…"
-              className="w-full px-2 py-1 text-xs bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.08] rounded focus:outline-none focus:ring-1 focus:ring-zinc-400"
-            />
-          </div>
-          <div className="max-h-[240px] overflow-y-auto py-1">
-            {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-zinc-400 italic">Aucun résultat</div>
-            ) : (
-              filtered.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(c.id, null);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                    row.client_id === c.id && "bg-zinc-50 dark:bg-white/[0.04]"
-                  )}
-                >
-                  <span className="truncate flex-1">{c.denomination}</span>
-                  {row.client_id === c.id && (
-                    <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-          <div className="border-t border-zinc-100 dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setEditingLibre(true);
-              }}
-              className="w-full text-left px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors flex items-center gap-2"
-            >
-              <Pencil className="h-3 w-3" />
-              Saisir un nom libre…
-            </button>
-            {(row.client_id || row.client_libre) && (
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[300px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+          >
+            <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06]">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoFocus
+                placeholder="Rechercher un client EC…"
+                className="w-full px-2 py-1 text-xs bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.08] rounded focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
+            </div>
+            <div className="max-h-[240px] overflow-y-auto py-1">
+              {filtered.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-zinc-400 italic">Aucun résultat</div>
+              ) : (
+                filtered.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(c.id, null);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                      row.client_id === c.id && "bg-zinc-50 dark:bg-white/[0.04]"
+                    )}
+                  >
+                    <span className="truncate flex-1">{c.denomination}</span>
+                    {row.client_id === c.id && (
+                      <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="border-t border-zinc-100 dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
               <button
                 type="button"
                 onClick={() => {
-                  onChange(null, null);
                   setOpen(false);
+                  setEditingLibre(true);
                 }}
-                className="w-full text-left px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
+                className="w-full text-left px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors flex items-center gap-2"
               >
-                Retirer le client
+                <Pencil className="h-3 w-3" />
+                Saisir un nom libre…
               </button>
-            )}
-          </div>
-        </div>
-      )}
+              {(row.client_id || row.client_libre) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(null, null);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
+                >
+                  Retirer le client
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -1111,12 +1189,33 @@ function TypePicker({
   onChange: (typeId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = Math.min(300, types.length * 28 + 60);
+    const POPOVER_WIDTH = 220;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const desiredLeft = rect.left;
+    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open, types.length]);
 
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -1130,8 +1229,9 @@ function TypePicker({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div className="inline-block max-w-full">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
@@ -1146,43 +1246,57 @@ function TypePicker({
         <span className="truncate">{value?.label ?? "— Type"}</span>
         <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
       </button>
-      {open && (
-        <div className="absolute z-50 left-0 top-full mt-1 min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-xl overflow-hidden">
-          <div className="max-h-[260px] overflow-y-auto py-1">
-            {types.map((t) => (
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[220px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+          >
+            <div className="max-h-[260px] overflow-y-auto py-1">
+              {types.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(t.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                    value?.id === t.id && "bg-zinc-50 dark:bg-white/[0.04]"
+                  )}
+                >
+                  <span className="truncate flex-1">{t.label}</span>
+                  {value?.id === t.id && (
+                    <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+            {value && (
               <button
-                key={t.id}
                 type="button"
                 onClick={() => {
-                  onChange(t.id);
+                  onChange(null);
                   setOpen(false);
                 }}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                  value?.id === t.id && "bg-zinc-50 dark:bg-white/[0.04]"
-                )}
+                className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
               >
-                <span className="truncate flex-1">{t.label}</span>
-                {value?.id === t.id && (
-                  <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                )}
+                Retirer le type
               </button>
-            ))}
-          </div>
-          {value && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-                setOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
-            >
-              Retirer le type
-            </button>
-          )}
-        </div>
-      )}
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -1201,13 +1315,38 @@ function BadgePicker<T extends string>({
   onChange: (v: T) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
   const current = options.find((o) => o.key === value) ?? options[0];
+
+  // Positionne le popover via getBoundingClientRect + createPortal pour echapper
+  // le clipping de la table (overflow-x-auto + rounded-xl).
+  useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = options.length * 32 + 16;
+    const POPOVER_WIDTH = 180;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    // Aligne le bord droit du popover sur le bord droit du bouton (ces pickers
+    // sont dans les colonnes de droite, donc on evite l'overflow horizontal).
+    const desiredLeft = rect.right - POPOVER_WIDTH;
+    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open, options.length]);
 
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -1221,8 +1360,9 @@ function BadgePicker<T extends string>({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div className="inline-block">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
@@ -1234,31 +1374,45 @@ function BadgePicker<T extends string>({
       >
         {current.label}
       </button>
-      {open && (
-        <div className="absolute z-50 right-0 top-full mt-1 min-w-[160px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-xl overflow-hidden">
-          {options.map((o) => (
-            <button
-              key={o.key}
-              type="button"
-              onClick={() => {
-                onChange(o.key);
-                setOpen(false);
-              }}
-              className={cn(
-                "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
-              )}
-            >
-              <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
-                {o.label}
-              </span>
-              {value === o.key && (
-                <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 ml-auto" />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[180px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+          >
+            {options.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => {
+                  onChange(o.key);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                  value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
+                )}
+              >
+                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
+                  {o.label}
+                </span>
+                {value === o.key && (
+                  <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 ml-auto" />
+                )}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
