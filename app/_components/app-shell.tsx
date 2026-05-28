@@ -11,6 +11,7 @@ import {
 } from "./sidebar";
 import { ClientSwitcher } from "./client-switcher";
 import CommandPalette from "./command-palette";
+import ChatBubble from "./chat-bubble";
 import { ThemeToggle } from "./theme-toggle";
 import { TRACKERS } from "@/app/obligations/trackers";
 
@@ -153,6 +154,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+      {/* Assistant IA flottant en bas-droite, dispo sur toutes les pages
+          authentifiees (hide-shell = login/en-attente n'a pas la bulle). */}
+      <ChatBubble />
     </div>
   );
 }
