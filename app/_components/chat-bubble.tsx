@@ -159,9 +159,9 @@ export default function ChatBubble() {
       )}
 
       {/* Drawer chat premium : ombres marquees, gradients sobres, typo
-          travaillee, animations douces. */}
+          travaillee, animations douces. Taille raisonnable (400x560). */}
       {open && (
-        <div className="fixed bottom-0 right-0 z-[900] h-[100dvh] md:h-[640px] md:bottom-5 md:right-5 w-full md:w-[440px] flex flex-col bg-white dark:bg-[hsl(var(--surface-elevated))] border-l md:border md:rounded-3xl border-zinc-200 dark:border-white/[0.08] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden animate-slide-up-fade">
+        <div className="fixed bottom-0 right-0 z-[900] h-[100dvh] md:h-[560px] md:bottom-5 md:right-5 w-full md:w-[400px] flex flex-col bg-white dark:bg-[hsl(var(--surface-elevated))] border-l md:border md:rounded-3xl border-zinc-200 dark:border-white/[0.08] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden animate-slide-up-fade">
           {/* Header premium : fond sombre type onyx + etoile + sous-titre fin */}
           <header className="relative flex items-center justify-between gap-2 px-5 py-4 border-b border-zinc-200 dark:border-white/[0.06] bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 dark:from-black dark:via-zinc-950 dark:to-zinc-900 text-zinc-50">
             <div className="flex items-center gap-3 min-w-0">
@@ -214,7 +214,7 @@ export default function ChatBubble() {
             className="flex-1 overflow-y-auto px-4 py-5 space-y-4 bg-zinc-50/60 dark:bg-zinc-950/40"
           >
             {messages.length === 0 && (
-              <div className="text-center pt-6 pb-2 px-2">
+              <div className="text-center pt-8 pb-2 px-2">
                 <div className="relative inline-flex items-center justify-center w-14 h-14 mb-4">
                   <span
                     aria-hidden
@@ -231,33 +231,9 @@ export default function ChatBubble() {
                 <p className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50 tracking-tight">
                   Comment puis-je t&apos;aider ?
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-[280px] mx-auto">
-                  Pose une question sur ton CRM ou clique une suggestion ci-dessous.
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-[260px] mx-auto">
+                  Pose une question sur ton CRM.
                 </p>
-                <div className="mt-5 grid gap-2 text-left">
-                  {[
-                    "Quel est mon MRR ?",
-                    "Quelles obligations en retard ?",
-                    "Combien j'ai signé ce mois ?",
-                    "Où en est l'onboarding de Massimo ?",
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => {
-                        setDraft(q);
-                        inputRef.current?.focus();
-                      }}
-                      className="group/sugg flex items-center gap-2.5 text-sm text-left px-3.5 py-2.5 rounded-xl bg-white dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/[0.06] hover:border-[hsl(var(--gold))]/50 dark:hover:border-[hsl(var(--gold))]/40 hover:shadow-card hover:-translate-y-px text-zinc-700 dark:text-zinc-200 transition-all"
-                    >
-                      <Sparkles
-                        className="h-3 w-3 text-[hsl(var(--gold))]/60 group-hover/sugg:text-[hsl(var(--gold))] shrink-0 transition-colors"
-                        aria-hidden="true"
-                      />
-                      <span className="flex-1">{q}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
 
@@ -315,7 +291,9 @@ export default function ChatBubble() {
                 className={cn(
                   "shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl transition-all",
                   draft.trim() && !loading
-                    ? "bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-50 dark:to-zinc-100 text-[hsl(var(--gold))] dark:text-[hsl(var(--gold-dark))] ring-1 ring-[hsl(var(--gold))]/40 hover:ring-[hsl(var(--gold))]/70 hover:shadow-lg active:scale-95"
+                    ? // Actif : meme cercle onyx + etoile or que le bouton flottant.
+                      // Coherent dans les 2 modes (pas d'inversion blanc en dark).
+                      "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 text-[hsl(var(--gold))] ring-1 ring-[hsl(var(--gold))]/40 hover:ring-[hsl(var(--gold))]/70 hover:shadow-lg active:scale-95"
                     : "bg-zinc-100 dark:bg-white/[0.04] text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
                 )}
               >
