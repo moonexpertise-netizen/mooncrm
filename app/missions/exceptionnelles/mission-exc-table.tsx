@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import {
+  Copy,
   Plus,
   X,
   Pencil,
@@ -22,6 +23,7 @@ import {
   createMissionType,
   deleteMission,
   deleteMissionType,
+  duplicateMission,
   renameMissionType,
   setEtatFacturation,
   setEtatMission,
@@ -380,6 +382,18 @@ export default function MissionExcTable({
     });
   }
 
+  function onDuplicate(row: MissionExcRow) {
+    startTransition(async () => {
+      try {
+        await duplicateMission(row.id);
+        toastSuccess("Mission dupliquée");
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec duplication");
+      }
+    });
+  }
+
   async function onDelete(row: MissionExcRow) {
     const ok = await confirm({
       title: `Supprimer cette mission ?`,
@@ -527,6 +541,7 @@ export default function MissionExcTable({
                   onSetEtatFacturation={(e) => onSetEtatFacturation(r.id, e)}
                   onSetLdmStatut={(s) => onSetLdmStatut(r.id, s)}
                   onSetType={(t) => onSetType(r.id, t)}
+                  onDuplicate={() => onDuplicate(r)}
                   onDelete={() => onDelete(r)}
                 />
               ))}
@@ -638,6 +653,7 @@ function MissionRow({
   onSetEtatFacturation,
   onSetLdmStatut,
   onSetType,
+  onDuplicate,
   onDelete,
 }: {
   row: MissionExcRow;
@@ -650,6 +666,7 @@ function MissionRow({
   onSetEtatFacturation: (e: EtatFacturation) => void;
   onSetLdmStatut: (s: LdmStatutMission) => void;
   onSetType: (typeId: string | null) => void;
+  onDuplicate: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -734,8 +751,17 @@ function MissionRow({
         />
       </td>
 
-      {/* Actions */}
+      {/* Actions : dupliquer + supprimer */}
       <td className="px-2 py-2.5 text-right">
+        <div className="inline-flex items-center gap-0.5">
+        <button
+          onClick={onDuplicate}
+          className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
+          aria-label="Dupliquer la mission"
+          title="Dupliquer"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </button>
         <button
           onClick={onDelete}
           className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
@@ -744,6 +770,7 @@ function MissionRow({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
+        </div>
       </td>
     </tr>
   );

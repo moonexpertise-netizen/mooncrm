@@ -118,6 +118,64 @@ export async function deleteMission(missionId: string) {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Duplique une mission existante. Cree une copie avec :
+ *   - meme client / type / description / duree / taux / forfait
+ *   - etats reset (a_demarrer / a_facturer / a_faire pour LDM)
+ *   - dates reset (date_debut = aujourd'hui, date_fin = null)
+ *   - mission = original + " (copie)"
+ * Le slug est regenere automatiquement par le trigger DB.
+ */
+export async function duplicateMission(missionId: string) {
+  const sb = await createClient();
+  // Recupere la source
+  const { data: source, error: e0 } = await sb
+    .from("missions_exceptionnelles")
+    .select(
+      "client_id, client_libre, mission, type_id, description, duree_theorique_h, duree_reelle_h, taux_horaire, forfait"
+    )
+    .eq("id", missionId)
+    .single();
+  if (e0) throw new Error(e0.message);
+  if (!source) throw new Error("Mission introuvable");
+
+  const today = new Date().toISOString().substring(0, 10);
+
+  // baseRow : champs garantis depuis migration 0048
+  const baseRow = {
+    client_id: source.client_id,
+    client_libre: source.client_libre,
+    mission: `${source.mission} (copie)`,
+    type_id: source.type_id,
+    description: source.description,
+    duree_theorique_h: source.duree_theorique_h,
+    duree_reelle_h: null, // reset reel : la copie n'a pas encore demarre
+    taux_horaire: source.taux_horaire,
+    forfait: source.forfait,
+    etat_mission: "a_demarrer" as EtatMission,
+    etat_facturation: "a_facturer" as EtatFacturation,
+    date_debut: today,
+    date_fin: null,
+  };
+
+  // Try with ldm_statut (migration 0049). Si la colonne n'existe pas
+  // (migration pas appliquee), fallback sans.
+  let res = await sb
+    .from("missions_exceptionnelles")
+    .insert({ ...baseRow, ldm_statut: "a_faire" })
+    .select("id, slug")
+    .single();
+  if (res.error && /ldm_statut/i.test(res.error.message)) {
+    res = await sb
+      .from("missions_exceptionnelles")
+      .insert(baseRow)
+      .select("id, slug")
+      .single();
+  }
+  if (res.error) throw new Error(res.error.message);
+  return res.data;
+}
+
 export async function setEtatMission(missionId: string, etat: EtatMission) {
   const sb = await createClient();
   const { error } = await sb
