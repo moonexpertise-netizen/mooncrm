@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, Minus, Pencil, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
@@ -140,6 +140,13 @@ export default function MatriceTable({
   // Filtres persistés dans l'URL (cf. /onboarding qui fait pareil) : F5 et
   // switch d'onglet Liste ↔ Matrice ne perdent rien.
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // URL courante pour ?from= sur les liens fiche client (retour intelligent).
+  const fromUrl = useMemo(() => {
+    const qs = searchParams.toString();
+    return `${pathname}${qs ? `?${qs}` : ""}`;
+  }, [pathname, searchParams]);
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(
@@ -508,7 +515,7 @@ export default function MatriceTable({
                   <td className="sticky left-0 z-10 bg-inherit px-3 py-2 border-b border-r border-zinc-100">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Link
-                        href={`/clients/${r.slug}/onboarding`}
+                        href={`/clients/${r.slug}/onboarding?from=${encodeURIComponent(fromUrl)}`}
                         className="text-sm font-medium text-zinc-900 hover:underline truncate"
                       >
                         {r.denomination}

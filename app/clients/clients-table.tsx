@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { categorieActivite, type ActiviteCategorie } from "@/lib/activite-categorie";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
@@ -74,6 +74,14 @@ const MIN_COLUMN_WIDTH = 60;
 export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // URL courante (path + search) pour ?from= sur les liens fiche client.
+  // Permet au bouton retour de la fiche de ramener avec les bons filtres.
+  const fromUrl = useMemo(() => {
+    const qs = searchParams.toString();
+    return `${pathname}${qs ? `?${qs}` : ""}`;
+  }, [pathname, searchParams]);
 
   // Lecture initiale depuis l'URL. Si aucun param et pas de sentinel `clear`,
   // on applique le bucket "clients" par défaut (clients actifs MOON).
@@ -377,6 +385,9 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               if (bucket !== "clients") navParams.set("nav-bucket", bucket);
               if (formeFilter.size) navParams.set("nav-forme", [...formeFilter].join("|"));
               if (activiteFilter) navParams.set("nav-activite", activiteFilter);
+              // ?from= : URL courante pour que le bouton retour de la fiche
+              // ramene a /clients avec les filtres preserves.
+              navParams.set("from", fromUrl);
               const qs = navParams.toString();
               const href = `/clients/${r.slug}${qs ? `?${qs}` : ""}`;
               return (

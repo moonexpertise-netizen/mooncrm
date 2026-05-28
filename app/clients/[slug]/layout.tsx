@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 import { EditableHeading } from "./editable";
 import { Badge } from "./_components";
 import AnnuaireButton from "./annuaire-button";
+import BackButton from "./back-button";
 import DeleteClientButton from "./delete-button";
 import LDMButton from "./ldm-button";
 import LDMSigneeButton from "./ldm-signee-button";
@@ -19,6 +19,74 @@ import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Calcule l'URL et le label du bouton retour de la fiche client.
+ *
+ * Priorite :
+ *   1. ?from=<url-encoded> dans l'URL courante (inject par les listes)
+ *   2. Referer (best-effort, fonctionne si on vient d'une page interne)
+ *   3. Fallback /clients
+ *
+ * Le label est deduit du chemin :
+ *   - /onboarding         -> "Onboarding"
+ *   - /onboarding/matrice -> "Matrice onboarding"
+ *   - /pipeline           -> "Pipeline"
+ *   - /clients            -> "Clients"
+ *   - /                   -> "Dashboard"
+ *   - autre               -> "Retour"
+ *
+ * Le `from` complet (avec query string) est preserve pour ne PAS perdre
+ * les filtres et tri appliques avant clic sur le dossier.
+ */
+function computeBackHref(
+  fromParam: string | undefined,
+  referer: string
+): { href: string; label: string } {
+  // 1. fromParam prioritaire (decode + check qu'il s'agit d'une route interne)
+  if (fromParam) {
+    try {
+      const decoded = decodeURIComponent(fromParam);
+      if (decoded.startsWith("/")) {
+        return { href: decoded, label: labelFromPath(decoded) };
+      }
+    } catch {
+      // ignore decode error
+    }
+  }
+  // 2. Referer (extraire pathname + search)
+  if (referer) {
+    try {
+      const u = new URL(referer);
+      // Eviter de rester sur la fiche client elle-meme (sous-route inter)
+      // et eviter de remonter sur une autre fiche client.
+      if (!u.pathname.startsWith("/clients/") || u.pathname === "/clients") {
+        return {
+          href: u.pathname + u.search,
+          label: labelFromPath(u.pathname),
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return { href: "/clients", label: "Clients" };
+}
+
+function labelFromPath(path: string): string {
+  if (path === "/" || path.startsWith("/?")) return "Dashboard";
+  if (path === "/clients" || path.startsWith("/clients?")) return "Clients";
+  if (path.startsWith("/onboarding/matrice")) return "Matrice onboarding";
+  if (path.startsWith("/onboarding/parametrage")) return "Paramétrage onboarding";
+  if (path === "/onboarding" || path.startsWith("/onboarding?") || path.startsWith("/onboarding/")) return "Onboarding";
+  if (path === "/pipeline" || path.startsWith("/pipeline?")) return "Pipeline";
+  if (path === "/parametrage" || path.startsWith("/parametrage?")) return "Paramétrage";
+  if (path.startsWith("/obligations/")) return "Production";
+  if (path === "/obligations" || path.startsWith("/obligations?")) return "Production";
+  if (path.startsWith("/missions/ir")) return "IR";
+  if (path.startsWith("/missions/caa")) return "CAA";
+  return "Retour";
+}
 
 export default async function ClientLayout({
   children,
@@ -39,6 +107,9 @@ export default async function ClientLayout({
   const headersList = await headers();
   const referer = headersList.get("referer") ?? "";
   const url = new URL(referer || "http://localhost/");
+  // Fallback back href cote serveur (depuis referer uniquement). Le BackButton
+  // client read aussi ?from= dans l'URL courante et override si present.
+  const back = computeBackHref(undefined, referer);
   // Note : on ne récupère pas les nav-* depuis les params du layout (Next ne
   // les expose pas), donc on les lit depuis le referer en best-effort. Ce
   // n'est pas critique : si non trouvés, la liste prev/next reste complète.
@@ -94,15 +165,7 @@ export default async function ClientLayout({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <Link
-          href="/clients"
-          className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-900 transition-colors group"
-        >
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-zinc-200 bg-white group-hover:border-zinc-300 group-hover:shadow-card transition-all">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </span>
-          <span className="font-medium">Clients</span>
-        </Link>
+        <BackButton defaultHref={back.href} defaultLabel={back.label} />
         <NavButtons
           prev={prev}
           next={next}

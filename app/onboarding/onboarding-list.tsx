@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -72,6 +72,14 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   // l'état repart à zéro automatiquement.
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // URL courante (path + search) — propagee aux liens fiche client comme
+  // ?from=... pour que le bouton retour ramene ici avec filtres + tri.
+  const fromUrl = useMemo(() => {
+    const qs = searchParams.toString();
+    return `${pathname}${qs ? `?${qs}` : ""}`;
+  }, [pathname, searchParams]);
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(
@@ -239,7 +247,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
       ) : (
         <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card divide-y divide-zinc-100 overflow-hidden">
           {sorted.map((r) => (
-            <OnboardingRowComp key={r.id} row={r} type={r.type} />
+            <OnboardingRowComp key={r.id} row={r} type={r.type} fromUrl={fromUrl} />
           ))}
         </div>
       )}
@@ -251,12 +259,20 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
 //  OnboardingRowComp : ligne d'un dossier (avec chip Type)
 // ============================================================================
 
-function OnboardingRowComp({ row, type }: { row: OnboardingRow; type: OrigineType }) {
+function OnboardingRowComp({
+  row,
+  type,
+  fromUrl,
+}: {
+  row: OnboardingRow;
+  type: OrigineType;
+  fromUrl: string;
+}) {
   const isComplete = row.total > 0 && row.done === row.total;
   const noTasks = row.total === 0;
   return (
     <Link
-      href={`/clients/${row.slug}/onboarding`}
+      href={`/clients/${row.slug}/onboarding?from=${encodeURIComponent(fromUrl)}`}
       className="group/row flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
     >
       <div className="shrink-0">
