@@ -49,10 +49,10 @@ export type IrRow = {
 // migre en status_options scope='ldm_mission' quand Benjamin donnera la
 // liste finale)
 const LDM_VALUES: Array<{ key: string; label: string; color: string }> = [
-  { key: "a_preparer", label: "À préparer", color: "bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.12]" },
-  { key: "propale_acceptee", label: "Propale acceptée", color: "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30" },
-  { key: "ldm_envoyee", label: "LDM envoyée", color: "bg-sky-50 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-500/30" },
-  { key: "ldm_signee", label: "LDM signée", color: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30" },
+  { key: "a_preparer", label: "À préparer", color: "bg-zinc-100 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.18]" },
+  { key: "propale_acceptee", label: "Propale acceptée", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
+  { key: "ldm_envoyee", label: "LDM envoyée", color: "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50" },
+  { key: "ldm_signee", label: "LDM signée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },
 ];
 
 export default function IrTable({
@@ -490,7 +490,7 @@ function StatutCell({
               transform: pos.openUp ? "translate(-50%, calc(-100% - 8px))" : "translate(-50%, 8px)",
               zIndex: 1000,
             }}
-            className="min-w-[220px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+            className="min-w-[220px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
           >
             <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
               Statut
@@ -611,7 +611,7 @@ function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) =
               transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
               zIndex: 1000,
             }}
-            className="min-w-[200px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
           >
             {LDM_VALUES.map((v) => (
               <button

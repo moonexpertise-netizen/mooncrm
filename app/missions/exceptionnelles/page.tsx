@@ -31,7 +31,7 @@ export default async function MissionsExcPage() {
     sb
       .from("missions_exceptionnelles")
       .select(
-        "id, slug, client_id, client_libre, mission, type_id, description, duree_theorique_h, duree_reelle_h, taux_horaire, forfait, etat_mission, etat_facturation, date_debut, date_fin, created_at, clients(slug, denomination)"
+        "id, slug, client_id, client_libre, mission, type_id, description, duree_theorique_h, duree_reelle_h, taux_horaire, forfait, etat_mission, etat_facturation, ldm_statut, date_debut, date_fin, created_at, clients(slug, denomination)"
       )
       .order("date_debut", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
@@ -61,6 +61,7 @@ export default async function MissionsExcPage() {
     forfait: number | null;
     etat_mission: string;
     etat_facturation: string;
+    ldm_statut: string;
     date_debut: string | null;
     date_fin: string | null;
     created_at: string;
@@ -85,6 +86,7 @@ export default async function MissionsExcPage() {
       forfait: m.forfait,
       etat_mission: m.etat_mission as MissionExcRow["etat_mission"],
       etat_facturation: m.etat_facturation as MissionExcRow["etat_facturation"],
+      ldm_statut: (m.ldm_statut ?? "a_faire") as MissionExcRow["ldm_statut"],
       date_debut: m.date_debut,
       date_fin: m.date_fin,
     };

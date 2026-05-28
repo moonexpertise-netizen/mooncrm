@@ -25,10 +25,12 @@ import {
   renameMissionType,
   setEtatFacturation,
   setEtatMission,
+  setLdmStatutMission,
   setMissionTypeActif,
   updateMission,
   type EtatFacturation,
   type EtatMission,
+  type LdmStatutMission,
 } from "./actions";
 
 // ============================================================================
@@ -51,6 +53,7 @@ export type MissionExcRow = {
   forfait: number | null;
   etat_mission: EtatMission;
   etat_facturation: EtatFacturation;
+  ldm_statut: LdmStatutMission;
   date_debut: string | null;
   date_fin: string | null;
 };
@@ -82,25 +85,25 @@ const ETAT_MISSION_OPTIONS: Array<{
     key: "a_demarrer",
     label: "À démarrer",
     color:
-      "bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.12]",
+      "bg-zinc-100 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.18]",
   },
   {
     key: "en_cours",
     label: "En cours",
     color:
-      "bg-sky-50 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-500/30",
+      "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50",
   },
   {
     key: "livree",
     label: "Livrée",
     color:
-      "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30",
+      "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50",
   },
   {
     key: "annulee",
     label: "Annulée",
     color:
-      "bg-zinc-50 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-white/[0.08] line-through",
+      "bg-zinc-50 dark:bg-white/[0.05] text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-white/[0.10] line-through",
   },
 ];
 
@@ -113,25 +116,59 @@ const ETAT_FACTURATION_OPTIONS: Array<{
     key: "a_facturer",
     label: "À facturer",
     color:
-      "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30",
+      "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50",
   },
   {
     key: "facturee",
     label: "Facturée",
     color:
-      "bg-sky-50 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-500/30",
+      "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50",
   },
   {
     key: "payee",
     label: "Payée",
     color:
-      "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30",
+      "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50",
   },
   {
     key: "sans_facture",
     label: "Sans facture",
     color:
-      "bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08]",
+      "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]",
+  },
+];
+
+// Statut LDM pour les missions exceptionnelles. La LDM (lettre de mission) peut
+// etre necessaire ou pas selon la mission. N/A = pas besoin de LDM pour cette
+// mission ponctuelle.
+const LDM_STATUT_OPTIONS: Array<{
+  key: LdmStatutMission;
+  label: string;
+  color: string;
+}> = [
+  {
+    key: "a_faire",
+    label: "À faire",
+    color:
+      "bg-zinc-100 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.18]",
+  },
+  {
+    key: "na",
+    label: "N/A",
+    color:
+      "bg-zinc-50 dark:bg-white/[0.05] text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-white/[0.10]",
+  },
+  {
+    key: "envoyee",
+    label: "Envoyée en signature",
+    color:
+      "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50",
+  },
+  {
+    key: "signee",
+    label: "Signée",
+    color:
+      "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50",
   },
 ];
 
@@ -331,6 +368,18 @@ export default function MissionExcTable({
     });
   }
 
+  function onSetLdmStatut(id: string, statut: LdmStatutMission) {
+    patchRow(id, { ldm_statut: statut });
+    startTransition(async () => {
+      try {
+        await setLdmStatutMission(id, statut);
+      } catch (e) {
+        toastError(e, "Echec sauvegarde");
+        router.refresh();
+      }
+    });
+  }
+
   function onSetType(id: string, typeId: string | null) {
     patchRow(id, { type_id: typeId });
     startTransition(async () => {
@@ -463,7 +512,7 @@ export default function MissionExcTable({
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
-          <table className="w-full text-sm min-w-[1200px]" aria-label="Missions exceptionnelles">
+          <table className="w-full text-sm min-w-[1340px]" aria-label="Missions exceptionnelles">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[200px]">Client</th>
@@ -477,6 +526,7 @@ export default function MissionExcTable({
                 <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[90px]" title="Montant à facturer (forfait si présent, sinon taux × heures réelles, sinon taux × heures théoriques)">À facturer</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">État mission</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">Facturation</th>
+                <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]" title="Lettre de mission">LDM</th>
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
             </thead>
@@ -492,6 +542,7 @@ export default function MissionExcTable({
                   onChangeClient={(cid, libre) => onChangeClient(r.id, cid, libre)}
                   onSetEtatMission={(e) => onSetEtatMission(r.id, e)}
                   onSetEtatFacturation={(e) => onSetEtatFacturation(r.id, e)}
+                  onSetLdmStatut={(s) => onSetLdmStatut(r.id, s)}
                   onSetType={(t) => onSetType(r.id, t)}
                   onDelete={() => onDelete(r)}
                 />
@@ -606,6 +657,7 @@ function MissionRow({
   onChangeClient,
   onSetEtatMission,
   onSetEtatFacturation,
+  onSetLdmStatut,
   onSetType,
   onDelete,
 }: {
@@ -617,6 +669,7 @@ function MissionRow({
   onChangeClient: (clientId: string | null, libre: string | null) => void;
   onSetEtatMission: (e: EtatMission) => void;
   onSetEtatFacturation: (e: EtatFacturation) => void;
+  onSetLdmStatut: (s: LdmStatutMission) => void;
   onSetType: (typeId: string | null) => void;
   onDelete: () => void;
 }) {
@@ -754,6 +807,15 @@ function MissionRow({
           value={row.etat_facturation}
           options={ETAT_FACTURATION_OPTIONS}
           onChange={(v) => onSetEtatFacturation(v as EtatFacturation)}
+        />
+      </td>
+
+      {/* LDM (Lettre de mission) : a faire / N/A / Envoyee / Signee */}
+      <td className="px-2 py-2.5 text-center">
+        <BadgePicker
+          value={row.ldm_statut}
+          options={LDM_STATUT_OPTIONS}
+          onChange={(v) => onSetLdmStatut(v as LdmStatutMission)}
         />
       </td>
 
@@ -1106,7 +1168,7 @@ function ClientPicker({
               transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
               zIndex: 1000,
             }}
-            className="min-w-[300px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+            className="min-w-[300px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
           >
             <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06]">
               <input
@@ -1259,7 +1321,7 @@ function TypePicker({
               transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
               zIndex: 1000,
             }}
-            className="min-w-[220px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+            className="min-w-[220px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
           >
             <div className="max-h-[260px] overflow-y-auto py-1">
               {types.map((t) => (
@@ -1387,7 +1449,7 @@ function BadgePicker<T extends string>({
               transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
               zIndex: 1000,
             }}
-            className="min-w-[180px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+            className="min-w-[180px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
           >
             {options.map((o) => (
               <button

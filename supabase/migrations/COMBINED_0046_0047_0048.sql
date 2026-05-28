@@ -526,6 +526,25 @@ create policy p_missions_exc_all on public.missions_exceptionnelles
 
 
 -- ============================================================================
+-- ============================================================================
+--   MIGRATION 0049 : ldm_statut sur missions_exceptionnelles
+-- ============================================================================
+-- ============================================================================
+
+alter table public.missions_exceptionnelles
+  add column if not exists ldm_statut text not null default 'a_faire';
+
+alter table public.missions_exceptionnelles
+  drop constraint if exists missions_exceptionnelles_ldm_statut_check;
+alter table public.missions_exceptionnelles
+  add constraint missions_exceptionnelles_ldm_statut_check
+  check (ldm_statut in ('a_faire', 'na', 'envoyee', 'signee'));
+
+create index if not exists idx_mission_exc_ldm_statut
+  on public.missions_exceptionnelles(ldm_statut);
+
+
+-- ============================================================================
 --   FIN. Si tout s'est bien passe, tu dois voir "Success. No rows returned"
 --   (ou similaire) en bas de l'editeur SQL Supabase.
 -- ============================================================================

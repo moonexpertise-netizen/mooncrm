@@ -25,6 +25,13 @@ export type EtatFacturation =
   | "payee"
   | "sans_facture";
 
+// Statut de la lettre de mission pour les missions ponctuelles.
+// - a_faire : LDM a preparer
+// - na      : pas de LDM necessaire pour cette mission
+// - envoyee : LDM envoyee en signature au client
+// - signee  : LDM signee par le client
+export type LdmStatutMission = "a_faire" | "na" | "envoyee" | "signee";
+
 // ============================================================================
 //  Missions
 // ============================================================================
@@ -41,6 +48,7 @@ export type MissionExcInput = {
   forfait?: number | null;
   etat_mission?: EtatMission;
   etat_facturation?: EtatFacturation;
+  ldm_statut?: LdmStatutMission;
   date_debut?: string | null;
   date_fin?: string | null;
 };
@@ -62,6 +70,7 @@ export async function createMission(input: MissionExcInput) {
       forfait: input.forfait ?? null,
       etat_mission: input.etat_mission ?? "a_demarrer",
       etat_facturation: input.etat_facturation ?? "a_facturer",
+      ldm_statut: input.ldm_statut ?? "a_faire",
       date_debut: input.date_debut || null,
       date_fin: input.date_fin || null,
     })
@@ -119,6 +128,18 @@ export async function setEtatFacturation(
   const { error } = await sb
     .from("missions_exceptionnelles")
     .update({ etat_facturation: etat })
+    .eq("id", missionId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setLdmStatutMission(
+  missionId: string,
+  statut: LdmStatutMission
+) {
+  const sb = await createClient();
+  const { error } = await sb
+    .from("missions_exceptionnelles")
+    .update({ ldm_statut: statut })
     .eq("id", missionId);
   if (error) throw new Error(error.message);
 }
