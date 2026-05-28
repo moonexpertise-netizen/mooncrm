@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
  * 4 endpoints generiques qui pointent vers la bonne table selon la source.
  */
 
-export type EtatFacturation = "a_facturer" | "facturee" | "payee" | "sans_facture";
+export type EtatFacturation = "a_facturer" | "facturee" | "sans_facture";
 
 export type FactSource =
   | "caa"

@@ -153,7 +153,7 @@ export default async function ObligationsPage({
             statut_detail: o.statut_detail,
             echeance: o.echeance,
             note: o.note,
-            etat_facturation: o.etat_facturation as "a_facturer" | "facturee" | "payee" | "sans_facture" | null,
+            etat_facturation: o.etat_facturation as "a_facturer" | "facturee" | "sans_facture" | null,
           }
         : {
             colKey: col.key,

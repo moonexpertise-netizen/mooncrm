@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type LdmStatut = "a_preparer" | "propale_acceptee" | "ldm_envoyee" | "ldm_signee";
 export type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
-export type EtatFacturation = "a_facturer" | "facturee" | "payee" | "sans_facture";
+export type EtatFacturation = "a_facturer" | "facturee" | "sans_facture";
 
 export async function createClientCaa(input: {
   denomination: string;

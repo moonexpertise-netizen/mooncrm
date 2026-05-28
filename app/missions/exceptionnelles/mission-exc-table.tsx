@@ -122,12 +122,6 @@ const ETAT_FACTURATION_OPTIONS: Array<{
     key: "facturee",
     label: "Facturée",
     color:
-      "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50",
-  },
-  {
-    key: "payee",
-    label: "Payée",
-    color:
       "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50",
   },
   {
@@ -263,11 +257,9 @@ export default function MissionExcTable({
       livree: 0,
       a_facturer: 0,
       facturee: 0,
-      payee: 0,
-      // CA potentiel/realise
+      // CA potentiel/facture
       ca_a_facturer: 0,
-      ca_facture_non_paye: 0,
-      ca_paye: 0,
+      ca_facture: 0,
       heures_reelles_total: 0,
     };
     for (const row of localRows) {
@@ -276,12 +268,10 @@ export default function MissionExcTable({
       if (row.etat_mission === "livree") r.livree++;
       if (row.etat_facturation === "a_facturer") r.a_facturer++;
       if (row.etat_facturation === "facturee") r.facturee++;
-      if (row.etat_facturation === "payee") r.payee++;
       const m = computeMontant(row).value ?? 0;
       if (row.etat_mission !== "annulee") {
         if (row.etat_facturation === "a_facturer") r.ca_a_facturer += m;
-        if (row.etat_facturation === "facturee") r.ca_facture_non_paye += m;
-        if (row.etat_facturation === "payee") r.ca_paye += m;
+        if (row.etat_facturation === "facturee") r.ca_facture += m;
       }
       if (row.duree_reelle_h) r.heures_reelles_total += row.duree_reelle_h;
     }
@@ -575,10 +565,8 @@ function RecapCards({
     livree: number;
     a_facturer: number;
     facturee: number;
-    payee: number;
     ca_a_facturer: number;
-    ca_facture_non_paye: number;
-    ca_paye: number;
+    ca_facture: number;
     heures_reelles_total: number;
   };
 }) {
@@ -603,10 +591,10 @@ function RecapCards({
         accent="amber"
       />
       <Kpi
-        label="Facturé non payé"
-        value={formatEUR(recap.ca_facture_non_paye)}
-        subtitle={recap.ca_paye > 0 ? `${formatEUR(recap.ca_paye)} déjà payés` : "-"}
-        accent="sky"
+        label="Facturé"
+        value={formatEUR(recap.ca_facture)}
+        subtitle={`${recap.facturee} mission${recap.facturee > 1 ? "s" : ""}`}
+        accent="emerald"
       />
     </div>
   );

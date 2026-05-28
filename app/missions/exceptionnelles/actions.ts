@@ -20,10 +20,7 @@ export type EtatMission =
   | "annulee";
 
 export type EtatFacturation =
-  | "a_facturer"
-  | "facturee"
-  | "payee"
-  | "sans_facture";
+  | "a_facturer" | "facturee" | "sans_facture";
 
 // Statut de la lettre de mission pour les missions ponctuelles.
 // - a_faire : LDM a preparer

@@ -180,7 +180,7 @@ export async function updateObligationNote(obligationId: string, note: string | 
  */
 export async function setObligationFacturation(
   obligationId: string,
-  etat: "a_facturer" | "facturee" | "payee" | "sans_facture" | null
+  etat: "a_facturer" | "facturee" | "sans_facture" | null
 ) {
   const sb = await createClient();
   const { error } = await sb

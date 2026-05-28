@@ -26,7 +26,7 @@ export type FactItem = {
   sousDetail: string | null;
   /** Montant indicatif si disponible (€). */
   montant: number | null;
-  etat_facturation: "a_facturer" | "facturee" | "payee" | "sans_facture" | null;
+  etat_facturation: "a_facturer" | "facturee" | "sans_facture" | null;
 };
 
 const SOURCE_LABEL: Record<FactSource, string> = {
@@ -46,20 +46,18 @@ const SOURCE_COLOR: Record<FactSource, string> = {
 };
 
 const FACT_OPTIONS: Array<{
-  key: "a_facturer" | "facturee" | "payee" | "sans_facture";
+  key: "a_facturer" | "facturee" | "sans_facture";
   label: string;
   color: string;
 }> = [
   { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
   { key: "facturee", label: "Facturée", color: "bg-sky-50 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-500/50" },
-  { key: "payee", label: "Payée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },
   { key: "sans_facture", label: "Sans facture", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },
 ];
 
-const ETAT_FILTERS: Array<{ key: "all" | "a_facturer" | "facturee" | "payee" | "sans_facture"; label: string }> = [
+const ETAT_FILTERS: Array<{ key: "all" | "a_facturer" | "facturee" | "sans_facture"; label: string }> = [
   { key: "a_facturer", label: "À facturer" },
   { key: "facturee", label: "Facturées" },
-  { key: "payee", label: "Payées" },
   { key: "sans_facture", label: "Sans facture" },
   { key: "all", label: "Toutes" },
 ];
@@ -86,7 +84,7 @@ export default function FacturationCenter({
 }: {
   items: FactItem[];
   totalCount: number;
-  filterEtat: "all" | "a_facturer" | "facturee" | "payee" | "sans_facture";
+  filterEtat: "all" | "a_facturer" | "facturee" | "sans_facture";
   filterSource: "all" | FactSource;
 }) {
   const router = useRouter();
@@ -109,11 +107,12 @@ export default function FacturationCenter({
     });
   }
 
-  // KPI : compteurs par etat sur les items actuellement filtres
+  // KPI : compteurs par etat sur les items actuellement filtres.
+  // "facturee" est l'etat terminal (pas de "payee" separe).
   const kpi = useMemo(() => {
     let aFacturer = 0;
     let facturee = 0;
-    let payee = 0;
+    let sansFacture = 0;
     let totalAFacturer = 0;
     let totalFacturee = 0;
     for (const it of localItems) {
@@ -124,11 +123,11 @@ export default function FacturationCenter({
       } else if (eff === "facturee") {
         facturee++;
         if (it.montant) totalFacturee += it.montant;
-      } else if (eff === "payee") {
-        payee++;
+      } else if (eff === "sans_facture") {
+        sansFacture++;
       }
     }
-    return { aFacturer, facturee, payee, totalAFacturer, totalFacturee };
+    return { aFacturer, facturee, sansFacture, totalAFacturer, totalFacturee };
   }, [localItems]);
 
   function urlFor(etat: string, source: string) {
@@ -144,8 +143,8 @@ export default function FacturationCenter({
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Kpi label="À facturer" value={String(kpi.aFacturer)} subtitle={kpi.totalAFacturer ? formatEUR(kpi.totalAFacturer) + " (estim.)" : "-"} accent="amber" />
-        <Kpi label="Facturées" value={String(kpi.facturee)} subtitle={kpi.totalFacturee ? formatEUR(kpi.totalFacturee) + " (estim.)" : "-"} accent="sky" />
-        <Kpi label="Payées" value={String(kpi.payee)} subtitle="-" accent="emerald" />
+        <Kpi label="Facturées" value={String(kpi.facturee)} subtitle={kpi.totalFacturee ? formatEUR(kpi.totalFacturee) + " (estim.)" : "-"} accent="emerald" />
+        <Kpi label="Sans facture" value={String(kpi.sansFacture)} subtitle="-" accent="zinc" />
         <Kpi label="Total affiché" value={String(localItems.length)} subtitle={`sur ${totalCount} au total`} accent="zinc" />
       </div>
 

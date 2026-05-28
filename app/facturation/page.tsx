@@ -264,13 +264,12 @@ export default async function FacturationPage({
     return true;
   });
 
-  // Trie : a_facturer (et null) en premier, puis facturee, puis payee, puis sans_facture
+  // Trie : a_facturer (et null) en premier, puis facturee, puis sans_facture
   const ORDER: Record<string, number> = {
     a_facturer: 0,
     null: 0,
     facturee: 1,
-    payee: 2,
-    sans_facture: 3,
+    sans_facture: 2,
   };
   filtered.sort((a, b) => {
     const oa = ORDER[String(a.etat_facturation)] ?? 99;

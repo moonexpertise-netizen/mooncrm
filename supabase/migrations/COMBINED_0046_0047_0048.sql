@@ -611,6 +611,37 @@ update public.obligations
 
 
 -- ============================================================================
+-- ============================================================================
+--   MIGRATION 0052 : supprime le statut 'payee' (facturee devient terminal)
+-- ============================================================================
+-- ============================================================================
+
+-- obligations
+update public.obligations set etat_facturation = 'facturee' where etat_facturation = 'payee';
+alter table public.obligations drop constraint if exists obligations_etat_facturation_check;
+alter table public.obligations add constraint obligations_etat_facturation_check
+  check (etat_facturation is null or etat_facturation in ('a_facturer', 'facturee', 'sans_facture'));
+
+-- ir_obligations
+update public.ir_obligations set etat_facturation = 'facturee' where etat_facturation = 'payee';
+alter table public.ir_obligations drop constraint if exists ir_obligations_etat_facturation_check;
+alter table public.ir_obligations add constraint ir_obligations_etat_facturation_check
+  check (etat_facturation is null or etat_facturation in ('a_facturer', 'facturee', 'sans_facture'));
+
+-- caa_obligations
+update public.caa_obligations set etat_facturation = 'facturee' where etat_facturation = 'payee';
+alter table public.caa_obligations drop constraint if exists caa_obligations_etat_facturation_check;
+alter table public.caa_obligations add constraint caa_obligations_etat_facturation_check
+  check (etat_facturation is null or etat_facturation in ('a_facturer', 'facturee', 'sans_facture'));
+
+-- missions_exceptionnelles
+update public.missions_exceptionnelles set etat_facturation = 'facturee' where etat_facturation = 'payee';
+alter table public.missions_exceptionnelles drop constraint if exists missions_exceptionnelles_etat_facturation_check;
+alter table public.missions_exceptionnelles add constraint missions_exceptionnelles_etat_facturation_check
+  check (etat_facturation in ('a_facturer', 'facturee', 'sans_facture'));
+
+
+-- ============================================================================
 --   FIN. Si tout s'est bien passe, tu dois voir "Success. No rows returned"
 --   (ou similaire) en bas de l'editeur SQL Supabase.
 -- ============================================================================
