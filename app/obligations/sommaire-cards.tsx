@@ -3,17 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { cn, fmtDateFr } from "@/lib/utils";
 import { TRACKER_GROUPS, type TrackerGroup } from "./trackers";
-
-export type ClientLite = {
-  slug: string;
-  denomination: string;
-  echeance: string | null;
-  statut_detail: string | null;
-};
 
 export type TrackerStat = {
   slug: string;
@@ -26,11 +18,6 @@ export type TrackerStat = {
   total: number;
   prochaineEcheance: string | null;
   derniereAction: string | null;
-  /** Liste de clients par statut (max 20, tries par echeance). Affiches
-   *  dans le popover au survol des compteurs. */
-  todoClients: ClientLite[];
-  wipClients: ClientLite[];
-  doneClients: ClientLite[];
 };
 
 type StatusFilter = "todo" | "wip" | "done" | "urgent";
@@ -274,32 +261,11 @@ function TrackerRow({
 
       {/* 3 compteurs alignés verticalement, largeur fixe. Le 0 est en gris
           discret → l'œil se concentre sur ce qui n'est pas zéro.
-          Au survol : popover riche avec la liste des clients concernés. */}
+          Au survol : mini-tooltip "À faire : 5" avec pastille de couleur. */}
       <div className="hidden sm:flex items-center gap-1 shrink-0 tabular-nums">
-        <Counter
-          value={row.todo}
-          color="rose"
-          label="À faire"
-          clients={row.todoClients}
-          totalCount={row.todo}
-          trackerTitle={row.title}
-        />
-        <Counter
-          value={row.wip}
-          color="amber"
-          label="En cours"
-          clients={row.wipClients}
-          totalCount={row.wip}
-          trackerTitle={row.title}
-        />
-        <Counter
-          value={row.done}
-          color="emerald"
-          label="Terminé"
-          clients={row.doneClients}
-          totalCount={row.done}
-          trackerTitle={row.title}
-        />
+        <Counter value={row.todo} color="rose" label="À faire" />
+        <Counter value={row.wip} color="amber" label="En cours" />
+        <Counter value={row.done} color="emerald" label="Terminé" />
       </div>
 
       {/* Sur mobile : compteurs compactés en une ligne — meme info en tooltip. */}
@@ -358,107 +324,87 @@ function TrackerRow({
 //  Counter : pastille compacte d'un statut. Gris si 0, coloré sinon.
 // ============================================================================
 
+/**
+ * Compteur d'une categorie de statut sur un tracker. Au survol : mini-tooltip
+ * portaille qui rappelle le label + la pastille de couleur ("En cours : 1").
+ *
+ * Le compteur lui-meme n'est pas cliquable : c'est la row entiere qui
+ * navigue vers le tracker. On utilise un <span> (et pas un <button>) pour
+ * eviter button-in-button.
+ */
 function Counter({
   value,
   color,
   label,
-  clients,
-  totalCount,
-  trackerTitle,
 }: {
   value: number;
   color: "rose" | "amber" | "emerald";
   label: string;
-  clients: ClientLite[];
-  /** Compte reel (peut etre > clients.length si liste tronquee a 20) */
-  totalCount: number;
-  trackerTitle: string;
 }) {
   const muted = value === 0;
   const palette = {
-    rose: "bg-rose-50 text-rose-700",
-    amber: "bg-amber-50 text-amber-700",
-    emerald: "bg-emerald-50 text-emerald-700",
+    rose: { bg: "bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+    amber: { bg: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+    emerald: { bg: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
   } as const;
 
-  // Span (et pas button) pour eviter button imbrique dans le button TrackerRow
-  // qui est invalide HTML. tabIndex + role="button" pour le focus clavier.
   const ref = useRef<HTMLSpanElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Position du popover : calcule au survol (mouseEnter), clamp viewport.
   useEffect(() => {
     if (!open || !ref.current) {
       setPos(null);
       return;
     }
     const rect = ref.current.getBoundingClientRect();
-    const POPOVER_WIDTH = 300;
-    const POPOVER_HEIGHT = 260;
+    const POPOVER_WIDTH = 140;
+    const POPOVER_HEIGHT = 36;
     const MARGIN = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    // On centre le popover au-dessus du counter, en clampant pour rester
-    // dans le viewport.
     const rawLeft = rect.left + rect.width / 2;
     const halfW = POPOVER_WIDTH / 2;
     const clampedLeft = Math.max(
       MARGIN + halfW,
       Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
     );
-    setPos({
-      left: clampedLeft,
-      top: openUp ? rect.top : rect.bottom,
-      openUp,
-    });
+    setPos({ left: clampedLeft, top: openUp ? rect.top : rect.bottom, openUp });
   }, [open]);
 
-  // Hover avec petit delai a la fermeture pour permettre d'aller cliquer
-  // sur un client dans le popover sans qu'il se ferme trop vite.
   function onEnter() {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     setOpen(true);
   }
   function onLeave() {
     if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpen(false), 120);
+    closeTimer.current = setTimeout(() => setOpen(false), 80);
   }
 
-  // Eviter de stopper la propagation pour ne pas casser le clic sur la
-  // row entiere (qui navigue vers le tracker). Le popover lui-meme stoppe.
   return (
     <>
       <span
         ref={ref}
-        tabIndex={value > 0 ? 0 : -1}
-        role={value > 0 ? "button" : undefined}
+        tabIndex={0}
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         onFocus={onEnter}
         onBlur={onLeave}
-        aria-label={value > 0 ? `${value} ${label.toLowerCase()} (survoler pour la liste)` : undefined}
+        aria-label={`${label} : ${value}`}
         className={cn(
-          "inline-block min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums transition-colors",
+          "inline-block min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
           muted
             ? "bg-transparent text-zinc-400 dark:text-zinc-600"
-            : palette[color],
-          !muted && "hover:brightness-95 cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+            : palette[color].bg
         )}
       >
         {value}
       </span>
 
-      {open && pos && value > 0 && typeof document !== "undefined" &&
+      {open && pos && typeof document !== "undefined" &&
         createPortal(
           <div
-            ref={popoverRef}
-            onMouseEnter={onEnter}
-            onMouseLeave={onLeave}
-            // empeche le clic sur le popover de declencher le navigate du parent
-            onClick={(e) => e.stopPropagation()}
             style={{
               position: "fixed",
               left: `${pos.left}px`,
@@ -468,44 +414,16 @@ function Counter({
                 : "translate(-50%, 8px)",
               zIndex: 1000,
             }}
-            className="w-[300px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-xl overflow-hidden animate-slide-up-fade"
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 rounded-md shadow-lg text-[11px] font-medium whitespace-nowrap pointer-events-none animate-slide-up-fade"
           >
-            {/* Header du popover */}
-            <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06] bg-zinc-50/60 dark:bg-white/[0.03]">
-              <div className="flex items-baseline justify-between gap-2">
-                <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium">
-                  {label} · {trackerTitle}
-                </div>
-                <div className="text-[11px] tabular-nums font-semibold text-zinc-700 dark:text-zinc-200">
-                  {totalCount}
-                </div>
-              </div>
-            </div>
-            {/* Liste des clients */}
-            <ul className="max-h-[280px] overflow-y-auto py-1">
-              {clients.map((c) => (
-                <li key={`${c.slug}-${c.echeance ?? ""}`}>
-                  <Link
-                    href={`/clients/${c.slug}/obligations`}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
-                  >
-                    <span className="flex-1 truncate text-zinc-800 dark:text-zinc-100">
-                      {c.denomination}
-                    </span>
-                    {c.echeance && (
-                      <span className="shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400 tabular-nums">
-                        {fmtDateFr(c.echeance)}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-              {totalCount > clients.length && (
-                <li className="px-3 py-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 italic">
-                  … et {totalCount - clients.length} autre{totalCount - clients.length > 1 ? "s" : ""}
-                </li>
-              )}
-            </ul>
+            <span
+              className={cn("inline-block w-1.5 h-1.5 rounded-full shrink-0", palette[color].dot)}
+              aria-hidden
+            />
+            <span>
+              {label} :{" "}
+              <span className="tabular-nums font-semibold">{value}</span>
+            </span>
           </div>,
           document.body
         )}
