@@ -75,6 +75,18 @@ export default function IrTable({
   useEffect(() => setLocalRows(rows), [rows]);
   const { confirm, ConfirmDialog } = useConfirm();
 
+  // Vue annee : on n'affiche QUE les clients souscrits a IR ou IFI pour
+  // l'annee selectionnee (sinon on listerait "N/A" pour tous, ce qui pollue).
+  // Vue base : on affiche tous les clients (c'est le seul endroit pour souscrire).
+  const visibleRows =
+    mode === "year"
+      ? localRows.filter(
+          (r) =>
+            r.obligations.has(`${selectedYear}|IR`) ||
+            r.obligations.has(`${selectedYear}|IFI`)
+        )
+      : localRows;
+
   function onSetLdm(clientIrId: string, newStatut: string) {
     setLocalRows((prev) =>
       prev.map((r) => (r.id === clientIrId ? { ...r, ldm_statut: newStatut } : r))
@@ -230,9 +242,11 @@ export default function IrTable({
       )}
 
       {/* Table */}
-      {localRows.length === 0 ? (
+      {visibleRows.length === 0 ? (
         <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
-          Aucun dossier IR pour l&apos;instant. Clique sur « Nouveau dossier IR » pour commencer.
+          {localRows.length === 0
+            ? "Aucun dossier IR pour l'instant. Clique sur « Nouveau dossier IR » pour commencer."
+            : `Aucun dossier souscrit pour l'exercice ${selectedYear}. Passe en vue « Base » pour souscrire des années.`}
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
@@ -256,7 +270,7 @@ export default function IrTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {localRows.map((r) => (
+              {visibleRows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-0.5 min-w-0">
@@ -334,7 +348,9 @@ export default function IrTable({
       )}
 
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {localRows.length} dossier{localRows.length > 1 ? "s" : ""} IR{mode === "year" ? ` — exercice ${selectedYear}` : " — vue d'ensemble"}.
+        {visibleRows.length} dossier{visibleRows.length > 1 ? "s" : ""} IR
+        {mode === "year" ? ` souscrit${visibleRows.length > 1 ? "s" : ""} — exercice ${selectedYear}` : " — vue d'ensemble"}
+        {mode === "year" && localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
       </p>
     </div>
   );
@@ -474,7 +490,7 @@ function StatutCell({
               transform: pos.openUp ? "translate(-50%, calc(-100% - 8px))" : "translate(-50%, 8px)",
               zIndex: 1000,
             }}
-            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.10] rounded-lg shadow-xl min-w-[200px] overflow-hidden animate-slide-up-fade"
+            className="min-w-[220px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
           >
             <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
               Statut
@@ -527,13 +543,34 @@ function StatutCell({
 
 function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
   const current = LDM_VALUES.find((v) => v.key === value) ?? LDM_VALUES[0];
+
+  useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = LDM_VALUES.length * 32 + 16;
+    const POPOVER_WIDTH = 200;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const desiredLeft = rect.left;
+    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -547,8 +584,9 @@ function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) =
   }, [open]);
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div className="inline-block">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
@@ -560,27 +598,41 @@ function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) =
       >
         {current.label}
       </button>
-      {open && (
-        <div className="absolute z-50 left-0 top-full mt-1 min-w-[180px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-xl overflow-hidden">
-          {LDM_VALUES.map((v) => (
-            <button
-              key={v.key}
-              type="button"
-              onClick={() => {
-                onChange(v.key);
-                setOpen(false);
-              }}
-              className={cn(
-                "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                value === v.key && "bg-zinc-50 dark:bg-white/[0.04]"
-              )}
-            >
-              <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", v.color)}>{v.label}</span>
-              {value === v.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[200px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/60 rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.04] overflow-hidden animate-slide-up-fade"
+          >
+            {LDM_VALUES.map((v) => (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => {
+                  onChange(v.key);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                  value === v.key && "bg-zinc-50 dark:bg-white/[0.04]"
+                )}
+              >
+                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", v.color)}>{v.label}</span>
+                {value === v.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

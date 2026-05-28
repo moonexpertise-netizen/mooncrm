@@ -4,8 +4,14 @@ import CaaTable, { type CaaCell, type CaaRow, type CaaStatusOption } from "./caa
 
 export const dynamic = "force-dynamic";
 
-const CURRENT_YEAR = 2026;
-const AVAILABLE_YEARS = [2024, 2025, 2026, 2027];
+// Annees disponibles : de 2024 (plancher historique) jusqu'a l'annee
+// courante + 2 (planning d'avance). S'etend automatiquement avec le temps.
+const CURRENT_YEAR = new Date().getFullYear();
+const FLOOR_YEAR = 2024;
+const AVAILABLE_YEARS = Array.from(
+  { length: CURRENT_YEAR + 2 - FLOOR_YEAR + 1 },
+  (_, i) => FLOOR_YEAR + i
+);
 
 /**
  * Page Mission CAA. Deux vues comme IR :
