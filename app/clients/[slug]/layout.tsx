@@ -10,7 +10,6 @@ import AnnuaireButton from "./annuaire-button";
 import BackButton from "./back-button";
 import DeleteClientButton from "./delete-button";
 import LDMButton from "./ldm-button";
-import LDMSigneeButton from "./ldm-signee-button";
 import NavButtons from "./nav-buttons";
 import SignatureButton from "./signature-button";
 import TallyButton from "./tally-button";
@@ -289,13 +288,6 @@ export default async function ClientLayout({
                         telephone: dirigeantContact.telephone,
                       }
                     : null
-                }
-              />
-              <LDMSigneeButton
-                clientId={client.id}
-                alreadySigned={
-                  client.pipeline_statut === "7 - LDM signée" &&
-                  !!client.mois_signature
                 }
               />
               <DeleteClientButton clientId={client.id} denomination={client.denomination} />
