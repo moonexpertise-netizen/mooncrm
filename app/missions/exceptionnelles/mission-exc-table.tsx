@@ -206,37 +206,12 @@ function formatEUR(n: number | null | undefined): string {
   );
 }
 
-function formatHours(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "-";
-  return (
-    new Intl.NumberFormat("fr-FR", {
-      maximumFractionDigits: 1,
-    }).format(n) + " h"
-  );
-}
-
 function formatDate(iso: string | null): string {
   if (!iso) return "-";
-  // ISO YYYY-MM-DD → JJ/MM/AAAA
+  // ISO YYYY-MM-DD -> JJ/MM/AAAA
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
-}
-
-/** Calcule un montant indicatif : forfait si renseigne, sinon taux*reel, sinon taux*theorique. */
-function computeMontant(r: MissionExcRow): { value: number | null; source: "forfait" | "reel" | "theorique" | null } {
-  if (r.forfait !== null && r.forfait !== undefined) {
-    return { value: r.forfait, source: "forfait" };
-  }
-  if (r.taux_horaire !== null && r.taux_horaire !== undefined) {
-    if (r.duree_reelle_h !== null && r.duree_reelle_h !== undefined) {
-      return { value: r.taux_horaire * r.duree_reelle_h, source: "reel" };
-    }
-    if (r.duree_theorique_h !== null && r.duree_theorique_h !== undefined) {
-      return { value: r.taux_horaire * r.duree_theorique_h, source: "theorique" };
-    }
-  }
-  return { value: null, source: null };
 }
 
 // ============================================================================
@@ -269,6 +244,13 @@ export default function MissionExcTable({
 
   useEffect(() => setLocalRows(rows), [rows]);
   useEffect(() => setLocalTypes(types), [types]);
+  // Si le type filtre actif est desactive ou supprime, reset le filtre pour
+  // eviter un select "Tous les types" vide qui continue de filtrer en sous-marin.
+  useEffect(() => {
+    if (filterType === "all" || filterType === "none") return;
+    const stillValid = localTypes.some((t) => t.actif && t.id === filterType);
+    if (!stillValid) setFilterType("all");
+  }, [localTypes, filterType]);
   const { confirm, ConfirmDialog } = useConfirm();
 
   const typesById = useMemo(
@@ -909,39 +891,6 @@ function EditableText({
     >
       {value || placeholder}
     </button>
-  );
-}
-
-// ============================================================================
-//  PriceComputedCell : cellule read-only affichant durée × taux
-// ============================================================================
-
-function PriceComputedCell({
-  duree,
-  taux,
-}: {
-  duree: number | null;
-  taux: number | null;
-}) {
-  const computable =
-    duree !== null && duree !== undefined && taux !== null && taux !== undefined;
-  const value = computable ? (duree as number) * (taux as number) : null;
-  return (
-    <span
-      className={cn(
-        "inline-block px-1.5 py-0.5 tabular-nums text-sm",
-        computable
-          ? "text-violet-700 dark:text-violet-300 font-medium"
-          : "text-zinc-300 dark:text-zinc-600 italic"
-      )}
-      title={
-        computable
-          ? `${duree} h × ${taux} € = ${formatEUR(value)}`
-          : "Renseigne durée théorique + taux horaire pour calculer"
-      }
-    >
-      {formatEUR(value)}
-    </span>
   );
 }
 

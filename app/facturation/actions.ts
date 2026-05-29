@@ -73,8 +73,3 @@ export async function setFacturationFromCentral(
     return;
   }
 }
-
-/**
- * Pour missions_exceptionnelles : on doit aussi pouvoir setter etat_facturation
- * directement. Reutilise setFacturationFromCentral avec source = mission_exc.
- */

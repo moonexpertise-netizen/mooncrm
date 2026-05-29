@@ -37,12 +37,16 @@ const SOURCE_LABEL: Record<FactSource, string> = {
   mission_exc: "Mission exc.",
 };
 
+// Palette tags-source : on evite amber/sky/emerald/zinc reserves a la semantique
+// metier (action / en cours / termine / inactif). Teal, indigo, rose, orange,
+// fuchsia donnent 5 teintes distinctes sans collision avec les pastilles
+// d'etat affichees sur la meme ligne.
 const SOURCE_COLOR: Record<FactSource, string> = {
-  caa: "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30",
-  ir: "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30",
+  caa: "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-500/30",
+  ir: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30",
   ago: "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30",
-  bilan: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30",
-  mission_exc: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30",
+  bilan: "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-500/30",
+  mission_exc: "bg-fuchsia-50 dark:bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-500/30",
 };
 
 const FACT_OPTIONS: Array<{

@@ -117,6 +117,7 @@ export default function IrTable({
         await updateClientIr(clientIrId, { ldm_statut: newStatut });
       } catch (e) {
         toastError(e, "Echec sauvegarde LDM");
+        router.refresh();
       }
     });
   }
@@ -147,6 +148,7 @@ export default function IrTable({
         router.refresh();
       } catch (e) {
         toastError(e, "Echec toggle souscription");
+        router.refresh();
       }
     });
   }
@@ -211,6 +213,7 @@ export default function IrTable({
         router.refresh();
       } catch (e) {
         toastError(e, `Echec sauvegarde ${type}`);
+        router.refresh();
       }
     });
   }
@@ -432,7 +435,7 @@ export default function IrTable({
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
-          <table className="w-full text-sm" aria-label="Dossiers IR">
+          <table className="w-full text-sm min-w-[820px]" aria-label="Dossiers IR">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Nom</th>
@@ -586,11 +589,11 @@ function RecapLine({
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 uppercase tracking-wide">{label}</span>
           <div className="flex items-center gap-1.5 text-[11px] tabular-nums">
-            <span className={cn(stats.a_faire > 0 ? "text-rose-600 dark:text-rose-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+            <span className={cn(stats.a_faire > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
               {stats.a_faire} à faire
             </span>
             <span className="text-zinc-300 dark:text-zinc-600">·</span>
-            <span className={cn(stats.en_cours > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+            <span className={cn(stats.en_cours > 0 ? "text-sky-600 dark:text-sky-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
               {stats.en_cours} en cours
             </span>
             <span className="text-zinc-300 dark:text-zinc-600">·</span>
@@ -725,7 +728,7 @@ function StatutCell({
           "inline-block min-w-[90px] px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
           isSubscribed
             ? statutColorClass(cell!.statut_logique, null)
-            : "bg-violet-50 dark:bg-violet-500/15 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-300"
+            : "bg-zinc-50 dark:bg-white/[0.04] border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-400 dark:text-zinc-500"
         )}
       >
         {isSubscribed ? cell!.libelle ?? "À faire" : "N/A"}
@@ -1256,10 +1259,13 @@ function EditableForfait({
         value={local}
         step={50}
         min={0}
+        max={9999999}
+        aria-label="Forfait d'honoraires en euros"
         onChange={(e) => setLocal(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
+          // Enter declenche blur -> commit (un seul appel garanti).
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           if (e.key === "Escape") {
             setLocal(value === null ? "" : String(value));
             setEditing(false);
@@ -1277,7 +1283,7 @@ function EditableForfait({
       className={cn(
         "w-full text-right px-1.5 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors tabular-nums text-sm",
         value === null
-          ? "text-zinc-300 dark:text-zinc-600 italic"
+          ? "text-zinc-400 dark:text-zinc-500 italic"
           : "text-zinc-900 dark:text-zinc-100"
       )}
       title="Forfait d'honoraires (€)"

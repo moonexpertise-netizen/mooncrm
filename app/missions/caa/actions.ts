@@ -175,10 +175,18 @@ export async function setCaaForfait(
 ) {
   if (montant !== null && montant < 0) throw new Error("Forfait negatif interdit");
   const sb = await createClient();
-  const { error } = await sb
+  // Update + select pour detecter le no-op silencieux (pas de souscription
+  // pour ce couple client+annee).
+  const { data, error } = await sb
     .from("caa_obligations")
     .update({ forfait: montant })
     .eq("client_caa_id", clientCaaId)
-    .eq("annee", annee);
+    .eq("annee", annee)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error(
+      `Impossible de saisir le forfait : le dossier n'est pas souscrit a la CAA pour ${annee}.`
+    );
+  }
 }

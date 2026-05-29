@@ -166,14 +166,43 @@ export async function toggleIrSubscription(
     .limit(1)
     .maybeSingle();
 
+  // Si l'autre type (IR<->IFI) est deja souscrit pour cette annee, on copie
+  // ses valeurs etat_facturation + forfait pour maintenir la sync (le forfait
+  // est commun IR+IFI par convention, idem facturation).
+  const otherType = type === "IR" ? "IFI" : "IR";
+  const { data: sibling } = await sb
+    .from("ir_obligations")
+    .select("etat_facturation, forfait")
+    .eq("client_ir_id", clientIrId)
+    .eq("annee", annee)
+    .eq("type", otherType)
+    .maybeSingle();
+
   const { error } = await sb.from("ir_obligations").insert({
     client_ir_id: clientIrId,
     annee,
     type,
     statut_logique: "A_FAIRE",
     statut_detail: defOpt?.libelle ?? "À faire",
+    etat_facturation: sibling?.etat_facturation ?? null,
+    forfait: sibling?.forfait ?? null,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Fallback : si forfait absent (migration 0053 pas appliquee), retente sans
+    if (/forfait/i.test(error.message)) {
+      const { error: e2 } = await sb.from("ir_obligations").insert({
+        client_ir_id: clientIrId,
+        annee,
+        type,
+        statut_logique: "A_FAIRE",
+        statut_detail: defOpt?.libelle ?? "À faire",
+        etat_facturation: sibling?.etat_facturation ?? null,
+      });
+      if (e2) throw new Error(e2.message);
+      return true;
+    }
+    throw new Error(error.message);
+  }
   return true;
 }
 
@@ -214,10 +243,18 @@ export async function setIrForfait(
 ) {
   if (montant !== null && montant < 0) throw new Error("Forfait negatif interdit");
   const sb = await createClient();
-  const { error } = await sb
+  // Update + select pour detecter le no-op silencieux (aucune ligne IR/IFI
+  // existante pour ce couple client+annee = forfait perdu sinon).
+  const { data, error } = await sb
     .from("ir_obligations")
     .update({ forfait: montant })
     .eq("client_ir_id", clientIrId)
-    .eq("annee", annee);
+    .eq("annee", annee)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error(
+      `Impossible de saisir le forfait : le dossier n'est souscrit ni a l'IR ni a l'IFI pour ${annee}.`
+    );
+  }
 }
