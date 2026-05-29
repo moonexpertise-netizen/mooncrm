@@ -39,12 +39,23 @@ export default async function FacturationPage({
   // ============================================================================
   // 1. CAA terminees
   // ============================================================================
-  const { data: caaRows } = await sb
+  const caaRowsRes = await sb
     .from("caa_obligations")
     .select(
-      "id, annee, statut_logique, statut_detail, etat_facturation, clients_caa!inner(id, slug, denomination)"
+      "id, annee, statut_logique, statut_detail, etat_facturation, forfait, clients_caa!inner(id, slug, denomination)"
     )
     .eq("statut_logique", "TERMINE");
+  // Fallback si forfait absent (migration 0053 pas appliquee)
+  let caaRows = caaRowsRes.data;
+  if (caaRowsRes.error) {
+    const fb = await sb
+      .from("caa_obligations")
+      .select(
+        "id, annee, statut_logique, statut_detail, etat_facturation, clients_caa!inner(id, slug, denomination)"
+      )
+      .eq("statut_logique", "TERMINE");
+    caaRows = (fb.data ?? []).map((r) => ({ ...r, forfait: null }));
+  }
 
   type CaaRow = {
     id: string;
@@ -52,6 +63,7 @@ export default async function FacturationPage({
     statut_logique: string;
     statut_detail: string | null;
     etat_facturation: string | null;
+    forfait: number | null;
     clients_caa: { id: string; slug: string; denomination: string } | Array<{ id: string; slug: string; denomination: string }>;
   };
   const caaItems: FactItem[] = ((caaRows ?? []) as unknown as CaaRow[]).map((r) => {
@@ -64,7 +76,7 @@ export default async function FacturationPage({
       clientHref: c?.slug ? `/missions/caa?year=${r.annee}` : null,
       detail: `CAA ${r.annee}`,
       sousDetail: r.statut_detail,
-      montant: null,
+      montant: r.forfait !== null ? Math.round(r.forfait) : null,
       etat_facturation: (r.etat_facturation ?? null) as FactItem["etat_facturation"],
     };
   });
@@ -73,12 +85,23 @@ export default async function FacturationPage({
   // 2. IR terminees - on aggrege IR + IFI sur (client, annee) pour eviter
   //    les doublons (1 facturation par dossier-annee, pas par type)
   // ============================================================================
-  const { data: irRows } = await sb
+  const irRowsRes = await sb
     .from("ir_obligations")
     .select(
-      "id, annee, type, statut_logique, statut_detail, etat_facturation, clients_ir!inner(id, slug, civilite, prenom, nom)"
+      "id, annee, type, statut_logique, statut_detail, etat_facturation, forfait, clients_ir!inner(id, slug, civilite, prenom, nom)"
     )
     .eq("statut_logique", "TERMINE");
+  // Fallback si forfait absent (migration 0053 pas appliquee)
+  let irRows = irRowsRes.data;
+  if (irRowsRes.error) {
+    const fb = await sb
+      .from("ir_obligations")
+      .select(
+        "id, annee, type, statut_logique, statut_detail, etat_facturation, clients_ir!inner(id, slug, civilite, prenom, nom)"
+      )
+      .eq("statut_logique", "TERMINE");
+    irRows = (fb.data ?? []).map((r) => ({ ...r, forfait: null }));
+  }
 
   type IrRow = {
     id: string;
@@ -87,6 +110,7 @@ export default async function FacturationPage({
     statut_logique: string;
     statut_detail: string | null;
     etat_facturation: string | null;
+    forfait: number | null;
     clients_ir: { id: string; slug: string; civilite: string | null; prenom: string | null; nom: string } | Array<{ id: string; slug: string; civilite: string | null; prenom: string | null; nom: string }>;
   };
   const irByKey = new Map<string, FactItem>();
@@ -99,6 +123,9 @@ export default async function FacturationPage({
     const existing = irByKey.get(key);
     const types: string[] = existing?.detail.match(/IR|IFI/g) ?? [];
     if (!types.includes(r.type)) types.push(r.type);
+    // Forfait commun IR+IFI : on prend le 1er non-null rencontre (les 2 lignes
+    // doivent etre synchronisees par setIrForfait).
+    const forfait = existing?.montant ?? (r.forfait !== null ? Math.round(r.forfait) : null);
     irByKey.set(key, {
       key: `ir-${key}`,
       source: "ir",
@@ -107,7 +134,7 @@ export default async function FacturationPage({
       clientHref: `/missions/ir?year=${r.annee}`,
       detail: `${types.sort().join(" + ")} ${r.annee}`,
       sousDetail: existing?.sousDetail ?? r.statut_detail,
-      montant: null,
+      montant: forfait,
       etat_facturation: (r.etat_facturation ?? existing?.etat_facturation ?? null) as FactItem["etat_facturation"],
     });
   }

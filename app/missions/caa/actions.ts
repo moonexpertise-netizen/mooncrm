@@ -162,3 +162,23 @@ export async function setCaaFacturation(
     .eq("annee", annee);
   if (error) throw new Error(error.message);
 }
+
+/**
+ * Set le forfait d'honoraires CAA pour une annee donnee. La ligne caa_obligations
+ * doit exister (le client doit etre souscrit a l'annee).
+ * montant = null : reset.
+ */
+export async function setCaaForfait(
+  clientCaaId: string,
+  annee: number,
+  montant: number | null
+) {
+  if (montant !== null && montant < 0) throw new Error("Forfait negatif interdit");
+  const sb = await createClient();
+  const { error } = await sb
+    .from("caa_obligations")
+    .update({ forfait: montant })
+    .eq("client_caa_id", clientCaaId)
+    .eq("annee", annee);
+  if (error) throw new Error(error.message);
+}

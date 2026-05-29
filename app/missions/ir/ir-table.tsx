@@ -11,6 +11,7 @@ import {
   createClientIr,
   deleteClientIr,
   setIrFacturation,
+  setIrForfait,
   setIrObligationStatut,
   toggleIrSubscription,
   updateClientIr,
@@ -48,6 +49,9 @@ export type IrRow = {
   /** Map YYYY -> etat_facturation (null si non defini). Partage entre IR et IFI
    *  pour la meme annee. */
   facturations: Map<number, string | null>;
+  /** Map YYYY -> forfait (null si non saisi). Commun IR+IFI par annee
+   *  (sync via setIrForfait). */
+  forfaits: Map<number, number | null>;
 };
 
 // Etats facturation : meme palette que missions exceptionnelles
@@ -161,6 +165,25 @@ export default function IrTable({
         await setIrFacturation(clientIrId, selectedYear, etat);
       } catch (e) {
         toastError(e, "Echec sauvegarde facturation");
+        router.refresh();
+      }
+    });
+  }
+
+  function onSetForfait(clientIrId: string, montant: number | null) {
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== clientIrId) return r;
+        const newMap = new Map(r.forfaits);
+        newMap.set(selectedYear, montant);
+        return { ...r, forfaits: newMap };
+      })
+    );
+    startTransition(async () => {
+      try {
+        await setIrForfait(clientIrId, selectedYear, montant);
+      } catch (e) {
+        toastError(e, "Echec sauvegarde forfait");
         router.refresh();
       }
     });
@@ -423,6 +446,7 @@ export default function IrTable({
                   <>
                     <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IR {selectedYear}</th>
                     <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI {selectedYear}</th>
+                    <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[110px]" title="Forfait d'honoraires IR + IFI">Forfait</th>
                     <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">Facturation</th>
                   </>
                 )}
@@ -486,6 +510,12 @@ export default function IrTable({
                           cell={r.obligations.get(`${selectedYear}|IFI`) ?? null}
                           options={statusOptions["IFI_ANNEE"] ?? []}
                           onPick={(libelle) => onSetStatut(r.id, "IFI", libelle)}
+                        />
+                      </td>
+                      <td className="px-2 py-3 text-right">
+                        <EditableForfait
+                          value={r.forfaits.get(selectedYear) ?? null}
+                          onSave={(v) => onSetForfait(r.id, v)}
                         />
                       </td>
                       <td className="px-2 py-3 text-center">
@@ -1186,5 +1216,75 @@ function NewClientIrForm({
         </button>
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+//  EditableForfait - saisie inline d'un montant en euros (cellule par annee)
+// ============================================================================
+
+function EditableForfait({
+  value,
+  onSave,
+}: {
+  value: number | null;
+  onSave: (v: number | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState(value === null ? "" : String(value));
+  useEffect(() => setLocal(value === null ? "" : String(value)), [value]);
+
+  function commit() {
+    setEditing(false);
+    const t = local.trim().replace(",", ".");
+    if (t === "") {
+      if (value !== null) onSave(null);
+      return;
+    }
+    const n = Number(t);
+    if (Number.isNaN(n) || n < 0) {
+      setLocal(value === null ? "" : String(value));
+      return;
+    }
+    if (n !== value) onSave(n);
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        value={local}
+        step={50}
+        min={0}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") {
+            setLocal(value === null ? "" : String(value));
+            setEditing(false);
+          }
+        }}
+        autoFocus
+        className="w-full text-right px-1.5 py-0.5 rounded border border-zinc-300 dark:border-white/[0.16] bg-white dark:bg-white/[0.06] text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 tabular-nums"
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={cn(
+        "w-full text-right px-1.5 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors tabular-nums text-sm",
+        value === null
+          ? "text-zinc-300 dark:text-zinc-600 italic"
+          : "text-zinc-900 dark:text-zinc-100"
+      )}
+      title="Forfait d'honoraires (€)"
+    >
+      {value === null
+        ? "-"
+        : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value)} €`}
+    </button>
   );
 }

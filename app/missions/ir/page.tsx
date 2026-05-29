@@ -52,6 +52,7 @@ export default async function IrPage({
     statut_logique: string;
     statut_detail: string | null;
     etat_facturation: string | null;
+    forfait: number | null;
   };
   const [{ data: clients }, obligationsRes, { data: statusOpts }] = await Promise.all([
     sb
@@ -60,7 +61,7 @@ export default async function IrPage({
       .order("nom", { ascending: true }),
     sb
       .from("ir_obligations")
-      .select("client_ir_id, annee, type, statut_logique, statut_detail, etat_facturation"),
+      .select("client_ir_id, annee, type, statut_logique, statut_detail, etat_facturation, forfait"),
     sb
       .from("status_options")
       .select("type_code, libelle, statut_logique, color, ordre")
@@ -70,17 +71,29 @@ export default async function IrPage({
   ]);
   let obligations: ObRow[] | null = obligationsRes.data as ObRow[] | null;
   if (obligationsRes.error) {
-    const { data: fb } = await sb
+    // Fallback : si forfait absent (migration 0053 pas appliquee), retente sans forfait.
+    // Si etat_facturation absent aussi (migration 0050), 2e fallback.
+    const r1 = await sb
       .from("ir_obligations")
-      .select("client_ir_id, annee, type, statut_logique, statut_detail");
-    obligations = (fb ?? []).map((r) => ({ ...r, etat_facturation: null })) as ObRow[];
+      .select("client_ir_id, annee, type, statut_logique, statut_detail, etat_facturation");
+    if (r1.error) {
+      const { data: fb } = await sb
+        .from("ir_obligations")
+        .select("client_ir_id, annee, type, statut_logique, statut_detail");
+      obligations = (fb ?? []).map((r) => ({ ...r, etat_facturation: null, forfait: null })) as ObRow[];
+    } else {
+      obligations = (r1.data ?? []).map((r) => ({ ...r, forfait: null })) as ObRow[];
+    }
   }
 
   // Index : client_id -> Map<"YYYY|IR"|"YYYY|IFI", cell>
   // + index parallele : client_id -> Map<YYYY, etat_facturation>
   //   (facturation est conceptuellement par annee, partagee entre IR et IFI)
+  // + index parallele : client_id -> Map<YYYY, forfait>
+  //   (meme principe : forfait commun IR+IFI par dossier-annee)
   const obByClient = new Map<string, Map<string, IrObligationCell>>();
   const factByClient = new Map<string, Map<number, string | null>>();
+  const forfByClient = new Map<string, Map<number, number | null>>();
   for (const o of obligations ?? []) {
     if (!obByClient.has(o.client_ir_id)) obByClient.set(o.client_ir_id, new Map());
     obByClient.get(o.client_ir_id)!.set(`${o.annee}|${o.type}`, {
@@ -96,6 +109,13 @@ export default async function IrPage({
     if (!fm.has(o.annee) || o.etat_facturation) {
       fm.set(o.annee, o.etat_facturation ?? null);
     }
+    // Idem pour le forfait : premier non-null gagne (les rows IR/IFI sont
+    // synchronisees par setIrForfait)
+    if (!forfByClient.has(o.client_ir_id)) forfByClient.set(o.client_ir_id, new Map());
+    const fmF = forfByClient.get(o.client_ir_id)!;
+    if (!fmF.has(o.annee) || o.forfait !== null) {
+      fmF.set(o.annee, o.forfait ?? null);
+    }
   }
 
   const rows: IrRow[] = (clients ?? []).map((c) => ({
@@ -109,6 +129,7 @@ export default async function IrPage({
     ldm_statut: c.ldm_statut,
     obligations: obByClient.get(c.id) ?? new Map(),
     facturations: factByClient.get(c.id) ?? new Map(),
+    forfaits: forfByClient.get(c.id) ?? new Map(),
   }));
 
   const optsByType: Record<string, IrStatusOption[]> = {};

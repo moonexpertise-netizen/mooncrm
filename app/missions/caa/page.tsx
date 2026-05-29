@@ -40,6 +40,7 @@ export default async function CaaPage({
     statut_logique: string;
     statut_detail: string | null;
     etat_facturation: string | null;
+    forfait: number | null;
   };
   const [{ data: clients }, obligationsRes, { data: statusOpts }] = await Promise.all([
     sb
@@ -50,7 +51,7 @@ export default async function CaaPage({
       .order("denomination", { ascending: true }),
     sb
       .from("caa_obligations")
-      .select("client_caa_id, annee, statut_logique, statut_detail, etat_facturation"),
+      .select("client_caa_id, annee, statut_logique, statut_detail, etat_facturation, forfait"),
     sb
       .from("status_options")
       .select("type_code, libelle, statut_logique, color, ordre")
@@ -60,10 +61,19 @@ export default async function CaaPage({
   ]);
   let obligations: ObRow[] | null = obligationsRes.data as ObRow[] | null;
   if (obligationsRes.error) {
-    const { data: fb } = await sb
+    // Fallback : si forfait absent (migration 0053 pas appliquee), retente sans.
+    // Si etat_facturation absent aussi (migration 0050), 2e fallback.
+    const r1 = await sb
       .from("caa_obligations")
-      .select("client_caa_id, annee, statut_logique, statut_detail");
-    obligations = (fb ?? []).map((r) => ({ ...r, etat_facturation: null })) as ObRow[];
+      .select("client_caa_id, annee, statut_logique, statut_detail, etat_facturation");
+    if (r1.error) {
+      const { data: fb } = await sb
+        .from("caa_obligations")
+        .select("client_caa_id, annee, statut_logique, statut_detail");
+      obligations = (fb ?? []).map((r) => ({ ...r, etat_facturation: null, forfait: null })) as ObRow[];
+    } else {
+      obligations = (r1.data ?? []).map((r) => ({ ...r, forfait: null })) as ObRow[];
+    }
   }
 
   // Index : client_caa_id -> Map<year, cell>
@@ -75,6 +85,7 @@ export default async function CaaPage({
       libelle: o.statut_detail,
       statut_logique: o.statut_logique as CaaStatusOption["statut_logique"],
       etat_facturation: (o.etat_facturation ?? null) as CaaCell["etat_facturation"],
+      forfait: o.forfait ?? null,
     });
   }
 

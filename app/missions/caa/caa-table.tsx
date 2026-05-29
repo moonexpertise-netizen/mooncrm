@@ -11,6 +11,7 @@ import {
   createClientCaa,
   deleteClientCaa,
   setCaaFacturation,
+  setCaaForfait,
   setCaaObligationStatut,
   toggleCaaSubscription,
   updateClientCaa,
@@ -30,6 +31,7 @@ export type CaaCell = {
   libelle: string | null;
   statut_logique: StatutLogique;
   etat_facturation: EtatFacturation | null;
+  forfait: number | null;
 };
 
 export type CaaRow = {
@@ -112,7 +114,7 @@ export default function CaaTable({
         if (newMap.has(annee)) {
           newMap.delete(annee);
         } else {
-          newMap.set(annee, { annee, libelle: "À préparer", statut_logique: "A_FAIRE", etat_facturation: null });
+          newMap.set(annee, { annee, libelle: "À préparer", statut_logique: "A_FAIRE", etat_facturation: null, forfait: null });
         }
         return { ...r, obligations: newMap };
       })
@@ -142,6 +144,7 @@ export default function CaaTable({
             libelle,
             statut_logique: sl,
             etat_facturation: previous?.etat_facturation ?? null,
+            forfait: previous?.forfait ?? null,
           });
         }
         return { ...r, obligations: newMap };
@@ -173,6 +176,27 @@ export default function CaaTable({
         await setCaaFacturation(clientCaaId, selectedYear, etat);
       } catch (e) {
         toastError(e, "Echec sauvegarde facturation");
+        router.refresh();
+      }
+    });
+  }
+
+  function onSetForfait(clientCaaId: string, montant: number | null) {
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== clientCaaId) return r;
+        const existing = r.obligations.get(selectedYear);
+        if (!existing) return r;
+        const newMap = new Map(r.obligations);
+        newMap.set(selectedYear, { ...existing, forfait: montant });
+        return { ...r, obligations: newMap };
+      })
+    );
+    startTransition(async () => {
+      try {
+        await setCaaForfait(clientCaaId, selectedYear, montant);
+      } catch (e) {
+        toastError(e, "Echec sauvegarde forfait");
         router.refresh();
       }
     });
@@ -383,6 +407,7 @@ export default function CaaTable({
                 ) : (
                   <>
                     <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {selectedYear}</th>
+                    <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[110px]" title="Forfait d'honoraires">Forfait</th>
                     <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">Facturation</th>
                   </>
                 )}
@@ -426,6 +451,13 @@ export default function CaaTable({
                           cell={r.obligations.get(selectedYear) ?? null}
                           options={statusOptions}
                           onPick={(libelle) => onSetStatut(r.id, libelle)}
+                        />
+                      </td>
+                      <td className="px-2 py-3 text-right">
+                        <EditableForfait
+                          value={r.obligations.get(selectedYear)?.forfait ?? null}
+                          onSave={(v) => onSetForfait(r.id, v)}
+                          disabled={!r.obligations.has(selectedYear)}
                         />
                       </td>
                       <td className="px-2 py-3 text-center">
@@ -1112,5 +1144,85 @@ function NewClientCaaForm({
         </button>
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+//  EditableForfait - saisie inline d'un montant en euros (cellule par annee)
+// ============================================================================
+
+function EditableForfait({
+  value,
+  onSave,
+  disabled,
+}: {
+  value: number | null;
+  onSave: (v: number | null) => void;
+  disabled?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState(value === null ? "" : String(value));
+  useEffect(() => setLocal(value === null ? "" : String(value)), [value]);
+
+  function commit() {
+    setEditing(false);
+    const t = local.trim().replace(",", ".");
+    if (t === "") {
+      if (value !== null) onSave(null);
+      return;
+    }
+    const n = Number(t);
+    if (Number.isNaN(n) || n < 0) {
+      setLocal(value === null ? "" : String(value));
+      return;
+    }
+    if (n !== value) onSave(n);
+  }
+
+  if (disabled) {
+    return (
+      <span className="inline-block w-full text-right text-sm text-zinc-300 dark:text-zinc-600 italic px-1.5 py-0.5">
+        -
+      </span>
+    );
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        value={local}
+        step={50}
+        min={0}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") {
+            setLocal(value === null ? "" : String(value));
+            setEditing(false);
+          }
+        }}
+        autoFocus
+        className="w-full text-right px-1.5 py-0.5 rounded border border-zinc-300 dark:border-white/[0.16] bg-white dark:bg-white/[0.06] text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 tabular-nums"
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={cn(
+        "w-full text-right px-1.5 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors tabular-nums text-sm",
+        value === null
+          ? "text-zinc-300 dark:text-zinc-600 italic"
+          : "text-zinc-900 dark:text-zinc-100"
+      )}
+      title="Forfait d'honoraires (€)"
+    >
+      {value === null
+        ? "-"
+        : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value)} €`}
+    </button>
   );
 }

@@ -198,3 +198,26 @@ export async function setIrFacturation(
     .eq("annee", annee);
   if (error) throw new Error(error.message);
 }
+
+/**
+ * Set le forfait d'honoraires pour une annee donnee. Comme le forfait est
+ * conceptuellement lie au dossier-annee (pas au type IR/IFI), on met a jour
+ * TOUTES les lignes IR/IFI existantes pour ce client+annee. Si une seule
+ * existe (juste IR ou juste IFI), seule celle-la est mise a jour.
+ *
+ * montant = null : reset (forfait non saisi).
+ */
+export async function setIrForfait(
+  clientIrId: string,
+  annee: number,
+  montant: number | null
+) {
+  if (montant !== null && montant < 0) throw new Error("Forfait negatif interdit");
+  const sb = await createClient();
+  const { error } = await sb
+    .from("ir_obligations")
+    .update({ forfait: montant })
+    .eq("client_ir_id", clientIrId)
+    .eq("annee", annee);
+  if (error) throw new Error(error.message);
+}
