@@ -134,6 +134,31 @@ const ETAT_FACTURATION_OPTIONS: Array<{
   },
 ];
 
+// Palette de couleurs pour les types de mission. Chaque type recoit une couleur
+// stable derivee de son slug (hash modulo palette) : le meme type aura toujours
+// la meme couleur, et les types differents ressortent visuellement.
+const TYPE_COLOR_PALETTE: string[] = [
+  "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30",
+  "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30",
+  "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30",
+  "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30",
+  "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30",
+  "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30",
+  "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-500/30",
+  "bg-fuchsia-50 dark:bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-500/30",
+  "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-500/30",
+  "bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30",
+];
+
+function colorForType(slug: string | null | undefined): string {
+  if (!slug) return TYPE_COLOR_PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < slug.length; i++) {
+    hash = (hash * 31 + slug.charCodeAt(i)) >>> 0;
+  }
+  return TYPE_COLOR_PALETTE[hash % TYPE_COLOR_PALETTE.length];
+}
+
 // Statut LDM pour les missions exceptionnelles. La LDM (lettre de mission) peut
 // etre necessaire ou pas selon la mission. N/A = pas besoin de LDM pour cette
 // mission ponctuelle.
@@ -220,6 +245,8 @@ function computeMontant(r: MissionExcRow): { value: number | null; source: "forf
 
 type FilterMission = "all" | EtatMission;
 type FilterFact = "all" | EtatFacturation;
+// Filtre type : "all" = tous, "none" = missions sans type, sinon UUID du type.
+type FilterType = "all" | "none" | string;
 
 export default function MissionExcTable({
   rows,
@@ -238,6 +265,7 @@ export default function MissionExcTable({
   const [editingTypes, setEditingTypes] = useState(false);
   const [filterMission, setFilterMission] = useState<FilterMission>("all");
   const [filterFact, setFilterFact] = useState<FilterFact>("all");
+  const [filterType, setFilterType] = useState<FilterType>("all");
 
   useEffect(() => setLocalRows(rows), [rows]);
   useEffect(() => setLocalTypes(types), [types]);
@@ -285,9 +313,11 @@ export default function MissionExcTable({
     return localRows.filter((r) => {
       if (filterMission !== "all" && r.etat_mission !== filterMission) return false;
       if (filterFact !== "all" && r.etat_facturation !== filterFact) return false;
+      if (filterType === "none" && r.type_id !== null) return false;
+      if (filterType !== "all" && filterType !== "none" && r.type_id !== filterType) return false;
       return true;
     });
-  }, [localRows, filterMission, filterFact]);
+  }, [localRows, filterMission, filterFact, filterType]);
 
   // ============================================================================
   //  Mutations
@@ -429,6 +459,16 @@ export default function MissionExcTable({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <FilterSelect
+            label="Type"
+            value={filterType}
+            onChange={(v) => setFilterType(v as FilterType)}
+            options={[
+              { key: "all", label: "Tous les types" },
+              ...localTypes.filter((t) => t.actif).map((t) => ({ key: t.id, label: t.label })),
+              { key: "none", label: "(sans type)" },
+            ]}
+          />
+          <FilterSelect
             label="Mission"
             value={filterMission}
             onChange={(v) => setFilterMission(v as FilterMission)}
@@ -446,12 +486,13 @@ export default function MissionExcTable({
               ...ETAT_FACTURATION_OPTIONS.map((o) => ({ key: o.key, label: o.label })),
             ]}
           />
-          {(filterMission !== "all" || filterFact !== "all") && (
+          {(filterMission !== "all" || filterFact !== "all" || filterType !== "all") && (
             <button
               type="button"
               onClick={() => {
                 setFilterMission("all");
                 setFilterFact("all");
+                setFilterType("all");
               }}
               className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
             >
@@ -705,20 +746,14 @@ function MissionRow({
           multiline
           className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5"
         />
-        {/* Dates debut/fin editables inline. Toujours visibles (placeholder
-            quand null) pour permettre l'ajout/modif sans ouvrir le modal. */}
-        <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">
+        {/* Date de debut editable inline (tri de la table = par date_debut DESC).
+            Date de fin retiree de la vue pour eviter le bruit visuel. */}
+        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">
           <span>📅</span>
           <EditableDate
             value={row.date_debut}
             placeholder="début…"
             onSave={(v) => onSaveField("date_debut", v)}
-          />
-          <span>→</span>
-          <EditableDate
-            value={row.date_fin}
-            placeholder="fin…"
-            onSave={(v) => onSaveField("date_fin", v)}
           />
         </div>
       </td>
@@ -1315,7 +1350,7 @@ function TypePicker({
         className={cn(
           "inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 max-w-full",
           value
-            ? "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30"
+            ? colorForType(value.slug)
             : "bg-zinc-50 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]"
         )}
         aria-haspopup="listbox"
@@ -1353,9 +1388,11 @@ function TypePicker({
                     value?.id === t.id && "bg-zinc-50 dark:bg-white/[0.04]"
                   )}
                 >
-                  <span className="truncate flex-1">{t.label}</span>
+                  <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border truncate", colorForType(t.slug))}>
+                    {t.label}
+                  </span>
                   {value?.id === t.id && (
-                    <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                    <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0 ml-auto" />
                   )}
                 </button>
               ))}
