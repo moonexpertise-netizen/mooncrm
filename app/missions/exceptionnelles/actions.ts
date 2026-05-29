@@ -154,9 +154,10 @@ export async function duplicateMission(missionId: string) {
   }
   if (!source) throw new Error("Mission introuvable");
 
-  // Copie tous les champs metier, suffixe la mission " (copie)"
+  // Copie integrale de tous les champs metier. Pas de suffixe " (copie)" :
+  // le user veut une duplication a l'identique. Le slug est auto-genere par
+  // le trigger DB avec un suffixe '-2' si conflit.
   const newRow: Record<string, unknown> = { ...source };
-  newRow.mission = `${String(source.mission ?? "")} (copie)`;
 
   // Insert avec fallback si ldm_statut absent
   let res = await sb

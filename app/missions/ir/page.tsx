@@ -127,7 +127,7 @@ export default async function IrPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader title="IR · Impôts sur le Revenu" description={description} />
+      <PageHeader title="IR + IFI · Impôts sur le Revenu / Fortune" description={description} />
       <IrTable
         rows={rows}
         mode={isBaseView ? "base" : "year"}

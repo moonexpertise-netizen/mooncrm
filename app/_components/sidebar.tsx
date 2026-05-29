@@ -111,7 +111,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   // Missions hors expertise comptable (declarations IR/IFI + commissaire aux
   // apports). Placees apres Production dans la sidebar.
-  { href: "/missions/ir", label: "IR", icon: Receipt, matchPrefix: "/missions/ir" },
+  { href: "/missions/ir", label: "IR + IFI", icon: Receipt, matchPrefix: "/missions/ir" },
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
   { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation" },

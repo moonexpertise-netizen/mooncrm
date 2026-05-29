@@ -51,7 +51,7 @@ function pageLabel(pathname: string): string {
   if (pathname === "/parametrage") return "Paramétrage";
   if (pathname === "/obligations") return "Production";
   if (pathname === "/onboarding") return "Onboarding";
-  if (pathname === "/missions/ir") return "IR";
+  if (pathname === "/missions/ir") return "IR + IFI";
   if (pathname === "/missions/caa") return "CAA";
   if (pathname === "/missions/exceptionnelles") return "Missions exceptionnelles";
   if (pathname === "/facturation") return "Facturation";

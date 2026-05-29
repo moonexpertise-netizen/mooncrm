@@ -125,7 +125,7 @@ export default async function FacturationPage({
   const { data: agoAll, error: agoErr } = await sb
     .from("obligations")
     .select(
-      "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination)"
+      "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination, honoraires_jur)"
     )
     .eq("type", "AGO_DEPOT");
   if (agoErr) {
@@ -148,10 +148,15 @@ export default async function FacturationPage({
     statut_logique: string;
     statut_detail: string | null;
     etat_facturation: string | null;
-    clients: { id: string; slug: string; denomination: string } | Array<{ id: string; slug: string; denomination: string }>;
+    clients:
+      | { id: string; slug: string; denomination: string; honoraires_jur: number | null }
+      | Array<{ id: string; slug: string; denomination: string; honoraires_jur: number | null }>;
   };
   const agoItems: FactItem[] = ((agoRows ?? []) as unknown as AgoRow[]).map((r) => {
     const c = Array.isArray(r.clients) ? r.clients[0] : r.clients;
+    // Montant AGO = honoraires juridiques du client (couvre AGO + actes juridiques annexes).
+    // On considere 0 comme "non saisi" : pas de montant a afficher.
+    const hj = c?.honoraires_jur ?? null;
     return {
       key: `ago-${r.id}`,
       source: "ago",
@@ -160,7 +165,7 @@ export default async function FacturationPage({
       clientHref: c?.slug ? `/obligations/ago-depot?year=${r.annee}` : null,
       detail: `AGO ${r.annee}`,
       sousDetail: r.statut_detail,
-      montant: null,
+      montant: hj && hj > 0 ? Math.round(hj) : null,
       etat_facturation: (r.etat_facturation ?? null) as FactItem["etat_facturation"],
     };
   });
