@@ -705,12 +705,22 @@ function MissionRow({
           multiline
           className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5"
         />
-        {(row.date_debut || row.date_fin) && (
-          <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">
-            {row.date_debut && <span>📅 {formatDate(row.date_debut)}</span>}
-            {row.date_fin && <span>→ {formatDate(row.date_fin)}</span>}
-          </div>
-        )}
+        {/* Dates debut/fin editables inline. Toujours visibles (placeholder
+            quand null) pour permettre l'ajout/modif sans ouvrir le modal. */}
+        <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">
+          <span>📅</span>
+          <EditableDate
+            value={row.date_debut}
+            placeholder="début…"
+            onSave={(v) => onSaveField("date_debut", v)}
+          />
+          <span>→</span>
+          <EditableDate
+            value={row.date_fin}
+            placeholder="fin…"
+            onSave={(v) => onSaveField("date_fin", v)}
+          />
+        </div>
       </td>
 
       {/* Forfait (seul montant : durées + taux + montant calcule retires
@@ -897,6 +907,70 @@ function PriceComputedCell({
     >
       {formatEUR(value)}
     </span>
+  );
+}
+
+// ============================================================================
+//  EditableDate : champ date inline. Affiche la date formatee (JJ/MM/AAAA)
+//  par defaut, switch en input[type=date] au clic. Vide -> placeholder.
+// ============================================================================
+
+function EditableDate({
+  value,
+  placeholder,
+  onSave,
+  className,
+}: {
+  value: string | null;
+  placeholder: string;
+  onSave: (v: string | null) => void;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState(value ?? "");
+  useEffect(() => setLocal(value ?? ""), [value]);
+
+  function commit() {
+    setEditing(false);
+    const v = local.trim();
+    const next = v === "" ? null : v;
+    if (next !== value) onSave(next);
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="date"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            setLocal(value ?? "");
+            setEditing(false);
+          }
+        }}
+        autoFocus
+        className={cn(
+          "px-1 py-0 rounded border border-zinc-300 dark:border-white/[0.16] bg-white dark:bg-white/[0.06] text-[10px] tabular-nums focus:outline-none focus:ring-1 focus:ring-zinc-400",
+          className
+        )}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={cn(
+        "rounded px-1 -mx-1 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors",
+        value ? "" : "italic",
+        className
+      )}
+    >
+      {value ? formatDate(value) : placeholder}
+    </button>
   );
 }
 
