@@ -12,6 +12,17 @@ export const dynamic = "force-dynamic";
  * a 'a_traiter' via trigger DB quand origine bascule sur '1 - Création'.
  */
 
+type ClientCreaRaw = {
+  id: string;
+  slug: string;
+  denomination: string;
+  forme: string | null;
+  pipeline_statut: string | null;
+  mois_signature: string | null;
+  creation_statut?: string | null;
+  debut_obligations: string | null;
+};
+
 export default async function CreationsPage({
   searchParams,
 }: {
@@ -20,58 +31,47 @@ export default async function CreationsPage({
   const sp = await searchParams;
   const sb = await createClient();
 
-  // Defensive : si la colonne creation_statut n'existe pas (migration 0055
-  // pas appliquee), on fallback sans cette colonne.
-  const fullSel = "id, slug, denomination, forme, pipeline_statut, mois_signature, creation_statut, debut_obligations, interlocuteurs:client_contacts(prenom, nom, qualite, ordre)";
-  const fallbackSel = "id, slug, denomination, forme, pipeline_statut, mois_signature, debut_obligations, interlocuteurs:client_contacts(prenom, nom, qualite, ordre)";
+  // Query principale : avec creation_statut (migration 0055). Fallback sans
+  // si la colonne n'existe pas encore. On evite la jointure client_contacts
+  // ici (table de liaison many-to-many qui rend le SELECT complexe) ; le
+  // dirigeant pourra etre charge en V2 via une 2e query si besoin.
+  const fullSel = "id, slug, denomination, forme, pipeline_statut, mois_signature, creation_statut, debut_obligations";
+  const fallbackSel = "id, slug, denomination, forme, pipeline_statut, mois_signature, debut_obligations";
 
-  let dataRaw: unknown[] | null;
+  let dataRaw: ClientCreaRaw[] = [];
   const r1 = await sb
     .from("clients")
     .select(fullSel)
     .eq("origine", "1 - Création")
     .order("denomination", { ascending: true });
   if (r1.error) {
+    // eslint-disable-next-line no-console
+    console.error("[/missions/creations] erreur query principale :", r1.error.message);
     const r2 = await sb
       .from("clients")
       .select(fallbackSel)
       .eq("origine", "1 - Création")
       .order("denomination", { ascending: true });
-    dataRaw = (r2.data ?? []).map((c) => ({ ...c, creation_statut: null }));
+    if (r2.error) {
+      // eslint-disable-next-line no-console
+      console.error("[/missions/creations] erreur fallback :", r2.error.message);
+    }
+    dataRaw = (r2.data ?? []).map((c) => ({ ...c, creation_statut: null })) as ClientCreaRaw[];
   } else {
-    dataRaw = r1.data;
+    dataRaw = (r1.data ?? []) as ClientCreaRaw[];
   }
 
-  type ClientCreaRaw = {
-    id: string;
-    slug: string;
-    denomination: string;
-    forme: string | null;
-    pipeline_statut: string | null;
-    mois_signature: string | null;
-    creation_statut?: string | null;
-    debut_obligations: string | null;
-    interlocuteurs: Array<{ prenom: string | null; nom: string; qualite: string | null; ordre: number | null }> | null;
-  };
-
-  const rows: CreationRow[] = ((dataRaw ?? []) as ClientCreaRaw[]).map((c) => {
-    // Premier interlocuteur trie par ordre (ou null si aucun)
-    const contacts = (c.interlocuteurs ?? []).slice().sort((a, b) => (a.ordre ?? 99) - (b.ordre ?? 99));
-    const dirigeant = contacts[0]
-      ? [contacts[0].prenom, contacts[0].nom].filter(Boolean).join(" ")
-      : null;
-    return {
-      id: c.id,
-      slug: c.slug,
-      denomination: c.denomination,
-      forme: c.forme,
-      pipeline_statut: c.pipeline_statut,
-      mois_signature: c.mois_signature,
-      debut_obligations: c.debut_obligations,
-      dirigeant,
-      creation_statut: (c.creation_statut ?? null) as CreationStatut | null,
-    };
-  });
+  const rows: CreationRow[] = dataRaw.map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    denomination: c.denomination,
+    forme: c.forme,
+    pipeline_statut: c.pipeline_statut,
+    mois_signature: c.mois_signature,
+    debut_obligations: c.debut_obligations,
+    dirigeant: null,
+    creation_statut: (c.creation_statut ?? null) as CreationStatut | null,
+  }));
 
   return (
     <div className="space-y-4">

@@ -160,8 +160,8 @@ export default function CreationsTable({
             <thead className="bg-zinc-50/50 dark:bg-white/[0.02] border-b border-zinc-200/70 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Société</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[80px]">Forme</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Dirigeant</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[100px]">Forme</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[160px]">Pipeline</th>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[200px]">Statut création</th>
                 <th scope="col" className="px-2 py-2 w-10" />
               </tr>
@@ -177,8 +177,12 @@ export default function CreationsTable({
                   <td className="px-3 py-2.5 text-zinc-500 dark:text-zinc-400 text-[13px]">
                     {r.forme || "—"}
                   </td>
-                  <td className="px-3 py-2.5 text-zinc-700 dark:text-zinc-300 text-[13px]">
-                    {r.dirigeant || <span className="text-zinc-400 italic">—</span>}
+                  <td className="px-3 py-2.5 text-[13px]">
+                    {r.pipeline_statut ? (
+                      <span className="text-zinc-600 dark:text-zinc-400">{r.pipeline_statut}</span>
+                    ) : (
+                      <span className="text-zinc-400 italic">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5">
                     <StatutPicker
