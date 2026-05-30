@@ -347,7 +347,14 @@ export default function MissionExcTable({
   }
 
   function onSetEtatMission(id: string, etat: EtatMission) {
-    patchRow(id, { etat_mission: etat });
+    // Auto-facturation : passage en "livree" + facturation null -> "a_facturer".
+    // Cf. trigger DB auto_facturation_on_livree_mex. Optimistic mirror.
+    const current = localRows.find((r) => r.id === id);
+    const patch: Partial<MissionExcRow> = { etat_mission: etat };
+    if (etat === "livree" && !current?.etat_facturation) {
+      patch.etat_facturation = "a_facturer";
+    }
+    patchRow(id, patch);
     startTransition(async () => {
       try {
         await setEtatMission(id, etat);

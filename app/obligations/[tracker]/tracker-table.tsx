@@ -787,11 +787,29 @@ export default function TrackerTable({
     (obligationId: string, libelle: string, type: string) => {
       const opts = statusOptions[type] ?? [];
       const opt = opts.find((o) => o.libelle === libelle);
+      const newStatutLogique = (opt?.statut_logique as StatutLogique) ?? "A_FAIRE";
       const patch: Patch = {
         obligationId,
-        statut_logique: (opt?.statut_logique as StatutLogique) ?? "A_FAIRE",
+        statut_logique: newStatutLogique,
         statut_detail: libelle,
       };
+      // Auto-facturation : passage en TERMINE sur AGO/Bilan + facturation null
+      // -> "a_facturer". Cf. trigger DB auto_facturation_on_termine_obligations.
+      // Cote optimistic : recherche la cell actuelle pour ne pas ecraser une valeur
+      // explicite que le user aurait deja choisie.
+      if (newStatutLogique === "TERMINE" && (type === "AGO_DEPOT" || type === "LIASSE_PLAQUETTE")) {
+        let currentEtatFact: EtatFacturation | null | undefined;
+        for (const r of filtered) {
+          const found = r.cells.find((c) => c.obligationId === obligationId);
+          if (found) {
+            currentEtatFact = found.etat_facturation;
+            break;
+          }
+        }
+        if (!currentEtatFact) {
+          patch.etat_facturation = "a_facturer";
+        }
+      }
       applyPatch(patch);
       setOpenCellId(null);
       startTransition(async () => {
@@ -799,7 +817,7 @@ export default function TrackerTable({
         router.refresh();
       });
     },
-    [statusOptions, applyPatch, router]
+    [statusOptions, applyPatch, router, filtered, visibleCols]
   );
 
   const onReset = useCallback(

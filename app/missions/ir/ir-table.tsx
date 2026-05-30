@@ -197,14 +197,21 @@ export default function IrTable({
         if (r.id !== clientIrId) return r;
         const key = `${selectedYear}|${type}`;
         const newMap = new Map(r.obligations);
+        const newFacturations = new Map(r.facturations);
         if (libelle === null) {
           newMap.delete(key);
         } else {
           const opts = statusOptions[`${type}_ANNEE`] ?? [];
           const sl = opts.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE";
           newMap.set(key, { annee: selectedYear, type, libelle, statut_logique: sl });
+          // Auto-facturation : passage en TERMINE + facturation null -> "a_facturer"
+          // Cf. trigger DB auto_facturation_on_termine. On replique cote optimistic
+          // pour un feedback immediat avant le router.refresh().
+          if (sl === "TERMINE" && !newFacturations.get(selectedYear)) {
+            newFacturations.set(selectedYear, "a_facturer");
+          }
         }
-        return { ...r, obligations: newMap };
+        return { ...r, obligations: newMap, facturations: newFacturations };
       })
     );
     startTransition(async () => {

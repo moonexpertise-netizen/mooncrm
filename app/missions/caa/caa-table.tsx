@@ -141,11 +141,17 @@ export default function CaaTable({
         } else {
           const sl = statusOptions.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE";
           const previous = newMap.get(selectedYear);
+          // Auto-facturation : passage en TERMINE + facturation null -> "a_facturer"
+          // Cf. trigger DB. On replique cote optimistic pour feedback immediat.
+          const nextEtatFact =
+            sl === "TERMINE" && !previous?.etat_facturation
+              ? "a_facturer"
+              : (previous?.etat_facturation ?? null);
           newMap.set(selectedYear, {
             annee: selectedYear,
             libelle,
             statut_logique: sl,
-            etat_facturation: previous?.etat_facturation ?? null,
+            etat_facturation: nextEtatFact,
             forfait: previous?.forfait ?? null,
           });
         }
