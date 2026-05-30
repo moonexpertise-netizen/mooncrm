@@ -112,13 +112,18 @@ export default function NouveauClientForm() {
   const [error, setError] = useState<string | null>(null);
 
   // Champs
+  // Section honoraires repliee par defaut : permet de creer rapidement un
+  // prospect sans saisir les honoraires (pourra etre fait plus tard en LDM).
+  const [showHonos, setShowHonos] = useState(false);
   const [search, setSearch] = useState("");
   const [denomination, setDenomination] = useState("");
   const [siren, setSiren] = useState("");
   const [forme, setForme] = useState("");
   const [activite, setActivite] = useState("");
   const [origine, setOrigine] = useState("");
-  const [email, setEmail] = useState("");
+  // L'email du dossier est aligne sur celui du dirigeant pour eviter la double
+  // saisie (cas le plus courant). Si Benjamin a besoin d'un email different
+  // sur le dossier, il l'edite via la fiche client apres creation.
   const [pipeline, setPipeline] = useState<string>("1 - Tally à envoyer");
   const [jourCloture, setJourCloture] = useState<string>("");
   const [moisCloture, setMoisCloture] = useState<string>("");
@@ -335,7 +340,7 @@ export default function NouveauClientForm() {
           forme: forme || null,
           activite: activite || null,
           origine: origine || null,
-          email: email.trim() || null,
+          email: dirigeantEmail.trim() || null,
           pipeline_statut: pipeline,
           jour_cloture: jourCloture ? parseInt(jourCloture, 10) : null,
           mois_cloture: moisCloture ? parseInt(moisCloture, 10) : null,
@@ -540,7 +545,7 @@ export default function NouveauClientForm() {
                   className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(dirigeantTelephone))}
                 />
               </Field>
-              <Field label="Email dirigeant" hint="Si différent de l'email du dossier">
+              <Field label="Email" hint="Sera utilise pour les relances et la LDM">
                 <input
                   type="email"
                   autoComplete="email"
@@ -616,12 +621,35 @@ export default function NouveauClientForm() {
 
       {/* ====================================================================
           SECTION 2 - HONORAIRES (pour la lettre de mission)
+          Repliee par defaut : on dévoile sur clic pour permettre la saisie
+          ultra-rapide d'un prospect (les honoraires viendront avec la LDM).
       ==================================================================== */}
-      <SectionTitle
-        n={2}
-        title="Honoraires"
-        sub="Forfaits qui apparaîtront dans la lettre de mission"
-      />
+      {!showHonos ? (
+        <button
+          type="button"
+          onClick={() => setShowHonos(true)}
+          className="w-full px-4 py-3 rounded-lg border border-dashed border-zinc-300 dark:border-white/[0.12] bg-zinc-50/50 dark:bg-white/[0.02] text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-white/[0.06] hover:border-zinc-400 dark:hover:border-white/[0.20] hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors flex items-center justify-center gap-2"
+        >
+          <span className="text-base leading-none">+</span>
+          Renseigner les honoraires
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">· optionnel</span>
+        </button>
+      ) : (
+        <>
+      <div className="flex items-center justify-between gap-2">
+        <SectionTitle
+          n={2}
+          title="Honoraires"
+          sub="Forfaits qui apparaîtront dans la lettre de mission · HT"
+        />
+        <button
+          type="button"
+          onClick={() => setShowHonos(false)}
+          className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] shrink-0"
+        >
+          Masquer
+        </button>
+      </div>
 
       <Field label="Forfait comptable">
         <div className="relative">
@@ -749,6 +777,9 @@ export default function NouveauClientForm() {
         )}
       </div>
 
+        </>
+      )}
+
       {/* ====================================================================
           SECTION 3 - DÉTAILS CRM (pas dans la LDM, mais utiles au suivi)
       ==================================================================== */}
@@ -801,27 +832,16 @@ export default function NouveauClientForm() {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Origine">
-          <select
-            value={origine}
-            onChange={(e) => setOrigine(e.target.value)}
-            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(origine))}
-          >
-            <option value="">À renseigner</option>
-            {ORIGINES.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </Field>
-        <Field label="Email">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="contact@…"
-            className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(email))}
-          />
-        </Field>
-      </div>
+      <Field label="Origine">
+        <select
+          value={origine}
+          onChange={(e) => setOrigine(e.target.value)}
+          className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(origine))}
+        >
+          <option value="">À renseigner</option>
+          {ORIGINES.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </Field>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Pipeline">

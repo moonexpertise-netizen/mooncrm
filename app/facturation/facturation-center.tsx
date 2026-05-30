@@ -77,7 +77,7 @@ const SOURCE_FILTERS: Array<{ key: "all" | FactSource; label: string }> = [
 
 function formatEUR(n: number | null): string {
   if (n === null) return "-";
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n)) + " €";
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n)) + " € HT";
 }
 
 export default function FacturationCenter({
@@ -181,7 +181,7 @@ export default function FacturationCenter({
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Source</th>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Client</th>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Détail</th>
-                <th scope="col" className="px-3 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[110px]">Montant</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">Montant HT</th>
                 <th scope="col" className="px-3 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]">État</th>
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>

@@ -410,7 +410,7 @@ export default function CaaTable({
                 ) : (
                   <>
                     <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {selectedYear}</th>
-                    <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[110px]" title="Forfait d'honoraires">Forfait</th>
+                    <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires (HT)">Forfait HT</th>
                     <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">Facturation</th>
                   </>
                 )}
@@ -1224,11 +1224,11 @@ function EditableForfait({
           ? "text-zinc-400 dark:text-zinc-500 italic"
           : "text-zinc-900 dark:text-zinc-100"
       )}
-      title="Forfait d'honoraires (€)"
+      title="Forfait d'honoraires (€ HT)"
     >
       {value === null
         ? "-"
-        : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value)} €`}
+        : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value)} € HT`}
     </button>
   );
 }

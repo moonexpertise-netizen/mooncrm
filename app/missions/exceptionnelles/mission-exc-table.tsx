@@ -202,7 +202,7 @@ function formatEUR(n: number | null | undefined): string {
   return (
     new Intl.NumberFormat("fr-FR", {
       maximumFractionDigits: 0,
-    }).format(Math.round(n)) + " €"
+    }).format(Math.round(n)) + " € HT"
   );
 }
 
@@ -543,7 +543,7 @@ export default function MissionExcTable({
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[180px]">Client</th>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]">Type</th>
                 <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Mission</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[110px]" title="Forfait d'honoraires">Forfait</th>
+                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires (HT)">Forfait HT</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">État mission</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">Facturation</th>
                 <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]" title="Lettre de mission">LDM</th>
@@ -745,7 +745,7 @@ function MissionRow({
       <td className="px-2 py-2.5 text-right">
         <EditableNumber
           value={row.forfait}
-          suffix="€"
+          suffix="€ HT"
           step={50}
           onSave={(v) => onSaveField("forfait", v)}
         />
@@ -1623,7 +1623,7 @@ function NewMissionForm({
           onChange={(e) => setForfait(e.target.value)}
           type="number"
           step="50"
-          placeholder="Forfait d'honoraires (€)"
+          placeholder="Forfait d'honoraires (€ HT)"
           className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums"
         />
         <input
