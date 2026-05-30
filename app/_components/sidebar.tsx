@@ -18,6 +18,7 @@ import {
   Receipt,
   Settings2,
   ShieldCheck,
+  Sparkles,
   Stamp,
   Users,
   Wallet,
@@ -110,8 +111,10 @@ const NAV_ITEMS: NavItem[] = [
     matchPrefix: "/obligations",
     children: buildProductionChildren(),
   },
-  // Missions hors expertise comptable (declarations IR/IFI + commissaire aux
-  // apports). Placees apres Production dans la sidebar.
+  // Missions hors expertise comptable (creations, declarations IR/IFI,
+  // commissariat aux apports). Placees apres Production dans la sidebar.
+  // Creations en premier (chrono metier : on cree, puis on declare, puis CAA).
+  { href: "/missions/creations", label: "Créations", icon: Sparkles, matchPrefix: "/missions/creations" },
   { href: "/missions/ir", label: "IR + IFI", icon: Receipt, matchPrefix: "/missions/ir" },
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
