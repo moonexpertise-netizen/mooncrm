@@ -31,12 +31,15 @@ with checks as (
     )
 
   -- ===== 0051 : AGO Depose -> TERMINE (status_options seed) =====
+  -- ilike '%depos%' ne matche pas 'Deposé' a cause de l'accent (é != e en
+  -- LIKE pattern). On match avec underscore wildcard ou comparaison directe.
   union all
   select '0051', 'AGO ''2 - Depose'' classe TERMINE dans status_options',
     exists(
       select 1 from public.status_options
       where scope = 'obligation' and type_code = 'AGO_DEPOT'
-        and libelle ilike '%depos%' and statut_logique = 'TERMINE'
+        and (libelle = '2 - Déposé' or libelle ilike '%d_pos%')
+        and statut_logique = 'TERMINE'
     )
 
   -- ===== 0052 : drop 'payee' du CHECK constraint =====
