@@ -55,6 +55,7 @@ function pageLabel(pathname: string): string {
   if (pathname === "/missions/caa") return "CAA";
   if (pathname === "/missions/exceptionnelles") return "Missions exceptionnelles";
   if (pathname === "/facturation") return "Facturation";
+  if (pathname === "/finance") return "Finance";
   if (pathname.startsWith("/admin/users")) return "Utilisateurs";
   return "MoonCRM";
 }

@@ -13,6 +13,7 @@ import {
   GitBranch,
   GripVertical,
   LayoutDashboard,
+  LineChart,
   LogOut,
   Receipt,
   Settings2,
@@ -115,6 +116,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
   { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation" },
+  { href: "/finance", label: "Finance", icon: LineChart, matchPrefix: "/finance" },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
