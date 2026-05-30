@@ -57,9 +57,13 @@
     --info-soft: 204 100% 97%;
 
     /* Ombres calibrÃ©es â€” beaucoup plus subtiles ------------------------- */
-    --shadow-sm: 0 1px 2px 0 rgba(15, 17, 34, 0.04);
-    --shadow-md: 0 2px 8px -2px rgba(15, 17, 34, 0.06), 0 1px 2px -1px rgba(15, 17, 34, 0.04);
-    --shadow-lg: 0 10px 24px -8px rgba(15, 17, 34, 0.10), 0 4px 8px -4px rgba(15, 17, 34, 0.05);
+    /* Shadows ultra subtiles, style Linear/Vercel : la profondeur vient de la
+       border et du fond, pas d'une vraie box-shadow. On garde un soupçon
+       d'epaisseur (shadow-sm = quasi rien). md/lg/xl reservees aux popovers
+       et modales. */
+    --shadow-sm: 0 1px 0 0 rgba(15, 17, 34, 0.02);
+    --shadow-md: 0 1px 3px 0 rgba(15, 17, 34, 0.04), 0 1px 2px -1px rgba(15, 17, 34, 0.03);
+    --shadow-lg: 0 8px 20px -8px rgba(15, 17, 34, 0.08), 0 3px 6px -3px rgba(15, 17, 34, 0.04);
     --shadow-xl: 0 20px 50px -10px rgba(15, 17, 34, 0.18);
   }
 
@@ -143,9 +147,11 @@
 
     /* Ombres en dark : on garde discret mais on accentue legerement.
        Toujours base sur du noir pur transparence, pas le navy MOON. */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.30);
-    --shadow-md: 0 2px 8px -2px rgba(0, 0, 0, 0.40), 0 1px 2px -1px rgba(0, 0, 0, 0.30);
-    --shadow-lg: 0 10px 24px -8px rgba(0, 0, 0, 0.55), 0 4px 8px -4px rgba(0, 0, 0, 0.35);
+    /* Dark mode : shadows quasi invisibles, on s'appuie sur la border + bg
+       elevation. Premium minimalisme. */
+    --shadow-sm: 0 1px 0 0 rgba(0, 0, 0, 0.30);
+    --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.40), 0 1px 2px -1px rgba(0, 0, 0, 0.30);
+    --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.55), 0 3px 6px -3px rgba(0, 0, 0, 0.35);
     --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.70);
   }
 }

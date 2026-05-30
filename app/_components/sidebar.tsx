@@ -451,7 +451,7 @@ export function Sidebar() {
               <SortableNavItem key={item.href} id={item.href} animate={hydrated} className="relative group/item">
                 <div
                   className={cn(
-                    "relative flex items-center rounded-lg text-sm",
+                    "relative flex items-center rounded-md text-[13px]",
                     active
                       ? "bg-white/[0.08] text-white font-medium"
                       : "text-zinc-400"
@@ -470,13 +470,13 @@ export function Sidebar() {
                       if (isProduction && !showCollapsed) setProdOpen(true);
                     }}
                     className={cn(
-                      "flex items-center gap-3 transition-colors flex-1 min-w-0 rounded-lg",
-                      showCollapsed ? "h-10 w-10 justify-center mx-auto" : "h-9 px-2.5",
+                      "flex items-center gap-2.5 transition-colors flex-1 min-w-0 rounded-md",
+                      showCollapsed ? "h-9 w-9 justify-center mx-auto" : "h-8 px-2",
                       !active && "hover:text-zinc-100 hover:bg-white/[0.05]"
                     )}
                     title={showCollapsed ? item.label : undefined}
                   >
-                    <Icon className={cn("shrink-0", showCollapsed ? "h-5 w-5" : "h-[18px] w-[18px]")} />
+                    <Icon className={cn("shrink-0", showCollapsed ? "h-[18px] w-[18px]" : "h-4 w-4")} />
                     {!showCollapsed && <span className="truncate flex-1">{item.label}</span>}
                   </Link>
                   {!showCollapsed && hasChildren && isProduction && (
@@ -484,7 +484,7 @@ export function Sidebar() {
                       type="button"
                       aria-label={prodOpen ? "Replier la liste" : "Déplier la liste"}
                       onClick={() => setProdOpen((v) => !v)}
-                      className="h-9 px-2 flex items-center justify-center rounded-md hover:bg-white/[0.08] hover:text-zinc-100 transition-colors"
+                      className="h-8 px-1.5 flex items-center justify-center rounded-md hover:bg-white/[0.08] hover:text-zinc-100 transition-colors"
                     >
                       <ChevronDown
                         className={cn(

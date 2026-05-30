@@ -331,7 +331,7 @@ function HeroCard({
   };
 
   return (
-    <div className={cn("relative rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-gradient-to-br p-4 shadow-card overflow-hidden", accentRing[accent])}>
+    <div className={cn("relative rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-gradient-to-br p-3.5 overflow-hidden", accentRing[accent])}>
       {/* Sparkline en background */}
       {sparkData.length > 0 && (
         <div className="absolute inset-0 opacity-40 dark:opacity-30 pointer-events-none">
@@ -355,13 +355,13 @@ function HeroCard({
         </div>
       )}
       <div className="relative">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] uppercase tracking-wide font-medium text-zinc-500 dark:text-zinc-400">{label}</span>
-          <div className={cn("inline-flex items-center justify-center w-7 h-7 rounded-md", accentIconBg[accent])}>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] uppercase tracking-wider font-medium text-zinc-500 dark:text-zinc-400">{label}</span>
+          <div className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md", accentIconBg[accent])}>
             {icon}
           </div>
         </div>
-        <div className="text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-50 leading-tight">
+        <div className="text-xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-50 leading-none">
           {formatEUR(value)}
         </div>
         <div className={cn("text-[11px] mt-1 leading-snug", subCls[subAccent])}>{sub}</div>
@@ -406,7 +406,7 @@ function TimelineBlock({
   const totalProjete = timeline.filter((t) => t.isFuture).reduce((s, t) => s + t.total, 0);
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-5 shadow-card">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4">
       <div className="flex items-start justify-between mb-3 gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -577,7 +577,7 @@ function MrrEvolutionBlock({
   const data = evolution.map((m) => ({ ...m, lossNeg: -m.loss }));
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-5 shadow-card">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4">
       <div className="flex items-start justify-between mb-3 gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -701,7 +701,7 @@ function EncaissementsBlock({
 }) {
   const total = timeline.reduce((s, m) => s + m.total, 0);
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-5 shadow-card h-full">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4 h-full">
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -842,7 +842,7 @@ function ScenariosBlock({ scenarios, caYtd, year }: { scenarios: FinanceData["sc
     { name: "Optimiste", value: scenarios.optimiste, color: "#f59e0b", icon: "🟡" },
   ];
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-5 shadow-card h-full">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4 h-full">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
           <Target className="h-4 w-4 text-zinc-400" />
@@ -903,7 +903,7 @@ function FunnelBlock({
   const totalCount = funnel.reduce((s, w) => s + w.count, 0);
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-5 shadow-card">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4">
       <div className="flex items-start justify-between mb-3 gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -1002,7 +1002,7 @@ function ClientList({ clients }: { clients: FinanceData["funnel"][number]["clien
 // ============================================================================
 function ActivateBlock({ activate }: { activate: FinanceData["activate"] }) {
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-5 shadow-card h-full">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4 h-full">
       <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 mb-3">
         <Flame className="h-4 w-4 text-zinc-400" />
         À activer maintenant
@@ -1101,7 +1101,7 @@ function TendancesBlock({ tendances }: { tendances: FinanceData["tendances"] }) 
   const PIE_COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#6366f1", "#14b8a6", "#ef4444", "#a855f7", "#84cc16", "#71717a"];
   const total = tendances.reduce((s, t) => s + t.value, 0);
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-5 shadow-card h-full flex flex-col">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4 h-full flex flex-col">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
           <PieIcon className="h-4 w-4 text-zinc-400" />

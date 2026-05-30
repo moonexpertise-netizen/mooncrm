@@ -434,13 +434,13 @@ export default function IrTable({
 
       {/* Table */}
       {visibleRows.length === 0 ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
           {localRows.length === 0
             ? "Aucun dossier IR pour l'instant. Clique sur « Nouveau dossier IR » pour commencer."
             : `Aucun dossier souscrit pour l'exercice ${selectedYear}. Passe en vue « Base » pour souscrire des années.`}
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
           <table className="w-full text-sm min-w-[820px]" aria-label="Dossiers IR">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
@@ -1162,7 +1162,7 @@ function NewClientIrForm({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-4 shadow-card space-y-3">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4 shadow-card space-y-3">
       <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nouveau dossier IR</div>
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
         <select

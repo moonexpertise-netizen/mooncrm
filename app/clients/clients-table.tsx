@@ -365,7 +365,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
       {/* Desktop : table moderne (style Attio/Linear). Bordures très douces,
           header avec uppercase tracking-wide, hover row subtil, lignes plus
           aérées (py-3 au lieu de py-2). */}
-      <div className="hidden md:block rounded-xl border border-zinc-200/80 bg-white shadow-card overflow-hidden">
+      <div className="hidden md:block rounded-lg border border-zinc-200/70 bg-white overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50/60 text-zinc-500 text-[11px] uppercase tracking-wider font-medium border-b border-zinc-200/60">
             <tr>
@@ -480,7 +480,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
       {/* Mobile : liste de cartes empilées (touch friendly) */}
       <div className="md:hidden space-y-2">
         {sorted.length === 0 ? (
-          <div className="rounded-xl border border-zinc-200/80 bg-white shadow-card p-6 text-center text-sm text-zinc-500">
+          <div className="rounded-lg border border-zinc-200/70 bg-white p-6 text-center text-sm text-zinc-500">
             Aucun client ne correspond aux filtres.
           </div>
         ) : (
@@ -498,7 +498,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                 key={r.id}
                 id={`client-${r.slug}`}
                 href={href}
-                className="block rounded-xl border border-zinc-200/80 bg-white shadow-card px-3 py-3 active:bg-zinc-50 transition-all"
+                className="block rounded-lg border border-zinc-200/70 bg-white px-3 py-3 active:bg-zinc-50 transition-all"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">

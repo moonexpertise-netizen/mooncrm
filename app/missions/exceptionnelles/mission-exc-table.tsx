@@ -537,13 +537,13 @@ export default function MissionExcTable({
 
       {/* Table */}
       {filteredRows.length === 0 ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
           {localRows.length === 0
             ? "Aucune mission exceptionnelle. Clique sur « Nouvelle mission » pour commencer."
             : "Aucune mission ne correspond aux filtres actuels."}
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
           <table className="w-full text-sm min-w-[900px]" aria-label="Missions exceptionnelles">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
@@ -654,14 +654,14 @@ function Kpi({
     zinc: "text-zinc-700 dark:text-zinc-300",
   };
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-3 shadow-card">
-      <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-3">
+      <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
         {label}
       </div>
-      <div className={cn("text-xl font-semibold tabular-nums mt-1", accents[accent])}>
+      <div className={cn("text-lg font-semibold tabular-nums tracking-tight mt-0.5", accents[accent])}>
         {value}
       </div>
-      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate leading-snug">
         {subtitle}
       </div>
     </div>
@@ -1572,7 +1572,7 @@ function NewMissionForm({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-4 shadow-card space-y-3">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4 shadow-card space-y-3">
       <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
         Nouvelle mission exceptionnelle
       </div>

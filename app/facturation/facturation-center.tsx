@@ -170,11 +170,11 @@ export default function FacturationCenter({
 
       {/* Tableau */}
       {localItems.length === 0 ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
           Aucune ligne de facturation pour ces filtres.
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
           <table className="w-full text-sm min-w-[800px]" aria-label="Facturation à émettre">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
@@ -251,7 +251,7 @@ function Kpi({
     zinc: "text-zinc-700 dark:text-zinc-300",
   };
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-3 shadow-card">
+    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-3 shadow-card">
       <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium">{label}</div>
       <div className={cn("text-xl font-semibold tabular-nums mt-1", colors[accent])}>{value}</div>
       <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">{subtitle}</div>

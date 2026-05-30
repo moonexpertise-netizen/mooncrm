@@ -127,19 +127,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Bandeau supérieur - bg adaptatif clair/sombre.
             Light : blanc translucide. Dark : graphite translucide.
             Border bas subtile dans les deux cas. */}
-        <div className="sticky top-0 z-30 bg-white/85 dark:bg-[hsl(var(--background))]/85 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/[0.10]">
-          <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 h-14 flex items-center gap-2 md:justify-between">
+        <div className="sticky top-0 z-30 bg-white/85 dark:bg-[hsl(var(--background))]/85 backdrop-blur-md border-b border-zinc-200/70 dark:border-white/[0.06]">
+          <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 h-12 flex items-center gap-2 md:justify-between">
             {/* Hamburger : visible uniquement sur mobile */}
             <button
               type="button"
               onClick={openMobileSidebar}
               aria-label="Ouvrir le menu"
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors shrink-0"
+              className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors shrink-0"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             </button>
             {/* Titre de section sur mobile uniquement */}
-            <h1 className="md:hidden text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate flex-1 min-w-0">
+            <h1 className="md:hidden text-[13px] font-medium text-zinc-900 dark:text-zinc-100 truncate flex-1 min-w-0">
               {pageLabel(pathname)}
             </h1>
             <div className="hidden md:flex items-center gap-2.5 md:ml-auto">
@@ -153,7 +153,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-6 py-4 md:py-6">
+        <div className="mx-auto w-full max-w-screen-2xl px-3 md:px-5 py-3 md:py-4">
           {children}
         </div>
       </main>

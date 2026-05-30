@@ -35,11 +35,11 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+        <h1 className="text-lg md:text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
           {title}
         </h1>
         {description && (
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          <p className="text-[12px] md:text-[13px] text-muted-foreground mt-0.5 leading-snug">{description}</p>
         )}
       </div>
       {actions && (
@@ -77,11 +77,11 @@ export function SectionTitle({
             {eyebrow}
           </div>
         )}
-        <h2 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+        <h2 className="text-[15px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
           {title}
         </h2>
         {description && (
-          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{description}</p>
         )}
       </div>
       {actions && (

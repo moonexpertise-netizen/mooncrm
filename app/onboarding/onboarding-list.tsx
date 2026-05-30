@@ -203,7 +203,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   return (
     <div className="space-y-4">
       {/* Toolbar unifiée (mêmes filtres et tri que la matrice) */}
-      <div className="rounded-xl border border-zinc-200/70 bg-white shadow-card px-3 py-2.5 flex items-center gap-2 flex-wrap">
+      <div className="rounded-lg border border-zinc-200/70 bg-white px-3 py-2 flex items-center gap-2 flex-wrap">
         <input
           type="text"
           placeholder="Filtrer par nom ou SIREN…"
