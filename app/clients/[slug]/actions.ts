@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 import { filterByDebut, generateInstancesForType } from "@/lib/obligations-engine";
 import { getInpiCompany, InpiError } from "@/lib/inpi";
 
@@ -848,6 +849,27 @@ export async function updateClient(
   // Perf : pas de revalidatePath. Les pages sont force-dynamic + l'UI applique
   // déjà un optimistic update (useSaver). Revalider 3 paths à chaque keystroke
   // ralentissait massivement la saisie.
+  //
+  // Exception : si la patch touche un champ qui impacte /finance ou /facturation
+  // (honoraires, pipeline_statut, types), on invalide ces 2 routes uniquement.
+  // Cf. Router Cache Next.js : sinon le dashboard reste stale apres edit fiche.
+  const FINANCE_KEYS = new Set([
+    "pipeline_statut",
+    "honoraires_compta",
+    "honoraires_jur",
+    "honoraires_creation",
+    "honoraires_reprise",
+    "forfait_bilan",
+    "tdb_honos_periode",
+    "tdb_periode",
+    "type_honos_bilans",
+    "type_honos_jur",
+    "type_honos_creation",
+    "type_honos_reprise",
+  ]);
+  if (Object.keys(patch).some((k) => FINANCE_KEYS.has(k))) {
+    revalidateFinanceViews();
+  }
 }
 
 /**

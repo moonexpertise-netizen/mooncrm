@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 
 /**
  * Server actions pour le module Missions Exceptionnelles.
@@ -84,6 +85,7 @@ export async function createMission(input: MissionExcInput) {
       .single();
   }
   if (res.error) throw new Error(res.error.message);
+  revalidateFinanceViews();
   return res.data;
 }
 
@@ -107,6 +109,7 @@ export async function updateMission(
     .update(cleaned)
     .eq("id", missionId);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 export async function deleteMission(missionId: string) {
@@ -116,6 +119,7 @@ export async function deleteMission(missionId: string) {
     .delete()
     .eq("id", missionId);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 /**
@@ -175,6 +179,7 @@ export async function duplicateMission(missionId: string) {
       .single();
   }
   if (res.error) throw new Error(res.error.message);
+  revalidateFinanceViews();
   return res.data;
 }
 
@@ -185,6 +190,7 @@ export async function setEtatMission(missionId: string, etat: EtatMission) {
     .update({ etat_mission: etat })
     .eq("id", missionId);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 export async function setEtatFacturation(
@@ -197,6 +203,7 @@ export async function setEtatFacturation(
     .update({ etat_facturation: etat })
     .eq("id", missionId);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 export async function setLdmStatutMission(

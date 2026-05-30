@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 
 /**
  * Server actions partagees pour la page Facturation centralisee.
@@ -35,6 +36,7 @@ export async function setFacturationFromCentral(
       .update({ etat_facturation: etat })
       .eq("id", rowId);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return;
   }
 
@@ -44,6 +46,7 @@ export async function setFacturationFromCentral(
       .update({ etat_facturation: etat })
       .eq("id", rowId);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return;
   }
 
@@ -54,6 +57,7 @@ export async function setFacturationFromCentral(
       .update({ etat_facturation: etat })
       .eq("id", rowId);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return;
   }
 
@@ -70,6 +74,7 @@ export async function setFacturationFromCentral(
       .eq("client_ir_id", clientIrId)
       .eq("annee", annee);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return;
   }
 }

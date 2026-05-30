@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 
 /**
  * Server actions du tracker CAA (Commissariat aux apports).
@@ -44,12 +45,14 @@ export async function updateClientCaa(
   const sb = await createClient();
   const { error } = await sb.from("clients_caa").update(patch).eq("id", clientCaaId);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 export async function deleteClientCaa(clientCaaId: string) {
   const sb = await createClient();
   const { error } = await sb.from("clients_caa").delete().eq("id", clientCaaId);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 /**
@@ -72,6 +75,7 @@ export async function setCaaObligationStatut(
       .eq("client_caa_id", clientCaaId)
       .eq("annee", annee);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return;
   }
 
@@ -97,6 +101,7 @@ export async function setCaaObligationStatut(
       { onConflict: "client_caa_id,annee" }
     );
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 /**
@@ -122,6 +127,7 @@ export async function toggleCaaSubscription(
       .delete()
       .eq("id", existing.id);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return false;
   }
 
@@ -141,6 +147,7 @@ export async function toggleCaaSubscription(
     statut_detail: defOpt?.libelle ?? "À préparer",
   });
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
   return true;
 }
 
@@ -161,6 +168,7 @@ export async function setCaaFacturation(
     .eq("client_caa_id", clientCaaId)
     .eq("annee", annee);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 /**
@@ -189,4 +197,5 @@ export async function setCaaForfait(
       `Impossible de saisir le forfait : le dossier n'est pas souscrit a la CAA pour ${annee}.`
     );
   }
+  revalidateFinanceViews();
 }

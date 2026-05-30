@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 
 /**
  * Server actions du tracker IR.
@@ -94,6 +95,7 @@ export async function setIrObligationStatut(
       .eq("annee", annee)
       .eq("type", type);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return;
   }
 
@@ -123,6 +125,7 @@ export async function setIrObligationStatut(
       { onConflict: "client_ir_id,annee,type" }
     );
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 /**
@@ -153,6 +156,7 @@ export async function toggleIrSubscription(
       .delete()
       .eq("id", existing.id);
     if (error) throw new Error(error.message);
+    revalidateFinanceViews();
     return false;
   }
 
@@ -199,10 +203,12 @@ export async function toggleIrSubscription(
         etat_facturation: sibling?.etat_facturation ?? null,
       });
       if (e2) throw new Error(e2.message);
+      revalidateFinanceViews();
       return true;
     }
     throw new Error(error.message);
   }
+  revalidateFinanceViews();
   return true;
 }
 
@@ -226,6 +232,7 @@ export async function setIrFacturation(
     .eq("client_ir_id", clientIrId)
     .eq("annee", annee);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
 
 /**
@@ -257,4 +264,5 @@ export async function setIrForfait(
       `Impossible de saisir le forfait : le dossier n'est souscrit ni a l'IR ni a l'IFI pour ${annee}.`
     );
   }
+  revalidateFinanceViews();
 }

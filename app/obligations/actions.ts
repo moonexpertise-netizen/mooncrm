@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 
 /**
  * Met à jour le statut d'une obligation à partir d'un libellé.
@@ -41,7 +42,10 @@ export async function updateObligationStatus(
       .update({ statut_logique: "A_FAIRE", statut_detail: defaultLibelle })
       .eq("id", obligationId);
     if (error) throw new Error(error.message);
-    // Perf : optimistic update côté tracker. Pas de revalidatePath.
+    // Perf : optimistic update cote tracker. Pas de revalidatePath sur la
+    // page client (lourd), mais on invalide /facturation et /finance qui
+    // agregent les statuts AGO/Bilan facturables.
+    revalidateFinanceViews();
     return;
   }
 
@@ -69,7 +73,8 @@ export async function updateObligationStatus(
     .update({ statut_logique, statut_detail: libelle })
     .eq("id", obligationId);
   if (error) throw new Error(error.message);
-  // Perf : optimistic update côté tracker. Pas de revalidatePath.
+  // /facturation et /finance agregent statuts AGO/Bilan facturables : invalidate.
+  revalidateFinanceViews();
 }
 
 /**
@@ -147,8 +152,10 @@ export async function bulkUpdateObligationStatus(
     }
   }
 
-  // Perf : optimistic update côté tracker. Pas de revalidatePath (le bulk
-  // touchait potentiellement N pages clients, c'était le pire offender).
+  // Perf : optimistic update cote tracker. Pas de revalidatePath sur les
+  // pages clients (le bulk en touche N, le pire offender). On invalide
+  // seulement /facturation + /finance qui agregent.
+  revalidateFinanceViews();
   return { updated };
 }
 
@@ -188,4 +195,5 @@ export async function setObligationFacturation(
     .update({ etat_facturation: etat })
     .eq("id", obligationId);
   if (error) throw new Error(error.message);
+  revalidateFinanceViews();
 }
