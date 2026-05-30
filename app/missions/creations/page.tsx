@@ -4,41 +4,53 @@ import CreationsTable, { type CreationRow, type CreationStatut } from "./creatio
 
 export const dynamic = "force-dynamic";
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 /**
- * Module "Creations" - suivi des dossiers en cours de creation de societe.
- * Inclut uniquement les clients avec origine = '1 - Création'.
+ * Module "Creations" - meme pattern que IR/CAA :
+ *   - Vue Base : pills annees (mais 1 max par dossier, comportement radio)
+ *   - Vue Annee : statut creation pour les dossiers souscrits a l'annee
  *
- * Source de verite : creation_statut sur clients (migration 0055). Auto-init
- * a 'a_traiter' via trigger DB quand origine bascule sur '1 - Création'.
+ * Source : clients.creation_annee + clients.creation_statut (1 par dossier).
+ * Cf. migrations 0055 + 0056.
  */
 
-type ClientCreaRaw = {
+type ClientRaw = {
   id: string;
   slug: string;
   denomination: string;
   forme: string | null;
   pipeline_statut: string | null;
-  mois_signature: string | null;
+  creation_annee?: number | null;
   creation_statut?: string | null;
-  debut_obligations: string | null;
 };
 
 export default async function CreationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ year?: string; view?: string; center?: string }>;
 }) {
   const sp = await searchParams;
+  const isBaseView = sp.view === "base" || (!sp.year && sp.view !== "year");
+  const yearParam = sp.year ? parseInt(sp.year, 10) : null;
+  const centerParam = sp.center ? parseInt(sp.center, 10) : null;
+  const center =
+    yearParam && !Number.isNaN(yearParam)
+      ? yearParam
+      : centerParam && !Number.isNaN(centerParam)
+        ? centerParam
+        : CURRENT_YEAR;
+  const selectedYear = yearParam && !Number.isNaN(yearParam) ? yearParam : center;
+  const AVAILABLE_YEARS = [center - 1, center, center + 1];
+
   const sb = await createClient();
 
-  // Query principale : avec creation_statut (migration 0055). Fallback sans
-  // si la colonne n'existe pas encore. On evite la jointure client_contacts
-  // ici (table de liaison many-to-many qui rend le SELECT complexe) ; le
-  // dirigeant pourra etre charge en V2 via une 2e query si besoin.
-  const fullSel = "id, slug, denomination, forme, pipeline_statut, mois_signature, creation_statut, debut_obligations";
-  const fallbackSel = "id, slug, denomination, forme, pipeline_statut, mois_signature, debut_obligations";
+  // Query : tous les dossiers en origine '1 - Création', avec leur annee
+  // de creation + statut courant.
+  const fullSel = "id, slug, denomination, forme, pipeline_statut, creation_annee, creation_statut";
+  const fallbackSel = "id, slug, denomination, forme, pipeline_statut";
 
-  let dataRaw: ClientCreaRaw[] = [];
+  let dataRaw: ClientRaw[] = [];
   const r1 = await sb
     .from("clients")
     .select(fullSel)
@@ -46,7 +58,7 @@ export default async function CreationsPage({
     .order("denomination", { ascending: true });
   if (r1.error) {
     // eslint-disable-next-line no-console
-    console.error("[/missions/creations] erreur query principale :", r1.error.message);
+    console.error("[/missions/creations] erreur principale :", r1.error.message);
     const r2 = await sb
       .from("clients")
       .select(fallbackSel)
@@ -56,9 +68,13 @@ export default async function CreationsPage({
       // eslint-disable-next-line no-console
       console.error("[/missions/creations] erreur fallback :", r2.error.message);
     }
-    dataRaw = (r2.data ?? []).map((c) => ({ ...c, creation_statut: null })) as ClientCreaRaw[];
+    dataRaw = (r2.data ?? []).map((c) => ({
+      ...c,
+      creation_annee: null,
+      creation_statut: null,
+    })) as ClientRaw[];
   } else {
-    dataRaw = (r1.data ?? []) as ClientCreaRaw[];
+    dataRaw = (r1.data ?? []) as ClientRaw[];
   }
 
   const rows: CreationRow[] = dataRaw.map((c) => ({
@@ -67,19 +83,24 @@ export default async function CreationsPage({
     denomination: c.denomination,
     forme: c.forme,
     pipeline_statut: c.pipeline_statut,
-    mois_signature: c.mois_signature,
-    debut_obligations: c.debut_obligations,
-    dirigeant: null,
+    creation_annee: c.creation_annee ?? null,
     creation_statut: (c.creation_statut ?? null) as CreationStatut | null,
   }));
 
+  const description = isBaseView
+    ? "Pilotage des créations de sociétés · Vue d'ensemble"
+    : `Pilotage des créations de sociétés · Exercice ${selectedYear}`;
+
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Créations · Suivi des dossiers"
-        description="Pilotage des créations de sociétés · uniquement les dossiers d'origine « 1 - Création »"
+      <PageHeader title="Créations · Suivi des dossiers" description={description} />
+      <CreationsTable
+        rows={rows}
+        mode={isBaseView ? "base" : "year"}
+        selectedYear={selectedYear}
+        center={center}
+        years={AVAILABLE_YEARS}
       />
-      <CreationsTable rows={rows} initialFilter={sp.filter ?? "all"} />
     </div>
   );
 }

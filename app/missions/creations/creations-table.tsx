@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { Check, ExternalLink } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
-import { setCreationStatut, type CreationStatut } from "./actions";
+import { setCreationStatut, toggleCreationSubscription, type CreationStatut } from "./actions";
 
 export type { CreationStatut };
 
@@ -17,14 +17,12 @@ export type CreationRow = {
   denomination: string;
   forme: string | null;
   pipeline_statut: string | null;
-  mois_signature: string | null;
-  debut_obligations: string | null;
-  dirigeant: string | null;
+  creation_annee: number | null;
   creation_statut: CreationStatut | null;
 };
 
 // ============================================================================
-// Constantes : libelles et palette par statut
+// Constantes statut
 // ============================================================================
 
 const STATUT_DEF: Array<{
@@ -76,44 +74,64 @@ function defFor(statut: CreationStatut | null): (typeof STATUT_DEF)[number] {
   return STATUT_DEF.find((s) => s.key === statut) ?? STATUT_DEF[0];
 }
 
-type FilterKey = "all" | "a_faire" | "en_cours" | "termine";
-
 // ============================================================================
 // Composant principal
 // ============================================================================
 
 export default function CreationsTable({
   rows,
-  initialFilter,
+  mode,
+  selectedYear,
+  center,
+  years,
 }: {
   rows: CreationRow[];
-  initialFilter: string;
+  mode: "base" | "year";
+  selectedYear: number;
+  center: number;
+  years: number[];
 }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
-  const [filter, setFilter] = useState<FilterKey>(
-    (["all", "a_faire", "en_cours", "termine"] as const).includes(initialFilter as FilterKey)
-      ? (initialFilter as FilterKey)
-      : "all"
-  );
-
   useEffect(() => setLocalRows(rows), [rows]);
 
-  // Recap par groupe
-  const recap = useMemo(() => {
-    const r = { a_faire: 0, en_cours: 0, termine: 0, total: localRows.length };
-    for (const row of localRows) {
-      const d = defFor(row.creation_statut);
-      r[d.group]++;
-    }
-    return r;
-  }, [localRows]);
+  // Vue Annee : on n'affiche QUE les dossiers souscrits a l'annee selectionnee.
+  // Vue Base : on affiche tous les dossiers, pour permettre l'inscription.
+  const visibleRows =
+    mode === "year"
+      ? localRows.filter((r) => r.creation_annee === selectedYear)
+      : localRows;
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return localRows;
-    return localRows.filter((r) => defFor(r.creation_statut).group === filter);
-  }, [localRows, filter]);
+  // ============================================================================
+  // Actions
+  // ============================================================================
+
+  function onToggleSubscription(clientId: string, annee: number) {
+    // Optimistic : on bascule l'annee (1 max par client)
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== clientId) return r;
+        if (r.creation_annee === annee) {
+          return { ...r, creation_annee: null, creation_statut: null };
+        }
+        return {
+          ...r,
+          creation_annee: annee,
+          creation_statut: r.creation_statut ?? "a_traiter",
+        };
+      })
+    );
+    startTransition(async () => {
+      try {
+        await toggleCreationSubscription(clientId, annee);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec sauvegarde");
+        router.refresh();
+      }
+    });
+  }
 
   function onSetStatut(clientId: string, statut: CreationStatut | null) {
     setLocalRows((prev) =>
@@ -123,36 +141,164 @@ export default function CreationsTable({
       try {
         await setCreationStatut(clientId, statut);
       } catch (e) {
-        toastError(e, "Echec sauvegarde statut création");
+        toastError(e, "Echec sauvegarde statut");
         router.refresh();
       }
     });
   }
 
+  // ============================================================================
+  // Recap par annee : compteurs par groupe (a faire / en cours / termine)
+  // ============================================================================
+  const yearRecap = useMemo(() => {
+    const map = new Map<number, { a_faire: number; en_cours: number; termine: number }>();
+    for (const r of localRows) {
+      if (!r.creation_annee) continue;
+      const g = defFor(r.creation_statut).group;
+      if (!map.has(r.creation_annee)) map.set(r.creation_annee, { a_faire: 0, en_cours: 0, termine: 0 });
+      map.get(r.creation_annee)![g]++;
+    }
+    return map;
+  }, [localRows]);
+
+  // Annees a afficher dans le recap : toutes celles qui ont au moins 1 dossier
+  // souscrit + la fenetre 3-ans. Tri descendant.
+  const recapYears = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of localRows) {
+      if (r.creation_annee) set.add(r.creation_annee);
+    }
+    for (const y of years) set.add(y);
+    return [...set].sort((a, b) => b - a);
+  }, [localRows, years]);
+
+  // URL helpers
+  function urlForBase(c: number = center) {
+    return `/missions/creations?view=base&center=${c}`;
+  }
+  function urlForYear(y: number) {
+    return `/missions/creations?year=${y}`;
+  }
+  const prevCenter = center - 1;
+  const nextCenter = center + 1;
+  const urlPrev = mode === "year" ? urlForYear(prevCenter) : urlForBase(prevCenter);
+  const urlNext = mode === "year" ? urlForYear(nextCenter) : urlForBase(nextCenter);
+
   return (
-    <div className="space-y-4">
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="À traiter" value={recap.a_faire} accent="amber" />
-        <Kpi label="En cours" value={recap.en_cours} accent="sky" />
-        <Kpi label="Terminés" value={recap.termine} accent="emerald" />
-        <Kpi label="Total dossiers" value={recap.total} accent="zinc" />
+    <div className={cn("space-y-3", isPending && "opacity-95")}>
+      {/* Onglets Base / Annee */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <nav
+          aria-label="Vue créations"
+          className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]"
+        >
+          <Link
+            href={urlForBase()}
+            aria-current={mode === "base" ? "page" : undefined}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-sm transition-all",
+              mode === "base"
+                ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 font-semibold"
+                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
+            )}
+          >
+            Base
+          </Link>
+          <Link
+            href={urlPrev}
+            aria-label="Année précédente"
+            title={`Reculer (${prevCenter - 1} à ${prevCenter + 1})`}
+            className="px-1.5 py-1.5 rounded-lg text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+          {years.map((y) => {
+            const active = mode === "year" && y === selectedYear;
+            return (
+              <Link
+                key={y}
+                href={urlForYear(y)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm transition-all tabular-nums",
+                  active
+                    ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
+                )}
+              >
+                {y}
+              </Link>
+            );
+          })}
+          <Link
+            href={urlNext}
+            aria-label="Année suivante"
+            title={`Avancer (${nextCenter - 1} à ${nextCenter + 1})`}
+            className="px-1.5 py-1.5 rounded-lg text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </nav>
       </div>
 
-      {/* Filtres */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <FilterChip label="Tous" active={filter === "all"} onClick={() => setFilter("all")} count={recap.total} />
-        <FilterChip label="À traiter" active={filter === "a_faire"} onClick={() => setFilter("a_faire")} count={recap.a_faire} accent="amber" />
-        <FilterChip label="En cours" active={filter === "en_cours"} onClick={() => setFilter("en_cours")} count={recap.en_cours} accent="sky" />
-        <FilterChip label="Terminés" active={filter === "termine"} onClick={() => setFilter("termine")} count={recap.termine} accent="emerald" />
-      </div>
+      {/* Recap par annee : compteurs */}
+      {recapYears.length > 0 && (
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-3">
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium mb-2">
+            Recap par année
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {recapYears.slice(0, 3).map((y) => {
+              const stats = yearRecap.get(y) ?? { a_faire: 0, en_cours: 0, termine: 0 };
+              const total = stats.a_faire + stats.en_cours + stats.termine;
+              const pct = total > 0 ? Math.round((stats.termine / total) * 100) : 0;
+              return (
+                <Link
+                  key={y}
+                  href={urlForYear(y)}
+                  className={cn(
+                    "rounded-md border p-2 transition-colors",
+                    mode === "year" && y === selectedYear
+                      ? "border-zinc-400 dark:border-zinc-500 bg-zinc-50 dark:bg-white/[0.04]"
+                      : "border-zinc-200/70 dark:border-white/[0.06] hover:border-zinc-300 dark:hover:border-white/[0.12] bg-white dark:bg-transparent"
+                  )}
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[13px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{y}</span>
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">{total} dossier{total > 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] tabular-nums mt-1">
+                    <span className={cn(stats.a_faire > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+                      {stats.a_faire} à faire
+                    </span>
+                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                    <span className={cn(stats.en_cours > 0 ? "text-sky-600 dark:text-sky-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+                      {stats.en_cours} en cours
+                    </span>
+                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                    <span className={cn(stats.termine > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
+                      {stats.termine} fait
+                    </span>
+                    <span className="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">{pct}%</span>
+                  </div>
+                  <div className="h-1 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden mt-1">
+                    <div className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {visibleRows.length === 0 ? (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
           {localRows.length === 0
-            ? "Aucun dossier en création. Crée un nouveau dossier avec origine « 1 - Création » pour le voir apparaître ici."
-            : "Aucun dossier ne correspond au filtre actuel."}
+            ? "Aucun dossier en création."
+            : mode === "year"
+              ? `Aucun dossier souscrit à l'exercice ${selectedYear}. Passe en vue « Base » pour souscrire une année.`
+              : "Aucun dossier visible."}
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto">
@@ -161,13 +307,17 @@ export default function CreationsTable({
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Société</th>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[100px]">Forme</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[160px]">Pipeline</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[200px]">Statut création</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[180px]">Pipeline</th>
+                {mode === "base" ? (
+                  <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[260px]">Année · clic pour souscrire</th>
+                ) : (
+                  <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[220px]">Création {selectedYear}</th>
+                )}
                 <th scope="col" className="px-2 py-2 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {filtered.map((r) => (
+              {visibleRows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors">
                   <td className="px-3 py-2.5">
                     <Link href={`/clients/${r.slug}`} className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
@@ -184,12 +334,22 @@ export default function CreationsTable({
                       <span className="text-zinc-400 italic">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5">
-                    <StatutPicker
-                      value={r.creation_statut}
-                      onChange={(v) => onSetStatut(r.id, v)}
-                    />
-                  </td>
+                  {mode === "base" ? (
+                    <td className="px-3 py-2.5">
+                      <YearPills
+                        years={years}
+                        activeYear={r.creation_annee}
+                        onToggle={(year) => onToggleSubscription(r.id, year)}
+                      />
+                    </td>
+                  ) : (
+                    <td className="px-3 py-2.5 text-center">
+                      <StatutPicker
+                        value={r.creation_statut}
+                        onChange={(v) => onSetStatut(r.id, v)}
+                      />
+                    </td>
+                  )}
                   <td className="px-2 py-2.5 text-right">
                     <Link
                       href={`/clients/${r.slug}`}
@@ -208,71 +368,60 @@ export default function CreationsTable({
       )}
 
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {filtered.length} dossier{filtered.length > 1 ? "s" : ""}
-        {localRows.length !== filtered.length && ` sur ${localRows.length} en cours de création`}
+        {visibleRows.length} dossier{visibleRows.length > 1 ? "s" : ""}
+        {mode === "year"
+          ? ` souscrit${visibleRows.length > 1 ? "s" : ""} à l'exercice ${selectedYear}`
+          : " en cours de création"}
+        {localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
       </p>
     </div>
   );
 }
 
 // ============================================================================
-// Composants internes
+// YearPills : 1 seule annee active max (radio behavior)
 // ============================================================================
 
-function Kpi({ label, value, accent }: { label: string; value: number; accent: "amber" | "sky" | "emerald" | "zinc" }) {
-  const accents: Record<typeof accent, string> = {
-    amber: "text-amber-700 dark:text-amber-300",
-    sky: "text-sky-700 dark:text-sky-300",
-    emerald: "text-emerald-700 dark:text-emerald-300",
-    zinc: "text-zinc-700 dark:text-zinc-300",
-  };
+function YearPills({
+  years,
+  activeYear,
+  onToggle,
+}: {
+  years: number[];
+  activeYear: number | null;
+  onToggle: (year: number) => void;
+}) {
   return (
-    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-3">
-      <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">{label}</div>
-      <div className={cn("text-lg font-semibold tabular-nums tracking-tight mt-0.5", accents[accent])}>{value}</div>
+    <div className="flex items-center gap-1 flex-wrap">
+      {years.map((y) => {
+        const isActive = activeYear === y;
+        return (
+          <button
+            key={y}
+            type="button"
+            onClick={() => onToggle(y)}
+            className={cn(
+              "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all tabular-nums",
+              isActive
+                ? "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40"
+                : "bg-white dark:bg-white/[0.02] text-zinc-600 dark:text-zinc-400 border-dashed border-zinc-300 dark:border-white/[0.10] hover:border-zinc-400 dark:hover:border-white/[0.20] hover:text-zinc-900 dark:hover:text-zinc-100"
+            )}
+          >
+            {y}
+          </button>
+        );
+      })}
+      {activeYear !== null && !years.includes(activeYear) && (
+        <span className="inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border tabular-nums bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40">
+          {activeYear}
+        </span>
+      )}
     </div>
   );
 }
 
-function FilterChip({
-  label,
-  active,
-  onClick,
-  count,
-  accent,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  count: number;
-  accent?: "amber" | "sky" | "emerald";
-}) {
-  const accents: Record<NonNullable<typeof accent>, string> = {
-    amber: "text-amber-700 dark:text-amber-300",
-    sky: "text-sky-700 dark:text-sky-300",
-    emerald: "text-emerald-700 dark:text-emerald-300",
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors border",
-        active
-          ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-50"
-          : "bg-white dark:bg-white/[0.02] border-zinc-200/70 dark:border-white/[0.06] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-white/[0.12]"
-      )}
-    >
-      <span className={cn(!active && accent && accents[accent])}>{label}</span>
-      <span className={cn("tabular-nums text-[10px]", active ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-400 dark:text-zinc-500")}>
-        {count}
-      </span>
-    </button>
-  );
-}
-
 // ============================================================================
-// StatutPicker : Notion-like
+// StatutPicker Notion-like
 // ============================================================================
 
 function StatutPicker({
@@ -299,7 +448,7 @@ function StatutPicker({
     const MARGIN = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const desiredLeft = rect.left;
+    const desiredLeft = rect.left + rect.width / 2 - POPOVER_WIDTH / 2;
     const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
     setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
   }, [open]);
@@ -323,7 +472,6 @@ function StatutPicker({
     };
   }, [open]);
 
-  // Grouper par catégorie pour le popover
   const groups: Array<{ key: "a_faire" | "en_cours" | "termine"; label: string; items: typeof STATUT_DEF }> = [
     { key: "a_faire", label: "À faire", items: STATUT_DEF.filter((s) => s.group === "a_faire") },
     { key: "en_cours", label: "En cours", items: STATUT_DEF.filter((s) => s.group === "en_cours") },
@@ -339,7 +487,7 @@ function StatutPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 whitespace-nowrap",
+          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 whitespace-nowrap min-w-[140px] justify-center",
           current.color
         )}
       >
