@@ -547,13 +547,13 @@ export default function MissionExcTable({
           <table className="w-full text-sm min-w-[900px]" aria-label="Missions exceptionnelles">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[180px]">Client</th>
-                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]">Type</th>
-                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Mission</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires (HT)">Forfait HT</th>
-                <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">État mission</th>
-                <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">Facturation</th>
-                <th scope="col" className="px-2 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]" title="Lettre de mission">LDM</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[180px]">Client</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[140px]">Type</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Mission</th>
+                <th scope="col" className="px-2 py-2 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires (HT)">Forfait HT</th>
+                <th scope="col" className="px-2 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]">État mission</th>
+                <th scope="col" className="px-2 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]">Facturation</th>
+                <th scope="col" className="px-2 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[140px]" title="Lettre de mission">LDM</th>
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
             </thead>

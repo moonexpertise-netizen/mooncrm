@@ -178,11 +178,11 @@ export default function FacturationCenter({
           <table className="w-full text-sm min-w-[800px]" aria-label="Facturation à émettre">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Source</th>
-                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Client</th>
-                <th scope="col" className="px-3 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Détail</th>
-                <th scope="col" className="px-3 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]">Montant HT</th>
-                <th scope="col" className="px-3 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[140px]">État</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Source</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Client</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Détail</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]">Montant HT</th>
+                <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[140px]">État</th>
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
             </thead>

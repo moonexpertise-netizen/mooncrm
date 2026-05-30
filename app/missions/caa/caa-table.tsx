@@ -406,18 +406,18 @@ export default function CaaTable({
           <table className="w-full text-sm min-w-[820px]" aria-label="Dossiers CAA">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Société</th>
-                <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Dirigeant</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Société</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Dirigeant</th>
                 {mode === "base" ? (
                   <>
-                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
-                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA · années</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Statut LDM</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">CAA · années</th>
                   </>
                 ) : (
                   <>
-                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">CAA {selectedYear}</th>
+                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">CAA {selectedYear}</th>
                     <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires (HT)">Forfait HT</th>
-                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">Facturation</th>
+                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Facturation</th>
                   </>
                 )}
                 <th scope="col" className="px-2 py-2.5 w-10" />
@@ -426,7 +426,7 @@ export default function CaaTable({
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {visibleRows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-medium text-zinc-900 dark:text-zinc-100">{r.denomination}</span>
                       {(r.siren || r.forme) && (
@@ -442,10 +442,10 @@ export default function CaaTable({
                   </td>
                   {mode === "base" ? (
                     <>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <YearPills
                           years={years}
                           subscribedYears={new Set(r.obligations.keys())}
@@ -455,7 +455,7 @@ export default function CaaTable({
                     </>
                   ) : (
                     <>
-                      <td className="px-2 py-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <StatutCell
                           cell={r.obligations.get(selectedYear) ?? null}
                           options={statusOptions}
@@ -469,7 +469,7 @@ export default function CaaTable({
                           disabled={!r.obligations.has(selectedYear)}
                         />
                       </td>
-                      <td className="px-2 py-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <FacturationPicker
                           value={r.obligations.get(selectedYear)?.etat_facturation ?? null}
                           onChange={(v) => onSetFacturation(r.id, v)}

@@ -444,19 +444,19 @@ export default function IrTable({
           <table className="w-full text-sm min-w-[820px]" aria-label="Dossiers IR">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Nom</th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Nom</th>
                 {mode === "base" ? (
                   <>
-                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">Statut LDM</th>
-                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IR · années</th>
-                    <th scope="col" className="px-4 py-2.5 text-left font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI · années</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Statut LDM</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR · années</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI · années</th>
                   </>
                 ) : (
                   <>
-                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IR {selectedYear}</th>
-                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">IFI {selectedYear}</th>
+                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR {selectedYear}</th>
+                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI {selectedYear}</th>
                     <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires IR + IFI (HT)">Forfait HT</th>
-                    <th scope="col" className="px-4 py-2.5 text-center font-medium text-xs text-zinc-600 dark:text-zinc-400">Facturation</th>
+                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Facturation</th>
                   </>
                 )}
                 <th scope="col" className="px-2 py-2.5 w-10" />
@@ -465,7 +465,7 @@ export default function IrTable({
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {visibleRows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <div className="flex flex-col gap-0.5 min-w-0">
                       <span className="font-medium text-zinc-900 dark:text-zinc-100">
                         {[r.civilite, r.prenom, r.nom].filter(Boolean).join(" ")}
@@ -479,10 +479,10 @@ export default function IrTable({
                   </td>
                   {mode === "base" ? (
                     <>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <YearPills
                           years={years}
                           subscribedYears={new Set(
@@ -493,7 +493,7 @@ export default function IrTable({
                           onToggle={(year) => onToggleSubscription(r.id, year, "IR")}
                         />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <YearPills
                           years={years}
                           subscribedYears={new Set(
@@ -507,14 +507,14 @@ export default function IrTable({
                     </>
                   ) : (
                     <>
-                      <td className="px-2 py-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <StatutCell
                           cell={r.obligations.get(`${selectedYear}|IR`) ?? null}
                           options={statusOptions["IR_ANNEE"] ?? []}
                           onPick={(libelle) => onSetStatut(r.id, "IR", libelle)}
                         />
                       </td>
-                      <td className="px-2 py-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <StatutCell
                           cell={r.obligations.get(`${selectedYear}|IFI`) ?? null}
                           options={statusOptions["IFI_ANNEE"] ?? []}
@@ -527,7 +527,7 @@ export default function IrTable({
                           onSave={(v) => onSetForfait(r.id, v)}
                         />
                       </td>
-                      <td className="px-2 py-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <FacturationPicker
                           value={(r.facturations.get(selectedYear) ?? null) as EtatFacturation | null}
                           onChange={(v) => onSetFacturation(r.id, v)}

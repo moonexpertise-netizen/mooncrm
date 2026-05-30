@@ -401,7 +401,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                 id={`client-${r.slug}`}
                 className="border-t border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer group/row"
               >
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5">
                   <div className="font-medium text-zinc-900 flex items-center gap-1.5 flex-wrap">
                     <Link href={href} className="hover:underline">
                       {r.denomination}
@@ -414,7 +414,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     </Link>
                   )}
                 </td>
-                <td className="px-4 py-3 text-zinc-600">
+                <td className="px-3 py-2.5 text-zinc-600">
                   <Link href={href} className="block">
                     {r.forme ? (
                       <span className="inline-block px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 text-zinc-700 tabular-nums">
@@ -425,17 +425,17 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     )}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-zinc-600">
+                <td className="px-3 py-2.5 text-zinc-600">
                   <Link href={href} className="block">
                     {r.groupe_nom ?? <span className="text-zinc-300">-</span>}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-zinc-600">
+                <td className="px-3 py-2.5 text-zinc-600">
                   <Link href={href} className="block">
                     {r.activite ?? <span className="text-zinc-300">-</span>}
                   </Link>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5">
                   <Link href={href} className="block">
                     {r.pipeline_statut ? (
                       <Badge text={r.pipeline_statut} color={PIPELINE_COLORS[r.pipeline_statut]} />
@@ -444,7 +444,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     )}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums">
+                <td className="px-3 py-2.5 text-right tabular-nums">
                   <Link href={href} className="block font-medium text-zinc-900">
                     {fmtEuro(r.arr ?? 0)}
                   </Link>
@@ -596,7 +596,7 @@ function Th({
       aria-sort={ariaSort}
       style={width ? { width: `${width}px` } : undefined}
       className={cn(
-        "relative px-4 py-3 font-medium select-none group/th",
+        "relative px-3 py-2.5 font-medium select-none group/th",
         align === "right" ? "text-right" : "text-left"
       )}
     >
