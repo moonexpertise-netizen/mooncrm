@@ -213,6 +213,57 @@ export async function toggleIrSubscription(
 }
 
 /**
+ * Bulk : applique le meme libelle de statut a plusieurs dossiers IR (ou IFI)
+ * pour une annee donnee. Si libelle est null, supprime (= N/A).
+ * Utilise par la BulkActionBar.
+ */
+export async function bulkSetIrObligationStatut(
+  clientIrIds: string[],
+  annee: number,
+  type: IrType,
+  libelle: string | null
+) {
+  if (clientIrIds.length === 0) return { updated: 0 };
+  const sb = await createClient();
+
+  if (libelle === null) {
+    const { error } = await sb
+      .from("ir_obligations")
+      .delete()
+      .in("client_ir_id", clientIrIds)
+      .eq("annee", annee)
+      .eq("type", type);
+    if (error) throw new Error(error.message);
+    revalidateFinanceViews();
+    return { updated: clientIrIds.length };
+  }
+
+  let statut_logique: StatutLogique = "A_FAIRE";
+  const { data: opt } = await sb
+    .from("status_options")
+    .select("statut_logique")
+    .eq("scope", "ir")
+    .eq("type_code", `${type}_ANNEE`)
+    .eq("libelle", libelle)
+    .maybeSingle();
+  if (opt) statut_logique = opt.statut_logique as StatutLogique;
+
+  const rows = clientIrIds.map((id) => ({
+    client_ir_id: id,
+    annee,
+    type,
+    statut_logique,
+    statut_detail: libelle,
+  }));
+  const { error } = await sb
+    .from("ir_obligations")
+    .upsert(rows, { onConflict: "client_ir_id,annee,type" });
+  if (error) throw new Error(error.message);
+  revalidateFinanceViews();
+  return { updated: clientIrIds.length };
+}
+
+/**
  * Set le statut facturation pour une annee donnee. Comme la facturation est
  * conceptuellement liee a l'annee (pas au type IR/IFI), on met a jour TOUTES
  * les obligations IR/IFI existantes pour ce client+annee. Si une seule existe

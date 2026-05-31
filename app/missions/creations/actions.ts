@@ -81,3 +81,23 @@ export async function setCreationStatut(
   if (error) throw new Error(error.message);
   revalidatePath("/missions/creations");
 }
+
+/**
+ * Bulk : applique le meme creation_statut a plusieurs dossiers d'un coup.
+ * Utilise par la BulkActionBar quand l'utilisateur a selectionne plusieurs
+ * lignes et choisit un statut.
+ */
+export async function bulkSetCreationStatut(
+  clientIds: string[],
+  statut: CreationStatut | null
+) {
+  if (clientIds.length === 0) return { updated: 0 };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({ creation_statut: statut })
+    .in("id", clientIds);
+  if (error) throw new Error(error.message);
+  revalidatePath("/missions/creations");
+  return { updated: clientIds.length };
+}

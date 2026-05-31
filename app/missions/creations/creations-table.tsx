@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Check, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toastError } from "@/lib/toast-helpers";
-import { setCreationStatut, toggleCreationSubscription, type CreationStatut } from "./actions";
+import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useRowSelection } from "@/app/_components/use-row-selection";
+import { BulkActionBar } from "@/app/_components/bulk-action-bar";
+import { bulkSetCreationStatut, setCreationStatut, toggleCreationSubscription, type CreationStatut } from "./actions";
 
 export type { CreationStatut };
 
@@ -103,6 +105,11 @@ export default function CreationsTable({
       ? localRows.filter((r) => r.creation_annee === selectedYear)
       : localRows;
 
+  // Selection multi-rows (Excel-style : clic / shift / cmd+ctrl). Active
+  // uniquement en vue Annee (la vue Base sert a souscrire, pas a bulk-update).
+  const orderedIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
+  const { selectedIds, selectedCount, isSelected, onRowClick, clearSelection, selectAll } = useRowSelection(orderedIds);
+
   // ============================================================================
   // Actions
   // ============================================================================
@@ -142,6 +149,26 @@ export default function CreationsTable({
         await setCreationStatut(clientId, statut);
       } catch (e) {
         toastError(e, "Echec sauvegarde statut");
+        router.refresh();
+      }
+    });
+  }
+
+  function onBulkApply(statutKey: string) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const target = statutKey === "non_demarre" ? null : (statutKey as CreationStatut);
+    // Optimistic mirror
+    setLocalRows((prev) =>
+      prev.map((r) => (selectedIds.has(r.id) ? { ...r, creation_statut: target } : r))
+    );
+    startTransition(async () => {
+      try {
+        const res = await bulkSetCreationStatut(ids, target);
+        toastSuccess(`${res.updated} dossier${res.updated > 1 ? "s" : ""} mis à jour`);
+        clearSelection();
+      } catch (e) {
+        toastError(e, "Echec mise à jour groupée");
         router.refresh();
       }
     });
@@ -317,8 +344,25 @@ export default function CreationsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {visibleRows.map((r) => (
-                <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors">
+              {visibleRows.map((r) => {
+                const selected = mode === "year" && isSelected(r.id);
+                return (
+                <tr
+                  key={r.id}
+                  className={cn(
+                    "transition-colors",
+                    selected
+                      ? "bg-sky-50/60 dark:bg-sky-500/[0.08] hover:bg-sky-50 dark:hover:bg-sky-500/[0.12]"
+                      : "hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
+                  )}
+                  onClick={mode === "year" ? (e) => {
+                    // On ne declenche pas le row-select si le clic vient
+                    // d'un picker/lien interne (qui doit avoir son propre comportement).
+                    const target = e.target as HTMLElement;
+                    if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
+                    onRowClick(r.id, e);
+                  } : undefined}
+                >
                   <td className="px-3 py-2.5">
                     <Link href={`/clients/${r.slug}`} className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
                       {r.denomination}
@@ -361,19 +405,45 @@ export default function CreationsTable({
                     </Link>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {visibleRows.length} dossier{visibleRows.length > 1 ? "s" : ""}
-        {mode === "year"
-          ? ` souscrit${visibleRows.length > 1 ? "s" : ""} à l'exercice ${selectedYear}`
-          : " en cours de création"}
-        {localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
-      </p>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          {visibleRows.length} dossier{visibleRows.length > 1 ? "s" : ""}
+          {mode === "year"
+            ? ` souscrit${visibleRows.length > 1 ? "s" : ""} à l'exercice ${selectedYear}`
+            : " en cours de création"}
+          {localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
+        </p>
+        {mode === "year" && visibleRows.length > 0 && (
+          <button
+            type="button"
+            onClick={selectAll}
+            className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+          >
+            Tout sélectionner
+          </button>
+        )}
+      </div>
+
+      {/* Barre d'action bulk : sticky en bas, visible si selection > 0 */}
+      <BulkActionBar
+        count={selectedCount}
+        onClear={clearSelection}
+        hint="clic + shift / cmd pour étendre"
+        options={STATUT_DEF.map((s) => ({
+          key: s.key,
+          label: s.label,
+          color: s.color,
+          group: s.group === "a_faire" ? "À faire" : s.group === "en_cours" ? "En cours" : "Terminé",
+        }))}
+        onApply={onBulkApply}
+      />
     </div>
   );
 }

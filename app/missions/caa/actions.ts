@@ -176,6 +176,55 @@ export async function setCaaFacturation(
  * doit exister (le client doit etre souscrit a l'annee).
  * montant = null : reset.
  */
+/**
+ * Bulk : applique le meme libelle de statut a plusieurs dossiers CAA pour
+ * une annee donnee. Si libelle est null, supprime les lignes (= N/A).
+ * Utilise par la BulkActionBar.
+ */
+export async function bulkSetCaaObligationStatut(
+  clientCaaIds: string[],
+  annee: number,
+  libelle: string | null
+) {
+  if (clientCaaIds.length === 0) return { updated: 0 };
+  const sb = await createClient();
+
+  if (libelle === null) {
+    const { error } = await sb
+      .from("caa_obligations")
+      .delete()
+      .in("client_caa_id", clientCaaIds)
+      .eq("annee", annee);
+    if (error) throw new Error(error.message);
+    revalidateFinanceViews();
+    return { updated: clientCaaIds.length };
+  }
+
+  let statut_logique: StatutLogique = "A_FAIRE";
+  const { data: opt } = await sb
+    .from("status_options")
+    .select("statut_logique")
+    .eq("scope", "caa")
+    .eq("type_code", "CAA_ANNEE")
+    .eq("libelle", libelle)
+    .maybeSingle();
+  if (opt) statut_logique = opt.statut_logique as StatutLogique;
+
+  // Upsert ligne par ligne via insert ON CONFLICT - on construit les rows
+  const rows = clientCaaIds.map((id) => ({
+    client_caa_id: id,
+    annee,
+    statut_logique,
+    statut_detail: libelle,
+  }));
+  const { error } = await sb
+    .from("caa_obligations")
+    .upsert(rows, { onConflict: "client_caa_id,annee" });
+  if (error) throw new Error(error.message);
+  revalidateFinanceViews();
+  return { updated: clientCaaIds.length };
+}
+
 export async function setCaaForfait(
   clientCaaId: string,
   annee: number,
