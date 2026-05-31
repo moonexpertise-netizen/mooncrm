@@ -423,20 +423,7 @@ export default function CreationsTable({
                 return (
                 <tr
                   key={r.id}
-                  className={cn(
-                    "transition-colors",
-                    selected
-                      ? "bg-sky-50/60 dark:bg-sky-500/[0.08] hover:bg-sky-50 dark:hover:bg-sky-500/[0.12]"
-                      : "hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]",
-                    focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-1px]"
-                  )}
-                  onClick={mode === "year" ? (e) => {
-                    // On ne declenche pas le row-select si le clic vient
-                    // d'un picker/lien interne (qui doit avoir son propre comportement).
-                    const target = e.target as HTMLElement;
-                    if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
-                    onRowClick(r.id, e);
-                  } : undefined}
+                  className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors"
                 >
                   <td className="px-3 py-2.5">
                     <Link href={`/clients/${r.slug}`} className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
@@ -462,7 +449,18 @@ export default function CreationsTable({
                       />
                     </td>
                   ) : (
-                    <td className="px-3 py-2.5 text-center">
+                    <td
+                      className={cn(
+                        "px-3 py-2.5 text-center transition-colors cursor-pointer",
+                        selected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
+                        focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
+                      )}
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
+                        onRowClick(r.id, e);
+                      }}
+                    >
                       <StatutPicker
                         value={r.creation_statut}
                         onChange={(v) => onSetStatut(r.id, v)}

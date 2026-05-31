@@ -562,18 +562,7 @@ export default function CaaTable({
                 return (
                 <tr
                   key={r.id}
-                  className={cn(
-                    "transition-colors",
-                    selected
-                      ? "bg-sky-50/60 dark:bg-sky-500/[0.08] hover:bg-sky-50 dark:hover:bg-sky-500/[0.12]"
-                      : "hover:bg-zinc-50 dark:hover:bg-white/[0.03]",
-                    focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-1px]"
-                  )}
-                  onClick={mode === "year" ? (e) => {
-                    const target = e.target as HTMLElement;
-                    if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
-                    onRowClick(r.id, e);
-                  } : undefined}
+                  className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors"
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex flex-col gap-0.5">
@@ -604,7 +593,18 @@ export default function CaaTable({
                     </>
                   ) : (
                     <>
-                      <td className="px-2 py-2.5 text-center">
+                      <td
+                        className={cn(
+                          "px-2 py-2.5 text-center transition-colors cursor-pointer",
+                          selected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
+                          focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
+                        )}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
+                          onRowClick(r.id, e);
+                        }}
+                      >
                         <StatutCell
                           cell={r.obligations.get(selectedYear) ?? null}
                           options={statusOptions}
