@@ -45,6 +45,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { TRACKERS, TRACKER_GROUPS } from "@/app/obligations/trackers";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { loadSidebarBadges } from "./sidebar-badges-loader";
 
 export const SIDEBAR_STORAGE_KEY = "moon.sidebar.collapsed";
 export const SIDEBAR_EVENT = "moon:sidebar-toggle";
@@ -67,6 +68,8 @@ type NavItem = {
   icon: LucideIcon;
   matchPrefix?: string;
   children?: ChildItem[];
+  /** Clef pour mapper avec les badges "À faire" (cf. loadSidebarBadges). */
+  badgeKey?: "creations" | "ir" | "caa";
 };
 
 // Construit la liste des enfants Production en intercalant un header par groupe.
@@ -114,9 +117,10 @@ const NAV_ITEMS: NavItem[] = [
   // Missions hors expertise comptable (creations, declarations IR/IFI,
   // commissariat aux apports). Placees apres Production dans la sidebar.
   // Creations en premier (chrono metier : on cree, puis on declare, puis CAA).
-  { href: "/missions/creations", label: "Créations", icon: Sparkles, matchPrefix: "/missions/creations" },
-  { href: "/missions/ir", label: "IR + IFI", icon: Receipt, matchPrefix: "/missions/ir" },
-  { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa" },
+  // badgeKey : compteur "A faire" affiche en pastille rouge cf. loadSidebarBadges.
+  { href: "/missions/creations", label: "Créations", icon: Sparkles, matchPrefix: "/missions/creations", badgeKey: "creations" },
+  { href: "/missions/ir", label: "IR + IFI", icon: Receipt, matchPrefix: "/missions/ir", badgeKey: "ir" },
+  { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa", badgeKey: "caa" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
   { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation" },
   { href: "/finance", label: "Finance", icon: LineChart, matchPrefix: "/finance" },
@@ -171,6 +175,13 @@ export function Sidebar() {
   // Profile du user logué : sert à afficher email dans le footer + lien
   // Admin → Utilisateurs si is_admin. Fetch une seule fois au mount.
   const [me, setMe] = useState<{ email: string; isAdmin: boolean } | null>(null);
+  // Badges "A faire" sur Creations / IR / CAA. Charges au mount + a chaque
+  // changement de route (cf. effet plus bas) pour rester a jour.
+  const [badges, setBadges] = useState<{ creations: number; ir: number; caa: number }>({
+    creations: 0,
+    ir: 0,
+    caa: 0,
+  });
   // Ordre custom des nav items (drag-and-drop). Initialise avec l'ordre
   // par defaut puis hydratte depuis localStorage cote client.
   const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((i) => i.href));
@@ -258,6 +269,24 @@ export function Sidebar() {
 
   useEffect(() => {
     if (pathname.startsWith("/obligations")) setProdOpen(true);
+  }, [pathname]);
+
+  // Charge les badges "À faire" sur les modules Créations / IR / CAA. Re-fetch
+  // a chaque changement de route pour refleter une action qui aurait modifie
+  // un statut (ex. utilisateur clique sur un dossier en "à faire", change
+  // son statut, revient sur sidebar → compteur a jour).
+  useEffect(() => {
+    let cancelled = false;
+    loadSidebarBadges()
+      .then((b) => {
+        if (!cancelled) setBadges(b);
+      })
+      .catch(() => {
+        // Silently ignore : si la query echoue, on garde les counts a 0.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
   // Ouvre automatiquement le sous-bloc qui contient le tracker courant.
@@ -481,6 +510,23 @@ export function Sidebar() {
                   >
                     <Icon className={cn("shrink-0", showCollapsed ? "h-[18px] w-[18px]" : "h-4 w-4")} />
                     {!showCollapsed && <span className="truncate flex-1">{item.label}</span>}
+                    {/* Badge "A faire" : rouge avec count, visible des qu'il y en a au moins 1 */}
+                    {item.badgeKey && badges[item.badgeKey] > 0 && (
+                      showCollapsed ? (
+                        // Mode collapse : pastille pleine, sans count
+                        <span
+                          aria-label={`${badges[item.badgeKey]} à faire`}
+                          className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[hsl(var(--sidebar))]"
+                        />
+                      ) : (
+                        <span
+                          aria-label={`${badges[item.badgeKey]} à faire`}
+                          className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-rose-500/90 text-white text-[10px] font-semibold tabular-nums leading-none"
+                        >
+                          {badges[item.badgeKey] > 99 ? "99+" : badges[item.badgeKey]}
+                        </span>
+                      )
+                    )}
                   </Link>
                   {!showCollapsed && hasChildren && isProduction && (
                     <button
