@@ -635,7 +635,7 @@ export default function IrTable({
                       </td>
                       <td className="px-3 py-2.5">
                         <YearPills
-                          years={years}
+                          years={pillYears ?? years}
                           subscribedYears={new Set(
                             Array.from(r.obligations.values())
                               .filter((c) => c.type === "IFI")
