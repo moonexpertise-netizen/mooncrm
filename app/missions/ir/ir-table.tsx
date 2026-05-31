@@ -606,15 +606,29 @@ export default function IrTable({
                   className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors"
                 >
                   <td className="px-3 py-2.5">
-                    <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                        {[r.civilite, r.prenom, r.nom].filter(Boolean).join(" ")}
-                      </span>
-                      {(r.email || r.telephone) && (
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[280px]">
-                          {[r.email, r.telephone].filter(Boolean).join(" · ")}
-                        </span>
+                    <div className="flex items-start gap-2 min-w-0">
+                      {/* Pastille rouge : au moins une cell IR ou IFI a faire pour l'annee
+                          selectionnee. Aide visuelle pour reperer les dossiers a traiter. */}
+                      {mode === "year" && (
+                        (r.obligations.get(`${selectedYear}|IR`)?.statut_logique === "A_FAIRE" ||
+                          r.obligations.get(`${selectedYear}|IFI`)?.statut_logique === "A_FAIRE") && (
+                          <span
+                            aria-label="À faire"
+                            title="Au moins une déclaration à faire"
+                            className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+                          />
+                        )
                       )}
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                          {[r.civilite, r.prenom, r.nom].filter(Boolean).join(" ")}
+                        </span>
+                        {(r.email || r.telephone) && (
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[280px]">
+                            {[r.email, r.telephone].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   {mode === "base" ? (

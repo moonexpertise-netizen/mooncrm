@@ -1416,8 +1416,27 @@ const StatusCell = memo(function StatusCell({
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
   const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "-";
 
+  // Pastille rouge "echeance proche" : visible si echeance <= 30j (couvre
+  // aussi les retards) ET pas encore termine / NA. Aide visuelle pour
+  // identifier les urgences operationnelles sans scanner toutes les cellules.
+  const isEcheanceProche = (() => {
+    if (!cell.echeance) return false;
+    if (cell.statut_logique === "TERMINE" || cell.statut_logique === "NON_APPLICABLE") return false;
+    const dueMs = new Date(cell.echeance).getTime();
+    if (Number.isNaN(dueMs)) return false;
+    const days = (dueMs - Date.now()) / (1000 * 60 * 60 * 24);
+    return days <= 30;
+  })();
+
   return (
     <div className="relative inline-block" ref={ref}>
+      {isEcheanceProche && (
+        <span
+          aria-label="Échéance proche"
+          title={cell.echeance ? `Échéance proche · ${fmtDateFr(cell.echeance)}` : "Échéance proche"}
+          className="absolute -top-0.5 -right-0.5 z-10 w-1.5 h-1.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-[hsl(var(--card))] pointer-events-none"
+        />
+      )}
       <button
         onClick={(e) => {
           if (e.shiftKey || e.metaKey || e.ctrlKey) {

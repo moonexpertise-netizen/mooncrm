@@ -457,9 +457,19 @@ export default function CreationsTable({
                   className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors"
                 >
                   <td className="px-3 py-2.5">
-                    <Link href={`/clients/${r.slug}`} className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-                      {r.denomination}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      {/* Pastille rouge : creation a traiter (statut a_traiter ou null en vue Annee). */}
+                      {mode === "year" && (r.creation_statut === "a_traiter" || r.creation_statut === null) && (
+                        <span
+                          aria-label="À traiter"
+                          title="Création à traiter"
+                          className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+                        />
+                      )}
+                      <Link href={`/clients/${r.slug}`} className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                        {r.denomination}
+                      </Link>
+                    </div>
                   </td>
                   <td className="px-3 py-2.5 text-zinc-500 dark:text-zinc-400 text-[13px]">
                     {r.forme || "—"}
