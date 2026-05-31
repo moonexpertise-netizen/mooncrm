@@ -30,11 +30,6 @@ export type PipelineStatut =
   | "Z - Prospect perdu"
   | "Z - Résiliée";
 
-export type VitesseTva =
-  | "1 - Express"
-  | "2 - Traitement + long"
-  | "3 - Tableau de bord";
-
 export type TypeObligation =
   | "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS"
   | "TVS_MENSUELLE" | "TVS_TRIMESTRIELLE"
@@ -61,8 +56,6 @@ export interface Client {
   id: string;
   denomination: string;
   siren: string | null;
-  pappers_url: string | null;
-  inpi_url: string | null;
   forme: FormeJuridique | null;
   activite: Activite | null;
   email: string | null;
@@ -77,10 +70,8 @@ export interface Client {
   ville: string | null;
   /** Date de fin de mission (LDM). Si null → 31/12 année courante */
   fin_mission_date: string | null;
-  collaborateur_id: string | null;
   groupe_id: string | null;
   pipeline_statut: PipelineStatut | null;
-  vitesse_tva: VitesseTva | null;
   note_pdc: string | null;
   ldm_social: string | null;
   honoraires_compta: number;   // Forfait comptable (mensuel)

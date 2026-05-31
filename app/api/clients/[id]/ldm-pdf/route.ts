@@ -30,7 +30,7 @@ export async function GET(
   const { data: client, error: cliErr } = await sb
     .from("clients")
     .select(
-      "denomination, activite, origine, adresse_siege, code_postal, ville, fin_mission_date, honoraires_compta, forfait_pilotage, forfait_bilan, honoraires_jur, honoraires_reprise, honoraires_creation, type_honos_bilans, type_honos_jur, type_honos_creation, type_honos_reprise, tdb_periode, tdb_honos_periode, vitesse_tva"
+      "denomination, activite, origine, adresse_siege, code_postal, ville, fin_mission_date, honoraires_compta, forfait_pilotage, forfait_bilan, honoraires_jur, honoraires_reprise, honoraires_creation, type_honos_bilans, type_honos_jur, type_honos_creation, type_honos_reprise, tdb_periode, tdb_honos_periode"
     )
     .eq("id", id)
     .single();

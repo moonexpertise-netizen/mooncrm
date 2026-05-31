@@ -48,8 +48,10 @@ type Payload = {
 /**
  * Crée un client à partir d'un payload :
  *  - insère la fiche
- *  - construit pappers_url + inpi_url depuis le SIREN
  *  - crée / lie un contact "interlocuteur" si fourni (dirigeant API)
+ *
+ * Note : pappers_url / inpi_url ne sont plus stockés (droppés en 0057).
+ * L'UI reconstruit ces URLs à la volée depuis siren si besoin.
  */
 export async function createClientFromSiren(payload: Payload) {
   if (!payload.denomination?.trim()) throw new Error("Dénomination obligatoire");
@@ -87,9 +89,6 @@ export async function createClientFromSiren(payload: Payload) {
     );
   }
 
-  const pappers_url = payload.siren ? `https://www.pappers.fr/entreprise/${payload.siren}` : null;
-  const inpi_url = payload.siren ? `https://data.inpi.fr/entreprises/${payload.siren}` : null;
-
   const { data: created, error } = await sb
     .from("clients")
     .insert({
@@ -100,8 +99,6 @@ export async function createClientFromSiren(payload: Payload) {
       origine: payload.origine,
       email: payload.email,
       pipeline_statut: payload.pipeline_statut,
-      pappers_url,
-      inpi_url,
       jour_cloture: payload.jour_cloture ?? null,
       mois_cloture: payload.mois_cloture ?? null,
       debut_obligations: payload.debut_obligations ?? undefined,
