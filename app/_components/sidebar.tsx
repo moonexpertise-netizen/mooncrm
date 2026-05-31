@@ -279,10 +279,15 @@ export function Sidebar() {
     let cancelled = false;
     loadSidebarBadges()
       .then((b) => {
-        if (!cancelled) setBadges(b);
+        if (!cancelled) {
+          setBadges(b);
+          // eslint-disable-next-line no-console
+          console.log("[sidebar-badges]", b);
+        }
       })
-      .catch(() => {
-        // Silently ignore : si la query echoue, on garde les counts a 0.
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.error("[sidebar-badges] error:", e);
       });
     return () => {
       cancelled = true;

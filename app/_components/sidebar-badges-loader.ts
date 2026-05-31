@@ -7,15 +7,18 @@ import { createClient } from "@/lib/supabase/server";
  * actuellement en statut "A faire" sur les modules Creations / IR + IFI / CAA.
  *
  *   - Creations : clients origine='1 - Création' avec creation_statut='a_traiter'
- *   - IR + IFI  : ir_obligations annee=courante avec statut_logique='A_FAIRE'
- *                 (compte les cells IR ET IFI separement -> chaque dossier
- *                  non commence compte 1 par type)
- *   - CAA       : caa_obligations annee=courante avec statut_logique='A_FAIRE'
+ *   - IR + IFI  : ir_obligations statut_logique='A_FAIRE' toutes annees
+ *                 (compte les cells IR ET IFI separement -> chaque type non
+ *                 commence compte 1)
+ *   - CAA       : caa_obligations statut_logique='A_FAIRE' toutes annees
+ *
+ * NB : on ne filtre pas sur l'annee courante. Un exercice 2025 declare en
+ * 2026 reste "a faire" tant que pas termine. Le badge compte la dette
+ * operationnelle reelle, pas un slice annuel.
  *
  * Production : exclu (trop de tasks, polluerait visuellement).
  *
- * Defensif : si une colonne / table manque (migration pas appliquee), le count
- * tombe a 0 silencieusement.
+ * Defensif : log + count=0 si la query echoue (colonne manquante / RLS / etc.)
  */
 export async function loadSidebarBadges(): Promise<{
   creations: number;
@@ -23,7 +26,6 @@ export async function loadSidebarBadges(): Promise<{
   caa: number;
 }> {
   const sb = await createClient();
-  const currentYear = new Date().getFullYear();
 
   const [creationsRes, irRes, caaRes] = await Promise.all([
     sb
@@ -34,14 +36,25 @@ export async function loadSidebarBadges(): Promise<{
     sb
       .from("ir_obligations")
       .select("id", { count: "exact", head: true })
-      .eq("annee", currentYear)
       .eq("statut_logique", "A_FAIRE"),
     sb
       .from("caa_obligations")
       .select("id", { count: "exact", head: true })
-      .eq("annee", currentYear)
       .eq("statut_logique", "A_FAIRE"),
   ]);
+
+  if (creationsRes.error) {
+    // eslint-disable-next-line no-console
+    console.error("[sidebar-badges] creations:", creationsRes.error.message);
+  }
+  if (irRes.error) {
+    // eslint-disable-next-line no-console
+    console.error("[sidebar-badges] ir:", irRes.error.message);
+  }
+  if (caaRes.error) {
+    // eslint-disable-next-line no-console
+    console.error("[sidebar-badges] caa:", caaRes.error.message);
+  }
 
   return {
     creations: creationsRes.error ? 0 : creationsRes.count ?? 0,
