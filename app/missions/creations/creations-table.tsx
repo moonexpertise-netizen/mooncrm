@@ -108,7 +108,75 @@ export default function CreationsTable({
   // Selection multi-rows (Excel-style : clic / shift / cmd+ctrl). Active
   // uniquement en vue Annee (la vue Base sert a souscrire, pas a bulk-update).
   const orderedIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
-  const { selectedIds, selectedCount, isSelected, onRowClick, clearSelection, selectAll } = useRowSelection(orderedIds);
+
+  // Copy : copie les libelles des rows selectionnees, 1 par ligne (TSV trivial
+  // car une seule colonne statut). Permet aussi le paste vers Excel.
+  function buildCopyText(ids: string[]): string {
+    return ids
+      .map((id) => {
+        const r = localRows.find((x) => x.id === id);
+        if (!r) return "";
+        return defFor(r.creation_statut).label;
+      })
+      .join("\n");
+  }
+
+  // Paste : si 1 valeur -> fill-all les selected. Sinon positional ligne par ligne.
+  function applyPasteText(text: string, ids: string[]) {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0 || ids.length === 0) return;
+    // Map des libelles vers statut keys
+    const byLabel = new Map<string, CreationStatut | null>();
+    for (const def of STATUT_DEF) {
+      byLabel.set(def.label.toLowerCase(), def.key === "non_demarre" ? null : (def.key as CreationStatut));
+    }
+    const updates = new Map<CreationStatut | null, string[]>(); // statut -> ids
+    if (lines.length === 1) {
+      // Fill-all : applique la meme valeur a toutes les selected
+      const target = byLabel.get(lines[0].trim().toLowerCase());
+      if (target === undefined) return; // libelle inconnu, on abandonne
+      updates.set(target, ids);
+    } else {
+      // Positional : ligne N <-> id selected[N]
+      for (let i = 0; i < ids.length && i < lines.length; i++) {
+        const target = byLabel.get(lines[i].trim().toLowerCase());
+        if (target === undefined) continue;
+        if (!updates.has(target)) updates.set(target, []);
+        updates.get(target)!.push(ids[i]);
+      }
+    }
+    if (updates.size === 0) return;
+    // Optimistic
+    const flatTargets = new Map<string, CreationStatut | null>();
+    for (const [statut, idsList] of updates) {
+      for (const id of idsList) flatTargets.set(id, statut);
+    }
+    setLocalRows((prev) =>
+      prev.map((r) => (flatTargets.has(r.id) ? { ...r, creation_statut: flatTargets.get(r.id)! } : r))
+    );
+    startTransition(async () => {
+      try {
+        for (const [statut, idsList] of updates) {
+          await bulkSetCreationStatut(idsList, statut);
+        }
+        toastSuccess(`${flatTargets.size} dossier${flatTargets.size > 1 ? "s" : ""} collé${flatTargets.size > 1 ? "s" : ""}`);
+        clearSelection();
+      } catch (e) {
+        toastError(e, "Echec collage");
+        router.refresh();
+      }
+    });
+  }
+
+  const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds, {
+    onCopy: (ids) => {
+      const text = buildCopyText(ids);
+      navigator.clipboard?.writeText?.(text).then(() => {
+        toastSuccess(`${ids.length} ligne${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
+      }).catch(() => {});
+    },
+    onPaste: (text, ids) => applyPasteText(text, ids),
+  });
 
   // ============================================================================
   // Actions
@@ -329,7 +397,12 @@ export default function CreationsTable({
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]" aria-label="Dossiers en création">
+          <table
+            className="w-full text-sm min-w-[720px] focus:outline-none"
+            aria-label="Dossiers en création"
+            tabIndex={mode === "year" ? 0 : -1}
+            onKeyDown={mode === "year" ? onKeyDown : undefined}
+          >
             <thead className="bg-zinc-50/50 dark:bg-white/[0.02] border-b border-zinc-200/70 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Société</th>
@@ -346,6 +419,7 @@ export default function CreationsTable({
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {visibleRows.map((r) => {
                 const selected = mode === "year" && isSelected(r.id);
+                const focused = mode === "year" && focusedId === r.id;
                 return (
                 <tr
                   key={r.id}
@@ -353,7 +427,8 @@ export default function CreationsTable({
                     "transition-colors",
                     selected
                       ? "bg-sky-50/60 dark:bg-sky-500/[0.08] hover:bg-sky-50 dark:hover:bg-sky-500/[0.12]"
-                      : "hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
+                      : "hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]",
+                    focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-1px]"
                   )}
                   onClick={mode === "year" ? (e) => {
                     // On ne declenche pas le row-select si le clic vient

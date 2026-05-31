@@ -114,8 +114,11 @@ export default function IrTable({
   // Selection multi-rows en vue annee. Pour IR on a 2 colonnes (IR + IFI) :
   // on selectionne la ligne entiere, et le bulk picker propose les statuts
   // prefixes par "IR · " ou "IFI · " pour viser le bon type.
+  //
+  // Copy/paste TSV : non implemente pour IR car 2 colonnes -> ambigu sur
+  // quel type appliquer. Cf. Creations / CAA pour le pattern simple.
   const orderedIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
-  const { selectedIds, selectedCount, isSelected, onRowClick, clearSelection, selectAll } = useRowSelection(orderedIds);
+  const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds);
 
   function onBulkApply(prefixedKey: string) {
     // Format de la key : "IR:libelle" ou "IFI:libelle"
@@ -486,7 +489,12 @@ export default function IrTable({
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
-          <table className="w-full text-sm min-w-[820px]" aria-label="Dossiers IR">
+          <table
+            className="w-full text-sm min-w-[820px] focus:outline-none"
+            aria-label="Dossiers IR"
+            tabIndex={mode === "year" ? 0 : -1}
+            onKeyDown={mode === "year" ? onKeyDown : undefined}
+          >
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Nom</th>
@@ -510,6 +518,7 @@ export default function IrTable({
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {visibleRows.map((r) => {
                 const selected = mode === "year" && isSelected(r.id);
+                const focused = mode === "year" && focusedId === r.id;
                 return (
                 <tr
                   key={r.id}
@@ -517,7 +526,8 @@ export default function IrTable({
                     "transition-colors",
                     selected
                       ? "bg-sky-50/60 dark:bg-sky-500/[0.08] hover:bg-sky-50 dark:hover:bg-sky-500/[0.12]"
-                      : "hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
+                      : "hover:bg-zinc-50 dark:hover:bg-white/[0.03]",
+                    focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-1px]"
                   )}
                   onClick={mode === "year" ? (e) => {
                     const target = e.target as HTMLElement;

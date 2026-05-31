@@ -96,9 +96,95 @@ export default function CaaTable({
       ? localRows.filter((r) => r.obligations.has(selectedYear))
       : localRows;
 
-  // Selection multi-rows en vue annee, pour bulk apply d'un statut
+  // Selection multi-rows en vue annee, pour bulk apply d'un statut + copy/paste
   const orderedIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
-  const { selectedIds, selectedCount, isSelected, onRowClick, clearSelection, selectAll } = useRowSelection(orderedIds);
+
+  // Copy : libelle CAA pour selectedYear, 1 par ligne
+  function buildCopyText(ids: string[]): string {
+    return ids
+      .map((id) => {
+        const r = localRows.find((x) => x.id === id);
+        const cell = r?.obligations.get(selectedYear);
+        return cell?.libelle ?? "";
+      })
+      .join("\n");
+  }
+
+  // Paste : 1 valeur = fill-all, sinon positional
+  function applyPasteText(text: string, ids: string[]) {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0 || ids.length === 0) return;
+    const knownLibs = new Set(statusOptions.map((o) => o.libelle.toLowerCase()));
+    function resolveLibelle(raw: string): string | null {
+      const t = raw.trim();
+      if (!t) return null;
+      const exact = statusOptions.find((o) => o.libelle === t);
+      if (exact) return exact.libelle;
+      const ci = statusOptions.find((o) => o.libelle.toLowerCase() === t.toLowerCase());
+      return ci?.libelle ?? null;
+    }
+    void knownLibs;
+    const updates = new Map<string, string[]>(); // libelle -> ids
+    if (lines.length === 1) {
+      const target = resolveLibelle(lines[0]);
+      if (!target) return;
+      updates.set(target, ids);
+    } else {
+      for (let i = 0; i < ids.length && i < lines.length; i++) {
+        const target = resolveLibelle(lines[i]);
+        if (!target) continue;
+        if (!updates.has(target)) updates.set(target, []);
+        updates.get(target)!.push(ids[i]);
+      }
+    }
+    if (updates.size === 0) return;
+    // Optimistic
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        for (const [libelle, idsList] of updates) {
+          if (!idsList.includes(r.id)) continue;
+          const opt = statusOptions.find((o) => o.libelle === libelle);
+          const sl = (opt?.statut_logique ?? "A_FAIRE") as StatutLogique;
+          const newMap = new Map(r.obligations);
+          const existing = newMap.get(selectedYear);
+          newMap.set(selectedYear, {
+            annee: selectedYear,
+            libelle,
+            statut_logique: sl,
+            etat_facturation: sl === "TERMINE" && !existing?.etat_facturation ? "a_facturer" : (existing?.etat_facturation ?? null),
+            forfait: existing?.forfait ?? null,
+          });
+          return { ...r, obligations: newMap };
+        }
+        return r;
+      })
+    );
+    startTransition(async () => {
+      try {
+        let totalUpdated = 0;
+        for (const [libelle, idsList] of updates) {
+          const res = await bulkSetCaaObligationStatut(idsList, selectedYear, libelle);
+          totalUpdated += res.updated;
+        }
+        toastSuccess(`${totalUpdated} dossier${totalUpdated > 1 ? "s" : ""} collé${totalUpdated > 1 ? "s" : ""}`);
+        clearSelection();
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec collage");
+        router.refresh();
+      }
+    });
+  }
+
+  const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds, {
+    onCopy: (ids) => {
+      const text = buildCopyText(ids);
+      navigator.clipboard?.writeText?.(text).then(() => {
+        toastSuccess(`${ids.length} ligne${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
+      }).catch(() => {});
+    },
+    onPaste: (text, ids) => applyPasteText(text, ids),
+  });
 
   function onBulkApplyStatut(libelle: string) {
     const ids = Array.from(selectedIds);
@@ -444,7 +530,12 @@ export default function CaaTable({
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
-          <table className="w-full text-sm min-w-[820px]" aria-label="Dossiers CAA">
+          <table
+            className="w-full text-sm min-w-[820px] focus:outline-none"
+            aria-label="Dossiers CAA"
+            tabIndex={mode === "year" ? 0 : -1}
+            onKeyDown={mode === "year" ? onKeyDown : undefined}
+          >
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Société</th>
@@ -467,6 +558,7 @@ export default function CaaTable({
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {visibleRows.map((r) => {
                 const selected = mode === "year" && isSelected(r.id);
+                const focused = mode === "year" && focusedId === r.id;
                 return (
                 <tr
                   key={r.id}
@@ -474,7 +566,8 @@ export default function CaaTable({
                     "transition-colors",
                     selected
                       ? "bg-sky-50/60 dark:bg-sky-500/[0.08] hover:bg-sky-50 dark:hover:bg-sky-500/[0.12]"
-                      : "hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
+                      : "hover:bg-zinc-50 dark:hover:bg-white/[0.03]",
+                    focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-1px]"
                   )}
                   onClick={mode === "year" ? (e) => {
                     const target = e.target as HTMLElement;
