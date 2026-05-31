@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Pencil, Plus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import {
+  bulkSetIrObligationStatut,
   createClientIr,
   deleteClientIr,
   setIrFacturation,
@@ -20,6 +21,8 @@ import {
   type StatutLogique,
 } from "./actions";
 import { useConfirm } from "@/app/_components/confirm-modal";
+import { useRowSelection } from "@/app/_components/use-row-selection";
+import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 
 export type IrStatusOption = {
   libelle: string;
@@ -107,6 +110,48 @@ export default function IrTable({
             r.obligations.has(`${selectedYear}|IFI`)
         )
       : localRows;
+
+  // Selection multi-rows en vue annee. Pour IR on a 2 colonnes (IR + IFI) :
+  // on selectionne la ligne entiere, et le bulk picker propose les statuts
+  // prefixes par "IR · " ou "IFI · " pour viser le bon type.
+  const orderedIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
+  const { selectedIds, selectedCount, isSelected, onRowClick, clearSelection, selectAll } = useRowSelection(orderedIds);
+
+  function onBulkApply(prefixedKey: string) {
+    // Format de la key : "IR:libelle" ou "IFI:libelle"
+    const [type, libelle] = prefixedKey.split(":") as [IrType, string];
+    if (!libelle || (type !== "IR" && type !== "IFI")) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const opts = statusOptions[`${type}_ANNEE`] ?? [];
+    const sl = (opts.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE") as StatutLogique;
+    // Optimistic mirror
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        if (!selectedIds.has(r.id)) return r;
+        const key = `${selectedYear}|${type}`;
+        const newObl = new Map(r.obligations);
+        newObl.set(key, { annee: selectedYear, type, libelle, statut_logique: sl });
+        // Auto-facturation si TERMINE
+        const newFact = new Map(r.facturations);
+        if (sl === "TERMINE" && !newFact.get(selectedYear)) {
+          newFact.set(selectedYear, "a_facturer");
+        }
+        return { ...r, obligations: newObl, facturations: newFact };
+      })
+    );
+    startTransition(async () => {
+      try {
+        const res = await bulkSetIrObligationStatut(ids, selectedYear, type, libelle);
+        toastSuccess(`${res.updated} dossier${res.updated > 1 ? "s" : ""} ${type} mis à jour`);
+        clearSelection();
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec mise à jour groupée");
+        router.refresh();
+      }
+    });
+  }
 
   function onSetLdm(clientIrId: string, newStatut: string) {
     setLocalRows((prev) =>
@@ -463,8 +508,23 @@ export default function IrTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {visibleRows.map((r) => (
-                <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors">
+              {visibleRows.map((r) => {
+                const selected = mode === "year" && isSelected(r.id);
+                return (
+                <tr
+                  key={r.id}
+                  className={cn(
+                    "transition-colors",
+                    selected
+                      ? "bg-sky-50/60 dark:bg-sky-500/[0.08] hover:bg-sky-50 dark:hover:bg-sky-500/[0.12]"
+                      : "hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
+                  )}
+                  onClick={mode === "year" ? (e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
+                    onRowClick(r.id, e);
+                  } : undefined}
+                >
                   <td className="px-3 py-2.5">
                     <div className="flex flex-col gap-0.5 min-w-0">
                       <span className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -556,17 +616,53 @@ export default function IrTable({
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {visibleRows.length} dossier{visibleRows.length > 1 ? "s" : ""} IR
-        {mode === "year" ? ` souscrit${visibleRows.length > 1 ? "s" : ""} - exercice ${selectedYear}` : " - vue d'ensemble"}
-        {mode === "year" && localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
-      </p>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          {visibleRows.length} dossier{visibleRows.length > 1 ? "s" : ""} IR
+          {mode === "year" ? ` souscrit${visibleRows.length > 1 ? "s" : ""} - exercice ${selectedYear}` : " - vue d'ensemble"}
+          {mode === "year" && localRows.length !== visibleRows.length && ` (sur ${localRows.length} au total)`}.
+        </p>
+        {mode === "year" && visibleRows.length > 0 && (
+          <button
+            type="button"
+            onClick={selectAll}
+            className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+          >
+            Tout sélectionner
+          </button>
+        )}
+      </div>
+
+      {mode === "year" && (
+        <BulkActionBar
+          count={selectedCount}
+          onClear={clearSelection}
+          hint="clic + shift / cmd · choisir IR ou IFI dans le picker"
+          label="Statut IR / IFI"
+          options={[
+            ...(statusOptions["IR_ANNEE"] ?? []).map((o) => ({
+              key: `IR:${o.libelle}`,
+              label: o.libelle,
+              color: statutColorClass(o.statut_logique, o.color),
+              group: "IR",
+            })),
+            ...(statusOptions["IFI_ANNEE"] ?? []).map((o) => ({
+              key: `IFI:${o.libelle}`,
+              label: o.libelle,
+              color: statutColorClass(o.statut_logique, o.color),
+              group: "IFI",
+            })),
+          ]}
+          onApply={onBulkApply}
+        />
+      )}
     </div>
   );
 }
