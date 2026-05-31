@@ -23,6 +23,7 @@ import {
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { useRowSelection } from "@/app/_components/use-row-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
+import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
 export type IrStatusOption = {
   libelle: string;
@@ -96,20 +97,61 @@ export default function IrTable({
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [localRows, setLocalRows] = useState(rows);
+  const [filter, setFilter] = useState<"all" | "a_faire" | "en_cours" | "termine">("all");
   useEffect(() => setLocalRows(rows), [rows]);
   const { confirm, ConfirmDialog } = useConfirm();
+
+  // Helper : groupe statut_logique d'une cell. La logique pour IR : une row
+  // matche le filtre si au moins une de ses cells (IR ou IFI) matche.
+  function statutGroup(sl: StatutLogique | null | undefined): "a_faire" | "en_cours" | "termine" | "na" {
+    if (sl === "TERMINE") return "termine";
+    if (sl === "EN_COURS") return "en_cours";
+    if (sl === "NON_APPLICABLE") return "na";
+    return "a_faire";
+  }
 
   // Vue annee : on n'affiche QUE les clients souscrits a IR ou IFI pour
   // l'annee selectionnee (sinon on listerait "N/A" pour tous, ce qui pollue).
   // Vue base : on affiche tous les clients (c'est le seul endroit pour souscrire).
-  const visibleRows =
-    mode === "year"
-      ? localRows.filter(
-          (r) =>
-            r.obligations.has(`${selectedYear}|IR`) ||
-            r.obligations.has(`${selectedYear}|IFI`)
-        )
-      : localRows;
+  const yearRows = useMemo(
+    () =>
+      mode === "year"
+        ? localRows.filter(
+            (r) =>
+              r.obligations.has(`${selectedYear}|IR`) ||
+              r.obligations.has(`${selectedYear}|IFI`)
+          )
+        : localRows,
+    [localRows, mode, selectedYear]
+  );
+
+  const visibleRows = useMemo(() => {
+    if (mode !== "year" || filter === "all") return yearRows;
+    return yearRows.filter((r) => {
+      const ir = r.obligations.get(`${selectedYear}|IR`);
+      const ifi = r.obligations.get(`${selectedYear}|IFI`);
+      const groups = [statutGroup(ir?.statut_logique), statutGroup(ifi?.statut_logique)];
+      return groups.includes(filter);
+    });
+  }, [yearRows, mode, filter, selectedYear]);
+
+  // Compteurs : on compte le nombre de rows qui ont AT LEAST une cell
+  // dans le groupe donne (logique "OR" entre IR et IFI).
+  const yearCounts = useMemo(() => {
+    const c = { a_faire: 0, en_cours: 0, termine: 0 };
+    for (const r of yearRows) {
+      const ir = r.obligations.get(`${selectedYear}|IR`);
+      const ifi = r.obligations.get(`${selectedYear}|IFI`);
+      const groups = new Set<string>([
+        statutGroup(ir?.statut_logique),
+        statutGroup(ifi?.statut_logique),
+      ]);
+      if (groups.has("a_faire")) c.a_faire++;
+      if (groups.has("en_cours")) c.en_cours++;
+      if (groups.has("termine")) c.termine++;
+    }
+    return c;
+  }, [yearRows, selectedYear]);
 
   // Selection cellulaire en vue annee. Pour IR on a 2 colonnes (IR + IFI),
   // donc on utilise des composite IDs "rowId|TYPE" pour pouvoir selectionner
@@ -426,6 +468,15 @@ export default function IrTable({
             <ChevronRight className="h-4 w-4" />
           </Link>
         </nav>
+
+        {mode === "year" && (
+          <div className="flex items-center gap-1">
+            <StatusFilterChip label="Tous" count={yearRows.length} active={filter === "all"} onClick={() => setFilter("all")} />
+            <StatusFilterChip label="À faire" count={yearCounts.a_faire} active={filter === "a_faire"} onClick={() => setFilter("a_faire")} accent="amber" />
+            <StatusFilterChip label="En cours" count={yearCounts.en_cours} active={filter === "en_cours"} onClick={() => setFilter("en_cours")} accent="sky" />
+            <StatusFilterChip label="Terminé" count={yearCounts.termine} active={filter === "termine"} onClick={() => setFilter("termine")} accent="emerald" />
+          </div>
+        )}
 
         {!adding && (
           <button

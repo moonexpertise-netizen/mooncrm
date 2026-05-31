@@ -10,6 +10,7 @@ import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useRowSelection } from "@/app/_components/use-row-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { bulkSetCreationStatut, setCreationStatut, toggleCreationSubscription, type CreationStatut } from "./actions";
+import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
 export type { CreationStatut };
 
@@ -96,14 +97,31 @@ export default function CreationsTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
+  const [filter, setFilter] = useState<"all" | "a_faire" | "en_cours" | "termine">("all");
   useEffect(() => setLocalRows(rows), [rows]);
 
-  // Vue Annee : on n'affiche QUE les dossiers souscrits a l'annee selectionnee.
+  // Vue Annee : on n'affiche QUE les dossiers souscrits a l'annee selectionnee,
+  // puis on applique le filtre par groupe de statut (a faire / en cours / fait).
   // Vue Base : on affiche tous les dossiers, pour permettre l'inscription.
-  const visibleRows =
-    mode === "year"
-      ? localRows.filter((r) => r.creation_annee === selectedYear)
-      : localRows;
+  const yearRows = useMemo(
+    () =>
+      mode === "year"
+        ? localRows.filter((r) => r.creation_annee === selectedYear)
+        : localRows,
+    [localRows, mode, selectedYear]
+  );
+
+  const visibleRows = useMemo(() => {
+    if (mode !== "year" || filter === "all") return yearRows;
+    return yearRows.filter((r) => defFor(r.creation_statut).group === filter);
+  }, [yearRows, mode, filter]);
+
+  // Compteurs par groupe pour les chips
+  const yearCounts = useMemo(() => {
+    const c = { a_faire: 0, en_cours: 0, termine: 0 };
+    for (const r of yearRows) c[defFor(r.creation_statut).group]++;
+    return c;
+  }, [yearRows]);
 
   // Selection multi-rows (Excel-style : clic / shift / cmd+ctrl). Active
   // uniquement en vue Annee (la vue Base sert a souscrire, pas a bulk-update).
@@ -334,6 +352,16 @@ export default function CreationsTable({
             <ChevronRight className="h-4 w-4" />
           </Link>
         </nav>
+
+        {/* Filtres par groupe de statut : visible en vue Annee uniquement */}
+        {mode === "year" && (
+          <div className="flex items-center gap-1">
+            <StatusFilterChip label="Tous" count={yearRows.length} active={filter === "all"} onClick={() => setFilter("all")} />
+            <StatusFilterChip label="À faire" count={yearCounts.a_faire} active={filter === "a_faire"} onClick={() => setFilter("a_faire")} accent="amber" />
+            <StatusFilterChip label="En cours" count={yearCounts.en_cours} active={filter === "en_cours"} onClick={() => setFilter("en_cours")} accent="sky" />
+            <StatusFilterChip label="Terminé" count={yearCounts.termine} active={filter === "termine"} onClick={() => setFilter("termine")} accent="emerald" />
+          </div>
+        )}
       </div>
 
       {/* Recap par annee : compteurs */}
