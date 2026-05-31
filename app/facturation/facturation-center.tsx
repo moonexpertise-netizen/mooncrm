@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
 import { setFacturationFromCentral } from "./actions";
 
-export type FactSource = "caa" | "ir" | "ago" | "bilan" | "mission_exc";
+export type FactSource = "caa" | "ir" | "ago" | "bilan" | "mission_exc" | "creation";
 
 export type FactItem = {
   /** Cle unique pour le rendu (prefixee par la source). */
@@ -35,18 +35,20 @@ const SOURCE_LABEL: Record<FactSource, string> = {
   ago: "AGO",
   bilan: "Bilan",
   mission_exc: "Mission exc.",
+  creation: "Création",
 };
 
 // Palette tags-source : on evite amber/sky/emerald/zinc reserves a la semantique
 // metier (action / en cours / termine / inactif). Teal, indigo, rose, orange,
-// fuchsia donnent 5 teintes distinctes sans collision avec les pastilles
-// d'etat affichees sur la meme ligne.
+// fuchsia, violet donnent 6 teintes distinctes sans collision avec les
+// pastilles d'etat affichees sur la meme ligne.
 const SOURCE_COLOR: Record<FactSource, string> = {
   caa: "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-500/30",
   ir: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30",
   ago: "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30",
   bilan: "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-500/30",
   mission_exc: "bg-fuchsia-50 dark:bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-500/30",
+  creation: "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30",
 };
 
 const FACT_OPTIONS: Array<{
@@ -72,6 +74,7 @@ const SOURCE_FILTERS: Array<{ key: "all" | FactSource; label: string }> = [
   { key: "ir", label: "IR / IFI" },
   { key: "ago", label: "AGO" },
   { key: "bilan", label: "Bilan" },
+  { key: "creation", label: "Création" },
   { key: "mission_exc", label: "Mission exc." },
 ];
 

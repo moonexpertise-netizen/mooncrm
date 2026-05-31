@@ -339,8 +339,14 @@ export function Sidebar() {
   const activeSlug = pathname.startsWith("/obligations/") ? pathname.split("/")[2] ?? null : null;
 
   // Drag-drop : sensors + handler
+  // IMPORTANT (mobile) : on utilise `delay` plutôt que `distance` pour que
+  // le PointerSensor ne capture pas les taps courts. Sur iOS/Android, un
+  // simple tap sur un Link déclenchait sinon le sensor (qui attend 6px de
+  // mouvement avant relâche), nécessitant un 2e tap. Avec `delay: 200ms`,
+  // le drag ne s'enclenche que si l'utilisateur maintient l'appui — un tap
+  // rapide passe directement au Link (comportement iOS "hold to drag").
   const dndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   function onDragEnd(event: DragEndEvent) {
@@ -463,10 +469,15 @@ export function Sidebar() {
 
       {/* Nav. DndContext + SortableContext rendent chaque rubrique
           deplacable a la souris / clavier. L'ordre est persiste dans
-          localStorage. */}
+          localStorage.
+          IMPORTANT (mobile) : on desactive completement dnd-kit sur mobile.
+          - Pas d'usage : on ne reorganise pas des rubriques au doigt.
+          - Bug : sur iOS/Android, meme un sensor avec un drag handle separe peut
+            interferer subtilement avec le tap natif (focus, touch-action, hover
+            simule, click delay). Sans DndContext, les <li> sont 100% inertes
+            -> tap natif OK, navigation immediate. */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
-        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={navOrder} strategy={verticalListSortingStrategy}>
+        <ConditionalDndWrapper enabled={!isMobile} sensors={dndSensors} navOrder={navOrder} onDragEnd={onDragEnd}>
         {/* Nav cachee jusqu'a hydratation localStorage. Evite que les items
             apparaissent dans l'ordre SSR (NAV_ITEMS par defaut) puis se
             re-arrangent quand React applique l'ordre client (localStorage).
@@ -483,9 +494,12 @@ export function Sidebar() {
             const hasChildren = item.children && item.children.length > 0;
             const isProduction = item.href === "/obligations";
             const showChildren = hasChildren && !showCollapsed && isProduction && prodOpen;
+            // Mobile : <li> simple, pas de useSortable -> aucun listener pointer.
+            // Desktop : SortableNavItem avec drag handle visible au hover.
+            const NavWrap = isMobile ? PlainNavItem : SortableNavItem;
 
             return (
-              <SortableNavItem key={item.href} id={item.href} animate={hydrated} className="relative group/item">
+              <NavWrap key={item.href} id={item.href} animate={hydrated} className="relative group/item">
                 <div
                   className={cn(
                     "relative flex items-center rounded-md text-[13px]",
@@ -642,12 +656,11 @@ export function Sidebar() {
                     })}
                   </ul>
                 )}
-              </SortableNavItem>
+              </NavWrap>
             );
           })}
         </ul>
-        </SortableContext>
-        </DndContext>
+        </ConditionalDndWrapper>
       </nav>
 
       {/* User + actions */}
@@ -765,5 +778,51 @@ function SortableNavItem({
       </button>
       {children}
     </li>
+  );
+}
+
+/**
+ * Version inerte de SortableNavItem pour mobile : juste un <li>, aucun appel
+ * a useSortable, pas de drag handle. Signature identique pour pouvoir etre
+ * substitue dynamiquement (cf. `const NavWrap = isMobile ? PlainNavItem : SortableNavItem`).
+ */
+function PlainNavItem({
+  children,
+  className,
+}: {
+  id: string; // ignore - signature compat
+  animate: boolean; // ignore - signature compat
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <li className={className}>{children}</li>;
+}
+
+/**
+ * Wrapper conditionnel : applique DndContext + SortableContext UNIQUEMENT
+ * sur desktop. Sur mobile, retourne juste les children sans aucun provider
+ * dnd-kit -> impossible que les sensors / listeners interferent avec le tap
+ * natif des Links. Resoud le bug "double tap pour naviguer" sur iOS/Android.
+ */
+function ConditionalDndWrapper({
+  enabled,
+  sensors,
+  navOrder,
+  onDragEnd,
+  children,
+}: {
+  enabled: boolean;
+  sensors: ReturnType<typeof useSensors>;
+  navOrder: string[];
+  onDragEnd: (event: DragEndEvent) => void;
+  children: React.ReactNode;
+}) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext items={navOrder} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </DndContext>
   );
 }

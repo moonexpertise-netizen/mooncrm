@@ -609,11 +609,16 @@ export default function CaaTable({
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex items-start gap-2">
-                      {/* Pastille rouge : statut CAA a faire pour l'annee selectionnee. */}
-                      {mode === "year" && r.obligations.get(selectedYear)?.statut_logique === "A_FAIRE" && (
+                      {/* Pastille rouge a la racine du dossier :
+                          - Vue Annee : statut de l'annee selectionnee est A_FAIRE
+                          - Vue Base  : au moins une annee souscrite est en A_FAIRE
+                          Permet de reperer du premier coup d'oeil les dossiers a traiter. */}
+                      {((mode === "year" && r.obligations.get(selectedYear)?.statut_logique === "A_FAIRE") ||
+                        (mode === "base" &&
+                          [...r.obligations.values()].some((o) => o.statut_logique === "A_FAIRE"))) && (
                         <span
                           aria-label="À faire"
-                          title="Mission CAA à traiter"
+                          title={mode === "year" ? "Mission CAA à traiter" : "Au moins une mission CAA à traiter (toutes années)"}
                           className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
                         />
                       )}

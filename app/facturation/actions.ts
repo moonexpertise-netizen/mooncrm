@@ -15,13 +15,16 @@ export type FactSource =
   | "ir"
   | "ago"
   | "bilan"
-  | "mission_exc";
+  | "mission_exc"
+  | "creation";
 
 /**
  * Met a jour l'etat facturation d'une ligne, peu importe sa source.
  * - caa/ir : on met a jour la row (client, annee) ; pour IR on synchronise IR+IFI
  * - ago/bilan : on met a jour la row obligations directement par id
  * - mission_exc : on met a jour la row missions_exceptionnelles par id
+ * - creation : on met a jour clients.creation_facturation (1 par client,
+ *   creation = one-shot non-recurrent)
  */
 export async function setFacturationFromCentral(
   source: FactSource,
@@ -73,6 +76,17 @@ export async function setFacturationFromCentral(
       .update({ etat_facturation: etat })
       .eq("client_ir_id", clientIrId)
       .eq("annee", annee);
+    if (error) throw new Error(error.message);
+    revalidateFinanceViews();
+    return;
+  }
+
+  if (source === "creation") {
+    // rowId = id du client (creation_facturation est sur clients).
+    const { error } = await sb
+      .from("clients")
+      .update({ creation_facturation: etat })
+      .eq("id", rowId);
     if (error) throw new Error(error.message);
     revalidateFinanceViews();
     return;

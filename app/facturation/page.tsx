@@ -16,6 +16,8 @@ export const dynamic = "force-dynamic";
  *   - Bilan : LIASSE_PLAQUETTE en "4 - Plaquette transmise" (TERMINE)
  *            ET clients avec type_honos_bilans = 'Facturés'
  *   - Mission exc : etat_mission = "livree"
+ *   - Creation : clients avec creation_statut = 'actee_kbis_recu' (KBIS reçu).
+ *               Montant = clients.honoraires_creation.
  *
  * On filtre pour ne PAS afficher les items deja en "sans_facture" sauf si
  * l'utilisateur l'a choisi (sinon ils polluent la liste).
@@ -306,6 +308,40 @@ export default async function FacturationPage({
   });
 
   // ============================================================================
+  // 6. Creations : dossiers '1 - Création' avec KBIS reçu (= TERMINE metier).
+  //    Montant = clients.honoraires_creation. 1 facture par dossier (pas par
+  //    annee). Annee de reference = clients.creation_annee.
+  // ============================================================================
+  const { data: creationRows } = await sb
+    .from("clients")
+    .select(
+      "id, slug, denomination, creation_annee, creation_statut, creation_facturation, honoraires_creation"
+    )
+    .eq("origine", "1 - Création")
+    .eq("creation_statut", "actee_kbis_recu");
+
+  type CreationRow = {
+    id: string;
+    slug: string;
+    denomination: string;
+    creation_annee: number | null;
+    creation_statut: string | null;
+    creation_facturation: string | null;
+    honoraires_creation: number | null;
+  };
+  const creationItems: FactItem[] = ((creationRows ?? []) as CreationRow[]).map((r) => ({
+    key: `creation-${r.id}`,
+    source: "creation",
+    rowId: r.id,
+    clientName: r.denomination,
+    clientHref: `/missions/creations${r.creation_annee ? `?year=${r.creation_annee}` : ""}`,
+    detail: `Création${r.creation_annee ? ` ${r.creation_annee}` : ""}`,
+    sousDetail: "KBIS reçu",
+    montant: r.honoraires_creation && r.honoraires_creation > 0 ? Math.round(r.honoraires_creation) : null,
+    etat_facturation: (r.creation_facturation ?? null) as FactItem["etat_facturation"],
+  }));
+
+  // ============================================================================
   // Concatenation + application des filtres
   // ============================================================================
   const allItems: FactItem[] = [
@@ -314,6 +350,7 @@ export default async function FacturationPage({
     ...agoItems,
     ...bilanItems,
     ...missionItems,
+    ...creationItems,
   ];
 
   const filtered = allItems.filter((it) => {
@@ -346,7 +383,7 @@ export default async function FacturationPage({
     <div className="space-y-4">
       <PageHeader
         title="Facturation"
-        description="Centralisation des factures à émettre · CAA, IR, AGO, Bilans, Missions exc."
+        description="Centralisation des factures à émettre · CAA, IR, AGO, Bilans, Créations, Missions exc."
       />
       <FacturationCenter
         items={filtered}

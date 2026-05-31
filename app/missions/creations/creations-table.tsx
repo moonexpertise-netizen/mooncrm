@@ -9,10 +9,17 @@ import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useRowSelection } from "@/app/_components/use-row-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
-import { bulkSetCreationStatut, setCreationStatut, toggleCreationSubscription, type CreationStatut } from "./actions";
+import {
+  bulkSetCreationStatut,
+  setCreationFacturation,
+  setCreationStatut,
+  toggleCreationSubscription,
+  type CreationFacturation,
+  type CreationStatut,
+} from "./actions";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
-export type { CreationStatut };
+export type { CreationStatut, CreationFacturation };
 
 export type CreationRow = {
   id: string;
@@ -22,7 +29,16 @@ export type CreationRow = {
   pipeline_statut: string | null;
   creation_annee: number | null;
   creation_statut: CreationStatut | null;
+  creation_facturation: CreationFacturation | null;
+  honoraires_creation: number | null;
 };
+
+// Etats facturation : meme palette que IR/CAA/Missions exc.
+const FACT_OPTIONS: Array<{ key: CreationFacturation; label: string; color: string }> = [
+  { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
+  { key: "facturee", label: "Facturée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },
+  { key: "sans_facture", label: "Sans facture", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },
+];
 
 // ============================================================================
 // Constantes statut
@@ -167,13 +183,21 @@ export default function CreationsTable({
       }
     }
     if (updates.size === 0) return;
-    // Optimistic
+    // Optimistic (+ auto-facturation pour KBIS reçu)
     const flatTargets = new Map<string, CreationStatut | null>();
     for (const [statut, idsList] of updates) {
       for (const id of idsList) flatTargets.set(id, statut);
     }
     setLocalRows((prev) =>
-      prev.map((r) => (flatTargets.has(r.id) ? { ...r, creation_statut: flatTargets.get(r.id)! } : r))
+      prev.map((r) => {
+        if (!flatTargets.has(r.id)) return r;
+        const next = flatTargets.get(r.id)!;
+        const fac =
+          next === "actee_kbis_recu" && r.creation_facturation === null
+            ? ("a_facturer" as CreationFacturation)
+            : r.creation_facturation;
+        return { ...r, creation_statut: next, creation_facturation: fac };
+      })
     );
     startTransition(async () => {
       try {
@@ -231,7 +255,16 @@ export default function CreationsTable({
 
   function onSetStatut(clientId: string, statut: CreationStatut | null) {
     setLocalRows((prev) =>
-      prev.map((r) => (r.id === clientId ? { ...r, creation_statut: statut } : r))
+      prev.map((r) => {
+        if (r.id !== clientId) return r;
+        // Auto-facturation : passage en actee_kbis_recu + facturation null
+        // -> 'a_facturer' (cf. trigger DB 0058). On replique cote optimistic.
+        const fac =
+          statut === "actee_kbis_recu" && r.creation_facturation === null
+            ? ("a_facturer" as CreationFacturation)
+            : r.creation_facturation;
+        return { ...r, creation_statut: statut, creation_facturation: fac };
+      })
     );
     startTransition(async () => {
       try {
@@ -243,13 +276,34 @@ export default function CreationsTable({
     });
   }
 
+  function onSetFacturation(clientId: string, fac: CreationFacturation | null) {
+    setLocalRows((prev) =>
+      prev.map((r) => (r.id === clientId ? { ...r, creation_facturation: fac } : r))
+    );
+    startTransition(async () => {
+      try {
+        await setCreationFacturation(clientId, fac);
+      } catch (e) {
+        toastError(e, "Echec sauvegarde facturation");
+        router.refresh();
+      }
+    });
+  }
+
   function onBulkApply(statutKey: string) {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     const target = statutKey === "non_demarre" ? null : (statutKey as CreationStatut);
-    // Optimistic mirror
+    // Optimistic mirror + auto-facturation si KBIS reçu
     setLocalRows((prev) =>
-      prev.map((r) => (selectedIds.has(r.id) ? { ...r, creation_statut: target } : r))
+      prev.map((r) => {
+        if (!selectedIds.has(r.id)) return r;
+        const fac =
+          target === "actee_kbis_recu" && r.creation_facturation === null
+            ? ("a_facturer" as CreationFacturation)
+            : r.creation_facturation;
+        return { ...r, creation_statut: target, creation_facturation: fac };
+      })
     );
     startTransition(async () => {
       try {
@@ -442,7 +496,10 @@ export default function CreationsTable({
                 {mode === "base" ? (
                   <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[260px]">Année · clic pour souscrire</th>
                 ) : (
-                  <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[220px]">Création {selectedYear}</th>
+                  <>
+                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[220px]">Création {selectedYear}</th>
+                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[140px]">Facturation</th>
+                  </>
                 )}
                 <th scope="col" className="px-2 py-2 w-10" />
               </tr>
@@ -458,14 +515,20 @@ export default function CreationsTable({
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
-                      {/* Pastille rouge : creation a traiter (statut a_traiter ou null en vue Annee). */}
-                      {mode === "year" && (r.creation_statut === "a_traiter" || r.creation_statut === null) && (
-                        <span
-                          aria-label="À traiter"
-                          title="Création à traiter"
-                          className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
-                        />
-                      )}
+                      {/* Pastille rouge a la racine du dossier :
+                          - Vue Annee : creation_statut a_traiter (ou null) pour les dossiers
+                            souscrits a l'annee selectionnee. Permet de voir d'un coup
+                            d'oeil les creations encore non demarrees.
+                          - Vue Base  : meme logique mais on exige creation_annee defini
+                            (sinon le dossier n'est pas souscrit du tout - pas de pastille). */}
+                      {(r.creation_statut === "a_traiter" || r.creation_statut === null) &&
+                        (mode === "year" || (mode === "base" && r.creation_annee !== null)) && (
+                          <span
+                            aria-label="À traiter"
+                            title="Création à traiter"
+                            className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+                          />
+                        )}
                       <Link href={`/clients/${r.slug}`} className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
                         {r.denomination}
                       </Link>
@@ -490,23 +553,31 @@ export default function CreationsTable({
                       />
                     </td>
                   ) : (
-                    <td
-                      className={cn(
-                        "px-3 py-2.5 text-center transition-colors cursor-pointer",
-                        selected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
-                        focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
-                      )}
-                      onClick={(e) => {
-                        const target = e.target as HTMLElement;
-                        if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
-                        onRowClick(r.id, e);
-                      }}
-                    >
-                      <StatutPicker
-                        value={r.creation_statut}
-                        onChange={(v) => onSetStatut(r.id, v)}
-                      />
-                    </td>
+                    <>
+                      <td
+                        className={cn(
+                          "px-3 py-2.5 text-center transition-colors cursor-pointer",
+                          selected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
+                          focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
+                        )}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
+                          onRowClick(r.id, e);
+                        }}
+                      >
+                        <StatutPicker
+                          value={r.creation_statut}
+                          onChange={(v) => onSetStatut(r.id, v)}
+                        />
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <FacturationPicker
+                          value={r.creation_facturation}
+                          onChange={(v) => onSetFacturation(r.id, v)}
+                        />
+                      </td>
+                    </>
                   )}
                   <td className="px-2 py-2.5 text-right">
                     <Link
@@ -725,6 +796,128 @@ function StatutPicker({
                 })}
               </div>
             ))}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
+
+// ============================================================================
+// FacturationPicker - picker generique 3 etats (a_facturer / facturee /
+// sans_facture). Affiche un placeholder "-" quand null.
+// Identique au pattern IR/CAA - cf. ir-table.tsx ligne ~1119.
+// ============================================================================
+
+function FacturationPicker({
+  value,
+  onChange,
+}: {
+  value: CreationFacturation | null;
+  onChange: (v: CreationFacturation | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+  const current = value ? FACT_OPTIONS.find((o) => o.key === value) : null;
+
+  useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = FACT_OPTIONS.length * 32 + 50;
+    const POPOVER_WIDTH = 200;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const desiredLeft = rect.left + rect.width / 2 - POPOVER_WIDTH / 2;
+    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="inline-block">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 min-w-[90px] justify-center",
+          current
+            ? current.color
+            : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]"
+        )}
+      >
+        {current ? current.label : "-"}
+      </button>
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+          >
+            {FACT_OPTIONS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => {
+                  onChange(o.key);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                  value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
+                )}
+              >
+                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>{o.label}</span>
+                {value === o.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
+              </button>
+            ))}
+            {value !== null && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
+              >
+                Réinitialiser
+              </button>
+            )}
           </div>,
           document.body
         )}

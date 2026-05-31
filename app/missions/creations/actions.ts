@@ -2,13 +2,14 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 
 /**
  * Server actions du module Creations.
  *
  * Difference avec IR/CAA : un client n'a qu'UNE seule annee de creation
  * (one-shot). On stocke creation_annee + creation_statut directement sur
- * clients. Cf. migrations 0055 + 0056.
+ * clients. Cf. migrations 0055 + 0056 + 0058 (creation_facturation).
  */
 
 export type CreationStatut =
@@ -17,6 +18,8 @@ export type CreationStatut =
   | "inpi_en_cours"
   | "inpi_termine"
   | "actee_kbis_recu";
+
+export type CreationFacturation = "a_facturer" | "facturee" | "sans_facture";
 
 /**
  * Toggle la souscription d'un dossier a une annee donnee. Comme un client n'a
@@ -68,6 +71,10 @@ export async function toggleCreationSubscription(
 /**
  * Set le statut creation pour un dossier. Le dossier doit etre souscrit (avoir
  * une creation_annee non null). Si statut = null, reset.
+ *
+ * Note : le trigger DB (cf. migration 0058) bascule automatiquement
+ * creation_facturation a 'a_facturer' quand statut passe a 'actee_kbis_recu'.
+ * On revalide donc aussi /facturation et /finance.
  */
 export async function setCreationStatut(
   clientId: string,
@@ -80,6 +87,7 @@ export async function setCreationStatut(
     .eq("id", clientId);
   if (error) throw new Error(error.message);
   revalidatePath("/missions/creations");
+  revalidateFinanceViews();
 }
 
 /**
@@ -99,5 +107,27 @@ export async function bulkSetCreationStatut(
     .in("id", clientIds);
   if (error) throw new Error(error.message);
   revalidatePath("/missions/creations");
+  revalidateFinanceViews();
   return { updated: clientIds.length };
+}
+
+/**
+ * Set la facturation d'un dossier creation. Independant du statut metier :
+ * permet de marquer "Facturee" ou "Sans facture" manuellement.
+ *
+ * Si statut = null, on reset (la prochaine bascule en KBIS reçu re-armera
+ * le trigger 0058).
+ */
+export async function setCreationFacturation(
+  clientId: string,
+  facturation: CreationFacturation | null
+) {
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({ creation_facturation: facturation })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/missions/creations");
+  revalidateFinanceViews();
 }

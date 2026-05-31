@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/app/_components/page-header";
-import CreationsTable, { type CreationRow, type CreationStatut } from "./creations-table";
+import CreationsTable, {
+  type CreationRow,
+  type CreationStatut,
+  type CreationFacturation,
+} from "./creations-table";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +27,8 @@ type ClientRaw = {
   pipeline_statut: string | null;
   creation_annee?: number | null;
   creation_statut?: string | null;
+  creation_facturation?: string | null;
+  honoraires_creation?: number | null;
 };
 
 export default async function CreationsPage({
@@ -48,8 +54,8 @@ export default async function CreationsPage({
   const sb = await createClient();
 
   // Query : tous les dossiers en origine '1 - Création', avec leur annee
-  // de creation + statut courant.
-  const fullSel = "id, slug, denomination, forme, pipeline_statut, creation_annee, creation_statut";
+  // de creation + statut courant + facturation + honoraires (pour mention prix).
+  const fullSel = "id, slug, denomination, forme, pipeline_statut, creation_annee, creation_statut, creation_facturation, honoraires_creation";
   const fallbackSel = "id, slug, denomination, forme, pipeline_statut";
 
   let dataRaw: ClientRaw[] = [];
@@ -74,6 +80,8 @@ export default async function CreationsPage({
       ...c,
       creation_annee: null,
       creation_statut: null,
+      creation_facturation: null,
+      honoraires_creation: null,
     })) as ClientRaw[];
   } else {
     dataRaw = (r1.data ?? []) as ClientRaw[];
@@ -87,6 +95,8 @@ export default async function CreationsPage({
     pipeline_statut: c.pipeline_statut,
     creation_annee: c.creation_annee ?? null,
     creation_statut: (c.creation_statut ?? null) as CreationStatut | null,
+    creation_facturation: (c.creation_facturation ?? null) as CreationFacturation | null,
+    honoraires_creation: c.honoraires_creation ?? null,
   }));
 
   const description = isBaseView
