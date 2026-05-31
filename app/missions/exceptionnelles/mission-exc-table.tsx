@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useConfirm } from "@/app/_components/confirm-modal";
+import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import {
   createMission,
   createMissionType,
@@ -301,6 +302,23 @@ export default function MissionExcTable({
     });
   }, [localRows, filterMission, filterFact, filterType]);
 
+  // Compteurs pour les chips de filtre. Total absolu par etat (independant des
+  // autres filtres) pour rester lisibles : on voit toujours combien y'en a au
+  // total dans chaque categorie, indep. du filtre courant.
+  const counts = useMemo(() => {
+    const mission: Record<EtatMission, number> = { a_demarrer: 0, en_cours: 0, livree: 0, annulee: 0 };
+    const fact: Record<EtatFacturation, number> = { a_facturer: 0, facturee: 0, sans_facture: 0 };
+    const type = new Map<string, number>(); // type_id -> count
+    let typeNone = 0;
+    for (const r of localRows) {
+      mission[r.etat_mission as EtatMission]++;
+      if (r.etat_facturation) fact[r.etat_facturation as EtatFacturation]++;
+      if (r.type_id) type.set(r.type_id, (type.get(r.type_id) ?? 0) + 1);
+      else typeNone++;
+    }
+    return { mission, fact, type, typeNone, total: localRows.length };
+  }, [localRows]);
+
   // ============================================================================
   //  Mutations
   // ============================================================================
@@ -444,37 +462,106 @@ export default function MissionExcTable({
       {/* Recap KPI */}
       <RecapCards recap={recap} />
 
-      {/* Toolbar : filtres + actions */}
+      {/* Toolbar : filtres chips + actions
+          Cohérence visuelle avec IR/CAA/Créations : 3 bandeaux de chips au lieu
+          de selects natifs. Chaque chip affiche le compteur global par etat. */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <FilterSelect
-            label="Type"
-            value={filterType}
-            onChange={(v) => setFilterType(v as FilterType)}
-            options={[
-              { key: "all", label: "Tous les types" },
-              ...localTypes.filter((t) => t.actif).map((t) => ({ key: t.id, label: t.label })),
-              { key: "none", label: "(sans type)" },
-            ]}
-          />
-          <FilterSelect
-            label="Mission"
-            value={filterMission}
-            onChange={(v) => setFilterMission(v as FilterMission)}
-            options={[
-              { key: "all", label: "Tous les états" },
-              ...ETAT_MISSION_OPTIONS.map((o) => ({ key: o.key, label: o.label })),
-            ]}
-          />
-          <FilterSelect
-            label="Facturation"
-            value={filterFact}
-            onChange={(v) => setFilterFact(v as FilterFact)}
-            options={[
-              { key: "all", label: "Toutes" },
-              ...ETAT_FACTURATION_OPTIONS.map((o) => ({ key: o.key, label: o.label })),
-            ]}
-          />
+        <div className="flex flex-col gap-2 min-w-0">
+          {/* Mission : 4 etats fixes (a_demarrer / en_cours / livree / annulee) */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider font-medium text-zinc-500 dark:text-zinc-400 mr-1 shrink-0">Mission</span>
+            <StatusFilterChip
+              label="Toutes"
+              count={counts.total}
+              active={filterMission === "all"}
+              onClick={() => setFilterMission("all")}
+            />
+            <StatusFilterChip
+              label="À démarrer"
+              count={counts.mission.a_demarrer}
+              active={filterMission === "a_demarrer"}
+              onClick={() => setFilterMission("a_demarrer")}
+              accent="amber"
+            />
+            <StatusFilterChip
+              label="En cours"
+              count={counts.mission.en_cours}
+              active={filterMission === "en_cours"}
+              onClick={() => setFilterMission("en_cours")}
+              accent="sky"
+            />
+            <StatusFilterChip
+              label="Livrée"
+              count={counts.mission.livree}
+              active={filterMission === "livree"}
+              onClick={() => setFilterMission("livree")}
+              accent="emerald"
+            />
+            <StatusFilterChip
+              label="Annulée"
+              count={counts.mission.annulee}
+              active={filterMission === "annulee"}
+              onClick={() => setFilterMission("annulee")}
+            />
+          </div>
+
+          {/* Facturation : 3 etats fixes */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider font-medium text-zinc-500 dark:text-zinc-400 mr-1 shrink-0">Facturation</span>
+            <StatusFilterChip
+              label="Toutes"
+              count={counts.total}
+              active={filterFact === "all"}
+              onClick={() => setFilterFact("all")}
+            />
+            <StatusFilterChip
+              label="À facturer"
+              count={counts.fact.a_facturer}
+              active={filterFact === "a_facturer"}
+              onClick={() => setFilterFact("a_facturer")}
+              accent="amber"
+            />
+            <StatusFilterChip
+              label="Facturée"
+              count={counts.fact.facturee}
+              active={filterFact === "facturee"}
+              onClick={() => setFilterFact("facturee")}
+              accent="emerald"
+            />
+            <StatusFilterChip
+              label="Sans facture"
+              count={counts.fact.sans_facture}
+              active={filterFact === "sans_facture"}
+              onClick={() => setFilterFact("sans_facture")}
+            />
+          </div>
+
+          {/* Type : nombre variable d'options selon parametrage cabinet -> on
+              garde un <select> compact pour eviter de saturer la toolbar avec
+              une rangee de chips qui ferait potentiellement 10+ items. */}
+          {(localTypes.filter((t) => t.actif).length > 0 || counts.typeNone > 0) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] uppercase tracking-wider font-medium text-zinc-500 dark:text-zinc-400 shrink-0">Type</span>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as FilterType)}
+                className="px-2.5 py-1 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-[12px] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              >
+                <option value="all">Tous les types ({counts.total})</option>
+                {localTypes
+                  .filter((t) => t.actif)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label} ({counts.type.get(t.id) ?? 0})
+                    </option>
+                  ))}
+                {counts.typeNone > 0 && (
+                  <option value="none">Sans type ({counts.typeNone})</option>
+                )}
+              </select>
+            </div>
+          )}
+
           {(filterMission !== "all" || filterFact !== "all" || filterType !== "all") && (
             <button
               type="button"
@@ -483,9 +570,9 @@ export default function MissionExcTable({
                 setFilterFact("all");
                 setFilterType("all");
               }}
-              className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+              className="self-start text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
             >
-              Réinitialiser
+              Réinitialiser tous les filtres
             </button>
           )}
         </div>
@@ -1488,38 +1575,7 @@ function BadgePicker<T extends string>({
   );
 }
 
-// ============================================================================
-//  FilterSelect : petit select pour la toolbar
-// ============================================================================
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<{ key: string; label: string }>;
-}) {
-  return (
-    <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-      <span>{label} :</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-2 py-1 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-      >
-        {options.map((o) => (
-          <option key={o.key} value={o.key}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+// (FilterSelect retire : remplace par StatusFilterChip cf. toolbar ci-dessus)
 
 // ============================================================================
 //  NewMissionForm : creation rapide
