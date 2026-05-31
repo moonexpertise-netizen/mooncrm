@@ -72,6 +72,7 @@ export default function CaaTable({
   selectedYear,
   center,
   years,
+  pillYears,
   statusOptions,
 }: {
   rows: CaaRow[];
@@ -80,6 +81,8 @@ export default function CaaTable({
   /** Centre de la fenetre 3-ans (cf. IR pour la logique). */
   center: number;
   years: number[];
+  /** Fenetre elargie a 6 ans pour les pills de souscription en vue Base. */
+  pillYears?: number[];
   statusOptions: CaaStatusOption[];
 }) {
   const router = useRouter();
@@ -625,7 +628,7 @@ export default function CaaTable({
                       </td>
                       <td className="px-3 py-2.5">
                         <YearPills
-                          years={years}
+                          years={pillYears ?? years}
                           subscribedYears={new Set(r.obligations.keys())}
                           onToggle={(year) => onToggleSubscription(r.id, year)}
                         />
@@ -781,8 +784,9 @@ function YearPills({
   subscribedYears: Set<number>;
   onToggle: (year: number) => void;
 }) {
+  // Grid 3 colonnes compact -> ~6 ans tiennent sur 2 lignes.
   return (
-    <div className="inline-flex flex-wrap items-center gap-1">
+    <div className="inline-grid grid-cols-3 gap-1 max-w-[160px]">
       {years.map((y) => {
         const subscribed = subscribedYears.has(y);
         return (
@@ -793,7 +797,7 @@ function YearPills({
             aria-pressed={subscribed}
             title={subscribed ? `Souscrit ${y} · clic pour retirer` : `Non souscrit ${y} · clic pour ajouter`}
             className={cn(
-              "px-2 py-0.5 rounded text-[11px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
+              "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
               subscribed
                 ? "bg-zinc-200 dark:bg-white/[0.14] text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-white/[0.20]"
                 : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10] hover:text-zinc-700 dark:hover:text-zinc-300"

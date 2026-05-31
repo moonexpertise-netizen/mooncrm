@@ -29,6 +29,8 @@ export default async function CaaPage({
       : CURRENT_YEAR;
   const selectedYear = yearParam && !Number.isNaN(yearParam) ? yearParam : center;
   const AVAILABLE_YEARS = [center - 1, center, center + 1];
+  // Fenetre elargie a 6 ans pour les pills de souscription en vue Base.
+  const PILL_YEARS = [center - 2, center - 1, center, center + 1, center + 2, center + 3];
 
   const sb = await createClient();
 
@@ -121,6 +123,7 @@ export default async function CaaPage({
         selectedYear={selectedYear}
         center={center}
         years={AVAILABLE_YEARS}
+        pillYears={PILL_YEARS}
         statusOptions={options}
       />
     </div>

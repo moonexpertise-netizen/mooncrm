@@ -87,12 +87,15 @@ export default function CreationsTable({
   selectedYear,
   center,
   years,
+  pillYears,
 }: {
   rows: CreationRow[];
   mode: "base" | "year";
   selectedYear: number;
   center: number;
   years: number[];
+  /** Fenetre elargie a 6 ans pour les pills de souscription en vue Base. */
+  pillYears?: number[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -471,7 +474,7 @@ export default function CreationsTable({
                   {mode === "base" ? (
                     <td className="px-3 py-2.5">
                       <YearPills
-                        years={years}
+                        years={pillYears ?? years}
                         activeYear={r.creation_annee}
                         onToggle={(year) => onToggleSubscription(r.id, year)}
                       />
@@ -562,8 +565,9 @@ function YearPills({
   activeYear: number | null;
   onToggle: (year: number) => void;
 }) {
+  // Grid 3 colonnes compact -> ~6 ans tiennent sur 2 lignes.
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="inline-grid grid-cols-3 gap-1 max-w-[160px]">
       {years.map((y) => {
         const isActive = activeYear === y;
         return (
@@ -572,7 +576,7 @@ function YearPills({
             type="button"
             onClick={() => onToggle(y)}
             className={cn(
-              "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all tabular-nums",
+              "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all tabular-nums",
               isActive
                 ? "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40"
                 : "bg-white dark:bg-white/[0.02] text-zinc-600 dark:text-zinc-400 border-dashed border-zinc-300 dark:border-white/[0.10] hover:border-zinc-400 dark:hover:border-white/[0.20] hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -583,7 +587,7 @@ function YearPills({
         );
       })}
       {activeYear !== null && !years.includes(activeYear) && (
-        <span className="inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border tabular-nums bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40">
+        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium border tabular-nums bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40">
           {activeYear}
         </span>
       )}

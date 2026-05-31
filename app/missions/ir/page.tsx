@@ -35,8 +35,13 @@ export default async function IrPage({
       ? centerParam
       : CURRENT_YEAR;
   const selectedYear = yearParam && !Number.isNaN(yearParam) ? yearParam : center;
-  // Fenetre glissante de 3 annees : [center-1, center, center+1]
+  // Fenetre glissante de 3 annees pour la nav haut (selecteur focus) :
+  //   [center-1, center, center+1]
+  // Fenetre elargie a 6 annees pour les pills de souscription en vue Base
+  // (plus de visibilite cross-annee, affichage sur 2 lignes compactes) :
+  //   [center-2, center-1, center, center+1, center+2, center+3]
   const AVAILABLE_YEARS = [center - 1, center, center + 1];
+  const PILL_YEARS = [center - 2, center - 1, center, center + 1, center + 2, center + 3];
 
   const sb = await createClient();
 
@@ -155,6 +160,7 @@ export default async function IrPage({
         selectedYear={selectedYear}
         center={center}
         years={AVAILABLE_YEARS}
+        pillYears={PILL_YEARS}
         statusOptions={optsByType}
       />
     </div>
