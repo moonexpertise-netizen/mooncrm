@@ -57,14 +57,23 @@ export const loadAllStatusOpts = cache(async () => {
 /**
  * Charge les etiquettes TVA actives + l'unique tag eventuellement deja affecte
  * au client courant meme s'il est inactif (sinon on perdrait l'affichage).
+ *
+ * Defensive : si la table tva_tags n'existe pas (migration 0059 pas
+ * appliquee), retourne [] silencieusement plutot que de remonter une error
+ * -> evite l'error boundary sur la fiche client.
  */
 export const loadActiveTvaTags = cache(async (currentTagId?: string | null) => {
   const sb = await createClient();
-  const { data } = await sb
+  const { data, error } = await sb
     .from("tva_tags")
     .select("id, label, color, actif")
     .or(currentTagId ? `actif.eq.true,id.eq.${currentTagId}` : `actif.eq.true`)
     .order("ordre");
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error("[loadActiveTvaTags] erreur tva_tags :", error.message);
+    return [];
+  }
   return (data ?? []) as Array<{ id: string; label: string; color: string; actif: boolean }>;
 });
 

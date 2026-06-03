@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAlert } from "@/app/_components/confirm-modal";
+import { toastError } from "@/lib/toast-helpers";
 import {
   reconduireAnnee,
   setDashboardSubscription,
@@ -208,9 +209,17 @@ export default function ObligationsMatrix({
       return;
     }
     const next = !isDashboardActive(annee);
+    // Try/catch obligatoire : si la migration 0061 (enum type_obligation
+    // etendu) n'est pas appliquee, l'INSERT cote serveur throw, et sans
+    // capture l'erreur remonte au startTransition -> error boundary
+    // "Impossible de charger ce dossier" pour TOUT le segment.
     startTransition(async () => {
-      await setDashboardSubscription(clientId, annee, next);
-      router.refresh();
+      try {
+        await setDashboardSubscription(clientId, annee, next);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Échec activation Dashboard");
+      }
     });
   }
 
