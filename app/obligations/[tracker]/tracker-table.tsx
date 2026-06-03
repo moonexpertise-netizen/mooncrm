@@ -175,6 +175,11 @@ export default function TrackerTable({
         const parsed = JSON.parse(status);
         if (Array.isArray(parsed)) setStatusFilter(new Set(parsed as StatutFilter[]));
       }
+      const period = localStorage.getItem(`${STORAGE_PREFIX}.periodFilter`);
+      if (period) {
+        const parsed = JSON.parse(period);
+        if (Array.isArray(parsed)) setPeriodFilter(new Set(parsed as string[]));
+      }
     } catch {
       // localStorage indispo (mode prive, quota plein) / JSON cassé : on
       // ignore et on reste sur les defauts.
@@ -182,6 +187,21 @@ export default function TrackerTable({
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [STORAGE_PREFIX]);
+
+  // Cleanup : les keys de periodFilter incluent l'annee (ex. "2026-04"). Quand
+  // l'user change d'annee, les anciennes keys ne matchent plus aucune col -> on
+  // les degage pour eviter un filtre fantome qui cacherait toutes les colonnes.
+  useEffect(() => {
+    if (!hydrated || periodFilter.size === 0) return;
+    const valid = new Set(cols.map((c) => c.key));
+    let changed = false;
+    const next = new Set<string>();
+    for (const k of periodFilter) {
+      if (valid.has(k)) next.add(k);
+      else changed = true;
+    }
+    if (changed) setPeriodFilter(next);
+  }, [hydrated, cols, periodFilter]);
 
   // Le tagFilter stocke peut pointer sur un tag supprime depuis. On nettoie
   // si l'id n'existe plus dans la liste actuelle des tags.
@@ -201,10 +221,11 @@ export default function TrackerTable({
       localStorage.setItem(`${STORAGE_PREFIX}.tvaSort`, tvaSort);
       localStorage.setItem(`${STORAGE_PREFIX}.tvaTagFilter`, tvaTagFilter);
       localStorage.setItem(`${STORAGE_PREFIX}.statusFilter`, JSON.stringify(Array.from(statusFilter)));
+      localStorage.setItem(`${STORAGE_PREFIX}.periodFilter`, JSON.stringify(Array.from(periodFilter)));
     } catch {
       // localStorage saturé : on tant pis, le state React reste correct.
     }
-  }, [hydrated, STORAGE_PREFIX, tvaView, tvaSort, tvaTagFilter, statusFilter]);
+  }, [hydrated, STORAGE_PREFIX, tvaView, tvaSort, tvaTagFilter, statusFilter, periodFilter]);
 
   // State local + sync via prop. useOptimistic ne joue pas bien avec
   // router.refresh() (revert à la fin de la transition, le refresh n'a pas
