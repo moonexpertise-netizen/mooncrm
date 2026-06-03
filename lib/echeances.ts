@@ -136,6 +136,25 @@ export function computeEcheance(
     };
   }
 
+  // ----- TVA annuelle CA12 (regime reel simplifie) -----
+  // Cloture 31/12 : actif 1er janvier N+1, echeance 3 mai N+1
+  // Cloture decalee : actif 1er du mois suivant cloture, echeance cloture + 3m + 3j
+  if (type === "TVA_ANNUELLE_CA12") {
+    const cloDate = makeDate(annee, cloture.mois, cloture.jour);
+    if (isAnneeCivile(cloture)) {
+      return {
+        activeFrom: firstOfMonth(annee + 1, 1),
+        dueDate: makeDate(annee + 1, 5, 3),
+      };
+    }
+    const activeMonth = cloture.mois === 12 ? 1 : cloture.mois + 1;
+    const activeYear = cloture.mois === 12 ? annee + 1 : annee;
+    return {
+      activeFrom: firstOfMonth(activeYear, activeMonth),
+      dueDate: addDays(addMonths(cloDate, 3), 3),
+    };
+  }
+
   // ----- IS annuel / solde IS -----
   // Clôture 31/12 : actif 1er janvier N+1, echeance 18 mai N+1
   // Clôture décalée : actif 1er du mois suivant clôture, echeance clôture + 3m + 18j

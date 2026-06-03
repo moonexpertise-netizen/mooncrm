@@ -17,6 +17,7 @@ import CommentsPopover from "./comments-panel";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { setClientTvaTag } from "@/app/parametrage/tva-tags/actions";
+import { computeEcheance, getUrgencyStatus, type UrgencyStatus } from "@/lib/echeances";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
@@ -1425,6 +1426,18 @@ export default function TrackerTable({
                   const isHighlighted = highlightedCellId === cellId;
                   const isOpenCell = openCellId === cellId;
                   const isSelected = !!c.obligationId && selectedIds.has(c.obligationId);
+                  // Urgence : calculee a partir du type d'obligation, de la periode
+                  // (du col) et de la cloture du client. cf. lib/echeances.ts
+                  const col = cols.find((co) => co.key === c.colKey);
+                  const urgency: UrgencyStatus = (() => {
+                    if (!c.obligationId || !col?.periode) return "none";
+                    const anneePeriode = parseInt(col.periode.split("-")[0] ?? "0", 10);
+                    const cloture = (r.jour_cloture && r.mois_cloture)
+                      ? { jour: r.jour_cloture, mois: r.mois_cloture }
+                      : { jour: 31, mois: 12 };
+                    const ech = computeEcheance(c.type, col.periode, anneePeriode, cloture);
+                    return getUrgencyStatus(ech, c.statut_logique);
+                  })();
                   const isAnchor =
                     isSelected && anchor?.row === rowIndex && anchor?.col === colIndex;
                   // Bordures façon Excel : on dessine un trait uniquement sur
@@ -1476,6 +1489,7 @@ export default function TrackerTable({
                           cellId={cellId}
                           isOpen={openCellId === cellId}
                           isSelected={isSelected}
+                          urgency={urgency}
                           options={statusOptions[c.type] ?? []}
                           commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
                           rowLabel={`${r.denomination} · ${cols.find((col) => col.key === c.colKey)?.label ?? c.type}`}
@@ -1808,6 +1822,7 @@ const StatusCell = memo(function StatusCell({
   cellId,
   isOpen,
   isSelected,
+  urgency = "none",
   onOpen,
   onClose,
   options,
@@ -1823,6 +1838,8 @@ const StatusCell = memo(function StatusCell({
   cellId: string;
   isOpen: boolean;
   isSelected?: boolean;
+  /** Niveau d'urgence calcule depuis lib/echeances.ts. */
+  urgency?: UrgencyStatus;
   onOpen: (cellId: string) => void;
   onClose: () => void;
   options: StatusOption[];
@@ -1911,26 +1928,40 @@ const StatusCell = memo(function StatusCell({
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
   const defaultLibelle = options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? "-";
 
-  // Pastille rouge "echeance proche" : visible si echeance <= 30j (couvre
-  // aussi les retards) ET pas encore termine / NA. Aide visuelle pour
-  // identifier les urgences operationnelles sans scanner toutes les cellules.
-  const isEcheanceProche = (() => {
-    if (!cell.echeance) return false;
-    if (cell.statut_logique === "TERMINE" || cell.statut_logique === "NON_APPLICABLE") return false;
-    const dueMs = new Date(cell.echeance).getTime();
-    if (Number.isNaN(dueMs)) return false;
-    const days = (dueMs - Date.now()) / (1000 * 60 * 60 * 24);
-    return days <= 30;
-  })();
+  // Pastille d'urgence : couleur selon le niveau calcule en amont
+  // (cf. lib/echeances.ts).
+  //  - 🟠 due_soon : echeance approche, periode active (a traiter)
+  //  - 🔴 overdue  : echeance depassee + pas terminé (en retard)
+  //  - none       : pas de signal (termine OU pas encore actif)
+  const urgencyPastille = urgency === "overdue"
+    ? "bg-rose-500"
+    : urgency === "due_soon"
+    ? "bg-amber-500"
+    : null;
 
   return (
     <div className="relative inline-block" ref={ref}>
-      {isEcheanceProche && (
+      {urgencyPastille && (
         <span
-          aria-label="Échéance proche"
-          title={cell.echeance ? `Échéance proche · ${fmtDateFr(cell.echeance)}` : "Échéance proche"}
-          className="absolute -top-0.5 -right-0.5 z-10 w-1.5 h-1.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-[hsl(var(--card))] pointer-events-none"
+          aria-label={urgency === "overdue" ? "En retard" : "Échéance proche"}
+          title={
+            urgency === "overdue"
+              ? `En retard${cell.echeance ? ` · échéance ${fmtDateFr(cell.echeance)}` : ""}`
+              : `Échéance proche${cell.echeance ? ` · ${fmtDateFr(cell.echeance)}` : ""}`
+          }
+          className={cn(
+            "absolute -top-0.5 -right-0.5 z-10 w-1.5 h-1.5 rounded-full ring-2 ring-white dark:ring-[hsl(var(--card))] pointer-events-none",
+            urgencyPastille
+          )}
         />
+      )}
+      {urgency === "overdue" && (
+        <span
+          className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-10 text-[8px] leading-none font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-rose-500 text-white pointer-events-none whitespace-nowrap"
+          aria-hidden
+        >
+          Retard
+        </span>
       )}
       <button
         onClick={(e) => {
@@ -2125,6 +2156,7 @@ const StatusCell = memo(function StatusCell({
     prev.cell.echeance === next.cell.echeance &&
     prev.cell.type === next.cell.type &&
     prev.cell.etat_facturation === next.cell.etat_facturation &&
+    prev.urgency === next.urgency &&
     prev.typeHonosBilans === next.typeHonosBilans &&
     prev.isOpen === next.isOpen &&
     prev.isSelected === next.isSelected &&
