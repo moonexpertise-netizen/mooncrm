@@ -21,7 +21,7 @@ import { useConfirm } from "@/app/_components/confirm-modal";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
-import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
+import { useLocalStoragePref, useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import {
   createMission,
   createMissionType,
@@ -259,6 +259,31 @@ export default function MissionExcTable({
     (k): k is FilterFact => k === "a_facturer" || k === "facturee" || k === "sans_facture",
   );
   const [filterType, setFilterType] = useState<FilterType>("all");
+  // Toggle "Masquer terminees" : par defaut on cache les missions ou les 3 axes
+  // (mission / facturation / LDM) sont au stade terminal -> rien a faire dessus.
+  // Persiste en localStorage pour que le user n'ait pas a le re-cocher a chaque
+  // ouverture de la page.
+  const [hideDone, setHideDone] = useLocalStoragePref<boolean>(
+    "moon.missionsExc.hideDone",
+    true,
+    (raw) => (raw === "true" ? true : raw === "false" ? false : null),
+    (val) => String(val),
+  );
+
+  /** Une mission est "100% terminee" quand chaque axe est dans un etat
+   *  terminal (= plus rien a faire dessus) :
+   *    - mission   : livree ou annulee
+   *    - facturation : facturee ou sans_facture
+   *    - LDM       : signee ou na (pas besoin de LDM pour cette mission)
+   *  C'est ce qui justifie de la masquer par defaut : elle ne pollue plus la
+   *  vue de pilotage.
+   */
+  function isMissionFullyDone(r: MissionExcRow): boolean {
+    const missionDone = r.etat_mission === "livree" || r.etat_mission === "annulee";
+    const factDone = r.etat_facturation === "facturee" || r.etat_facturation === "sans_facture";
+    const ldmDone = r.ldm_statut === "signee" || r.ldm_statut === "na";
+    return missionDone && factDone && ldmDone;
+  }
 
   useEffect(() => setLocalRows(rows), [rows]);
   useEffect(() => setLocalTypes(types), [types]);
@@ -311,6 +336,10 @@ export default function MissionExcTable({
   // ============================================================================
   const filteredRows = useMemo(() => {
     return localRows.filter((r) => {
+      // Hideout par defaut des missions 100% terminees (rien a faire sur les 3
+      // axes). Ne s'applique pas si l'utilisateur a explicitement filtre sur
+      // un statut terminal (ex. veut voir uniquement les "Facturées").
+      if (hideDone && isMissionFullyDone(r)) return false;
       if (filterMission.size > 0 && !filterMission.has(r.etat_mission)) return false;
       // etat_facturation peut etre null -> exclu si le filtre fact est actif
       if (filterFact.size > 0) {
@@ -320,7 +349,13 @@ export default function MissionExcTable({
       if (filterType !== "all" && filterType !== "none" && r.type_id !== filterType) return false;
       return true;
     });
-  }, [localRows, filterMission, filterFact, filterType]);
+  }, [localRows, filterMission, filterFact, filterType, hideDone]);
+  // Nombre de missions masquees par le toggle hideDone (independant des autres
+  // filtres) -> affiche en sous-info quand hideDone est actif.
+  const hiddenDoneCount = useMemo(
+    () => localRows.filter(isMissionFullyDone).length,
+    [localRows],
+  );
 
   // Compteurs pour les chips de filtre. Total absolu par etat (independant des
   // autres filtres) pour rester lisibles : on voit toujours combien y'en a au
@@ -582,19 +617,44 @@ export default function MissionExcTable({
             </div>
           )}
 
-          {(filterMission.size > 0 || filterFact.size > 0 || filterType !== "all") && (
-            <button
-              type="button"
-              onClick={() => {
-                setFilterMission(new Set());
-                setFilterFact(new Set());
-                setFilterType("all");
-              }}
-              className="self-start text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+          {/* Toggle "Masquer terminees" : par defaut on cache les missions
+              dont les 3 axes sont au stade terminal (Livree/Annulee +
+              Facturee/Sans facture + Signee/N/A). Compteur sub-info pour
+              indiquer combien sont masquees. */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <label
+              className="inline-flex items-center gap-2 cursor-pointer select-none px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+              title="Cache les missions ou il n'y a plus rien a faire (mission livree ou annulee + facturation cloturee + LDM signee ou non requise)"
             >
-              Réinitialiser tous les filtres
-            </button>
-          )}
+              <input
+                type="checkbox"
+                checked={hideDone}
+                onChange={(e) => setHideDone(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-zinc-300 dark:border-white/[0.15] accent-zinc-700 dark:accent-zinc-300"
+              />
+              <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                Masquer les terminées
+                {hiddenDoneCount > 0 && (
+                  <span className="text-zinc-400 dark:text-zinc-500 tabular-nums ml-1">
+                    ({hiddenDoneCount})
+                  </span>
+                )}
+              </span>
+            </label>
+            {(filterMission.size > 0 || filterFact.size > 0 || filterType !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterMission(new Set());
+                  setFilterFact(new Set());
+                  setFilterType("all");
+                }}
+                className="self-start text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+              >
+                Réinitialiser tous les filtres
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
