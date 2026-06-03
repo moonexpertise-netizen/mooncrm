@@ -22,6 +22,7 @@ import {
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { useColumnSelection } from "@/app/_components/use-column-selection";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
+import { Picker } from "@/app/_components/picker";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -746,7 +747,13 @@ export default function CaaTable({
                   {mode === "base" ? (
                     <>
                       <td className="px-3 py-2.5">
-                        <LdmPicker value={r.ldm_statut} onChange={(v) => onSetLdm(r.id, v)} />
+                        <Picker
+                          value={r.ldm_statut}
+                          options={LDM_VALUES}
+                          onChange={(v) => onSetLdm(r.id, v)}
+                          align="left"
+                          minWidth={200}
+                        />
                       </td>
                       <td className="px-3 py-2.5">
                         <YearPills
@@ -773,10 +780,20 @@ export default function CaaTable({
                           onCellClick(rowIdx, COL_STATUT, e);
                         }}
                       >
-                        <StatutCell
-                          cell={r.obligations.get(selectedYear) ?? null}
-                          options={statusOptions}
-                          onPick={(libelle) => onSetStatut(r.id, libelle)}
+                        <Picker
+                          value={r.obligations.get(selectedYear)?.libelle ?? null}
+                          options={statusOptions.map((o) => ({
+                            key: o.libelle,
+                            label: o.libelle,
+                            color: statutColorClass(o.statut_logique, o.color),
+                          }))}
+                          onChange={(libelle) => onSetStatut(r.id, libelle)}
+                          onReset={r.obligations.has(selectedYear) ? () => onSetStatut(r.id, null) : undefined}
+                          resetLabel="Marquer N/A (désouscrire de cette année)"
+                          allowEmpty
+                          placeholder="N/A"
+                          align="center"
+                          minWidth={220}
                         />
                       </td>
                       <td className="px-2 py-3 text-right">
@@ -801,10 +818,15 @@ export default function CaaTable({
                           onCellClick(rowIdx, COL_FACT, e);
                         }}
                       >
-                        <FacturationPicker
+                        <Picker
                           value={r.obligations.get(selectedYear)?.etat_facturation ?? null}
-                          onChange={(v) => onSetFacturation(r.id, v)}
+                          options={FACT_OPTIONS}
+                          onChange={(v) => onSetFacturation(r.id, v as EtatFacturation)}
+                          onReset={() => onSetFacturation(r.id, null)}
+                          allowEmpty
                           disabled={!r.obligations.has(selectedYear)}
+                          align="center"
+                          minWidth={200}
                         />
                       </td>
                     </>
@@ -959,368 +981,6 @@ function YearPills({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ============================================================================
-//  StatutCell (idem IR mais sans type)
-// ============================================================================
-
-function StatutCell({
-  cell,
-  options,
-  onPick,
-}: {
-  cell: CaaCell | null;
-  options: CaaStatusOption[];
-  onPick: (libelle: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-
-  useEffect(() => {
-    if (!open || !ref.current) {
-      setPos(null);
-      return;
-    }
-    const btn = ref.current.querySelector("button[data-statut-btn]");
-    if (!btn) return;
-    const rect = (btn as HTMLElement).getBoundingClientRect();
-    const POPOVER_HEIGHT = 200;
-    const POPOVER_WIDTH = 220;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const rawLeft = rect.left + rect.width / 2;
-    const halfW = POPOVER_WIDTH / 2;
-    const clampedLeft = Math.max(
-      MARGIN + halfW,
-      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
-    );
-    setPos({ left: clampedLeft, top: openUp ? rect.top : rect.bottom, openUp });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (ref.current?.contains(t)) return;
-      if (popoverRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const isSubscribed = cell !== null;
-
-  return (
-    <div ref={ref} className="inline-block">
-      <button
-        data-statut-btn="1"
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={cn(
-          "inline-block min-w-[110px] px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
-          isSubscribed
-            ? statutColorClass(cell!.statut_logique, null)
-            : "bg-zinc-50 dark:bg-white/[0.04] border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-400 dark:text-zinc-500"
-        )}
-      >
-        {isSubscribed ? cell!.libelle ?? "À préparer" : "N/A"}
-      </button>
-      {open && pos &&
-        createPortal(
-          <div
-            ref={popoverRef}
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp ? "translate(-50%, calc(-100% - 8px))" : "translate(-50%, 8px)",
-              zIndex: 1000,
-            }}
-            className="min-w-[220px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
-          >
-            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
-              Statut CAA
-            </div>
-            <div className="py-1 max-h-[260px] overflow-y-auto">
-              {options.map((o) => (
-                <button
-                  key={o.libelle}
-                  type="button"
-                  onClick={() => {
-                    onPick(o.libelle);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                    cell?.libelle === o.libelle && "bg-zinc-50 dark:bg-white/[0.04]"
-                  )}
-                >
-                  <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", statutColorClass(o.statut_logique, o.color))}>
-                    {o.libelle}
-                  </span>
-                  {cell?.libelle === o.libelle && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
-                </button>
-              ))}
-            </div>
-            {isSubscribed && (
-              <div className="border-t dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onPick(null);
-                    setOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
-                >
-                  Marquer N/A (désouscrire de cette année)
-                </button>
-              </div>
-            )}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-}
-
-// ============================================================================
-//  LdmPicker
-// ============================================================================
-
-function LdmPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-  const current = LDM_VALUES.find((v) => v.key === value) ?? LDM_VALUES[0];
-
-  useEffect(() => {
-    if (!open || !btnRef.current) {
-      setPos(null);
-      return;
-    }
-    const rect = btnRef.current.getBoundingClientRect();
-    const POPOVER_HEIGHT = LDM_VALUES.length * 32 + 16;
-    const POPOVER_WIDTH = 200;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const desiredLeft = rect.left;
-    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
-    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t)) return;
-      if (popRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="inline-block">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={cn(
-          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
-          current.color
-        )}
-      >
-        {current.label}
-      </button>
-      {open &&
-        pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={popRef}
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
-              zIndex: 1000,
-            }}
-            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
-          >
-            {LDM_VALUES.map((v) => (
-              <button
-                key={v.key}
-                type="button"
-                onClick={() => {
-                  onChange(v.key);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                  value === v.key && "bg-zinc-50 dark:bg-white/[0.04]"
-                )}
-              >
-                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", v.color)}>{v.label}</span>
-                {value === v.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
-              </button>
-            ))}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-}
-
-// ============================================================================
-//  FacturationPicker - 4 etats. Disabled si pas de souscription pour l'annee.
-// ============================================================================
-
-function FacturationPicker({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: EtatFacturation | null;
-  onChange: (v: EtatFacturation | null) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-  const current = value ? FACT_OPTIONS.find((o) => o.key === value) : null;
-
-  useEffect(() => {
-    if (!open || !btnRef.current) {
-      setPos(null);
-      return;
-    }
-    const rect = btnRef.current.getBoundingClientRect();
-    const POPOVER_HEIGHT = FACT_OPTIONS.length * 32 + 50;
-    const POPOVER_WIDTH = 200;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const desiredLeft = rect.left + rect.width / 2 - POPOVER_WIDTH / 2;
-    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
-    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t)) return;
-      if (popRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  if (disabled) {
-    return <span className="text-zinc-300 dark:text-zinc-600 text-xs italic">-</span>;
-  }
-
-  return (
-    <div className="inline-block">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={cn(
-          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 min-w-[90px] justify-center",
-          current
-            ? current.color
-            : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]"
-        )}
-      >
-        {current ? current.label : "-"}
-      </button>
-      {open &&
-        pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={popRef}
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
-              zIndex: 1000,
-            }}
-            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
-          >
-            {FACT_OPTIONS.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                onClick={() => {
-                  onChange(o.key);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                  value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
-                )}
-              >
-                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>{o.label}</span>
-                {value === o.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
-              </button>
-            ))}
-            {value !== null && (
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(null);
-                  setOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
-              >
-                Réinitialiser
-              </button>
-            )}
-          </div>,
-          document.body
-        )}
     </div>
   );
 }

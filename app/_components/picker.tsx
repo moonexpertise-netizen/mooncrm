@@ -39,6 +39,7 @@ export function Picker<T extends string>({
   options,
   onChange,
   onReset,
+  resetLabel = "Réinitialiser",
   allowEmpty = false,
   disabled = false,
   placeholder = "—",
@@ -50,9 +51,11 @@ export function Picker<T extends string>({
   value: T | null;
   options: Array<PickerOption<T>>;
   onChange: (v: T) => void;
-  /** Si fourni, affiche un bouton "Réinitialiser" en bas du popover (visible
+  /** Si fourni, affiche un bouton de reset en bas du popover (visible
    *  uniquement si value !== null). Permet de revider la cellule vers null. */
   onReset?: () => void;
+  /** Libelle du bouton de reset. Defaut "Réinitialiser". */
+  resetLabel?: string;
   /** Si true et value=null, affiche le placeholder au lieu du fallback options[0]. */
   allowEmpty?: boolean;
   /** Grise le bouton et le rend non cliquable. */
@@ -227,7 +230,7 @@ export function Picker<T extends string>({
                 }}
                 className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
               >
-                Réinitialiser
+                {resetLabel}
               </button>
             )}
           </div>,
