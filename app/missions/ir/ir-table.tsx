@@ -21,7 +21,7 @@ import {
   type StatutLogique,
 } from "./actions";
 import { useConfirm } from "@/app/_components/confirm-modal";
-import { useGridSelection } from "@/app/_components/use-grid-selection";
+import { useColumnSelection } from "@/app/_components/use-column-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -157,10 +157,13 @@ export default function IrTable({
     return c;
   }, [yearRows, selectedYear]);
 
-  // Selection cellulaire en vue annee : grille 2D 3 colonnes (IR | IFI | FACT)
-  // Composite IDs "rowId|TYPE". Navigation Excel-style : ←→ entre colonnes,
-  // ↑↓ entre rows, Shift étend en rectangle.
-  // En mode "base" : pas de grille (toggle souscriptions, pas de selection).
+  // Selection multi-cellules en vue annee : 3 colonnes (IR | IFI | FACT).
+  // Selection contrainte a UNE colonne a la fois (useColumnSelection) :
+  // cliquer dans IFI alors qu'on a IR selectionne reset la selection vers IFI.
+  // Plus simple, plus logique : un libelle IR ne peut pas etre colle dans FACT.
+  const COL_IR = 0;
+  const COL_IFI = 1;
+  const COL_FACT = 2;
   const gridIds = useMemo<(string | null)[][]>(() => {
     if (mode !== "year") return [];
     return visibleRows.map((r) => [
@@ -169,48 +172,149 @@ export default function IrTable({
       `${r.id}|FACT`,
     ]);
   }, [visibleRows, mode]);
+
+  // Map cellId selectionnee -> rowId. Utilise par onBulkApply (on sait deja
+  // qu'on est dans activeCol, donc tous les ids sont du meme type).
+  function rowIdsFromSelection(): string[] {
+    const out: string[] = [];
+    for (const cid of selectedIds) {
+      const [rowId] = cid.split("|");
+      if (rowId) out.push(rowId);
+    }
+    return out;
+  }
+
+  // Copy : libelles du statut courant, 1 par ligne (TSV friendly Excel)
+  function buildCopyText(col: number): string {
+    return rowIdsFromSelection()
+      .map((rid) => {
+        const r = localRows.find((x) => x.id === rid);
+        if (!r) return "";
+        if (col === COL_IR) return r.obligations.get(`${selectedYear}|IR`)?.libelle ?? "";
+        if (col === COL_IFI) return r.obligations.get(`${selectedYear}|IFI`)?.libelle ?? "";
+        if (col === COL_FACT) {
+          const f = r.facturations.get(selectedYear);
+          const def = FACT_OPTIONS.find((o) => o.key === f);
+          return def?.label ?? "";
+        }
+        return "";
+      })
+      .join("\n");
+  }
+
+  // Paste : 1 valeur = fill-all, sinon positional. Filtre aux libelles
+  // valides pour la colonne courante.
+  function applyPasteText(text: string, ids: string[], col: number) {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0 || ids.length === 0) return;
+    const rowIds = ids.map((cid) => cid.split("|")[0]).filter(Boolean);
+
+    if (col === COL_IR || col === COL_IFI) {
+      const type: IrType = col === COL_IR ? "IR" : "IFI";
+      const opts = statusOptions[`${type}_ANNEE`] ?? [];
+      const resolve = (raw: string) => {
+        const t = raw.trim();
+        if (!t) return null;
+        return opts.find((o) => o.libelle.toLowerCase() === t.toLowerCase())?.libelle ?? null;
+      };
+      const updates = new Map<string, string[]>();
+      if (lines.length === 1) {
+        const lib = resolve(lines[0]);
+        if (!lib) return;
+        updates.set(lib, rowIds);
+      } else {
+        for (let i = 0; i < rowIds.length && i < lines.length; i++) {
+          const lib = resolve(lines[i]);
+          if (!lib) continue;
+          if (!updates.has(lib)) updates.set(lib, []);
+          updates.get(lib)!.push(rowIds[i]);
+        }
+      }
+      if (updates.size === 0) return;
+      startTransition(async () => {
+        try {
+          let total = 0;
+          for (const [lib, rIds] of updates) {
+            const res = await bulkSetIrObligationStatut(rIds, selectedYear, type, lib);
+            total += res.updated;
+          }
+          toastSuccess(`${total} cellule${total > 1 ? "s" : ""} collée${total > 1 ? "s" : ""}`);
+          clearSelection();
+          router.refresh();
+        } catch (e) {
+          toastError(e, "Echec collage");
+          router.refresh();
+        }
+      });
+      return;
+    }
+
+    if (col === COL_FACT) {
+      const resolve = (raw: string): EtatFacturation | null => {
+        const t = raw.trim().toLowerCase();
+        const opt = FACT_OPTIONS.find((o) =>
+          o.label.toLowerCase() === t || o.key.toLowerCase() === t
+        );
+        return opt?.key ?? null;
+      };
+      const targets: Array<{ id: string; etat: EtatFacturation }> = [];
+      if (lines.length === 1) {
+        const etat = resolve(lines[0]);
+        if (!etat) return;
+        for (const id of rowIds) targets.push({ id, etat });
+      } else {
+        for (let i = 0; i < rowIds.length && i < lines.length; i++) {
+          const etat = resolve(lines[i]);
+          if (!etat) continue;
+          targets.push({ id: rowIds[i], etat });
+        }
+      }
+      if (targets.length === 0) return;
+      startTransition(async () => {
+        try {
+          await Promise.all(targets.map((t) => setIrFacturation(t.id, selectedYear, t.etat)));
+          toastSuccess(`${targets.length} facturation${targets.length > 1 ? "s" : ""} collée${targets.length > 1 ? "s" : ""}`);
+          clearSelection();
+          router.refresh();
+        } catch (e) {
+          toastError(e, "Echec collage");
+          router.refresh();
+        }
+      });
+    }
+  }
+
   const {
     selectedIds,
     selectedCount,
+    activeCol,
     focusedPos,
     isSelected,
     onCellClick,
     clearSelection,
     selectAll,
     selectOne,
-  } = useGridSelection(gridIds);
+  } = useColumnSelection(gridIds, {
+    onCopy: (ids, col) => {
+      const text = buildCopyText(col);
+      if (!text) return;
+      navigator.clipboard?.writeText?.(text).then(() => {
+        toastSuccess(`${ids.length} cellule${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
+      }).catch(() => {});
+    },
+    onPaste: (text, ids, col) => applyPasteText(text, ids, col),
+  });
 
-  // Parse les composite IDs pour le bulk apply : separe par type
-  function splitSelectedByType(): { ir: string[]; ifi: string[]; fact: string[] } {
-    const ir: string[] = [];
-    const ifi: string[] = [];
-    const fact: string[] = [];
-    for (const cid of selectedIds) {
-      const [rowId, type] = cid.split("|");
-      if (!rowId || !type) continue;
-      if (type === "IR") ir.push(rowId);
-      else if (type === "IFI") ifi.push(rowId);
-      else if (type === "FACT") fact.push(rowId);
-    }
-    return { ir, ifi, fact };
-  }
+  function onBulkApply(value: string) {
+    // value = libelle statut (IR/IFI) OU etat_facturation (FACT).
+    // Le type est determine par activeCol (un seul possible a la fois).
+    if (activeCol === null) return;
+    const ids = rowIdsFromSelection();
+    if (ids.length === 0) return;
 
-  function onBulkApply(prefixedKey: string) {
-    // Format de la key : "IR:libelle" / "IFI:libelle" / "FACT:etat".
-    // On applique aux cells du type cible UNIQUEMENT dans la selection :
-    // selectionner 5 cells IR + 3 cells IFI puis "IR:Termine" -> 5 cells IR.
-    const [type, libelle] = prefixedKey.split(":") as [string, string];
-    if (!libelle) return;
-    const split = splitSelectedByType();
-
-    // Branche FACT : libelle = etat_facturation ('a_facturer' | 'facturee' | 'sans_facture')
-    if (type === "FACT") {
-      const ids = split.fact;
-      if (ids.length === 0) {
-        toastError(new Error("Aucune cellule Facturation sélectionnée"), "Sélection invalide");
-        return;
-      }
-      const etat = libelle as EtatFacturation;
+    // Branche FACT
+    if (activeCol === COL_FACT) {
+      const etat = value as EtatFacturation;
       setLocalRows((prev) =>
         prev.map((r) => {
           if (!ids.includes(r.id)) return r;
@@ -221,7 +325,6 @@ export default function IrTable({
       );
       startTransition(async () => {
         try {
-          // Pas d'action bulk dediee pour facturation : on iter
           await Promise.all(ids.map((id) => setIrFacturation(id, selectedYear, etat)));
           toastSuccess(`${ids.length} facturation${ids.length > 1 ? "s" : ""} mise${ids.length > 1 ? "s" : ""} à jour`);
           clearSelection();
@@ -234,12 +337,9 @@ export default function IrTable({
       return;
     }
 
-    if (type !== "IR" && type !== "IFI") return;
-    const ids = type === "IR" ? split.ir : split.ifi;
-    if (ids.length === 0) {
-      toastError(new Error(`Aucune cellule ${type} sélectionnée`), "Sélection invalide");
-      return;
-    }
+    // Branche IR ou IFI
+    const type: IrType = activeCol === COL_IR ? "IR" : "IFI";
+    const libelle = value;
     const opts = statusOptions[`${type}_ANNEE`] ?? [];
     const sl = (opts.find((o) => o.libelle === libelle)?.statut_logique ?? "A_FAIRE") as StatutLogique;
     // Optimistic mirror : update du type cible uniquement
@@ -644,9 +744,9 @@ export default function IrTable({
                 const irSelected = mode === "year" && isSelected(irCellId);
                 const ifiSelected = mode === "year" && isSelected(ifiCellId);
                 const factSelected = mode === "year" && isSelected(factCellId);
-                const irFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 0;
-                const ifiFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 1;
-                const factFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 2;
+                const irFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === COL_IR;
+                const ifiFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === COL_IFI;
+                const factFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === COL_FACT;
                 return (
                 <tr
                   key={r.id}
@@ -720,10 +820,10 @@ export default function IrTable({
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
                           if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
-                            selectOne(irCellId);
+                            selectOne(rowIdx, COL_IR);
                             return;
                           }
-                          onCellClick(rowIdx, 0, e);
+                          onCellClick(rowIdx, COL_IR, e);
                         }}
                       >
                         <StatutCell
@@ -741,10 +841,10 @@ export default function IrTable({
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
                           if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
-                            selectOne(ifiCellId);
+                            selectOne(rowIdx, COL_IFI);
                             return;
                           }
-                          onCellClick(rowIdx, 1, e);
+                          onCellClick(rowIdx, COL_IFI, e);
                         }}
                       >
                         <StatutCell
@@ -768,10 +868,10 @@ export default function IrTable({
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
                           if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
-                            selectOne(factCellId);
+                            selectOne(rowIdx, COL_FACT);
                             return;
                           }
-                          onCellClick(rowIdx, 2, e);
+                          onCellClick(rowIdx, COL_FACT, e);
                         }}
                       >
                         <FacturationPicker
@@ -830,28 +930,39 @@ export default function IrTable({
         <BulkActionBar
           count={selectedCount}
           onClear={clearSelection}
-          hint="← → entre IR / IFI / Facturation · shift + clic pour étendre"
-          label="Appliquer"
-          options={[
-            ...(statusOptions["IR_ANNEE"] ?? []).map((o) => ({
-              key: `IR:${o.libelle}`,
-              label: o.libelle,
-              color: statutColorClass(o.statut_logique, o.color),
-              group: "IR",
-            })),
-            ...(statusOptions["IFI_ANNEE"] ?? []).map((o) => ({
-              key: `IFI:${o.libelle}`,
-              label: o.libelle,
-              color: statutColorClass(o.statut_logique, o.color),
-              group: "IFI",
-            })),
-            ...FACT_OPTIONS.map((o) => ({
-              key: `FACT:${o.key}`,
-              label: o.label,
-              color: o.color,
-              group: "Facturation",
-            })),
-          ]}
+          hint={
+            activeCol === COL_IR ? "Colonne IR · ↑↓ nav · ← → change colonne · shift+clic étend"
+            : activeCol === COL_IFI ? "Colonne IFI · ↑↓ nav · ← → change colonne · shift+clic étend"
+            : activeCol === COL_FACT ? "Colonne Facturation · ↑↓ nav · ← → change colonne · shift+clic étend"
+            : "clic une cellule pour commencer"
+          }
+          label={
+            activeCol === COL_IR ? "Statut IR"
+            : activeCol === COL_IFI ? "Statut IFI"
+            : activeCol === COL_FACT ? "Facturation"
+            : "Appliquer"
+          }
+          options={
+            activeCol === COL_IR
+              ? (statusOptions["IR_ANNEE"] ?? []).map((o) => ({
+                  key: o.libelle,
+                  label: o.libelle,
+                  color: statutColorClass(o.statut_logique, o.color),
+                }))
+              : activeCol === COL_IFI
+              ? (statusOptions["IFI_ANNEE"] ?? []).map((o) => ({
+                  key: o.libelle,
+                  label: o.libelle,
+                  color: statutColorClass(o.statut_logique, o.color),
+                }))
+              : activeCol === COL_FACT
+              ? FACT_OPTIONS.map((o) => ({
+                  key: o.key,
+                  label: o.label,
+                  color: o.color,
+                }))
+              : []
+          }
           onApply={onBulkApply}
         />
       )}

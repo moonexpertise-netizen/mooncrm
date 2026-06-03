@@ -20,7 +20,7 @@ import {
   type StatutLogique,
 } from "./actions";
 import { useConfirm } from "@/app/_components/confirm-modal";
-import { useGridSelection } from "@/app/_components/use-grid-selection";
+import { useColumnSelection } from "@/app/_components/use-column-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -130,48 +130,84 @@ export default function CaaTable({
     return c;
   }, [yearRows, selectedYear]);
 
-  // Selection 2D en vue annee : 2 colonnes Statut | Facturation. Composite
-  // IDs "rowId|STATUT" / "rowId|FACT" -> nav ←→ entre les 2 colonnes.
+  // Selection 2 colonnes : Statut | Facturation. Une seule colonne active a la
+  // fois (useColumnSelection) : cliquer Facturation alors qu'on a Statut
+  // selectionne reset la selection. Cohérent : on ne peut pas coller un libelle
+  // Statut dans une cell Facturation.
+  const COL_STATUT = 0;
+  const COL_FACT = 1;
   const gridIds = useMemo<(string | null)[][]>(() => {
     if (mode !== "year") return [];
     return visibleRows.map((r) => [`${r.id}|STATUT`, `${r.id}|FACT`]);
   }, [visibleRows, mode]);
 
-  // Extracte les rowId des cellules STATUT selectionnees (utilise par copy/paste
-  // et bulk apply statut - les cellules FACT sont ignorees ici)
-  function statutRowIds(ids: string[]): string[] {
+  function rowIdsFromSelection(): string[] {
     const out: string[] = [];
-    for (const cid of ids) {
-      const [rowId, type] = cid.split("|");
-      if (rowId && type === "STATUT") out.push(rowId);
-    }
-    return out;
-  }
-  function factRowIds(ids: string[]): string[] {
-    const out: string[] = [];
-    for (const cid of ids) {
-      const [rowId, type] = cid.split("|");
-      if (rowId && type === "FACT") out.push(rowId);
+    for (const cid of selectedIds) {
+      const [rowId] = cid.split("|");
+      if (rowId) out.push(rowId);
     }
     return out;
   }
 
-  // Copy : libelle CAA pour selectedYear, 1 par ligne (seulement cells STATUT)
-  function buildCopyText(ids: string[]): string {
-    return statutRowIds(ids)
+  // Copy : libelles de la colonne active, 1 par ligne
+  function buildCopyText(col: number): string {
+    return rowIdsFromSelection()
       .map((id) => {
         const r = localRows.find((x) => x.id === id);
-        const cell = r?.obligations.get(selectedYear);
-        return cell?.libelle ?? "";
+        if (!r) return "";
+        const cell = r.obligations.get(selectedYear);
+        if (col === COL_STATUT) return cell?.libelle ?? "";
+        if (col === COL_FACT) {
+          const f = cell?.etat_facturation;
+          const def = FACT_OPTIONS.find((o) => o.key === f);
+          return def?.label ?? "";
+        }
+        return "";
       })
       .join("\n");
   }
 
-  // Paste : 1 valeur = fill-all, sinon positional. Filtre aux STATUT seulement.
-  function applyPasteText(text: string, allIds: string[]) {
-    const ids = statutRowIds(allIds);
+  // Paste : 1 valeur = fill-all, sinon positional. Switch sur col active.
+  function applyPasteText(text: string, allIds: string[], col: number) {
+    const ids = allIds.map((cid) => cid.split("|")[0]).filter(Boolean);
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length === 0 || ids.length === 0) return;
+    if (col === COL_FACT) {
+      const resolve = (raw: string): EtatFacturation | null => {
+        const t = raw.trim().toLowerCase();
+        const opt = FACT_OPTIONS.find((o) =>
+          o.label.toLowerCase() === t || o.key.toLowerCase() === t
+        );
+        return opt?.key ?? null;
+      };
+      const targets: Array<{ id: string; etat: EtatFacturation }> = [];
+      if (lines.length === 1) {
+        const etat = resolve(lines[0]);
+        if (!etat) return;
+        for (const id of ids) targets.push({ id, etat });
+      } else {
+        for (let i = 0; i < ids.length && i < lines.length; i++) {
+          const etat = resolve(lines[i]);
+          if (!etat) continue;
+          targets.push({ id: ids[i], etat });
+        }
+      }
+      if (targets.length === 0) return;
+      startTransition(async () => {
+        try {
+          await Promise.all(targets.map((t) => setCaaFacturation(t.id, selectedYear, t.etat)));
+          toastSuccess(`${targets.length} facturation${targets.length > 1 ? "s" : ""} collée${targets.length > 1 ? "s" : ""}`);
+          clearSelection();
+          router.refresh();
+        } catch (e) {
+          toastError(e, "Echec collage");
+          router.refresh();
+        }
+      });
+      return;
+    }
+    // Branche STATUT (col === COL_STATUT)
     const knownLibs = new Set(statusOptions.map((o) => o.libelle.toLowerCase()));
     function resolveLibelle(raw: string): string | null {
       const t = raw.trim();
@@ -237,36 +273,31 @@ export default function CaaTable({
   const {
     selectedIds,
     selectedCount,
+    activeCol,
     focusedPos,
     isSelected,
     onCellClick,
     clearSelection,
     selectAll,
     selectOne,
-  } = useGridSelection(gridIds, {
-    onCopy: (ids) => {
-      const statutIds = statutRowIds(ids);
-      if (statutIds.length === 0) return;
-      const text = buildCopyText(ids);
+  } = useColumnSelection(gridIds, {
+    onCopy: (ids, col) => {
+      const text = buildCopyText(col);
+      if (!text) return;
       navigator.clipboard?.writeText?.(text).then(() => {
-        toastSuccess(`${statutIds.length} ligne${statutIds.length > 1 ? "s" : ""} copiée${statutIds.length > 1 ? "s" : ""}`);
+        toastSuccess(`${ids.length} cellule${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
       }).catch(() => {});
     },
-    onPaste: (text, ids) => applyPasteText(text, ids),
+    onPaste: (text, ids, col) => applyPasteText(text, ids, col),
   });
 
-  // Dispatcher : "STATUT:libelle" -> bulk statut, "FACT:etat" -> bulk facturation
-  function onBulkApply(prefixedKey: string) {
-    const [type, value] = prefixedKey.split(":");
-    if (!value) return;
-    const all = Array.from(selectedIds);
+  // value = libelle statut OU etat_facturation. Le type est determine par activeCol.
+  function onBulkApply(value: string) {
+    if (activeCol === null) return;
+    const ids = rowIdsFromSelection();
+    if (ids.length === 0) return;
 
-    if (type === "FACT") {
-      const ids = factRowIds(all);
-      if (ids.length === 0) {
-        toastError(new Error("Aucune cellule Facturation sélectionnée"), "Sélection invalide");
-        return;
-      }
+    if (activeCol === COL_FACT) {
       const etat = value as EtatFacturation;
       setLocalRows((prev) =>
         prev.map((r) => {
@@ -292,12 +323,7 @@ export default function CaaTable({
       return;
     }
 
-    if (type !== "STATUT") return;
-    const ids = statutRowIds(all);
-    if (ids.length === 0) {
-      toastError(new Error("Aucune cellule Statut sélectionnée"), "Sélection invalide");
-      return;
-    }
+    // activeCol === COL_STATUT
     const libelle = value;
     const opt = statusOptions.find((o) => o.libelle === libelle);
     const sl = opt?.statut_logique ?? "A_FAIRE";
@@ -677,8 +703,8 @@ export default function CaaTable({
                 const factCellId = `${r.id}|FACT`;
                 const statutSelected = mode === "year" && isSelected(statutCellId);
                 const factSelected = mode === "year" && isSelected(factCellId);
-                const statutFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 0;
-                const factFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 1;
+                const statutFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === COL_STATUT;
+                const factFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === COL_FACT;
                 return (
                 <tr
                   key={r.id}
@@ -737,10 +763,10 @@ export default function CaaTable({
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
                           if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
-                            selectOne(statutCellId);
+                            selectOne(rowIdx, COL_STATUT);
                             return;
                           }
-                          onCellClick(rowIdx, 0, e);
+                          onCellClick(rowIdx, COL_STATUT, e);
                         }}
                       >
                         <StatutCell
@@ -765,10 +791,10 @@ export default function CaaTable({
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
                           if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
-                            selectOne(factCellId);
+                            selectOne(rowIdx, COL_FACT);
                             return;
                           }
-                          onCellClick(rowIdx, 1, e);
+                          onCellClick(rowIdx, COL_FACT, e);
                         }}
                       >
                         <FacturationPicker
@@ -828,22 +854,25 @@ export default function CaaTable({
         <BulkActionBar
           count={selectedCount}
           onClear={clearSelection}
-          hint="← → entre Statut / Facturation · shift + clic pour étendre"
-          label="Appliquer"
-          options={[
-            ...statusOptions.map((o) => ({
-              key: `STATUT:${o.libelle}`,
-              label: o.libelle,
-              color: statutColorClass(o.statut_logique, o.color),
-              group: "Statut",
-            })),
-            ...FACT_OPTIONS.map((o) => ({
-              key: `FACT:${o.key}`,
-              label: o.label,
-              color: o.color,
-              group: "Facturation",
-            })),
-          ]}
+          hint={
+            activeCol === COL_STATUT ? "Colonne Statut · ↑↓ nav · ← → change · shift+clic étend"
+            : activeCol === COL_FACT ? "Colonne Facturation · ↑↓ nav · ← → change · shift+clic étend"
+            : "clic une cellule pour commencer"
+          }
+          label={activeCol === COL_FACT ? "Facturation" : "Statut"}
+          options={
+            activeCol === COL_FACT
+              ? FACT_OPTIONS.map((o) => ({
+                  key: o.key,
+                  label: o.label,
+                  color: o.color,
+                }))
+              : statusOptions.map((o) => ({
+                  key: o.libelle,
+                  label: o.libelle,
+                  color: statutColorClass(o.statut_logique, o.color),
+                }))
+          }
           onApply={onBulkApply}
         />
       )}
