@@ -203,9 +203,11 @@ export function useColumnSelection(
       // Si un picker (listbox) est ouvert, on ne hijack pas les fleches
       const pickerOpen = !!document.querySelector("[role='listbox']");
 
-      // Esc
+      // Esc : vide la SELECTION mais garde focusedPos / anchorRow ->
+      // l'utilisateur peut continuer a naviguer avec les fleches.
+      // (sinon, Esc -> plus de focus -> fleches mortes, frustrant).
       if (e.key === "Escape" && selectedIds.size > 0 && !pickerOpen) {
-        clearSelection();
+        setSelectedIds(new Set());
         return;
       }
 
