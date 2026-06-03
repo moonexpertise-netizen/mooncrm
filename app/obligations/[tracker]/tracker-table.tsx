@@ -128,6 +128,9 @@ export default function TrackerTable({
   const [tvaView, setTvaView] = useState<"3m" | "12m">("3m");
   // Filtre par etiquette TVA : id du tag, "all" (defaut), ou "none" (sans tag)
   const [tvaTagFilter, setTvaTagFilter] = useState<string>("all");
+  // Tri TVA : "nom" (alphabetique denomination, defaut) ou "etiquette" (par
+  // ordre des tva_tags puis denomination en secondaire).
+  const [tvaSort, setTvaSort] = useState<"nom" | "etiquette">("nom");
   // Largeur auto-fit pour les colonnes (sinon min-w-[120px] par défaut)
   const [autoFit, setAutoFit] = useState(false);
   // Sélection multi-cellules (set d'obligationIds)
@@ -260,10 +263,19 @@ export default function TrackerTable({
     [visibleCols]
   );
 
+  // Map id tag -> ordre, pour tri par etiquette. Tags sans ordre (ou tag null
+  // sur une row) finissent en fin de liste via une valeur sentinelle elevee.
+  const tvaTagOrderMap = useMemo(() => {
+    if (!isTvaMensuelle || !tvaTags) return null;
+    const m = new Map<string, number>();
+    for (const t of tvaTags) m.set(t.id, t.ordre);
+    return m;
+  }, [isTvaMensuelle, tvaTags]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const hasStatusFilter = statusFilter.size > 0;
-    return localRows.filter((r) => {
+    const out = localRows.filter((r) => {
       if (s) {
         const hay = `${r.denomination} ${r.siren ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
@@ -290,7 +302,20 @@ export default function TrackerTable({
       }
       return true;
     });
-  }, [localRows, search, statusFilter, visibleColKeysSet, isTvaMensuelle, tvaTagFilter]);
+    // Tri TVA par etiquette : groupe par ordre du tag puis alphabetique
+    // denomination. Les rows sans tag terminent en fin de liste.
+    if (isTvaMensuelle && tvaSort === "etiquette" && tvaTagOrderMap) {
+      const SANS_TAG_ORDRE = Number.MAX_SAFE_INTEGER;
+      out.sort((a, b) => {
+        const oa = a.tva_tag_id ? tvaTagOrderMap.get(a.tva_tag_id) ?? SANS_TAG_ORDRE : SANS_TAG_ORDRE;
+        const ob = b.tva_tag_id ? tvaTagOrderMap.get(b.tva_tag_id) ?? SANS_TAG_ORDRE : SANS_TAG_ORDRE;
+        if (oa !== ob) return oa - ob;
+        return a.denomination.localeCompare(b.denomination, "fr");
+      });
+    }
+    // (sinon : on garde le tri par denomination defini par le server cote page.tsx)
+    return out;
+  }, [localRows, search, statusFilter, visibleColKeysSet, isTvaMensuelle, tvaTagFilter, tvaSort, tvaTagOrderMap]);
 
   // Compteurs par tag TVA pour les chips (independants du filtre tag courant)
   const tvaTagCounts = useMemo(() => {
@@ -1075,13 +1100,46 @@ export default function TrackerTable({
                   />
                 )}
               </div>
-              <Link
-                href="/parametrage/tva-tags"
-                className="ml-auto text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
-                title="Créer ou modifier les étiquettes TVA"
-              >
-                Gérer les étiquettes
-              </Link>
+
+              {/* Toggle tri Nom / Etiquette : groupé visuellement, à droite */}
+              <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <div className="inline-flex items-center gap-1 p-0.5 rounded-md bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
+                  <span className="px-1.5 text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Tri</span>
+                  <button
+                    type="button"
+                    onClick={() => setTvaSort("nom")}
+                    aria-pressed={tvaSort === "nom"}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                      tvaSort === "nom"
+                        ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    )}
+                  >
+                    Nom
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTvaSort("etiquette")}
+                    aria-pressed={tvaSort === "etiquette"}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                      tvaSort === "etiquette"
+                        ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    )}
+                  >
+                    Étiquette
+                  </button>
+                </div>
+                <Link
+                  href="/parametrage/tva-tags"
+                  className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+                  title="Créer ou modifier les étiquettes TVA"
+                >
+                  Gérer les étiquettes
+                </Link>
+              </div>
             </>
           )}
         </div>
