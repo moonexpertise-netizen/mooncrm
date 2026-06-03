@@ -195,7 +195,7 @@ export async function setEtatMission(missionId: string, etat: EtatMission) {
 
 export async function setEtatFacturation(
   missionId: string,
-  etat: EtatFacturation
+  etat: EtatFacturation | null
 ) {
   const sb = await createClient();
   const { error } = await sb

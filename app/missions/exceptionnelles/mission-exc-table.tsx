@@ -55,7 +55,10 @@ export type MissionExcRow = {
   taux_horaire: number | null;
   forfait: number | null;
   etat_mission: EtatMission;
-  etat_facturation: EtatFacturation;
+  /** null = mission pas encore livree -> on affiche "—". Le trigger DB et
+   *  l'auto-fact applicatif set automatiquement a "a_facturer" au passage
+   *  en "livree". */
+  etat_facturation: EtatFacturation | null;
   ldm_statut: LdmStatutMission;
   date_debut: string | null;
   date_fin: string | null;
@@ -383,7 +386,7 @@ export default function MissionExcTable({
     });
   }
 
-  function onSetEtatFacturation(id: string, etat: EtatFacturation) {
+  function onSetEtatFacturation(id: string, etat: EtatFacturation | null) {
     patchRow(id, { etat_facturation: etat });
     startTransition(async () => {
       try {
@@ -780,7 +783,7 @@ function MissionRow({
   onSaveField: (field: keyof MissionExcRow, value: string | number | null) => void;
   onChangeClient: (clientId: string | null, libre: string | null) => void;
   onSetEtatMission: (e: EtatMission) => void;
-  onSetEtatFacturation: (e: EtatFacturation) => void;
+  onSetEtatFacturation: (e: EtatFacturation | null) => void;
   onSetLdmStatut: (s: LdmStatutMission) => void;
   onSetType: (typeId: string | null) => void;
   onDuplicate: () => void;
@@ -854,12 +857,14 @@ function MissionRow({
         />
       </td>
 
-      {/* Etat facturation */}
+      {/* Etat facturation : tiret tant que la mission n'est pas livree.
+          Auto-set a "À facturer" au passage en "livree" (trigger DB + UI). */}
       <td className="px-2 py-2.5 text-center">
         <BadgePicker
           value={row.etat_facturation}
           options={ETAT_FACTURATION_OPTIONS}
           onChange={(v) => onSetEtatFacturation(v as EtatFacturation)}
+          allowEmpty
         />
       </td>
 
@@ -1467,16 +1472,22 @@ function BadgePicker<T extends string>({
   value,
   options,
   onChange,
+  /** Si true et value=null, affiche "—" (tiret) au lieu du fallback options[0].
+   *  Le bouton reste cliquable pour ouvrir le picker et choisir une option. */
+  allowEmpty = false,
 }: {
-  value: T;
+  value: T | null;
   options: Array<{ key: T; label: string; color: string }>;
   onChange: (v: T) => void;
+  allowEmpty?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-  const current = options.find((o) => o.key === value) ?? options[0];
+  const matched = options.find((o) => o.key === value);
+  const isEmpty = allowEmpty && value === null;
+  const current = matched ?? (isEmpty ? null : options[0]);
 
   // Positionne le popover via getBoundingClientRect + createPortal pour echapper
   // le clipping de la table (overflow-x-auto + rounded-xl).
@@ -1527,10 +1538,12 @@ function BadgePicker<T extends string>({
         aria-expanded={open}
         className={cn(
           "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 whitespace-nowrap",
-          current.color
+          current?.color ??
+            "bg-transparent dark:bg-transparent text-zinc-400 dark:text-zinc-500 border-transparent hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
         )}
+        title={isEmpty ? "Facturation non encore définie" : undefined}
       >
-        {current.label}
+        {current?.label ?? "—"}
       </button>
       {open &&
         pos &&

@@ -73,7 +73,7 @@ export default async function MissionsExcPage() {
     taux_horaire: number | null;
     forfait: number | null;
     etat_mission: string;
-    etat_facturation: string;
+    etat_facturation: string | null;
     ldm_statut: string;
     date_debut: string | null;
     date_fin: string | null;
