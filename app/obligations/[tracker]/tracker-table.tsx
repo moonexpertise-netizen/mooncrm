@@ -131,6 +131,10 @@ export default function TrackerTable({
   // Tri TVA : "nom" (alphabetique denomination, defaut) ou "etiquette" (par
   // ordre des tva_tags puis denomination en secondaire).
   const [tvaSort, setTvaSort] = useState<"nom" | "etiquette">("nom");
+  // Hydratation localStorage : flag pour eviter d'ecrire les defauts dans
+  // localStorage avant d'avoir read la valeur stockee. Pattern habituel pour
+  // les states persistes en Next.js (SSR-safe).
+  const [hydrated, setHydrated] = useState(false);
   // Largeur auto-fit pour les colonnes (sinon min-w-[120px] par défaut)
   const [autoFit, setAutoFit] = useState(false);
   // Sélection multi-cellules (set d'obligationIds)
@@ -147,6 +151,60 @@ export default function TrackerTable({
   const [, startTransition] = useTransition();
   const tableRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Persistance localStorage des prefs UI (vue, tri, filtres) par tracker.
+  // Cle scopee `moon.tracker.{slug}.*` pour ne pas melanger les contextes
+  // (ex. tva-mensuelle vs ago-depot ont leurs propres prefs).
+  //
+  // Pattern : on lit au mount dans un useEffect (SSR-safe : pas de mismatch
+  // d'hydratation), on ecrit a chaque changement uniquement APRES hydratation
+  // (sinon on ecraserait la valeur stockee avec le defaut au premier render).
+  const STORAGE_PREFIX = `moon.tracker.${trackerSlug ?? "default"}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const view = localStorage.getItem(`${STORAGE_PREFIX}.tvaView`);
+      if (view === "3m" || view === "12m") setTvaView(view);
+      const sort = localStorage.getItem(`${STORAGE_PREFIX}.tvaSort`);
+      if (sort === "nom" || sort === "etiquette") setTvaSort(sort);
+      const tagFilter = localStorage.getItem(`${STORAGE_PREFIX}.tvaTagFilter`);
+      if (tagFilter) setTvaTagFilter(tagFilter);
+      const status = localStorage.getItem(`${STORAGE_PREFIX}.statusFilter`);
+      if (status) {
+        const parsed = JSON.parse(status);
+        if (Array.isArray(parsed)) setStatusFilter(new Set(parsed as StatutFilter[]));
+      }
+    } catch {
+      // localStorage indispo (mode prive, quota plein) / JSON cassé : on
+      // ignore et on reste sur les defauts.
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [STORAGE_PREFIX]);
+
+  // Le tagFilter stocke peut pointer sur un tag supprime depuis. On nettoie
+  // si l'id n'existe plus dans la liste actuelle des tags.
+  useEffect(() => {
+    if (!hydrated || !tvaTags || tvaTagFilter === "all" || tvaTagFilter === "none") return;
+    if (!tvaTags.some((t) => t.id === tvaTagFilter)) {
+      setTvaTagFilter("all");
+    }
+  }, [hydrated, tvaTags, tvaTagFilter]);
+
+  // Write : a chaque changement, on persiste. Mais seulement apres hydratation
+  // pour ne pas ecraser la valeur stockee avec un defaut au premier render.
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    try {
+      localStorage.setItem(`${STORAGE_PREFIX}.tvaView`, tvaView);
+      localStorage.setItem(`${STORAGE_PREFIX}.tvaSort`, tvaSort);
+      localStorage.setItem(`${STORAGE_PREFIX}.tvaTagFilter`, tvaTagFilter);
+      localStorage.setItem(`${STORAGE_PREFIX}.statusFilter`, JSON.stringify(Array.from(statusFilter)));
+    } catch {
+      // localStorage saturé : on tant pis, le state React reste correct.
+    }
+  }, [hydrated, STORAGE_PREFIX, tvaView, tvaSort, tvaTagFilter, statusFilter]);
 
   // State local + sync via prop. useOptimistic ne joue pas bien avec
   // router.refresh() (revert à la fin de la transition, le refresh n'a pas
