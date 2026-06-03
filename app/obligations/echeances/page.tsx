@@ -7,6 +7,12 @@ import { isClientBillable } from "@/lib/billable";
 import { TRACKERS, slugForType } from "../trackers";
 import { cn, fmtDateFr } from "@/lib/utils";
 
+const CURRENT_YEAR_RANGE = [
+  new Date().getFullYear() - 1,
+  new Date().getFullYear(),
+  new Date().getFullYear() + 1,
+];
+
 export const dynamic = "force-dynamic";
 
 type FilterKind = "overdue" | "7j" | "30j";
@@ -29,13 +35,27 @@ export default async function EcheancesRisquePage({
 
   const supabase = await createClient();
 
+  // 1) Obligations materialisees en DB
   const { data: obligations } = await supabase
     .from("obligations")
     .select(
       "id, type, periode, annee, statut_logique, client_id, obligation_subscriptions!inner(actif), clients!inner(id, slug, denomination, siren, pipeline_statut, origine, jour_cloture, mois_cloture)"
     )
-    .gte("annee", new Date().getFullYear() - 1)
+    .gte("annee", CURRENT_YEAR_RANGE[0])
+    .lte("annee", CURRENT_YEAR_RANGE[2])
     .eq("obligation_subscriptions.actif", true);
+
+  // 2) Subscriptions actives avec leur client : on en deduit les obligations
+  //    "virtuelles" attendues mais pas encore materialisees en DB (tracker
+  //    affiche une cellule placeholder "À traiter" mais rien en obligations).
+  const { data: subs } = await supabase
+    .from("obligation_subscriptions")
+    .select(
+      "client_id, type, annee, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, jour_cloture, mois_cloture)"
+    )
+    .gte("annee", CURRENT_YEAR_RANGE[0])
+    .lte("annee", CURRENT_YEAR_RANGE[2])
+    .eq("actif", true);
 
   type Row = {
     id: string;
@@ -53,6 +73,12 @@ export default async function EcheancesRisquePage({
       jour_cloture: number | null;
       mois_cloture: number | null;
     };
+  };
+  type SubRow = {
+    client_id: string;
+    type: string;
+    annee: number;
+    clients: Row["clients"];
   };
 
   const today = new Date();
@@ -77,16 +103,34 @@ export default async function EcheancesRisquePage({
 
   const items: Item[] = [];
 
+  // Index des obligations materialisees par (client|type|annee) pour deduplication
+  const materializedByClientTypeAnnee = new Set<string>();
   for (const o of (obligations ?? []) as unknown as Row[]) {
-    const c = o.clients;
-    if (!isClientBillable(c)) continue;
-    if (o.statut_logique === "TERMINE" || o.statut_logique === "NON_APPLICABLE") continue;
+    materializedByClientTypeAnnee.add(`${o.clients.id}|${o.type}|${o.annee}`);
+  }
 
+  // Trouve dans trackers.ts les colonnes attendues pour ce type+annee
+  function periodesAttendues(type: string, annee: number): string[] {
+    const tracker = TRACKERS.find((t) => t.types.includes(type));
+    if (!tracker) return [];
+    return tracker.cols(annee).filter((col) => col.type === type).map((col) => col.periode);
+  }
+
+  // Ajoute un item depuis une obligation reelle ou virtuelle
+  function addItem(opts: {
+    obligationId: string;
+    client: Row["clients"];
+    type: string;
+    periode: string;
+    annee: number;
+    statut: string;
+  }) {
+    const c = opts.client;
     const cloture = (c.jour_cloture && c.mois_cloture)
       ? { jour: c.jour_cloture, mois: c.mois_cloture }
       : { jour: 31, mois: 12 };
-    const ech = computeEcheance(o.type, o.periode, o.annee, cloture);
-    if (!ech) continue;
+    const ech = computeEcheance(opts.type, opts.periode, opts.annee, cloture);
+    if (!ech) return;
 
     const due = new Date(ech.dueDate);
     due.setHours(0, 0, 0, 0);
@@ -95,22 +139,67 @@ export default async function EcheancesRisquePage({
     if (filter === "overdue" && due < today) matches = true;
     else if (filter === "7j" && due >= today && due <= sevenDays) matches = true;
     else if (filter === "30j" && due >= today && due <= thirtyDays) matches = true;
-    if (!matches) continue;
+    if (!matches) return;
 
     const daysOffset = Math.round((due.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
 
     items.push({
-      obligationId: o.id,
+      obligationId: opts.obligationId,
       clientSlug: c.slug,
       clientName: c.denomination,
       clientSiren: c.siren,
-      type: o.type,
-      periode: o.periode,
-      statut: o.statut_logique,
+      type: opts.type,
+      periode: opts.periode,
+      statut: opts.statut,
       dueDate: due,
-      trackerSlug: slugForType(o.type),
+      trackerSlug: slugForType(opts.type),
       daysOffset,
     });
+  }
+
+  // 1) Pass : obligations materialisees
+  for (const o of (obligations ?? []) as unknown as Row[]) {
+    const c = o.clients;
+    if (!isClientBillable(c)) continue;
+    if (o.statut_logique === "TERMINE" || o.statut_logique === "NON_APPLICABLE") continue;
+    addItem({
+      obligationId: o.id,
+      client: c,
+      type: o.type,
+      periode: o.periode,
+      annee: o.annee,
+      statut: o.statut_logique,
+    });
+  }
+
+  // 2) Pass : obligations virtuelles depuis subscriptions actives.
+  //    Pour chaque subscription (client x type x annee) on enumere les
+  //    periodes attendues du tracker. Si la cle (client|type|annee|periode)
+  //    n'a pas de pendant materialise, on cree une cellule virtuelle A_FAIRE.
+  const seenVirtual = new Set<string>();
+  for (const s of (subs ?? []) as unknown as SubRow[]) {
+    const c = s.clients;
+    if (!isClientBillable(c)) continue;
+    // Si la subscription a deja des obligations materialisees pour cette
+    // combinaison client+type+annee, on suppose que le tracker materialise
+    // toutes les periodes (=> on ne genere pas de virtuel pour eviter les
+    // doublons quand certaines sont juste terminees).
+    if (materializedByClientTypeAnnee.has(`${c.id}|${s.type}|${s.annee}`)) continue;
+
+    const periodes = periodesAttendues(s.type, s.annee);
+    for (const periode of periodes) {
+      const key = `${c.id}|${s.type}|${s.annee}|${periode}`;
+      if (seenVirtual.has(key)) continue;
+      seenVirtual.add(key);
+      addItem({
+        obligationId: `virtual:${key}`,
+        client: c,
+        type: s.type,
+        periode,
+        annee: s.annee,
+        statut: "A_FAIRE",
+      });
+    }
   }
 
   // Tri : echeance la plus proche / la plus en retard d'abord

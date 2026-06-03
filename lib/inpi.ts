@@ -62,14 +62,40 @@ async function getToken(): Promise<string> {
 /**
  * Schéma partiel de la réponse INPI pour les données qu'on consomme.
  * Le schéma complet est très riche, on n'expose que ce qui nous sert.
+ *
+ * `dateClotureExerciceSocial` peut se trouver a plusieurs endroits selon
+ * le type d'entite (PM societe vs PP entrepreneur individuel).
  */
 type InpiCompanyResponse = {
   formality?: {
     content?: {
+      // Personne morale (societe SARL/SAS/etc.) - chemin principal
       personneMorale?: {
         identite?: {
           description?: {
-            dateClotureExerciceSocial?: string; // format "JJMM", ex. "3112"
+            dateClotureExerciceSocial?: string;
+          };
+        };
+      };
+      // Personne physique (entrepreneur individuel) - chemin alternatif
+      personnePhysique?: {
+        identite?: {
+          entrepreneur?: {
+            descriptionPersonne?: {
+              dateClotureExerciceSocial?: string;
+            };
+          };
+          // Variante observee parfois
+          description?: {
+            dateClotureExerciceSocial?: string;
+          };
+        };
+      };
+      // Exploitation agricole - chemin alternatif
+      exploitation?: {
+        identite?: {
+          description?: {
+            dateClotureExerciceSocial?: string;
           };
         };
       };
@@ -81,6 +107,43 @@ export type InpiCompanyData = {
   /** Jour + mois de clôture de l'exercice (1..31 / 1..12) */
   cloture: { jour: number; mois: number } | null;
 };
+
+/**
+ * Parse une string "JJMM" ou "MMJJ" en {jour, mois}.
+ *
+ * Le format documente officiellement par l'INPI est JJMM (ex. "3112" =
+ * 31/12). En pratique, certaines reponses utilisent MMJJ (ex. "0630" =
+ * 30/06). On teste donc les deux interpretations et on choisit celle qui
+ * produit un couple jour/mois valide. Si les deux sont valides (cas
+ * ambigu comme "0612" = 6/12 OU 12/6), on prefere JJMM par defaut.
+ */
+function parseDateCloture(
+  dateRaw: string | null | undefined,
+  siren: string
+): { jour: number; mois: number } | null {
+  if (!dateRaw || !/^\d{4}$/.test(dateRaw)) return null;
+  const a = parseInt(dateRaw.slice(0, 2), 10);
+  const b = parseInt(dateRaw.slice(2, 4), 10);
+  const jjmmOk = a >= 1 && a <= 31 && b >= 1 && b <= 12;
+  const mmjjOk = b >= 1 && b <= 31 && a >= 1 && a <= 12;
+  if (jjmmOk && mmjjOk) {
+    // Ambigu (ex. "0612") -> on garde JJMM (format documente)
+    return { jour: a, mois: b };
+  }
+  if (jjmmOk) return { jour: a, mois: b };
+  if (mmjjOk) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[INPI] SIREN ${siren} : dateClotureExerciceSocial au format MMJJ ("${dateRaw}") -> jour=${b} mois=${a}`
+    );
+    return { jour: b, mois: a };
+  }
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[INPI] SIREN ${siren} : dateClotureExerciceSocial invalide "${dateRaw}"`
+  );
+  return null;
+}
 
 /**
  * Récupère les données RNE d'une entreprise par son SIREN.
@@ -102,19 +165,24 @@ export async function getInpiCompany(
     );
   }
   const json = (await r.json()) as InpiCompanyResponse;
+  const content = json.formality?.content;
 
-  // Date de clôture au format "JJMM" (4 chiffres collés, ex. "3112" = 31/12)
+  // On tente tous les chemins connus jusqu'a trouver une valeur.
   const dateRaw =
-    json.formality?.content?.personneMorale?.identite?.description
-      ?.dateClotureExerciceSocial ?? null;
-  let cloture: { jour: number; mois: number } | null = null;
-  if (dateRaw && /^\d{4}$/.test(dateRaw)) {
-    const jour = parseInt(dateRaw.slice(0, 2), 10);
-    const mois = parseInt(dateRaw.slice(2, 4), 10);
-    if (jour >= 1 && jour <= 31 && mois >= 1 && mois <= 12) {
-      cloture = { jour, mois };
-    }
+    content?.personneMorale?.identite?.description?.dateClotureExerciceSocial ??
+    content?.personnePhysique?.identite?.entrepreneur?.descriptionPersonne
+      ?.dateClotureExerciceSocial ??
+    content?.personnePhysique?.identite?.description?.dateClotureExerciceSocial ??
+    content?.exploitation?.identite?.description?.dateClotureExerciceSocial ??
+    null;
+
+  if (!dateRaw) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[INPI] SIREN ${siren} : pas de dateClotureExerciceSocial dans la reponse RNE`
+    );
   }
 
+  const cloture = parseDateCloture(dateRaw, siren);
   return { cloture };
 }

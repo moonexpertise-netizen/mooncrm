@@ -36,16 +36,28 @@ export default async function ObligationsSommaire({
   const supabase = await createClient();
   const today = new Date().toISOString().substring(0, 10);
 
-  // On lit toutes les obligations de l'année avec sub active + clients facturables
-  const { data: rows } = await supabase
-    .from("obligations")
-    .select(
-      "type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
-    )
-    .eq("annee", selectedYear)
-    .eq("obligation_subscriptions.actif", true);
+  // 1) Obligations materialisees pour l'annee selectionnee
+  // 2) Subscriptions actives pour deduire les obligations "virtuelles"
+  //    (cellules placeholder "À traiter" cote tracker mais aucune ligne en DB)
+  const [{ data: rows }, { data: subs }] = await Promise.all([
+    supabase
+      .from("obligations")
+      .select(
+        "client_id, type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
+      )
+      .eq("annee", selectedYear)
+      .eq("obligation_subscriptions.actif", true),
+    supabase
+      .from("obligation_subscriptions")
+      .select(
+        "client_id, type, annee, clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
+      )
+      .eq("annee", selectedYear)
+      .eq("actif", true),
+  ]);
 
   type Row = {
+    client_id: string;
     type: string;
     periode: string;
     annee: number;
@@ -58,6 +70,12 @@ export default async function ObligationsSommaire({
       jour_cloture: number | null;
       mois_cloture: number | null;
     };
+  };
+  type SubRow = {
+    client_id: string;
+    type: string;
+    annee: number;
+    clients: Row["clients"];
   };
 
   // Agrégation par slug de tracker
@@ -101,57 +119,96 @@ export default async function ObligationsSommaire({
   const sixtyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().substring(0, 10); })();
   const ninetyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().substring(0, 10); })();
 
+  // Index des obligations materialisees pour deduplication des virtuelles
+  const materializedSommaire = new Set<string>();
+  for (const r of (rows ?? []) as unknown as Row[]) {
+    materializedSommaire.add(`${r.client_id}|${r.type}|${r.annee}`);
+  }
+
+  function ingest(opts: {
+    slug: string;
+    isDone: boolean;
+    isWip: boolean;
+    dueDateStr: string | null;
+    updatedAt: string | null;
+  }) {
+    const agg = bySlug.get(opts.slug);
+    if (!agg) return;
+    agg.total++;
+    if (opts.isDone) agg.done++;
+    else if (opts.isWip) agg.wip++;
+    else agg.todo++;
+
+    if (!opts.isDone && opts.dueDateStr && opts.dueDateStr >= today) {
+      if (!agg.prochaineEcheance || opts.dueDateStr < agg.prochaineEcheance) {
+        agg.prochaineEcheance = opts.dueDateStr;
+      }
+    }
+    if (!opts.isDone && opts.dueDateStr && opts.dueDateStr < today) {
+      agg.enRetard++;
+      charge.enRetard++;
+    } else if (!opts.isDone && opts.dueDateStr) {
+      if (opts.dueDateStr <= sevenDaysIso) charge.cetteSemaine++;
+      else if (opts.dueDateStr <= thirtyDaysIso) charge.ceMois++;
+      else if (opts.dueDateStr <= sixtyDaysIso) charge.moisProchain++;
+      else if (opts.dueDateStr <= ninetyDaysIso) charge.deuxMois++;
+      else charge.plusTard++;
+    }
+    if (opts.updatedAt) {
+      if (!agg.derniereAction || opts.updatedAt > agg.derniereAction) {
+        agg.derniereAction = opts.updatedAt;
+      }
+    }
+  }
+
+  // 1) Pass : obligations materialisees
   for (const r of (rows ?? []) as unknown as Row[]) {
     const c = r.clients;
     if (!isClientBillable(c)) continue;
 
     const slug = slugForType(r.type);
     if (!slug) continue;
-    const agg = bySlug.get(slug);
-    if (!agg) continue;
 
-    agg.total++;
     const isDone =
       r.statut_logique === "TERMINE" || r.statut_logique === "NON_APPLICABLE";
     const isWip = r.statut_logique === "EN_COURS";
-    if (isDone) agg.done++;
-    else if (isWip) agg.wip++;
-    else agg.todo++;
 
-    // Echeance reelle : calculee dynamiquement via lib/echeances.ts a partir
-    // du type d'obligation + periode + cloture client. Ne depend pas du champ
-    // DB r.echeance (pas systematiquement rempli).
     const cloture = (r.clients.jour_cloture && r.clients.mois_cloture)
       ? { jour: r.clients.jour_cloture, mois: r.clients.mois_cloture }
       : { jour: 31, mois: 12 };
     const ech = computeEcheance(r.type, r.periode, r.annee, cloture);
     const dueDateStr = ech ? ech.dueDate.toISOString().substring(0, 10) : null;
 
-    // Prochaine échéance globale = min des échéances non terminées et >= today
-    if (!isDone && dueDateStr && dueDateStr >= today) {
-      if (!agg.prochaineEcheance || dueDateStr < agg.prochaineEcheance) {
-        agg.prochaineEcheance = dueDateStr;
-      }
-    }
+    ingest({ slug, isDone, isWip, dueDateStr, updatedAt: r.updated_at });
+  }
 
-    // En retard = échéance dépassée + pas terminé
-    if (!isDone && dueDateStr && dueDateStr < today) {
-      agg.enRetard++;
-      charge.enRetard++;
-    } else if (!isDone && dueDateStr) {
-      // Bucket charge a venir
-      if (dueDateStr <= sevenDaysIso) charge.cetteSemaine++;
-      else if (dueDateStr <= thirtyDaysIso) charge.ceMois++;
-      else if (dueDateStr <= sixtyDaysIso) charge.moisProchain++;
-      else if (dueDateStr <= ninetyDaysIso) charge.deuxMois++;
-      else charge.plusTard++;
-    }
+  // 2) Pass : obligations virtuelles (subscription active sans materialisation)
+  function periodesAttenduesSommaire(type: string, annee: number): string[] {
+    const tracker = TRACKERS.find((t) => t.types.includes(type));
+    if (!tracker) return [];
+    return tracker.cols(annee).filter((col) => col.type === type).map((col) => col.periode);
+  }
+  const seenSommaireVirtual = new Set<string>();
+  for (const s of (subs ?? []) as unknown as SubRow[]) {
+    const c = s.clients;
+    if (!isClientBillable(c)) continue;
+    if (materializedSommaire.has(`${s.client_id}|${s.type}|${s.annee}`)) continue;
 
-    // Dernière action : max updated_at
-    if (r.updated_at) {
-      if (!agg.derniereAction || r.updated_at > agg.derniereAction) {
-        agg.derniereAction = r.updated_at;
-      }
+    const slug = slugForType(s.type);
+    if (!slug) continue;
+
+    const cloture = (c.jour_cloture && c.mois_cloture)
+      ? { jour: c.jour_cloture, mois: c.mois_cloture }
+      : { jour: 31, mois: 12 };
+
+    const periodes = periodesAttenduesSommaire(s.type, s.annee);
+    for (const periode of periodes) {
+      const key = `${s.client_id}|${s.type}|${s.annee}|${periode}`;
+      if (seenSommaireVirtual.has(key)) continue;
+      seenSommaireVirtual.add(key);
+      const ech = computeEcheance(s.type, periode, s.annee, cloture);
+      const dueDateStr = ech ? ech.dueDate.toISOString().substring(0, 10) : null;
+      ingest({ slug, isDone: false, isWip: false, dueDateStr, updatedAt: null });
     }
   }
 

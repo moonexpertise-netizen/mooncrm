@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { categorieActivite } from "@/lib/activite-categorie";
 import { computeEcheance } from "@/lib/echeances";
+import { TRACKERS } from "@/app/obligations/trackers";
+import { isClientBillable } from "@/lib/billable";
 
 /**
  * Loader d'agrégats pour le dashboard d'accueil.
@@ -124,6 +126,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const [
     { data: clients },
     { data: obligations },
+    { data: subs },
   ] = await Promise.all([
     sb
       .from("clients")
@@ -133,10 +136,21 @@ export async function loadDashboardData(): Promise<DashboardData> {
     sb
       .from("obligations")
       .select(
-        "type, periode, annee, echeance, statut_logique, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)"
+        "client_id, type, periode, annee, echeance, statut_logique, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)"
       )
       .gte("annee", new Date().getFullYear() - 1) // limite a 1 an en arriere
+      .lte("annee", new Date().getFullYear() + 1)
       .eq("obligation_subscriptions.actif", true),
+    // Subscriptions pour deduire les obligations "virtuelles" (pas encore
+    // materialisees mais le tracker affiche un placeholder "À traiter").
+    sb
+      .from("obligation_subscriptions")
+      .select(
+        "client_id, type, annee, clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)"
+      )
+      .gte("annee", new Date().getFullYear() - 1)
+      .lte("annee", new Date().getFullYear() + 1)
+      .eq("actif", true),
   ]);
 
   const cs = (clients ?? []) as Array<{
@@ -272,12 +286,29 @@ export async function loadDashboardData(): Promise<DashboardData> {
   // Calcul d'echeance via lib/echeances.ts : ne depend pas du champ DB
   // r.echeance (pas toujours rempli). On utilise type + periode + cloture
   // du client pour avoir une echeance reelle precise.
+  //
+  // On inclut aussi les obligations "virtuelles" : une subscription active
+  // pour (client x type x annee) implique une serie de periodes attendues
+  // (TVA mensuelle = 12 cellules, AGO = 1, etc.). Si la ligne en DB n'existe
+  // pas encore, on la traite comme A_FAIRE -> elle compte dans le risque.
   type OblRow = {
+    client_id: string;
     type: string;
     periode: string;
     annee: number;
     echeance: string | null;
     statut_logique: string | null;
+    clients: {
+      pipeline_statut: string | null;
+      origine: string | null;
+      jour_cloture: number | null;
+      mois_cloture: number | null;
+    };
+  };
+  type SubRow = {
+    client_id: string;
+    type: string;
+    annee: number;
     clients: {
       pipeline_statut: string | null;
       origine: string | null;
@@ -298,30 +329,71 @@ export async function loadDashboardData(): Promise<DashboardData> {
     d.setDate(d.getDate() + 30);
     return d.toISOString().substring(0, 10);
   })();
+
+  // Aligne sur isClientBillable (la source de verite metier, partagee avec
+  // la page /obligations/echeances et le tracker). Garantit que widget
+  // dashboard et liste detaillee comptent les memes obligations.
+  function clientIsGere(c: OblRow["clients"]): boolean {
+    return isClientBillable(c);
+  }
+
+  function periodesAttenduesDash(type: string, annee: number): string[] {
+    const tracker = TRACKERS.find((t) => t.types.includes(type));
+    if (!tracker) return [];
+    return tracker.cols(annee).filter((col) => col.type === type).map((col) => col.periode);
+  }
+
+  function bumpBucket(dueIso: string) {
+    if (dueIso < todayIso) enRetard++;
+    else if (dueIso <= sevenDaysIso) sous7Jours++;
+    else if (dueIso <= thirtyDaysIso) sous30Jours++;
+  }
+
+  // Index des obligations materialisees pour deduplication
+  const materializedDash = new Set<string>();
+  for (const o of (obligations ?? []) as unknown as OblRow[]) {
+    materializedDash.add(`${o.client_id}|${o.type}|${o.annee}`);
+  }
+
+  // 1) Pass : materialisees
   for (const o of (obligations ?? []) as unknown as OblRow[]) {
     const c = o.clients;
-    if (
-      !(
-        (c.pipeline_statut && DOSSIERS_GERES.has(c.pipeline_statut)) ||
-        (c.origine && ORIGINES_ST.has(c.origine))
-      )
-    )
-      continue;
+    if (!clientIsGere(c)) continue;
     const done =
       o.statut_logique === "TERMINE" || o.statut_logique === "NON_APPLICABLE";
     if (done) continue;
 
-    // Echeance reelle calculee via lib/echeances.ts
     const cloture = (c.jour_cloture && c.mois_cloture)
       ? { jour: c.jour_cloture, mois: c.mois_cloture }
       : { jour: 31, mois: 12 };
     const ech = computeEcheance(o.type, o.periode, o.annee, cloture);
     if (!ech) continue;
-    const dueIso = ech.dueDate.toISOString().substring(0, 10);
+    bumpBucket(ech.dueDate.toISOString().substring(0, 10));
+  }
 
-    if (dueIso < todayIso) enRetard++;
-    else if (dueIso <= sevenDaysIso) sous7Jours++;
-    else if (dueIso <= thirtyDaysIso) sous30Jours++;
+  // 2) Pass : virtuelles (subscription sans aucune obligation pour cette
+  //    combinaison client+type+annee). On suppose qu'une fois qu'une
+  //    obligation existe, le tracker materialise toutes les periodes.
+  const seenDashVirtual = new Set<string>();
+  for (const s of (subs ?? []) as unknown as SubRow[]) {
+    const c = s.clients;
+    if (!clientIsGere(c)) continue;
+    if (materializedDash.has(`${s.client_id}|${s.type}|${s.annee}`)) continue;
+    const periodes = periodesAttenduesDash(s.type, s.annee);
+    if (periodes.length === 0) continue;
+
+    const cloture = (c.jour_cloture && c.mois_cloture)
+      ? { jour: c.jour_cloture, mois: c.mois_cloture }
+      : { jour: 31, mois: 12 };
+
+    for (const periode of periodes) {
+      const key = `${s.client_id}|${s.type}|${s.annee}|${periode}`;
+      if (seenDashVirtual.has(key)) continue;
+      seenDashVirtual.add(key);
+      const ech = computeEcheance(s.type, periode, s.annee, cloture);
+      if (!ech) continue;
+      bumpBucket(ech.dueDate.toISOString().substring(0, 10));
+    }
   }
 
   // Silencer unused (utilisé en debug si besoin)

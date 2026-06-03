@@ -17,7 +17,7 @@ import CommentsPopover from "./comments-panel";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { setClientTvaTag } from "@/app/parametrage/tva-tags/actions";
-import { computeEcheance, getUrgencyStatus, type UrgencyStatus } from "@/lib/echeances";
+import { computeEcheance, getUrgencyStatus, extractAnneeFromPeriode, type UrgencyStatus } from "@/lib/echeances";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
@@ -390,7 +390,8 @@ export default function TrackerTable({
       if (c.statut_logique === "TERMINE" || c.statut_logique === "NON_APPLICABLE") continue;
       const col = cols.find((co) => co.key === c.colKey);
       if (!col) continue;
-      const anneePeriode = parseInt(col.periode.split("-")[0] ?? "0", 10);
+      const anneePeriode = extractAnneeFromPeriode(col.periode);
+      if (anneePeriode === null) continue;
       const ech = computeEcheance(c.type, col.periode, anneePeriode, cloture);
       if (!ech) continue;
       if (!earliest || ech.dueDate < earliest) earliest = ech.dueDate;
@@ -1384,8 +1385,10 @@ export default function TrackerTable({
                   className={cn(
                     "px-1.5 py-0.5 rounded text-[11px] font-medium border transition-all duration-150 active:scale-95",
                     periodFilter.has(c.key)
-                      ? "bg-[hsl(var(--gold))] text-white border-[hsl(var(--gold))]"
-                      : "bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900"
+                      // Actif : style neutre du StatusFilterChip, lisible
+                      // light + dark (le dore blanc-sur-dore etait illisible).
+                      ? "bg-zinc-100 dark:bg-white/[0.08] border-zinc-300 dark:border-white/[0.20] text-zinc-900 dark:text-zinc-50"
+                      : "bg-white dark:bg-white/[0.02] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.06] hover:bg-zinc-50 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/[0.12]"
                   )}
                 >
                   {c.label}
@@ -1571,7 +1574,8 @@ export default function TrackerTable({
                   const col = cols.find((co) => co.key === c.colKey);
                   const urgency: UrgencyStatus = (() => {
                     if (!c.obligationId || !col?.periode) return "none";
-                    const anneePeriode = parseInt(col.periode.split("-")[0] ?? "0", 10);
+                    const anneePeriode = extractAnneeFromPeriode(col.periode);
+                    if (anneePeriode === null) return "none";
                     const cloture = (r.jour_cloture && r.mois_cloture)
                       ? { jour: r.jour_cloture, mois: r.mois_cloture }
                       : { jour: 31, mois: 12 };

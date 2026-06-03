@@ -34,35 +34,77 @@ export type EcheanceInfo = {
 // ============================================================================
 //  Helpers de date
 // ============================================================================
+//
+// IMPORTANT : on travaille en UTC partout. En heure locale (Europe/Paris),
+// `new Date(2026, 5, 30)` donne 30/06/2026 00:00 local, mais `.toISOString()`
+// le convertit en UTC -> "2026-06-29T22:00:00Z", la string substr(0,10) vaut
+// alors "2026-06-29" -> 1 jour de retard a l'affichage. Tout passer en UTC
+// elimine ce decalage.
 
-/** Cree une date "1er du mois donne" (mois 1-12, year 4 chiffres). */
+/** Cree une date "1er du mois donne" (mois 1-12, year 4 chiffres) en UTC. */
 function firstOfMonth(year: number, month: number): Date {
-  return new Date(year, month - 1, 1);
+  return new Date(Date.UTC(year, month - 1, 1));
 }
 
-/** Cree une date YYYY-MM-DD propre (composantes 1-based pour le mois). */
+/** Cree une date YYYY-MM-DD propre en UTC (composantes 1-based pour le mois). */
 function makeDate(year: number, month: number, day: number): Date {
-  return new Date(year, month - 1, day);
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
-/** Ajoute N mois a une date (clamp jour au dernier du mois si depassement). */
+/** Renvoie le nombre de jours dans un mois donne (mois 1-12). */
+function lastDayOfMonth(year: number, month: number): number {
+  // Date.UTC(year, month, 0) = dernier jour du mois precedent (= dernier jour
+  // du mois `month` en notation 1-based).
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** Ajoute N mois a une date UTC (clamp jour au dernier du mois si depassement). */
 function addMonths(d: Date, n: number): Date {
-  const r = new Date(d);
-  const targetMonth = r.getMonth() + n;
-  r.setMonth(targetMonth);
-  // Si le jour a debordé (ex. 31 mars + 1 mois = 31 avril -> 1 mai), on
-  // recule au dernier jour du mois precedent.
-  if (r.getMonth() !== ((targetMonth % 12) + 12) % 12) {
-    r.setDate(0);
-  }
-  return r;
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth(); // 0-11
+  const day = d.getUTCDate();
+  const targetMonthIdx = month + n;
+  const targetYear = year + Math.floor(targetMonthIdx / 12);
+  const targetMonth = ((targetMonthIdx % 12) + 12) % 12; // 0-11
+  const targetDay = Math.min(day, lastDayOfMonth(targetYear, targetMonth + 1));
+  return new Date(Date.UTC(targetYear, targetMonth, targetDay));
 }
 
-/** Ajoute N jours a une date. */
+/**
+ * Ajoute N mois EN PRESERVANT la "fin de mois" : si la date source est le
+ * dernier jour de son mois, le resultat sera le dernier jour du mois cible
+ * (peu importe que ce soit 28, 30 ou 31). Sinon, comportement classique.
+ *
+ *   31/12 + 6m -> 30/06 (juin n'a que 30 jours, mais c'est bien fin de mois)
+ *   31/01 + 6m -> 31/07
+ *   28/02 + 6m -> 31/08 (fevrier = fin de mois -> ajustement)
+ *   15/03 + 6m -> 15/09 (jour normal -> identique)
+ */
+function addMonthsEndOfMonth(d: Date, n: number): Date {
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth(); // 0-11
+  const day = d.getUTCDate();
+  const targetMonthIdx = month + n;
+  const targetYear = year + Math.floor(targetMonthIdx / 12);
+  const targetMonth = ((targetMonthIdx % 12) + 12) % 12; // 0-11
+  const isLastDay = day === lastDayOfMonth(year, month + 1);
+  const targetDay = isLastDay
+    ? lastDayOfMonth(targetYear, targetMonth + 1)
+    : Math.min(day, lastDayOfMonth(targetYear, targetMonth + 1));
+  return new Date(Date.UTC(targetYear, targetMonth, targetDay));
+}
+
+/** Ajoute N jours a une date UTC. */
 function addDays(d: Date, n: number): Date {
   const r = new Date(d);
-  r.setDate(r.getDate() + n);
+  r.setUTCDate(r.getUTCDate() + n);
   return r;
+}
+
+/** Extrait la premiere annee 4 chiffres d'une string de periode quelconque. */
+export function extractAnneeFromPeriode(periode: string): number | null {
+  const m = periode.match(/(\d{4})/);
+  return m ? parseInt(m[1], 10) : null;
 }
 
 /** Renvoie true si la clôture est l'annee civile (31/12). */
@@ -137,18 +179,31 @@ export function computeEcheance(
   }
 
   // ----- TVA annuelle CA12 (regime reel simplifie) -----
-  // Cloture 31/12 : actif 1er janvier N+1, echeance 3 mai N+1
-  // Cloture decalee : actif 1er du mois suivant cloture, echeance cloture + 3m + 3j
+  // 3 sortes de cellules avec des formats de periode distincts :
+  //   A-07-YYYY : acompte 1 -> echeance 15/07/YYYY, active depuis 1er juillet
+  //   A-12-YYYY : acompte 2 -> echeance 15/12/YYYY, active depuis 1er decembre
+  //   S-YYYY    : solde (regle cloture + 3m + 3j) -> identique a IS_SOLDE
   if (type === "TVA_ANNUELLE_CA12") {
-    const cloDate = makeDate(annee, cloture.mois, cloture.jour);
+    const acompteMatch = periode.match(/^A-(\d{2})-(\d{4})$/);
+    if (acompteMatch) {
+      const m = parseInt(acompteMatch[1], 10);
+      const y = parseInt(acompteMatch[2], 10);
+      return {
+        activeFrom: firstOfMonth(y, m),
+        dueDate: makeDate(y, m, 15),
+      };
+    }
+    const soldeMatch = periode.match(/^S-(\d{4})$/);
+    const soldeYear = soldeMatch ? parseInt(soldeMatch[1], 10) : annee;
+    const cloDate = makeDate(soldeYear, cloture.mois, cloture.jour);
     if (isAnneeCivile(cloture)) {
       return {
-        activeFrom: firstOfMonth(annee + 1, 1),
-        dueDate: makeDate(annee + 1, 5, 3),
+        activeFrom: firstOfMonth(soldeYear + 1, 1),
+        dueDate: makeDate(soldeYear + 1, 5, 3),
       };
     }
     const activeMonth = cloture.mois === 12 ? 1 : cloture.mois + 1;
-    const activeYear = cloture.mois === 12 ? annee + 1 : annee;
+    const activeYear = cloture.mois === 12 ? soldeYear + 1 : soldeYear;
     return {
       activeFrom: firstOfMonth(activeYear, activeMonth),
       dueDate: addDays(addMonths(cloDate, 3), 3),
@@ -192,22 +247,24 @@ export function computeEcheance(
   }
 
   // ----- AGO / Dépôt comptes -----
-  // AGO : clôture + 6 mois ; Dépôt : clôture + 7 mois
+  // AGO : clôture + 6 mois ; Dépôt : clôture + 7 mois.
+  // Regle "fin de mois" : si la cloture est le dernier jour de son mois,
+  // l'echeance reste le dernier jour du mois cible (31/12 -> 30/06 fin juin,
+  // 31/01 -> 31/07 fin juillet, 28/02 -> 31/08 fin aout).
   if (type === "AGO_DEPOT" || type === "DEPOT_COMPTES") {
     const cloDate = makeDate(annee, cloture.mois, cloture.jour);
     const monthsToAdd = type === "AGO_DEPOT" ? 6 : 7;
     if (isAnneeCivile(cloture)) {
-      // Clôture 31/12 -> activation 1er janvier N+1
       return {
         activeFrom: firstOfMonth(annee + 1, 1),
-        dueDate: addMonths(cloDate, monthsToAdd),
+        dueDate: addMonthsEndOfMonth(cloDate, monthsToAdd),
       };
     }
     const activeMonth = cloture.mois === 12 ? 1 : cloture.mois + 1;
     const activeYear = cloture.mois === 12 ? annee + 1 : annee;
     return {
       activeFrom: firstOfMonth(activeYear, activeMonth),
-      dueDate: addMonths(cloDate, monthsToAdd),
+      dueDate: addMonthsEndOfMonth(cloDate, monthsToAdd),
     };
   }
 
