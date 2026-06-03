@@ -20,6 +20,7 @@ import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
+import { Picker } from "@/app/_components/picker";
 import {
   createMission,
   createMissionType,
@@ -869,7 +870,7 @@ function MissionRow({
 
       {/* Etat mission */}
       <td className="px-2 py-2.5 text-center">
-        <BadgePicker
+        <Picker
           value={row.etat_mission}
           options={ETAT_MISSION_OPTIONS}
           onChange={(v) => onSetEtatMission(v as EtatMission)}
@@ -880,18 +881,19 @@ function MissionRow({
           Auto-set a "À facturer" au passage en "livree" (trigger DB + UI).
           Bouton "Reinitialiser" pour revider la cellule. */}
       <td className="px-2 py-2.5 text-center">
-        <BadgePicker
+        <Picker
           value={row.etat_facturation}
           options={ETAT_FACTURATION_OPTIONS}
           onChange={(v) => onSetEtatFacturation(v as EtatFacturation)}
           onReset={() => onSetEtatFacturation(null)}
           allowEmpty
+          placeholderTitle="Facturation non encore définie"
         />
       </td>
 
       {/* LDM (Lettre de mission) : a faire / N/A / Envoyee / Signee */}
       <td className="px-2 py-2.5 text-center">
-        <BadgePicker
+        <Picker
           value={row.ldm_statut}
           options={LDM_STATUT_OPTIONS}
           onChange={(v) => onSetLdmStatut(v as LdmStatutMission)}
@@ -1485,146 +1487,7 @@ function TypePicker({
   );
 }
 
-// ============================================================================
-//  BadgePicker : picker generique pour Etat mission / facturation
-// ============================================================================
-
-function BadgePicker<T extends string>({
-  value,
-  options,
-  onChange,
-  /** Si fourni, affiche un bouton "Réinitialiser" en bas du popover (visible
-   *  uniquement si value !== null). Permet de revider la cellule vers null. */
-  onReset,
-  /** Si true et value=null, affiche "—" (tiret) au lieu du fallback options[0].
-   *  Le bouton reste cliquable pour ouvrir le picker et choisir une option. */
-  allowEmpty = false,
-}: {
-  value: T | null;
-  options: Array<{ key: T; label: string; color: string }>;
-  onChange: (v: T) => void;
-  onReset?: () => void;
-  allowEmpty?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-  const matched = options.find((o) => o.key === value);
-  const isEmpty = allowEmpty && value === null;
-  const current = matched ?? (isEmpty ? null : options[0]);
-
-  // Positionne le popover via getBoundingClientRect + createPortal pour echapper
-  // le clipping de la table (overflow-x-auto + rounded-xl).
-  useEffect(() => {
-    if (!open || !btnRef.current) {
-      setPos(null);
-      return;
-    }
-    const rect = btnRef.current.getBoundingClientRect();
-    const POPOVER_HEIGHT = options.length * 32 + 16;
-    const POPOVER_WIDTH = 180;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    // Aligne le bord droit du popover sur le bord droit du bouton (ces pickers
-    // sont dans les colonnes de droite, donc on evite l'overflow horizontal).
-    const desiredLeft = rect.right - POPOVER_WIDTH;
-    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
-    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
-  }, [open, options.length]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t)) return;
-      if (popRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="inline-block">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={cn(
-          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 whitespace-nowrap",
-          current?.color ??
-            "bg-transparent dark:bg-transparent text-zinc-400 dark:text-zinc-500 border-transparent hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
-        )}
-        title={isEmpty ? "Facturation non encore définie" : undefined}
-      >
-        {current?.label ?? "—"}
-      </button>
-      {open &&
-        pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={popRef}
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
-              zIndex: 1000,
-            }}
-            className="min-w-[180px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
-          >
-            {options.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                onClick={() => {
-                  onChange(o.key);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                  value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
-                )}
-              >
-                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
-                  {o.label}
-                </span>
-                {value === o.key && (
-                  <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 ml-auto" />
-                )}
-              </button>
-            ))}
-            {onReset && value !== null && (
-              <button
-                type="button"
-                onClick={() => {
-                  onReset();
-                  setOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
-              >
-                Réinitialiser
-              </button>
-            )}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-}
-
+// (BadgePicker remplace par <Picker> partage de @/app/_components/picker)
 // (FilterSelect retire : remplace par StatusFilterChip cf. toolbar ci-dessus)
 
 // ============================================================================
