@@ -21,7 +21,7 @@ import {
   type StatutLogique,
 } from "./actions";
 import { useConfirm } from "@/app/_components/confirm-modal";
-import { useRowSelection } from "@/app/_components/use-row-selection";
+import { useGridSelection } from "@/app/_components/use-grid-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -157,61 +157,85 @@ export default function IrTable({
     return c;
   }, [yearRows, selectedYear]);
 
-  // Selection cellulaire en vue annee. Pour IR on a 2 colonnes (IR + IFI),
-  // donc on utilise des composite IDs "rowId|TYPE" pour pouvoir selectionner
-  // une cellule precise (IR ou IFI). Ordering : toute la colonne IR, puis
-  // toute la colonne IFI -> navigation fleche haut/bas dans la meme colonne.
-  const orderedIds = useMemo(() => {
-    const ir = visibleRows.map((r) => `${r.id}|IR`);
-    const ifi = visibleRows.map((r) => `${r.id}|IFI`);
-    return [...ir, ...ifi];
-  }, [visibleRows]);
-  const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds);
+  // Selection cellulaire en vue annee : grille 2D 3 colonnes (IR | IFI | FACT)
+  // Composite IDs "rowId|TYPE". Navigation Excel-style : ←→ entre colonnes,
+  // ↑↓ entre rows, Shift étend en rectangle.
+  // En mode "base" : pas de grille (toggle souscriptions, pas de selection).
+  const gridIds = useMemo<(string | null)[][]>(() => {
+    if (mode !== "year") return [];
+    return visibleRows.map((r) => [
+      `${r.id}|IR`,
+      `${r.id}|IFI`,
+      `${r.id}|FACT`,
+    ]);
+  }, [visibleRows, mode]);
+  const {
+    selectedIds,
+    selectedCount,
+    focusedPos,
+    isSelected,
+    onCellClick,
+    clearSelection,
+    selectAll,
+    selectOne,
+  } = useGridSelection(gridIds);
 
-  // Listener doc global pour les fleches : fix focus DOM (cf. pilotage).
-  // Le onKeyDown du hook est branche sur <table tabIndex=0> mais le focus
-  // DOM part sur le picker quand on clique une cellule -> fleches mortes.
-  useEffect(() => {
-    if (!focusedId) return;
-    function onDocKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
-      if (document.querySelector("[role='listbox']")) return;
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-      e.preventDefault();
-      onKeyDown({
-        key: e.key,
-        shiftKey: e.shiftKey,
-        preventDefault: () => e.preventDefault(),
-      } as React.KeyboardEvent);
-    }
-    document.addEventListener("keydown", onDocKey);
-    return () => document.removeEventListener("keydown", onDocKey);
-  }, [focusedId, onKeyDown]);
-
-  // Parse les composite IDs pour le bulk apply : separe IR cells / IFI cells
-  function splitSelectedByType(): { ir: string[]; ifi: string[] } {
+  // Parse les composite IDs pour le bulk apply : separe par type
+  function splitSelectedByType(): { ir: string[]; ifi: string[]; fact: string[] } {
     const ir: string[] = [];
     const ifi: string[] = [];
+    const fact: string[] = [];
     for (const cid of selectedIds) {
       const [rowId, type] = cid.split("|");
       if (!rowId || !type) continue;
       if (type === "IR") ir.push(rowId);
       else if (type === "IFI") ifi.push(rowId);
+      else if (type === "FACT") fact.push(rowId);
     }
-    return { ir, ifi };
+    return { ir, ifi, fact };
   }
 
   function onBulkApply(prefixedKey: string) {
-    // Format de la key : "IR:libelle" ou "IFI:libelle". On applique le libelle
-    // SEULEMENT aux cells du type cible dans la selection. Si l'utilisateur a
-    // selectionne 5 cells IR et 3 cells IFI, et choisit "IR:Termine", on met
-    // a jour les 5 cells IR uniquement.
-    const [type, libelle] = prefixedKey.split(":") as [IrType, string];
-    if (!libelle || (type !== "IR" && type !== "IFI")) return;
-    const { ir, ifi } = splitSelectedByType();
-    const ids = type === "IR" ? ir : ifi;
+    // Format de la key : "IR:libelle" / "IFI:libelle" / "FACT:etat".
+    // On applique aux cells du type cible UNIQUEMENT dans la selection :
+    // selectionner 5 cells IR + 3 cells IFI puis "IR:Termine" -> 5 cells IR.
+    const [type, libelle] = prefixedKey.split(":") as [string, string];
+    if (!libelle) return;
+    const split = splitSelectedByType();
+
+    // Branche FACT : libelle = etat_facturation ('a_facturer' | 'facturee' | 'sans_facture')
+    if (type === "FACT") {
+      const ids = split.fact;
+      if (ids.length === 0) {
+        toastError(new Error("Aucune cellule Facturation sélectionnée"), "Sélection invalide");
+        return;
+      }
+      const etat = libelle as EtatFacturation;
+      setLocalRows((prev) =>
+        prev.map((r) => {
+          if (!ids.includes(r.id)) return r;
+          const newFact = new Map(r.facturations);
+          newFact.set(selectedYear, etat);
+          return { ...r, facturations: newFact };
+        })
+      );
+      startTransition(async () => {
+        try {
+          // Pas d'action bulk dediee pour facturation : on iter
+          await Promise.all(ids.map((id) => setIrFacturation(id, selectedYear, etat)));
+          toastSuccess(`${ids.length} facturation${ids.length > 1 ? "s" : ""} mise${ids.length > 1 ? "s" : ""} à jour`);
+          clearSelection();
+          router.refresh();
+        } catch (e) {
+          toastError(e, "Echec mise à jour facturation");
+          router.refresh();
+        }
+      });
+      return;
+    }
+
+    if (type !== "IR" && type !== "IFI") return;
+    const ids = type === "IR" ? split.ir : split.ifi;
     if (ids.length === 0) {
       toastError(new Error(`Aucune cellule ${type} sélectionnée`), "Sélection invalide");
       return;
@@ -590,8 +614,6 @@ export default function IrTable({
           <table
             className="w-full text-sm min-w-[820px] focus:outline-none"
             aria-label="Dossiers IR"
-            tabIndex={mode === "year" ? 0 : -1}
-            onKeyDown={mode === "year" ? onKeyDown : undefined}
           >
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
@@ -614,14 +636,17 @@ export default function IrTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {visibleRows.map((r) => {
-                // Selection cellulaire IR/IFI : composite IDs
+              {visibleRows.map((r, rowIdx) => {
+                // Selection cellulaire IR/IFI/FACT : composite IDs
                 const irCellId = `${r.id}|IR`;
                 const ifiCellId = `${r.id}|IFI`;
+                const factCellId = `${r.id}|FACT`;
                 const irSelected = mode === "year" && isSelected(irCellId);
                 const ifiSelected = mode === "year" && isSelected(ifiCellId);
-                const irFocused = mode === "year" && focusedId === irCellId;
-                const ifiFocused = mode === "year" && focusedId === ifiCellId;
+                const factSelected = mode === "year" && isSelected(factCellId);
+                const irFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 0;
+                const ifiFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 1;
+                const factFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 2;
                 return (
                 <tr
                   key={r.id}
@@ -694,8 +719,11 @@ export default function IrTable({
                         )}
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
-                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
-                          onRowClick(irCellId, e);
+                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
+                            selectOne(irCellId);
+                            return;
+                          }
+                          onCellClick(rowIdx, 0, e);
                         }}
                       >
                         <StatutCell
@@ -712,8 +740,11 @@ export default function IrTable({
                         )}
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
-                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
-                          onRowClick(ifiCellId, e);
+                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
+                            selectOne(ifiCellId);
+                            return;
+                          }
+                          onCellClick(rowIdx, 1, e);
                         }}
                       >
                         <StatutCell
@@ -728,7 +759,21 @@ export default function IrTable({
                           onSave={(v) => onSetForfait(r.id, v)}
                         />
                       </td>
-                      <td className="px-2 py-2.5 text-center">
+                      <td
+                        className={cn(
+                          "px-2 py-2.5 text-center transition-colors cursor-pointer",
+                          factSelected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
+                          factFocused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
+                        )}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
+                            selectOne(factCellId);
+                            return;
+                          }
+                          onCellClick(rowIdx, 2, e);
+                        }}
+                      >
                         <FacturationPicker
                           value={(r.facturations.get(selectedYear) ?? null) as EtatFacturation | null}
                           onChange={(v) => onSetFacturation(r.id, v)}
@@ -785,8 +830,8 @@ export default function IrTable({
         <BulkActionBar
           count={selectedCount}
           onClear={clearSelection}
-          hint="clic + shift / cmd · choisir IR ou IFI dans le picker"
-          label="Statut IR / IFI"
+          hint="← → entre IR / IFI / Facturation · shift + clic pour étendre"
+          label="Appliquer"
           options={[
             ...(statusOptions["IR_ANNEE"] ?? []).map((o) => ({
               key: `IR:${o.libelle}`,
@@ -799,6 +844,12 @@ export default function IrTable({
               label: o.libelle,
               color: statutColorClass(o.statut_logique, o.color),
               group: "IFI",
+            })),
+            ...FACT_OPTIONS.map((o) => ({
+              key: `FACT:${o.key}`,
+              label: o.label,
+              color: o.color,
+              group: "Facturation",
             })),
           ]}
           onApply={onBulkApply}
