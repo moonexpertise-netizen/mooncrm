@@ -481,62 +481,94 @@ export async function setDashboardSubscription(
   clientId: string,
   annee: number,
   enabled: boolean
-) {
-  const sb = await createClient();
+): Promise<{ ok: boolean; error?: string }> {
+  // ULTRA-DEFENSIVE : aucune exception ne sort de cette action. Toutes les
+  // erreurs DB (enum non etendu si migration 0061 manquante, RLS, colonnes
+  // absentes si 0060 manquante, etc.) sont capturees et retournees comme
+  // { ok: false, error }. Empeche absolument tout error boundary cote UI.
+  try {
+    const sb = await createClient();
 
-  // Toggle les 2 subs (même logique que toggleSubscription, en lot)
-  for (const type of PILOTAGE_TYPES) {
-    const { data: existing, error: e0 } = await sb
-      .from("obligation_subscriptions")
-      .select("id")
-      .eq("client_id", clientId)
-      .eq("type", type)
-      .eq("annee", annee)
-      .maybeSingle();
-    if (e0) throw new Error(e0.message);
-    if (existing) {
-      const { error } = await sb
-        .from("obligation_subscriptions")
-        .update({ actif: enabled })
-        .eq("id", existing.id);
-      if (error) throw new Error(error.message);
-    } else if (enabled) {
-      const { error } = await sb
-        .from("obligation_subscriptions")
-        .insert({ client_id: clientId, type, annee, actif: true });
-      if (error) throw new Error(error.message);
-    }
-  }
-
-  if (enabled) {
-    // Pre-remplissage des cadences si absentes (depuis tdb_periode).
-    // Defensive : si migration 0060 pas appliquee, on skip silencieusement
-    // le pre-remplissage. Les cadences seront definies plus tard par l'user.
-    try {
-      const { data: c, error } = await sb
-        .from("clients")
-        .select("tdb_periode, tdb_livraison_periode, rdv_expert_periode")
-        .eq("id", clientId)
-        .single();
-      if (!error) {
-        const isTri = c?.tdb_periode === "Trimestriel";
-        const patch: Record<string, string> = {};
-        if (!c?.tdb_livraison_periode) patch.tdb_livraison_periode = isTri ? "Trimestrielle" : "Mensuelle";
-        if (!c?.rdv_expert_periode) patch.rdv_expert_periode = isTri ? "Trimestriel" : "Mensuel";
-        if (Object.keys(patch).length > 0) {
-          await sb.from("clients").update(patch).eq("id", clientId);
+    // Toggle les 2 subs (memes logique que toggleSubscription, en lot).
+    // Chaque INSERT est dans son propre try : si PILOTAGE_TDB plante sur
+    // l'enum, on essaie quand meme PILOTAGE_RDV (au cas ou seul un des 2
+    // serait manquant - improbable mais defensif).
+    const errors: string[] = [];
+    for (const type of PILOTAGE_TYPES) {
+      try {
+        const { data: existing, error: e0 } = await sb
+          .from("obligation_subscriptions")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("type", type)
+          .eq("annee", annee)
+          .maybeSingle();
+        if (e0) {
+          errors.push(`${type}: ${e0.message}`);
+          continue;
         }
+        if (existing) {
+          const { error } = await sb
+            .from("obligation_subscriptions")
+            .update({ actif: enabled })
+            .eq("id", existing.id);
+          if (error) errors.push(`${type} update: ${error.message}`);
+        } else if (enabled) {
+          const { error } = await sb
+            .from("obligation_subscriptions")
+            .insert({ client_id: clientId, type, annee, actif: true });
+          if (error) errors.push(`${type} insert: ${error.message}`);
+        }
+      } catch (e) {
+        errors.push(`${type}: ${e instanceof Error ? e.message : String(e)}`);
       }
-    } catch {
-      // colonnes manquantes : on continue, regenerate fera juste 12 instances par defaut
     }
-    await regenerateObligationsForYear(clientId, annee);
-  }
 
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/parametrage");
-  revalidatePath("/obligations/tableau-de-bord");
-  revalidatePath("/obligations/rdv-expert");
+    if (enabled) {
+      // Pre-remplissage des cadences (best-effort)
+      try {
+        const { data: c, error } = await sb
+          .from("clients")
+          .select("tdb_periode, tdb_livraison_periode, rdv_expert_periode")
+          .eq("id", clientId)
+          .single();
+        if (!error && c) {
+          const isTri = (c as { tdb_periode?: string | null }).tdb_periode === "Trimestriel";
+          const patch: Record<string, string> = {};
+          const cc = c as { tdb_livraison_periode?: string | null; rdv_expert_periode?: string | null };
+          if (!cc.tdb_livraison_periode) patch.tdb_livraison_periode = isTri ? "Trimestrielle" : "Mensuelle";
+          if (!cc.rdv_expert_periode) patch.rdv_expert_periode = isTri ? "Trimestriel" : "Mensuel";
+          if (Object.keys(patch).length > 0) {
+            await sb.from("clients").update(patch).eq("id", clientId);
+          }
+        }
+      } catch {
+        // best-effort : on continue meme si echec
+      }
+      // Regenerate : peut throw si enum manquante. On wrap.
+      try {
+        await regenerateObligationsForYear(clientId, annee);
+      } catch (e) {
+        errors.push(`regenerate: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/parametrage");
+    revalidatePath("/obligations/tableau-de-bord");
+    revalidatePath("/obligations/rdv-expert");
+
+    if (errors.length > 0) {
+      // eslint-disable-next-line no-console
+      console.error("[setDashboardSubscription] partial errors:", errors);
+      return { ok: false, error: errors.join(" · ") };
+    }
+    return { ok: true };
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[setDashboardSubscription] fatal:", e);
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /**
@@ -549,50 +581,73 @@ export async function setPilotagePeriode(
   clientId: string,
   aspect: "tdb" | "rdv",
   value: PilotagePeriode | null
-) {
-  const sb = await createClient();
-  const col = aspect === "tdb" ? "tdb_livraison_periode" : "rdv_expert_periode";
-  const type: TypeObligation = aspect === "tdb" ? "PILOTAGE_TDB" : "PILOTAGE_RDV";
+): Promise<{ ok: boolean; error?: string }> {
+  // ULTRA-DEFENSIVE (cf. setDashboardSubscription) : aucune throw, retourne
+  // { ok: false, error } en cas d'echec.
+  try {
+    const sb = await createClient();
+    const col = aspect === "tdb" ? "tdb_livraison_periode" : "rdv_expert_periode";
+    const type: TypeObligation = aspect === "tdb" ? "PILOTAGE_TDB" : "PILOTAGE_RDV";
 
-  const { error } = await sb.from("clients").update({ [col]: value }).eq("id", clientId);
-  if (error) throw new Error(error.message);
-
-  // Années où cet aspect est actif
-  const { data: subs } = await sb
-    .from("obligation_subscriptions")
-    .select("annee")
-    .eq("client_id", clientId)
-    .eq("type", type)
-    .eq("actif", true);
-  const years = [...new Set((subs ?? []).map((s) => s.annee))];
-
-  // Mois cibles selon la nouvelle cadence
-  const isTri = !!value && value.toLowerCase().startsWith("trim");
-  const targetMonths = isTri ? [3, 6, 9, 12] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-  for (const y of years) {
-    const targetPeriodes = new Set(targetMonths.map((m) => `${y}-${String(m).padStart(2, "0")}`));
-    // Purge les instances hors cadence ET encore vierges (A_FAIRE) pour ne pas
-    // perdre le travail déjà saisi sur un mois.
-    const { data: toDelete } = await sb
-      .from("obligations")
-      .select("id, periode")
-      .eq("client_id", clientId)
-      .eq("type", type)
-      .eq("annee", y)
-      .eq("statut_logique", "A_FAIRE");
-    const obsoleteIds = (toDelete ?? [])
-      .filter((o) => !targetPeriodes.has(o.periode))
-      .map((o) => o.id);
-    if (obsoleteIds.length > 0) {
-      await sb.from("obligations").delete().in("id", obsoleteIds);
+    // Update la colonne client (migration 0060). Si elle n'existe pas, on
+    // retourne une erreur explicite mais on ne crashe pas.
+    const { error: errUpd } = await sb.from("clients").update({ [col]: value }).eq("id", clientId);
+    if (errUpd) {
+      // eslint-disable-next-line no-console
+      console.error(`[setPilotagePeriode] update ${col}:`, errUpd.message);
+      return { ok: false, error: `Migration 0060 manquante ? (${errUpd.message})` };
     }
-    await regenerateObligationsForYear(clientId, y);
-  }
 
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/obligations/tableau-de-bord");
-  revalidatePath("/obligations/rdv-expert");
+    // Best-effort : regenerate + purge des mois obsoletes. Si l'enum n'est
+    // pas etendu, ces queries plantent. On capture par annee pour qu'au moins
+    // l'update du clients.{col} reste applique.
+    try {
+      const { data: subs } = await sb
+        .from("obligation_subscriptions")
+        .select("annee")
+        .eq("client_id", clientId)
+        .eq("type", type)
+        .eq("actif", true);
+      const years = [...new Set((subs ?? []).map((s) => s.annee))];
+      const isTri = !!value && value.toLowerCase().startsWith("trim");
+      const targetMonths = isTri ? [3, 6, 9, 12] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+      for (const y of years) {
+        try {
+          const targetPeriodes = new Set(targetMonths.map((m) => `${y}-${String(m).padStart(2, "0")}`));
+          const { data: toDelete } = await sb
+            .from("obligations")
+            .select("id, periode")
+            .eq("client_id", clientId)
+            .eq("type", type)
+            .eq("annee", y)
+            .eq("statut_logique", "A_FAIRE");
+          const obsoleteIds = (toDelete ?? [])
+            .filter((o) => !targetPeriodes.has(o.periode))
+            .map((o) => o.id);
+          if (obsoleteIds.length > 0) {
+            await sb.from("obligations").delete().in("id", obsoleteIds);
+          }
+          await regenerateObligationsForYear(clientId, y);
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error(`[setPilotagePeriode] regen ${y}:`, e);
+        }
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[setPilotagePeriode] regen step:", e);
+    }
+
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/obligations/tableau-de-bord");
+    revalidatePath("/obligations/rdv-expert");
+    return { ok: true };
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[setPilotagePeriode] fatal:", e);
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /**

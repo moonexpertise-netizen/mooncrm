@@ -209,15 +209,18 @@ export default function ObligationsMatrix({
       return;
     }
     const next = !isDashboardActive(annee);
-    // Try/catch obligatoire : si la migration 0061 (enum type_obligation
-    // etendu) n'est pas appliquee, l'INSERT cote serveur throw, et sans
-    // capture l'erreur remonte au startTransition -> error boundary
-    // "Impossible de charger ce dossier" pour TOUT le segment.
+    // L'action server ne throw jamais (cf. setDashboardSubscription) :
+    // retourne { ok, error } a la place. On affiche un toast si error mais
+    // la page n'est jamais crashee meme si migration 0061 manquante.
     startTransition(async () => {
       try {
-        await setDashboardSubscription(clientId, annee, next);
+        const res = await setDashboardSubscription(clientId, annee, next);
+        if (!res.ok) {
+          toastError(new Error(res.error ?? "Erreur inconnue"), "Échec activation Dashboard");
+        }
         router.refresh();
       } catch (e) {
+        // Filet de securite ultime : meme si l'action throw, on absorbe.
         toastError(e, "Échec activation Dashboard");
       }
     });

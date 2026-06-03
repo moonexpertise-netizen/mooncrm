@@ -35,13 +35,20 @@ export default function PilotageFieldsCard({
   function onChange(aspect: "tdb" | "rdv", value: PilotagePeriode) {
     if (aspect === "tdb") setTdb(value);
     else setRdv(value);
+    // L'action server ne throw plus (retourne { ok, error }). On revert le
+    // state local si echec, sans jamais crasher la page.
     startTransition(async () => {
       try {
-        await setPilotagePeriode(clientId, aspect, value);
+        const res = await setPilotagePeriode(clientId, aspect, value);
+        if (!res.ok) {
+          toastError(new Error(res.error ?? "Erreur inconnue"), "Échec sauvegarde cadence");
+          if (aspect === "tdb") setTdb(initialTdbPeriode ?? "");
+          else setRdv(initialRdvPeriode ?? "");
+          return;
+        }
         router.refresh();
       } catch (e) {
         toastError(e, "Échec sauvegarde cadence");
-        // Revert
         if (aspect === "tdb") setTdb(initialTdbPeriode ?? "");
         else setRdv(initialRdvPeriode ?? "");
       }
