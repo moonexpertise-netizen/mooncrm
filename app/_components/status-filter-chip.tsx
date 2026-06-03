@@ -21,7 +21,9 @@ export function StatusFilterChip({
   accent,
 }: {
   label: string;
-  count: number;
+  /** Compteur optionnel : si non fourni, le badge n'est pas affiche. Utile
+   *  pour les contextes ou compter serait O(n²) (cellules d'un tracker). */
+  count?: number;
   active: boolean;
   /** Event React expose pour pouvoir detecter Cmd/Ctrl (multi-select Excel-style).
    *  Les callers qui n'utilisent pas le multi-select peuvent ignorer l'event. */
@@ -56,16 +58,18 @@ export function StatusFilterChip({
       )}
       <span>{label}</span>
       {/* Count toujours dans une pill grise fonce → lisible en light + dark, actif + inactif */}
-      <span
-        className={cn(
-          "tabular-nums text-[10px] px-1.5 py-0.5 rounded font-medium",
-          active
-            ? "bg-zinc-200/90 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200"
-            : "bg-zinc-100 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400"
-        )}
-      >
-        {count}
-      </span>
+      {count !== undefined && (
+        <span
+          className={cn(
+            "tabular-nums text-[10px] px-1.5 py-0.5 rounded font-medium",
+            active
+              ? "bg-zinc-200/90 dark:bg-white/[0.10] text-zinc-700 dark:text-zinc-200"
+              : "bg-zinc-100 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400"
+          )}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
-import { toastError } from "@/lib/toast-helpers";
+import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import {
   bulkUpdateObligationStatus,
   setObligationFacturation,
@@ -926,8 +926,17 @@ export default function TrackerTable({
       applyPatch({ obligationId: oid, statut_logique, statut_detail: libelle });
     }
     startTransition(async () => {
-      await bulkUpdateObligationStatus(obligationIds, libelle);
-      router.refresh();
+      try {
+        await bulkUpdateObligationStatus(obligationIds, libelle);
+        toastSuccess(
+          `${obligationIds.length} cellule${obligationIds.length > 1 ? "s" : ""} mise${obligationIds.length > 1 ? "s" : ""} à jour`
+        );
+      } catch (e) {
+        toastError(e, "Échec mise à jour groupée");
+      } finally {
+        // Refresh dans tous les cas : rollback optimistic si erreur, sync si OK
+        router.refresh();
+      }
     });
   }
 
@@ -943,13 +952,10 @@ export default function TrackerTable({
     return [...seen.values()];
   }, [statusOptions]);
 
-  function togglePeriodFilter(key: string) {
-    setPeriodFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  // Pattern uniforme : clic = single (remplace), Cmd/Ctrl+clic = toggle.
+  // Coherent avec les chips de statut, IR/CAA/Creations/Mission exc/Pilotage.
+  function togglePeriodFilter(key: string, e?: React.MouseEvent) {
+    setPeriodFilter((prev) => toggleFilterKey(prev, key, e));
   }
 
   const colStats = useMemo(() => {
@@ -1001,8 +1007,13 @@ export default function TrackerTable({
       applyPatch(patch);
       setOpenCellId(null);
       startTransition(async () => {
-        await updateObligationStatus(obligationId, libelle);
-        router.refresh();
+        try {
+          await updateObligationStatus(obligationId, libelle);
+        } catch (e) {
+          toastError(e, "Échec mise à jour");
+        } finally {
+          router.refresh();
+        }
       });
     },
     [statusOptions, applyPatch, router, filtered, visibleCols]
@@ -1013,8 +1024,13 @@ export default function TrackerTable({
       applyPatch({ obligationId, statut_logique: "A_FAIRE", statut_detail: null });
       setOpenCellId(null);
       startTransition(async () => {
-        await updateObligationStatus(obligationId, null);
-        router.refresh();
+        try {
+          await updateObligationStatus(obligationId, null);
+        } catch (e) {
+          toastError(e, "Échec réinitialisation");
+        } finally {
+          router.refresh();
+        }
       });
     },
     [applyPatch, router]
@@ -1233,29 +1249,29 @@ export default function TrackerTable({
         />
         <div className="h-6 w-px bg-zinc-200 mx-1" />
         <div className="inline-flex gap-1 items-center">
-          <StatusFilterPill
+          <StatusFilterChip
             label="À faire"
-            color="bg-amber-100 text-amber-800 border-amber-300"
             active={statusFilter.has("A_FAIRE")}
             onClick={(e) => handleStatusFilter("A_FAIRE", e)}
+            accent="amber"
           />
-          <StatusFilterPill
+          <StatusFilterChip
             label="En cours"
-            color="bg-blue-100 text-blue-800 border-blue-300"
             active={statusFilter.has("EN_COURS")}
             onClick={(e) => handleStatusFilter("EN_COURS", e)}
+            accent="sky"
           />
-          <StatusFilterPill
+          <StatusFilterChip
             label="Terminé"
-            color="bg-emerald-100 text-emerald-800 border-emerald-300"
             active={statusFilter.has("TERMINE")}
             onClick={(e) => handleStatusFilter("TERMINE", e)}
+            accent="emerald"
           />
-          <StatusFilterPill
+          <StatusFilterChip
             label="N/A"
-            color="bg-zinc-100 text-zinc-700 border-zinc-300"
             active={statusFilter.has("NON_APPLICABLE")}
             onClick={(e) => handleStatusFilter("NON_APPLICABLE", e)}
+            accent="zinc"
           />
         </div>
         {cols.length > 1 && (
@@ -1265,7 +1281,7 @@ export default function TrackerTable({
               {cols.map((c) => (
                 <button
                   key={c.key}
-                  onClick={() => togglePeriodFilter(c.key)}
+                  onClick={(e) => togglePeriodFilter(c.key, e)}
                   className={cn(
                     "px-1.5 py-0.5 rounded text-[11px] font-medium border transition-all duration-150 active:scale-95",
                     periodFilter.has(c.key)
@@ -1748,33 +1764,6 @@ function InlineTvaTagPicker({
           document.body
         )}
     </>
-  );
-}
-
-function StatusFilterPill({
-  label,
-  color,
-  active,
-  onClick,
-}: {
-  label: string;
-  color: string;
-  active: boolean;
-  /** Recoit l'event pour pouvoir detecter Cmd/Ctrl (multi-select uniforme). */
-  onClick: (e?: React.MouseEvent) => void;
-}) {
-  return (
-    <button
-      onClick={(e) => onClick(e)}
-      className={cn(
-        "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95",
-        active
-          ? cn(color, "shadow-sm")
-          : "bg-white text-zinc-500 border-zinc-300 hover:bg-zinc-50"
-      )}
-    >
-      {label}
-    </button>
   );
 }
 

@@ -616,18 +616,34 @@ export default function PilotageTable({
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {filteredRows.map((r, rowIdx) => {
+                // Pastille rouge a la racine du dossier si au moins une cellule
+                // est en A_FAIRE pour l'annee active. Coherent avec IR/CAA/Creations.
+                const hasAFaire = Array.from(r.cells.values()).some(
+                  (c) => c.statut_logique === "A_FAIRE"
+                );
                 return (
                   <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-3 py-2 sticky left-0 bg-white dark:bg-[hsl(var(--card))]">
-                      <Link
-                        href={`/clients/${r.slug}`}
-                        className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
-                      >
-                        {r.denomination}
-                      </Link>
-                      {r.siren && (
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{r.siren}</div>
-                      )}
+                      <div className="flex items-start gap-2">
+                        {hasAFaire && (
+                          <span
+                            aria-label="À faire"
+                            title="Au moins une période à traiter"
+                            className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <Link
+                            href={`/clients/${r.slug}`}
+                            className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                          >
+                            {r.denomination}
+                          </Link>
+                          {r.siren && (
+                            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{r.siren}</div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-3 py-2">
                       <select

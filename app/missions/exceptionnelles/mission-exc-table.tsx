@@ -794,15 +794,29 @@ function MissionRow({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  // Pastille rouge a la racine du dossier si la mission est encore a demarrer.
+  // Coherent avec IR/CAA/Creations/Pilotage : repere les missions a traiter.
+  const isAFaire = row.etat_mission === "a_demarrer";
   return (
     <tr className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors align-top">
-      {/* Client */}
+      {/* Client (+ pastille a faire en racine) */}
       <td className="px-3 py-2.5">
-        <ClientPicker
-          row={row}
-          clientOptions={clientOptions}
-          onChange={onChangeClient}
-        />
+        <div className="flex items-start gap-2">
+          {isAFaire && (
+            <span
+              aria-label="À démarrer"
+              title="Mission à démarrer"
+              className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <ClientPicker
+              row={row}
+              clientOptions={clientOptions}
+              onChange={onChangeClient}
+            />
+          </div>
+        </div>
       </td>
 
       {/* Type */}
