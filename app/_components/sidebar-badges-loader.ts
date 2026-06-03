@@ -2,63 +2,76 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+const ZERO = { creations: 0, ir: 0, caa: 0 } as const;
+
 /**
  * Compteurs pour les badges rouges de la sidebar : nombre de dossiers
  * actuellement en statut "A faire" sur les modules Creations / IR + IFI / CAA.
  *
- *   - Creations : clients origine='1 - Création' avec creation_statut='a_traiter'
- *   - IR + IFI  : ir_obligations statut_logique='A_FAIRE' toutes annees
- *                 (compte les cells IR ET IFI separement -> chaque type non
- *                 commence compte 1)
- *   - CAA       : caa_obligations statut_logique='A_FAIRE' toutes annees
+ * ULTRA-DEFENSIVE : cette server action est appelee par le sidebar a chaque
+ * navigation. Si elle throw, le client recoit une 500 et le composant React
+ * peut crasher avec "An error occurred in the Server Components render".
  *
- * NB : on ne filtre pas sur l'annee courante. Un exercice 2025 declare en
- * 2026 reste "a faire" tant que pas termine. Le badge compte la dette
- * operationnelle reelle, pas un slice annuel.
+ * Garantie : cette fonction ne throw JAMAIS, peu importe ce qui se passe.
+ *   - createClient throw (cookies cassees, session expiree) -> return ZERO
+ *   - Supabase indisponible -> return ZERO
+ *   - Colonnes/tables manquantes -> return ZERO
  *
- * Production : exclu (trop de tasks, polluerait visuellement).
- *
- * Defensif : log + count=0 si la query echoue (colonne manquante / RLS / etc.)
+ * Production : exclu des badges (trop de tasks, polluerait visuellement).
  */
 export async function loadSidebarBadges(): Promise<{
   creations: number;
   ir: number;
   caa: number;
 }> {
-  const sb = await createClient();
+  try {
+    const sb = await createClient();
 
-  const [creationsRes, irRes, caaRes] = await Promise.all([
-    sb
-      .from("clients")
-      .select("id", { count: "exact", head: true })
-      .eq("origine", "1 - Création")
-      .eq("creation_statut", "a_traiter"),
-    sb
-      .from("ir_obligations")
-      .select("id", { count: "exact", head: true })
-      .eq("statut_logique", "A_FAIRE"),
-    sb
-      .from("caa_obligations")
-      .select("id", { count: "exact", head: true })
-      .eq("statut_logique", "A_FAIRE"),
-  ]);
+    // Chaque query dans son propre try : un echec n'empeche pas les 2 autres.
+    // PromiseLike pour accepter les Postgrest builders (thenable mais pas
+    // strictement Promise).
+    async function safeCount(fn: () => PromiseLike<{ count: number | null; error: unknown }>): Promise<number> {
+      try {
+        const r = await fn();
+        if (r.error) {
+          // eslint-disable-next-line no-console
+          console.error("[sidebar-badges] query error:", r.error);
+          return 0;
+        }
+        return r.count ?? 0;
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("[sidebar-badges] query throw:", e);
+        return 0;
+      }
+    }
 
-  if (creationsRes.error) {
-    // eslint-disable-next-line no-console
-    console.error("[sidebar-badges] creations:", creationsRes.error.message);
-  }
-  if (irRes.error) {
-    // eslint-disable-next-line no-console
-    console.error("[sidebar-badges] ir:", irRes.error.message);
-  }
-  if (caaRes.error) {
-    // eslint-disable-next-line no-console
-    console.error("[sidebar-badges] caa:", caaRes.error.message);
-  }
+    const [creations, ir, caa] = await Promise.all([
+      safeCount(() =>
+        sb
+          .from("clients")
+          .select("id", { count: "exact", head: true })
+          .eq("origine", "1 - Création")
+          .eq("creation_statut", "a_traiter")
+      ),
+      safeCount(() =>
+        sb
+          .from("ir_obligations")
+          .select("id", { count: "exact", head: true })
+          .eq("statut_logique", "A_FAIRE")
+      ),
+      safeCount(() =>
+        sb
+          .from("caa_obligations")
+          .select("id", { count: "exact", head: true })
+          .eq("statut_logique", "A_FAIRE")
+      ),
+    ]);
 
-  return {
-    creations: creationsRes.error ? 0 : creationsRes.count ?? 0,
-    ir: irRes.error ? 0 : irRes.count ?? 0,
-    caa: caaRes.error ? 0 : caaRes.count ?? 0,
-  };
+    return { creations, ir, caa };
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[sidebar-badges] fatal:", e);
+    return { ...ZERO };
+  }
 }
