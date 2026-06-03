@@ -15,6 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import CommentsPopover from "./comments-panel";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
+import { setClientTvaTag } from "@/app/parametrage/tva-tags/actions";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
@@ -944,6 +945,30 @@ export default function TrackerTable({
   const handleOpen = useCallback((cellId: string) => setOpenCellId(cellId), []);
   const handleClose = useCallback(() => setOpenCellId(null), []);
 
+  // Changement d'etiquette TVA inline (depuis le tracker tva-mensuelle).
+  // Optimistic update sur localRows + persist async + revert si erreur.
+  const onChangeTvaTag = useCallback(
+    (clientId: string, tagId: string | null) => {
+      const previous = localRows.find((r) => r.clientId === clientId)?.tva_tag_id ?? null;
+      setLocalRows((state) =>
+        state.map((r) => (r.clientId === clientId ? { ...r, tva_tag_id: tagId } : r))
+      );
+      startTransition(async () => {
+        try {
+          await setClientTvaTag(clientId, tagId);
+          router.refresh();
+        } catch (e) {
+          toastError(e, "Échec sauvegarde étiquette");
+          // Revert
+          setLocalRows((state) =>
+            state.map((r) => (r.clientId === clientId ? { ...r, tva_tag_id: previous } : r))
+          );
+        }
+      });
+    },
+    [localRows, router]
+  );
+
   // Ouverture du popover commentaires (depuis l'icône 💬 d'une cellule).
   // Capture le rect de l'élément cliqué pour ancrer le popover.
   const handleOpenComments = useCallback(
@@ -1216,6 +1241,16 @@ export default function TrackerTable({
                           {r.denomination}
                         </Link>
                         <PappersInpiBadges siren={r.siren} size="xs" />
+                        {/* Picker etiquette TVA inline : visible uniquement sur le
+                            tracker tva-mensuelle. Permet de catégoriser le dossier
+                            sans aller dans la fiche client. */}
+                        {isTvaMensuelle && tvaTags && (
+                          <InlineTvaTagPicker
+                            tags={tvaTags}
+                            currentTagId={r.tva_tag_id}
+                            onChange={(tagId) => onChangeTvaTag(r.clientId, tagId)}
+                          />
+                        )}
                       </div>
                       {r.siren && (
                         <Link
@@ -1419,6 +1454,165 @@ export default function TrackerTable({
         />
       )}
     </div>
+  );
+}
+
+// ============================================================================
+//  InlineTvaTagPicker : chip cliquable a cote du nom client sur le tracker
+//  tva-mensuelle. Click ouvre un popover avec liste des tags actifs + option
+//  "Aucune". Affiche un placeholder discret "+ étiquette" si aucun tag.
+// ============================================================================
+
+const TVA_TAG_DOT_COLORS: Record<string, string> = {
+  zinc: "bg-zinc-400 dark:bg-zinc-500",
+  sky: "bg-sky-400 dark:bg-sky-500",
+  emerald: "bg-emerald-400 dark:bg-emerald-500",
+  amber: "bg-amber-400 dark:bg-amber-500",
+  violet: "bg-violet-400 dark:bg-violet-500",
+  rose: "bg-rose-400 dark:bg-rose-500",
+  teal: "bg-teal-400 dark:bg-teal-500",
+  indigo: "bg-indigo-400 dark:bg-indigo-500",
+};
+
+const TVA_TAG_BG_COLORS: Record<string, string> = {
+  zinc: "bg-zinc-50 dark:bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-500/30",
+  sky: "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30",
+  emerald: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30",
+  amber: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30",
+  violet: "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30",
+  rose: "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30",
+  teal: "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-500/30",
+  indigo: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30",
+};
+
+function InlineTvaTagPicker({
+  tags,
+  currentTagId,
+  onChange,
+}: {
+  tags: TvaTag[];
+  currentTagId: string | null;
+  onChange: (tagId: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+  const current = tags.find((t) => t.id === currentTagId) ?? null;
+
+  useEffect(() => {
+    if (!open || !btnRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = btnRef.current.getBoundingClientRect();
+    const POPOVER_HEIGHT = (tags.length + 1) * 32 + 16;
+    const POPOVER_WIDTH = 220;
+    const MARGIN = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
+    const left = Math.max(MARGIN, Math.min(rect.left, window.innerWidth - MARGIN - POPOVER_WIDTH));
+    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
+  }, [open, tags.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors whitespace-nowrap",
+          current
+            ? TVA_TAG_BG_COLORS[current.color] ?? TVA_TAG_BG_COLORS.zinc
+            : "border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/[0.20]"
+        )}
+        title={current ? `Étiquette : ${current.label}` : "Attribuer une étiquette TVA"}
+      >
+        {current ? (
+          <>
+            <span className={cn("inline-block w-1.5 h-1.5 rounded-full shrink-0", TVA_TAG_DOT_COLORS[current.color] ?? TVA_TAG_DOT_COLORS.zinc)} />
+            {current.label}
+          </>
+        ) : (
+          "+ étiquette"
+        )}
+      </button>
+      {open && pos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              top: `${pos.top}px`,
+              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
+              zIndex: 1000,
+            }}
+            className="min-w-[220px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+          >
+            {/* Option : aucune (visible si tag courant) */}
+            {current && (
+              <button
+                type="button"
+                onClick={() => { onChange(null); setOpen(false); }}
+                className="w-full text-left px-3 py-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-b border-zinc-100 dark:border-white/[0.06]"
+              >
+                — Retirer l&apos;étiquette
+              </button>
+            )}
+            {tags.map((t) => {
+              const isActive = currentTagId === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => { onChange(t.id); setOpen(false); }}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
+                    isActive && "bg-zinc-50 dark:bg-white/[0.04]"
+                  )}
+                >
+                  <span className={cn("inline-block w-2 h-2 rounded-full shrink-0", TVA_TAG_DOT_COLORS[t.color] ?? TVA_TAG_DOT_COLORS.zinc)} />
+                  <span className="flex-1 truncate">{t.label}</span>
+                  {isActive && <span className="text-zinc-400 dark:text-zinc-500 text-xs">✓</span>}
+                </button>
+              );
+            })}
+            {tags.length === 0 && (
+              <div className="px-3 py-2 text-xs text-zinc-400 dark:text-zinc-500 italic">
+                Aucune étiquette créée
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
