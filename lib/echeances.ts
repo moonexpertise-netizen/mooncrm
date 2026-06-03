@@ -220,14 +220,7 @@ export function computeEcheance(
     };
   }
 
-  // ----- CFE -----
-  // Actif 1er novembre N, echeance 15 decembre N
-  if (type === "CFE") {
-    return {
-      activeFrom: firstOfMonth(annee, 11),
-      dueDate: makeDate(annee, 12, 15),
-    };
-  }
+  // (CFE retiree : type inutilise par MOON Expertise)
 
   // Pas de regle d'echeance pour ce type -> pas d'urgence calculee
   return null;

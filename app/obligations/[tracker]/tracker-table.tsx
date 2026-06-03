@@ -1443,6 +1443,13 @@ export default function TrackerTable({
                   <span>Client</span>
                 </button>
               </th>
+              {/* Colonne dediee "Echeance" pour les trackers annuels a cloture.
+                  Triable, affichee a droite du nom du dossier. */}
+              {hasClotureBasedCols && (
+                <th className="bg-zinc-50 text-left px-3 py-2 font-medium border-r min-w-[150px] text-[11px] uppercase tracking-wider text-zinc-500">
+                  Échéance
+                </th>
+              )}
               {visibleCols.map((col, colIndex) => {
                 const s = colStats[col.key];
                 const pct = s.total > 0 ? Math.round((s.done * 100) / s.total) : 0;
@@ -1510,37 +1517,48 @@ export default function TrackerTable({
                           {r.siren}
                         </Link>
                       )}
-                      {/* Date d'echeance sur les trackers cloture-based : sous
-                          le nom, format JJ/MM/YYYY. Couleur selon urgence :
-                          rouge si depassee, ambre si <=30j, zinc sinon. */}
-                      {hasClotureBasedCols && (() => {
-                        const due = computeNextEcheance(r);
-                        if (!due) return null;
-                        const days = (due.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-                        const color = days < 0
-                          ? "text-rose-600 font-semibold"
-                          : days <= 30
-                          ? "text-amber-700 font-medium"
-                          : "text-zinc-500";
-                        return (
-                          <div
-                            className={cn("flex items-center gap-1 text-[11px] mt-0.5 tabular-nums", color)}
-                            title={
-                              days < 0
-                                ? `En retard de ${Math.abs(Math.round(days))} jour(s) · ${fmtDateFr(due.toISOString().substring(0, 10))}`
-                                : `Échéance dans ${Math.round(days)} jour(s) · ${fmtDateFr(due.toISOString().substring(0, 10))}`
-                            }
-                          >
-                            <span>{fmtDateFr(due.toISOString().substring(0, 10))}</span>
-                            {r.mois_cloture && (
-                              <span className="text-zinc-400">· clôture {MOIS_FR[r.mois_cloture - 1]}</span>
-                            )}
-                          </div>
-                        );
-                      })()}
                     </div>
                   </div>
                 </td>
+                {/* Colonne "Echeance" sur les trackers cloture-based */}
+                {hasClotureBasedCols && (() => {
+                  const due = computeNextEcheance(r);
+                  if (!due) {
+                    return (
+                      <td className="px-3 py-2 border-r text-xs text-zinc-300">-</td>
+                    );
+                  }
+                  const days = (due.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+                  const dueIso = due.toISOString().substring(0, 10);
+                  const color = days < 0
+                    ? "text-rose-600 font-semibold"
+                    : days <= 30
+                    ? "text-amber-700 font-medium"
+                    : "text-zinc-600";
+                  const ago = days < 0
+                    ? `${Math.abs(Math.round(days))}j en retard`
+                    : days === 0
+                    ? "aujourd'hui"
+                    : `dans ${Math.round(days)}j`;
+                  return (
+                    <td
+                      className={cn("px-3 py-2 border-r tabular-nums", color)}
+                      title={
+                        days < 0
+                          ? `En retard de ${Math.abs(Math.round(days))} jour(s) · ${fmtDateFr(dueIso)}`
+                          : `Échéance dans ${Math.round(days)} jour(s) · ${fmtDateFr(dueIso)}`
+                      }
+                    >
+                      <div className="text-sm">{fmtDateFr(dueIso)}</div>
+                      <div className="text-[10px] opacity-70 mt-0.5">
+                        {r.mois_cloture && (
+                          <span>clôture {MOIS_FR[r.mois_cloture - 1]} · </span>
+                        )}
+                        <span>{ago}</span>
+                      </div>
+                    </td>
+                  );
+                })()}
                 {r.cells
                   .filter((c) => visibleColKeysSet.has(c.colKey))
                   .map((c, colIndex) => {
