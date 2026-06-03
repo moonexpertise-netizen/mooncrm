@@ -86,6 +86,7 @@ export default async function ObligationsSommaire({
     total: number;
     prochaineEcheance: string | null; // min des échéances non terminées et >= today
     enRetard: number; // nb d'obligations dont l'échéance est dépassée et pas terminées
+    aTraiter: number; // echeance ≤ 30j ou depassee, non terminee
     derniereAction: string | null; // max updated_at
   };
   const bySlug = new Map<string, Agg>();
@@ -98,26 +99,16 @@ export default async function ObligationsSommaire({
       total: 0,
       prochaineEcheance: null,
       enRetard: 0,
+      aTraiter: 0,
       derniereAction: null,
     });
   }
-
-  // Buckets de charge a venir : agreges sur toutes les obligations non
-  // terminees, scopes au filtre Production (LDM/Interne/ST). Permet de
-  // visualiser la "vague" qui arrive sans avoir a deduire des compteurs
-  // tracker par tracker.
-  const charge = {
-    enRetard: 0,        // echeance < today
-    cetteSemaine: 0,    // 0-7 jours
-    ceMois: 0,          // 8-30 jours
-    moisProchain: 0,    // 31-60 jours
-    deuxMois: 0,        // 61-90 jours
-    plusTard: 0,        // > 90 jours
-  };
-  const sevenDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().substring(0, 10); })();
-  const thirtyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10); })();
-  const sixtyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().substring(0, 10); })();
-  const ninetyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().substring(0, 10); })();
+  // Borne haute "echeance proche" : 30 jours a partir d'aujourd'hui
+  const thirtyDaysIso = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().substring(0, 10);
+  })();
 
   // Index des obligations materialisees pour deduplication des virtuelles
   const materializedSommaire = new Set<string>();
@@ -146,13 +137,10 @@ export default async function ObligationsSommaire({
     }
     if (!opts.isDone && opts.dueDateStr && opts.dueDateStr < today) {
       agg.enRetard++;
-      charge.enRetard++;
-    } else if (!opts.isDone && opts.dueDateStr) {
-      if (opts.dueDateStr <= sevenDaysIso) charge.cetteSemaine++;
-      else if (opts.dueDateStr <= thirtyDaysIso) charge.ceMois++;
-      else if (opts.dueDateStr <= sixtyDaysIso) charge.moisProchain++;
-      else if (opts.dueDateStr <= ninetyDaysIso) charge.deuxMois++;
-      else charge.plusTard++;
+      agg.aTraiter++;
+    } else if (!opts.isDone && opts.dueDateStr && opts.dueDateStr <= thirtyDaysIso) {
+      // Echeance proche (≤ 30j) -> a traiter prioritaire
+      agg.aTraiter++;
     }
     if (opts.updatedAt) {
       if (!agg.derniereAction || opts.updatedAt > agg.derniereAction) {
@@ -225,6 +213,7 @@ export default async function ObligationsSommaire({
       total: a.total,
       prochaineEcheance: a.prochaineEcheance,
       enRetard: a.enRetard,
+      aTraiter: a.aTraiter,
       derniereAction: a.derniereAction,
     };
   });
@@ -237,7 +226,7 @@ export default async function ObligationsSommaire({
         actions={<YearSelector year={selectedYear} />}
       />
 
-      <SommaireCards rows={stats} year={selectedYear} charge={charge} />
+      <SommaireCards rows={stats} year={selectedYear} />
     </div>
   );
 }

@@ -29,14 +29,13 @@ import type { DashboardData } from "./dashboard-data";
 
 /**
  * Composant client du dashboard. Reçoit toutes les données pré-agrégées
- * en props et rend 6 sections de BI :
+ * en props et rend 5 sections de BI :
  *
  *  1. KPI cards top (4 indicateurs synthétiques)
  *  2. Pipeline funnel (bar chart cliquable)
  *  3. Signatures 12 mois (composed chart : barres + ligne cumul YTD)
  *  4. Top 10 clients par ARR (liste cliquable)
- *  5. Production à risque (3 voyants alerte)
- *  6. Mix activité (donut)
+ *  5. Mix activité (donut)
  */
 export default function DashboardCharts({ data }: { data: DashboardData }) {
   return (
@@ -48,9 +47,8 @@ export default function DashboardCharts({ data }: { data: DashboardData }) {
         <SignaturesParMois signaturesParMois={data.signaturesParMois} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <TopClients topClients={data.topClients} />
-        <ProductionRisque risque={data.productionRisque} />
         <MixActivite mixActivite={data.mixActivite} />
       </div>
     </div>
@@ -453,105 +451,6 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
         </ul>
       )}
     </section>
-  );
-}
-
-// ============================================================================
-//  Production à risque
-// ============================================================================
-
-function ProductionRisque({
-  risque,
-}: {
-  risque: DashboardData["productionRisque"];
-}) {
-  return (
-    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
-      <header className="mb-4">
-        <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Production à risque</h2>
-        <p className="text-xs text-zinc-500 mt-0.5">Obligations non terminées</p>
-      </header>
-      <div className="space-y-2">
-        <RisqueRow
-          label="Échéances dépassées"
-          value={risque.enRetard}
-          color="rose"
-          icon={<AlertTriangle className="h-4 w-4" />}
-          href="/obligations/echeances?filter=overdue"
-        />
-        <RisqueRow
-          label="Échéance ≤ 7 jours"
-          value={risque.sous7Jours}
-          color="amber"
-          icon={<Clock className="h-4 w-4" />}
-          href="/obligations/echeances?filter=7j"
-        />
-        <RisqueRow
-          label="Échéance ≤ 30 jours"
-          value={risque.sous30Jours}
-          color="blue"
-          icon={<CalendarClock className="h-4 w-4" />}
-          href="/obligations/echeances?filter=30j"
-        />
-      </div>
-    </section>
-  );
-}
-
-function RisqueRow({
-  label,
-  value,
-  color,
-  icon,
-  href,
-}: {
-  label: string;
-  value: number;
-  color: "rose" | "amber" | "blue";
-  icon: React.ReactNode;
-  href: string;
-}) {
-  // Style Notion : fond neutre uniforme partout. Seule l'icone porte
-  // la couleur du statut. Le label et la valeur restent en foreground
-  // pour rester TOUJOURS lisibles, en light comme en dark.
-  const iconColors = {
-    rose: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
-    amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
-    blue: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400",
-  } as const;
-  const muted = value === 0;
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all",
-        "border-zinc-200/70 dark:border-white/[0.08]",
-        "bg-zinc-50/50 dark:bg-white/[0.02]",
-        "hover:bg-zinc-100/60 dark:hover:bg-white/[0.05] hover:border-zinc-300 dark:hover:border-white/[0.16]"
-      )}
-    >
-      <span
-        className={cn(
-          "inline-flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
-          muted ? "bg-zinc-100 text-zinc-400 dark:bg-white/[0.06] dark:text-zinc-500" : iconColors[color]
-        )}
-      >
-        {icon}
-      </span>
-      <span className={cn(
-        "text-xs flex-1 font-medium",
-        muted ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-200"
-      )}>
-        {label}
-      </span>
-      <span className={cn(
-        "text-xl font-semibold tabular-nums leading-none",
-        muted ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-50"
-      )}>
-        {value}
-      </span>
-      <ArrowRight className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-    </Link>
   );
 }
 

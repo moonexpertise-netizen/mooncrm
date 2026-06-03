@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -20,10 +19,16 @@ export type TrackerStat = {
   prochaineEcheance: string | null;
   /** Nombre d'obligations dont l'echeance est depassee + statut pas terminé. */
   enRetard: number;
+  /**
+   * Nombre d'obligations dont l'echeance arrive dans les 30 prochains jours
+   * OU est deja depassee, ET qui ne sont pas terminees. C'est le nouveau
+   * "A traiter" actionnable : ce qui doit etre fait maintenant.
+   */
+  aTraiter: number;
   derniereAction: string | null;
 };
 
-type StatusFilter = "todo" | "wip" | "done" | "urgent" | "overdue";
+type StatusFilter = "todo" | "done" | "overdue";
 
 /**
  * Dashboard "Suivi de production" - refonte en liste horizontale.
@@ -36,23 +41,12 @@ type StatusFilter = "todo" | "wip" | "done" | "urgent" | "overdue";
  * (rouge / ambre / vert), les zéros sont en gris discret → l'œil va
  * directement vers ce qui demande action.
  */
-type Charge = {
-  enRetard: number;
-  cetteSemaine: number;
-  ceMois: number;
-  moisProchain: number;
-  deuxMois: number;
-  plusTard: number;
-};
-
 export default function SommaireCards({
   rows,
   year,
-  charge,
 }: {
   rows: TrackerStat[];
   year: number;
-  charge?: Charge;
 }) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<Set<StatusFilter>>(new Set());
@@ -66,33 +60,19 @@ export default function SommaireCards({
     });
   }
 
-  // Cutoff "échéance urgente" = dans les 30 prochains jours
-  const URGENT_DAYS = 30;
-  const urgentCutoff = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + URGENT_DAYS);
-    return d.toISOString().substring(0, 10);
-  }, []);
-  const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
-
-  function isUrgent(r: TrackerStat): boolean {
-    if (!r.prochaineEcheance) return false;
-    return r.prochaineEcheance >= today && r.prochaineEcheance <= urgentCutoff;
-  }
-
   const filtered = useMemo(() => {
     if (statusFilter.size === 0) return rows;
     return rows.filter((r) => {
-      if (statusFilter.has("todo") && r.todo > 0) return true;
-      if (statusFilter.has("wip") && r.wip > 0) return true;
-      if (statusFilter.has("done") && r.done > 0 && r.todo === 0 && r.wip === 0)
+      // "À traiter" : trackers qui ont des obligations a echeance proche
+      if (statusFilter.has("todo") && r.aTraiter > 0) return true;
+      // "Terminés" : trackers sans rien a traiter ni en retard
+      if (statusFilter.has("done") && r.done > 0 && r.aTraiter === 0 && r.enRetard === 0)
         return true;
-      if (statusFilter.has("urgent") && isUrgent(r)) return true;
+      // "En retard" : trackers avec au moins une obligation depassee
       if (statusFilter.has("overdue") && r.enRetard > 0) return true;
       return false;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, statusFilter, today, urgentCutoff]);
+  }, [rows, statusFilter]);
 
   const grouped = useMemo(() => {
     return TRACKER_GROUPS.map((g) => ({
@@ -102,44 +82,33 @@ export default function SommaireCards({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered]);
 
-  // Une tache tant qu'elle n'est pas TERMINE reste a traiter (logique metier :
-  // une obligation EN_COURS n'est pas "deja faite", elle reste dangereuse vis-a-vis
-  // de l'echeance). On regroupe donc A_FAIRE + EN_COURS dans le compteur principal
-  // "A traiter". Garde wip separe en complement informatif.
-  const totalTodoPur = rows.reduce((s, r) => s + r.todo, 0);
-  const totalWip = rows.reduce((s, r) => s + r.wip, 0);
-  const totalATraiter = totalTodoPur + totalWip;
+  // "A traiter" = obligations dont l'echeance arrive bientot (≤ 30j) ou est
+  // deja depassee, ET qui ne sont pas terminees. C'est la VRAIE charge de
+  // travail actionnable : un dossier dont l'AGO est dans 6 mois n'a pas a
+  // se considerer comme "a traiter" maintenant, meme s'il n'est pas fait.
+  const totalATraiter = rows.reduce((s, r) => s + r.aTraiter, 0);
   const totalDone = rows.reduce((s, r) => s + r.done, 0);
-  const totalUrgent = rows.filter(isUrgent).length;
-  // Nombre de trackers avec au moins une obligation en retard (echeance dépassée
-  // + statut pas terminé, calcule dans page.tsx via lib/echeances.ts).
+  // Nombre d'obligations en retard (echeance dépassée + statut pas terminé,
+  // calcule dans page.tsx via lib/echeances.ts).
   const totalEnRetardTrackers = rows.filter((r) => r.enRetard > 0).length;
   const totalEnRetardObligations = rows.reduce((s, r) => s + r.enRetard, 0);
 
   return (
     <div className="space-y-6">
-      {/* Charge a venir : bande visuelle qui montre la vague d'echeances
-          qui arrive. Cliquable -> page /obligations/echeances filtree. */}
-      {charge && (
-        <ChargeAVenir charge={charge} />
-      )}
-
-      {/* KPI synthétiques : pilules cliquables = filtres rapides. */}
+      {/* KPI synthétiques : pilules cliquables = filtres rapides.
+          Seulement 3 chiffres actionnables :
+            - A traiter (échéance ≤ 30j ou dépassée, non terminée)
+            - Terminés
+            - En retard (déjà dépassées, sous-ensemble de "À traiter") */}
       <div className="flex flex-wrap items-center gap-2">
         <KpiPill
           label="À traiter"
           value={totalATraiter}
           color="rose"
-          active={statusFilter.has("todo") || statusFilter.has("wip")}
+          icon={<CalendarDays className="h-3 w-3" />}
+          active={statusFilter.has("todo")}
           onClick={() => toggleStatus("todo")}
-          title={`${totalATraiter} obligation${totalATraiter > 1 ? "s" : ""} non terminée${totalATraiter > 1 ? "s" : ""} (${totalTodoPur} À faire + ${totalWip} En cours)`}
-        />
-        <KpiPill
-          label="dont En cours"
-          value={totalWip}
-          color="amber"
-          active={statusFilter.has("wip")}
-          onClick={() => toggleStatus("wip")}
+          title={`${totalATraiter} obligation${totalATraiter > 1 ? "s" : ""} a echeance proche (≤ 30 jours ou depassee) et non terminee${totalATraiter > 1 ? "s" : ""}`}
         />
         <KpiPill
           label="Terminés"
@@ -147,14 +116,6 @@ export default function SommaireCards({
           color="emerald"
           active={statusFilter.has("done")}
           onClick={() => toggleStatus("done")}
-        />
-        <KpiPill
-          label={`Urgent · ${URGENT_DAYS}j`}
-          value={totalUrgent}
-          color="amber"
-          icon={<CalendarDays className="h-3 w-3" />}
-          active={statusFilter.has("urgent")}
-          onClick={() => toggleStatus("urgent")}
         />
         <KpiPill
           label="En retard"
@@ -237,7 +198,7 @@ export default function SommaireCards({
                 <TrackerRow
                   key={r.slug}
                   row={r}
-                  urgent={isUrgent(r)}
+                  urgent={r.aTraiter > 0}
                   onClick={() => router.push(`/obligations/${r.slug}?year=${year}`)}
                 />
               ))}
@@ -532,125 +493,3 @@ function KpiPill({
   );
 }
 
-// ============================================================================
-//  ChargeAVenir : bande visuelle de la charge a venir, par bucket temporel
-// ============================================================================
-//
-//  Permet de voir d'un coup d'oeil la "vague" d'echeances qui arrive :
-//  combien d'obligations en retard, combien cette semaine, ce mois, etc.
-//  Chaque bucket est cliquable -> page /obligations/echeances filtree.
-
-function ChargeAVenir({ charge }: { charge: Charge }) {
-  const buckets = [
-    {
-      key: "enRetard",
-      label: "En retard",
-      value: charge.enRetard,
-      color: "rose" as const,
-      href: "/obligations/echeances?filter=overdue",
-    },
-    {
-      key: "cetteSemaine",
-      label: "≤ 7 jours",
-      value: charge.cetteSemaine,
-      color: "amber" as const,
-      href: "/obligations/echeances?filter=7j",
-    },
-    {
-      key: "ceMois",
-      label: "≤ 30 jours",
-      value: charge.ceMois,
-      color: "sky" as const,
-      href: "/obligations/echeances?filter=30j",
-    },
-    {
-      key: "moisProchain",
-      label: "Mois +1",
-      value: charge.moisProchain,
-      color: "zinc" as const,
-    },
-    {
-      key: "deuxMois",
-      label: "Mois +2",
-      value: charge.deuxMois,
-      color: "zinc" as const,
-    },
-    {
-      key: "plusTard",
-      label: "Plus tard",
-      value: charge.plusTard,
-      color: "zinc" as const,
-    },
-  ];
-
-  // Calculer la valeur max pour les barres de hauteur proportionnelle
-  const maxValue = Math.max(...buckets.map((b) => b.value), 1);
-
-  const colorBar: Record<"rose" | "amber" | "sky" | "zinc", string> = {
-    rose: "bg-rose-500 dark:bg-rose-400",
-    amber: "bg-amber-500 dark:bg-amber-400",
-    sky: "bg-sky-500 dark:bg-sky-400",
-    zinc: "bg-zinc-300 dark:bg-zinc-600",
-  };
-  const colorText: Record<"rose" | "amber" | "sky" | "zinc", string> = {
-    rose: "text-rose-700 dark:text-rose-300",
-    amber: "text-amber-700 dark:text-amber-300",
-    sky: "text-sky-700 dark:text-sky-300",
-    zinc: "text-zinc-600 dark:text-zinc-300",
-  };
-
-  return (
-    <section className="rounded-2xl border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-hidden">
-      <header className="px-4 py-3 border-b border-zinc-100 dark:border-white/[0.04] bg-zinc-50/40 dark:bg-white/[0.02]">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
-          Charge à venir
-        </h2>
-        <p className="text-[10px] text-zinc-400 mt-0.5">
-          Obligations non terminées · échéances calculées par type
-        </p>
-      </header>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-x divide-zinc-100 dark:divide-white/[0.04]">
-        {buckets.map((b) => {
-          const ratio = b.value / maxValue;
-          const className = cn(
-            "group/bucket flex flex-col items-center justify-between gap-2 px-3 py-3 transition-colors",
-            b.href && "cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
-          );
-          const body = (
-            <>
-              <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
-                {b.label}
-              </div>
-              <div className="w-full h-9 flex items-end justify-center">
-                <div
-                  className={cn(
-                    "w-6 rounded-t transition-all",
-                    colorBar[b.color],
-                    b.value === 0 && "opacity-30"
-                  )}
-                  style={{ height: `${Math.max(ratio * 100, 8)}%` }}
-                  aria-hidden
-                />
-              </div>
-              <div className={cn(
-                "text-xl font-semibold tabular-nums",
-                b.value === 0 ? "text-zinc-300 dark:text-zinc-600" : colorText[b.color]
-              )}>
-                {b.value}
-              </div>
-            </>
-          );
-          return b.href ? (
-            <Link key={b.key} href={b.href} className={className}>
-              {body}
-            </Link>
-          ) : (
-            <div key={b.key} className={className}>
-              {body}
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
