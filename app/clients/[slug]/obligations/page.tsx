@@ -18,16 +18,49 @@ const CURRENT_YEAR = 2026;
  * configuration TVA mensuelle (étiquette + jour échéance) et Pilotage
  * (cadences TdB + RDV expert).
  *
- * ULTRA-DEFENSIVE : chaque query est wrappee dans son propre try/catch,
- * avec fallback []. Aucune exception ne peut planter le SSR (qui causerait
- * un 500 sur cette route et trigger l'error boundary).
+ * BULLETPROOF SSR : la function entière est wrappée dans un try/catch
+ * global. Si quoi que ce soit throw (query Supabase, render JSX, etc.),
+ * on render un fallback minimaliste plutôt qu'un 500 → plus jamais
+ * d'"An error occurred in the Server Components render".
  */
 export default async function ObligationsTab({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  let slug: string;
+  try {
+    slug = (await params).slug;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[obligations/page] params throw:", e);
+    return <FallbackError reason="params" />;
+  }
+
+  try {
+    return await renderObligationsTab(slug);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[obligations/page] FATAL render throw:", e);
+    return <FallbackError reason={e instanceof Error ? e.message : "render-throw"} />;
+  }
+}
+
+/** Fallback rendering : page accessible meme si tout le SSR plante. */
+function FallbackError({ reason }: { reason: string }) {
+  return (
+    <div className="space-y-3 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-4">
+      <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+        Onglet Obligations temporairement indisponible
+      </p>
+      <p className="text-xs text-amber-700 dark:text-amber-300">
+        Une erreur est survenue côté serveur. Code : <code className="font-mono">{reason}</code>. Réessaie dans quelques instants ou ouvre les autres onglets de la fiche.
+      </p>
+    </div>
+  );
+}
+
+async function renderObligationsTab(slug: string) {
   const client = await loadClient(slug);
   if (!client) notFound();
   const id = client.id;
@@ -66,8 +99,6 @@ export default async function ObligationsTab({
       [],
       "yearConfigs"
     ),
-    // tva_tags : peut etre absent si migration 0059 pas appliquee. On utilise
-    // un simple .eq("actif", true) au lieu de .or() pour eviter les surprises.
     safeQuery<Array<{ id: string; label: string; color: string; actif: boolean }>>(
       () => sb.from("tva_tags").select("id, label, color, actif").eq("actif", true).order("ordre"),
       [],
@@ -96,8 +127,7 @@ export default async function ObligationsTab({
   const currentTdbPeriode = (client as unknown as { tdb_livraison_periode: string | null }).tdb_livraison_periode ?? null;
   const currentRdvPeriode = (client as unknown as { rdv_expert_periode: string | null }).rdv_expert_periode ?? null;
 
-  // Si le tag du client n'est pas dans la liste actuelle des actifs (cas
-  // d'un tag desactive), on l'ajoute pour ne pas perdre l'affichage.
+  // Si le tag du client n'est pas dans la liste actuelle des actifs, on l'ajoute
   let tvaTags = tvaTagsRaw;
   if (currentTvaTagId && !tvaTagsRaw.some((t) => t.id === currentTvaTagId)) {
     const extra = await safeQuery<Array<{ id: string; label: string; color: string; actif: boolean }>>(

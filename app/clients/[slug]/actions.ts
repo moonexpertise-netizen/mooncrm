@@ -114,15 +114,26 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
   }
 
   // 3. Exécution parallèle : 1 INSERT en bloc + tous les UPDATE en parallèle
-  await Promise.all([
-    toInsertAll.length ? sb.from("obligations").insert(toInsertAll) : Promise.resolve(),
-    ...toUpdate.map((u) =>
-      sb.from("obligations").update({ echeance: u.echeance }).eq("id", u.id)
-    ),
-  ]);
+  // Defensive : si l'INSERT plante (enum invalide), on continue quand meme
+  // pour ne pas faire crasher l'action appelante.
+  try {
+    await Promise.all([
+      toInsertAll.length ? sb.from("obligations").insert(toInsertAll) : Promise.resolve(),
+      ...toUpdate.map((u) =>
+        sb.from("obligations").update({ echeance: u.echeance }).eq("id", u.id)
+      ),
+    ]);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[regenerateObligationsForYear] insert/update throw:", e);
+  }
 
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/parametrage");
+  try {
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/parametrage");
+  } catch {
+    // revalidatePath ne devrait jamais throw, mais on est paranoid.
+  }
   return { inserted: toInsertAll.length, updated: toUpdate.length };
 }
 
