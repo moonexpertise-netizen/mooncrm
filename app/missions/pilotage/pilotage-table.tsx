@@ -231,6 +231,31 @@ export default function PilotageTable({
     onPaste: (text, ids) => applyPasteText(text, ids),
   });
 
+  // Listener global pour les fleches : le hook useRowSelection expose un
+  // onKeyDown a brancher sur un element avec focus, mais quand on clique
+  // dans une cellule le focus va sur le picker (button), pas la table.
+  // Solution : on duplique au document tant qu'on a une cellule focused.
+  useEffect(() => {
+    if (!focusedId) return;
+    function onDocKey(e: KeyboardEvent) {
+      // Ignore si on est dans un input/textarea/editable
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
+      // Ignore si un popover de picker est ouvert
+      if (document.querySelector("[role='listbox']")) return;
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      onKeyDown({
+        key: e.key,
+        shiftKey: e.shiftKey,
+        preventDefault: () => e.preventDefault(),
+      } as React.KeyboardEvent);
+    }
+    document.addEventListener("keydown", onDocKey);
+    return () => document.removeEventListener("keydown", onDocKey);
+  }, [focusedId, onKeyDown]);
+
   function onBulkApply(libelleKey: string) {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
