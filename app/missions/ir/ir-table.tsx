@@ -26,6 +26,7 @@ import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
 import { FormModal } from "@/app/_components/form-modal";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
+import { computeEcheanceIR, getUrgencyStatus } from "@/lib/echeances";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -769,21 +770,36 @@ export default function IrTable({
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex items-start gap-2 min-w-0">
-                      {/* Pastille rouge a la racine du dossier :
-                          - Vue Annee : statut IR ou IFI de l'annee selectionnee est A_FAIRE
-                          - Vue Base  : au moins une annee souscrite a une obligation A_FAIRE
-                          Permet de reperer du premier coup d'oeil les dossiers a traiter. */}
-                      {((mode === "year" &&
-                          (r.obligations.get(`${selectedYear}|IR`)?.statut_logique === "A_FAIRE" ||
-                            r.obligations.get(`${selectedYear}|IFI`)?.statut_logique === "A_FAIRE")) ||
-                        (mode === "base" &&
-                          [...r.obligations.values()].some((o) => o.statut_logique === "A_FAIRE"))) && (
-                        <span
-                          aria-label="À faire"
-                          title={mode === "year" ? "Au moins une déclaration à faire" : "Au moins une déclaration à faire (toutes années)"}
-                          className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
-                        />
-                      )}
+                      {/* Pastille a la racine : urgence reelle (orange/rouge)
+                          calculee depuis l'echeance IR (1er janvier N+1 -> fin mai N+1).
+                          Avant : pastille rouge des qu'une cellule etait A_FAIRE,
+                          meme si echeance lointaine -> bruit visuel. */}
+                      {(() => {
+                        const checkYears = mode === "year" ? [selectedYear]
+                          : Array.from(new Set([...r.obligations.values()].map((o) => o.annee)));
+                        let worst: "none" | "due_soon" | "overdue" = "none";
+                        for (const yr of checkYears) {
+                          for (const t of ["IR", "IFI"] as const) {
+                            const cell = r.obligations.get(`${yr}|${t}`);
+                            if (!cell) continue;
+                            const u = getUrgencyStatus(computeEcheanceIR(yr), cell.statut_logique);
+                            if (u === "overdue") { worst = "overdue"; break; }
+                            if (u === "due_soon") worst = "due_soon";
+                          }
+                          if (worst === "overdue") break;
+                        }
+                        if (worst === "none") return null;
+                        return (
+                          <span
+                            aria-label={worst === "overdue" ? "En retard" : "À traiter"}
+                            title={worst === "overdue" ? "Au moins une déclaration en retard" : "Au moins une déclaration à traiter"}
+                            className={cn(
+                              "mt-1.5 inline-block w-1.5 h-1.5 rounded-full shrink-0",
+                              worst === "overdue" ? "bg-rose-500" : "bg-amber-500"
+                            )}
+                          />
+                        );
+                      })()}
                       <div className="flex flex-col gap-0.5 min-w-0">
                         <span className="font-medium text-zinc-900 dark:text-zinc-100">
                           {[r.civilite, r.prenom, r.nom].filter(Boolean).join(" ")}
