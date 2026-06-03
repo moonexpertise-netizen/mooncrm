@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { libelleFromNaf } from "@/lib/naf-libelles";
 import { formeFromNatureJuridique, defaultClotureForForme } from "@/lib/nature-to-forme";
 import { createClientFromSiren } from "./actions";
+import { fetchInpiCloture } from "@/app/clients/[slug]/actions";
 
 const FORMES = [
   "ASSO", "SA", "SCI", "EI", "SARL", "SAS", "SELARL", "SELAS",
@@ -244,7 +245,7 @@ export default function NouveauClientForm() {
     };
   }, [search]);
 
-  function pickSuggestion(s: Suggestion) {
+  async function pickSuggestion(s: Suggestion) {
     setDenomination(cleanName(s));
     setSiren(s.siren);
     if (s.nature_juridique) {
@@ -279,17 +280,27 @@ export default function NouveauClientForm() {
     if (s.siege?.code_postal) setCodePostal(s.siege.code_postal);
     if (s.siege?.libelle_commune) setVille(s.siege.libelle_commune);
 
-    // Clôture : défaut 31/12 pour les sociétés commerciales courantes (pas dans l'API)
-    const mappedForme = formeFromNatureJuridique(s.nature_juridique);
-    const defaultCloture = defaultClotureForForme(mappedForme);
-    if (defaultCloture) {
-      if (!jourCloture) setJourCloture(String(defaultCloture.jour));
-      if (!moisCloture) setMoisCloture(String(defaultCloture.mois));
-    }
-
     setSearch("");
     setSuggestions([]);
     setOpen(false);
+
+    // Cloture : on tente l'INPI RNE en priorite (vrai exercice social du
+    // dossier, ex. 30/06 pour les BIC saisonniers). Si l'INPI est indispo
+    // (credentials manquants, rate-limit, 404) ou ne renvoie rien, on
+    // bascule sur le defaut heuristique par forme juridique (31/12 pour
+    // les societes commerciales courantes).
+    const mappedForme = formeFromNatureJuridique(s.nature_juridique);
+    const inpiCloture = await fetchInpiCloture(s.siren).catch(() => null);
+    if (inpiCloture) {
+      if (!jourCloture) setJourCloture(String(inpiCloture.jour));
+      if (!moisCloture) setMoisCloture(String(inpiCloture.mois));
+    } else {
+      const defaultCloture = defaultClotureForForme(mappedForme);
+      if (defaultCloture) {
+        if (!jourCloture) setJourCloture(String(defaultCloture.jour));
+        if (!moisCloture) setMoisCloture(String(defaultCloture.mois));
+      }
+    }
   }
 
   function parseMontant(s: string): number | null {
