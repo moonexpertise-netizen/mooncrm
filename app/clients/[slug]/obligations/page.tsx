@@ -51,8 +51,6 @@ export default async function ObligationsTab({
       yearConfigs={matrixYC}
       years={yearsList}
       debutObligations={client.debut_obligations}
-      tdbLivraisonPeriode={(client as { tdb_livraison_periode?: string | null }).tdb_livraison_periode ?? null}
-      rdvExpertPeriode={(client as { rdv_expert_periode?: string | null }).rdv_expert_periode ?? null}
     />
   );
 }

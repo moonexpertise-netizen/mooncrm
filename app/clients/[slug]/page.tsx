@@ -17,6 +17,7 @@ import { Card, FieldReadonly, SectionTitle } from "./_components";
 import { loadClient, loadContactsLink, loadActiveTvaTags, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
 import TvaFieldsCard from "./tva-fields-card";
+import PilotageFieldsCard from "./pilotage-fields-card";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,11 @@ export default async function IdentiteTab({
   const currentTvaTagId = (client as unknown as { tva_tag_id: string | null }).tva_tag_id ?? null;
   const currentTvaEcheanceJour = (client as unknown as { tva_echeance_jour: number | null }).tva_echeance_jour ?? null;
   const tvaTags = await loadActiveTvaTags(currentTvaTagId);
+
+  // Cadences pilotage (TdB livraison + RDV expert). Cf. migration 0060. Si pas
+  // encore appliquee, fallback null -> "Non défini" dans le picker (mensuel par defaut cote engine).
+  const currentTdbPeriode = (client as unknown as { tdb_livraison_periode: string | null }).tdb_livraison_periode ?? null;
+  const currentRdvPeriode = (client as unknown as { rdv_expert_periode: string | null }).rdv_expert_periode ?? null;
 
   return (
     <div className="space-y-6">
@@ -203,6 +209,14 @@ export default async function IdentiteTab({
             initialTagId={currentTvaTagId}
             initialEcheanceJour={currentTvaEcheanceJour}
             tags={tvaTags}
+          />
+        </Card>
+
+        <Card title="Pilotage / Dashboard">
+          <PilotageFieldsCard
+            clientId={id}
+            initialTdbPeriode={currentTdbPeriode}
+            initialRdvPeriode={currentRdvPeriode}
           />
         </Card>
       </div>
