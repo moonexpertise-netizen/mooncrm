@@ -354,9 +354,11 @@ export default function PilotageTable({
         return;
       }
 
-      // Esc -> clear
+      // Esc -> vide la SELECTION mais garde focusedPos / anchorPos pour
+      // pouvoir continuer a naviguer avec les fleches (sinon Esc = fleches
+      // mortes, frustrant).
       if (e.key === "Escape" && selectedIds.size > 0) {
-        clearSelection();
+        setSelectedIds(new Set());
         return;
       }
 
