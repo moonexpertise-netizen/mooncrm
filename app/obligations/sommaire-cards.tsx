@@ -17,10 +17,12 @@ export type TrackerStat = {
   done: number;
   total: number;
   prochaineEcheance: string | null;
+  /** Nombre d'obligations dont l'echeance est depassee + statut pas terminé. */
+  enRetard: number;
   derniereAction: string | null;
 };
 
-type StatusFilter = "todo" | "wip" | "done" | "urgent";
+type StatusFilter = "todo" | "wip" | "done" | "urgent" | "overdue";
 
 /**
  * Dashboard "Suivi de production" - refonte en liste horizontale.
@@ -74,6 +76,7 @@ export default function SommaireCards({
       if (statusFilter.has("done") && r.done > 0 && r.todo === 0 && r.wip === 0)
         return true;
       if (statusFilter.has("urgent") && isUrgent(r)) return true;
+      if (statusFilter.has("overdue") && r.enRetard > 0) return true;
       return false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,6 +94,10 @@ export default function SommaireCards({
   const totalWip = rows.reduce((s, r) => s + r.wip, 0);
   const totalDone = rows.reduce((s, r) => s + r.done, 0);
   const totalUrgent = rows.filter(isUrgent).length;
+  // Nombre de trackers avec au moins une obligation en retard (echeance dépassée
+  // + statut pas terminé, calcule dans page.tsx via lib/echeances.ts).
+  const totalEnRetardTrackers = rows.filter((r) => r.enRetard > 0).length;
+  const totalEnRetardObligations = rows.reduce((s, r) => s + r.enRetard, 0);
 
   return (
     <div className="space-y-6">
@@ -124,6 +131,15 @@ export default function SommaireCards({
           icon={<CalendarDays className="h-3 w-3" />}
           active={statusFilter.has("urgent")}
           onClick={() => toggleStatus("urgent")}
+        />
+        <KpiPill
+          label="En retard"
+          value={totalEnRetardObligations}
+          color="rose"
+          icon={<CalendarDays className="h-3 w-3" />}
+          active={statusFilter.has("overdue")}
+          onClick={() => toggleStatus("overdue")}
+          title={`${totalEnRetardObligations} obligation${totalEnRetardObligations > 1 ? "s" : ""} en retard · ${totalEnRetardTrackers} tracker${totalEnRetardTrackers > 1 ? "s" : ""} affecté${totalEnRetardTrackers > 1 ? "s" : ""}`}
         />
         {statusFilter.size > 0 && (
           <button
@@ -282,19 +298,35 @@ function TrackerRow({
       </div>
 
       {/* Échéance : info la plus critique pour le pilotage.
-          Mise en valeur si elle approche (urgent = dans 30j). */}
+          3 niveaux de mise en valeur :
+            - rouge (en retard) : au moins une obligation depassee + pas terminée
+            - ambre (urgent) : prochaine echeance dans 30j
+            - zinc (calme) : echeance lointaine ou aucune */}
       <div
         className={cn(
-          "hidden md:flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums w-28 justify-end",
-          urgent ? "text-amber-700 font-medium" : "text-zinc-500"
+          "hidden md:flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums w-32 justify-end",
+          row.enRetard > 0
+            ? "text-rose-700 font-semibold"
+            : urgent
+            ? "text-amber-700 font-medium"
+            : "text-zinc-500"
         )}
         title={
-          row.prochaineEcheance
+          row.enRetard > 0
+            ? `${row.enRetard} obligation${row.enRetard > 1 ? "s" : ""} en retard${row.prochaineEcheance ? ` · prochaine echeance restante : ${fmtDateFr(row.prochaineEcheance)}` : ""}`
+            : row.prochaineEcheance
             ? `Prochaine échéance ${urgent ? "(urgent - dans moins de 30 j)" : ""} : ${fmtDateFr(row.prochaineEcheance)}`
             : "Aucune échéance à venir sur ce tracker"
         }
       >
-        {row.prochaineEcheance ? (
+        {row.enRetard > 0 ? (
+          <>
+            <CalendarDays className="h-3 w-3 text-rose-500" aria-hidden="true" />
+            <span>
+              {row.enRetard} en retard
+            </span>
+          </>
+        ) : row.prochaineEcheance ? (
           <>
             <CalendarDays className={cn("h-3 w-3", urgent ? "text-amber-500" : "text-zinc-400")} aria-hidden="true" />
             <span>{fmtDateFr(row.prochaineEcheance)}</span>
@@ -437,6 +469,7 @@ function KpiPill({
   icon,
   active,
   onClick,
+  title,
 }: {
   label: string;
   value: number;
@@ -444,6 +477,7 @@ function KpiPill({
   icon?: React.ReactNode;
   active: boolean;
   onClick: () => void;
+  title?: string;
 }) {
   const palette: Record<typeof color, { dot: string; bgActive: string }> = {
     rose: { dot: "bg-rose-500", bgActive: "bg-rose-50 ring-rose-200" },
@@ -455,6 +489,7 @@ function KpiPill({
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className={cn(
         "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shadow-card",
         active

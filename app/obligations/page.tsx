@@ -5,6 +5,7 @@ import { isClientBillable } from "@/lib/billable";
 import { PageHeader } from "@/app/_components/page-header";
 import { TRACKERS, slugForType } from "./trackers";
 import SommaireCards, { type TrackerStat } from "./sommaire-cards";
+import { computeEcheance } from "@/lib/echeances";
 
 export const dynamic = "force-dynamic";
 
@@ -39,17 +40,24 @@ export default async function ObligationsSommaire({
   const { data: rows } = await supabase
     .from("obligations")
     .select(
-      "type, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine)",
+      "type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
     )
     .eq("annee", selectedYear)
     .eq("obligation_subscriptions.actif", true);
 
   type Row = {
     type: string;
+    periode: string;
+    annee: number;
     statut_logique: string;
     echeance: string | null;
     updated_at: string | null;
-    clients: { pipeline_statut: string | null; origine: string | null };
+    clients: {
+      pipeline_statut: string | null;
+      origine: string | null;
+      jour_cloture: number | null;
+      mois_cloture: number | null;
+    };
   };
 
   // Agrégation par slug de tracker
@@ -59,6 +67,7 @@ export default async function ObligationsSommaire({
     done: number;
     total: number;
     prochaineEcheance: string | null; // min des échéances non terminées et >= today
+    enRetard: number; // nb d'obligations dont l'échéance est dépassée et pas terminées
     derniereAction: string | null; // max updated_at
   };
   const bySlug = new Map<string, Agg>();
@@ -70,6 +79,7 @@ export default async function ObligationsSommaire({
       done: 0,
       total: 0,
       prochaineEcheance: null,
+      enRetard: 0,
       derniereAction: null,
     });
   }
@@ -91,11 +101,25 @@ export default async function ObligationsSommaire({
     else if (isWip) agg.wip++;
     else agg.todo++;
 
-    // Prochaine échéance : la plus proche échéance non terminée à venir
-    if (!isDone && r.echeance && r.echeance >= today) {
-      if (!agg.prochaineEcheance || r.echeance < agg.prochaineEcheance) {
-        agg.prochaineEcheance = r.echeance;
+    // Echeance reelle : calculee dynamiquement via lib/echeances.ts a partir
+    // du type d'obligation + periode + cloture client. Ne depend pas du champ
+    // DB r.echeance (pas systematiquement rempli).
+    const cloture = (r.clients.jour_cloture && r.clients.mois_cloture)
+      ? { jour: r.clients.jour_cloture, mois: r.clients.mois_cloture }
+      : { jour: 31, mois: 12 };
+    const ech = computeEcheance(r.type, r.periode, r.annee, cloture);
+    const dueDateStr = ech ? ech.dueDate.toISOString().substring(0, 10) : null;
+
+    // Prochaine échéance globale = min des échéances non terminées et >= today
+    if (!isDone && dueDateStr && dueDateStr >= today) {
+      if (!agg.prochaineEcheance || dueDateStr < agg.prochaineEcheance) {
+        agg.prochaineEcheance = dueDateStr;
       }
+    }
+
+    // En retard = échéance dépassée + pas terminé
+    if (!isDone && dueDateStr && dueDateStr < today) {
+      agg.enRetard++;
     }
 
     // Dernière action : max updated_at
@@ -118,6 +142,7 @@ export default async function ObligationsSommaire({
       done: a.done,
       total: a.total,
       prochaineEcheance: a.prochaineEcheance,
+      enRetard: a.enRetard,
       derniereAction: a.derniereAction,
     };
   });
