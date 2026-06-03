@@ -41,10 +41,28 @@ export type PipelineStatut =
 export async function regenerateObligationsForYear(clientId: string, annee: number) {
   const sb = await createClient();
 
-  const [{ data: client }, { data: subs }] = await Promise.all([
-    sb.from("clients").select("jour_cloture, mois_cloture, debut_obligations, tdb_livraison_periode, rdv_expert_periode").eq("id", clientId).single(),
-    sb.from("obligation_subscriptions").select("id, type, annee").eq("client_id", clientId).eq("annee", annee).eq("actif", true),
-  ]);
+  // Defensive : SELECT avec les cols pilotage, fallback sans si migration 0060
+  // pas encore appliquee. Evite que toute action regenerative crashe.
+  const r1 = await sb
+    .from("clients")
+    .select("jour_cloture, mois_cloture, debut_obligations, tdb_livraison_periode, rdv_expert_periode")
+    .eq("id", clientId)
+    .single();
+  const clientRes = r1.error
+    ? await sb
+        .from("clients")
+        .select("jour_cloture, mois_cloture, debut_obligations")
+        .eq("id", clientId)
+        .single()
+    : r1;
+  const subsRes = await sb
+    .from("obligation_subscriptions")
+    .select("id, type, annee")
+    .eq("client_id", clientId)
+    .eq("annee", annee)
+    .eq("actif", true);
+  const client = clientRes.data;
+  const subs = subsRes.data;
   if (!client || !subs?.length) {
     revalidatePath(`/clients/${clientId}`);
     return { inserted: 0, updated: 0 };
@@ -491,18 +509,26 @@ export async function setDashboardSubscription(
   }
 
   if (enabled) {
-    // Pré-remplissage des cadences si absentes (depuis tdb_periode)
-    const { data: c } = await sb
-      .from("clients")
-      .select("tdb_periode, tdb_livraison_periode, rdv_expert_periode")
-      .eq("id", clientId)
-      .single();
-    const isTri = c?.tdb_periode === "Trimestriel";
-    const patch: Record<string, string> = {};
-    if (!c?.tdb_livraison_periode) patch.tdb_livraison_periode = isTri ? "Trimestrielle" : "Mensuelle";
-    if (!c?.rdv_expert_periode) patch.rdv_expert_periode = isTri ? "Trimestriel" : "Mensuel";
-    if (Object.keys(patch).length > 0) {
-      await sb.from("clients").update(patch).eq("id", clientId);
+    // Pre-remplissage des cadences si absentes (depuis tdb_periode).
+    // Defensive : si migration 0060 pas appliquee, on skip silencieusement
+    // le pre-remplissage. Les cadences seront definies plus tard par l'user.
+    try {
+      const { data: c, error } = await sb
+        .from("clients")
+        .select("tdb_periode, tdb_livraison_periode, rdv_expert_periode")
+        .eq("id", clientId)
+        .single();
+      if (!error) {
+        const isTri = c?.tdb_periode === "Trimestriel";
+        const patch: Record<string, string> = {};
+        if (!c?.tdb_livraison_periode) patch.tdb_livraison_periode = isTri ? "Trimestrielle" : "Mensuelle";
+        if (!c?.rdv_expert_periode) patch.rdv_expert_periode = isTri ? "Trimestriel" : "Mensuel";
+        if (Object.keys(patch).length > 0) {
+          await sb.from("clients").update(patch).eq("id", clientId);
+        }
+      }
+    } catch {
+      // colonnes manquantes : on continue, regenerate fera juste 12 instances par defaut
     }
     await regenerateObligationsForYear(clientId, annee);
   }

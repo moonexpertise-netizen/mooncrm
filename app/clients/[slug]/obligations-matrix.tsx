@@ -503,19 +503,18 @@ export default function ObligationsMatrix({
               </tr>
             ))}
 
-            {/* Dashboard / Pilotage : toggle par année. Active simultanément le
-                suivi Tableau de bord + RDV expert. Les cadences se règlent
-                sous la matrice. */}
-            <tr className="border-t group/row hover:bg-sky-50/70 transition-colors">
+            {/* Dashboard / Pilotage : toggle par annee. Active simultanement
+                le suivi Tableau de bord + RDV expert. Les cadences se reglent
+                sous la matrice. Meme markup que les rows SUB_ROWS pour rester
+                visuellement coherent (carre blanc + hover preview emerald). */}
+            <tr className="border-t group/row hover:bg-amber-50/70 transition-colors">
               <td
                 className={cn(
                   "sticky left-0 z-10 px-3 py-2 border-r bg-white transition-colors",
-                  "group-hover/row:bg-sky-100 group-hover/row:font-semibold group-hover/row:text-zinc-900"
+                  "group-hover/row:bg-amber-100 group-hover/row:font-semibold group-hover/row:text-zinc-900"
                 )}
               >
-                <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden>📊</span> Dashboard / Pilotage
-                </span>
+                Dashboard / Pilotage
               </td>
               {years.map((y) => {
                 const before = isBeforeDebut(y);
@@ -530,15 +529,16 @@ export default function ObligationsMatrix({
                     <button
                       onClick={() => onToggleDashboard(y)}
                       className={cn(
-                        "w-7 h-7 inline-flex items-center justify-center rounded border border-zinc-200 bg-white",
-                        "active:scale-95 group/cell relative overflow-hidden transition-transform duration-100"
+                        "w-7 h-7 inline-flex items-center justify-center rounded border",
+                        "active:scale-95 group/cell relative overflow-hidden transition-transform duration-100",
+                        "border-zinc-200 bg-white"
                       )}
                       title={v ? "Désactiver le suivi Dashboard" : "Activer le suivi Dashboard (TdB + RDV)"}
                     >
                       <span
                         className={cn(
                           "absolute inset-0 inline-flex items-center justify-center",
-                          "bg-sky-500/95 text-white transition-opacity duration-100",
+                          "bg-emerald-500/95 text-white transition-opacity duration-100",
                           v ? "opacity-100" : "opacity-0 group-hover/cell:opacity-60"
                         )}
                       >
