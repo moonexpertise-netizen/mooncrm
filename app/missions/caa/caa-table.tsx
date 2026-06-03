@@ -220,6 +220,26 @@ export default function CaaTable({
     onPaste: (text, ids) => applyPasteText(text, ids),
   });
 
+  // Listener doc global pour les fleches : fix focus DOM (cf. pilotage).
+  useEffect(() => {
+    if (!focusedId) return;
+    function onDocKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
+      if (document.querySelector("[role='listbox']")) return;
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      onKeyDown({
+        key: e.key,
+        shiftKey: e.shiftKey,
+        preventDefault: () => e.preventDefault(),
+      } as React.KeyboardEvent);
+    }
+    document.addEventListener("keydown", onDocKey);
+    return () => document.removeEventListener("keydown", onDocKey);
+  }, [focusedId, onKeyDown]);
+
   function onBulkApplyStatut(libelle: string) {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;

@@ -223,6 +223,29 @@ export default function CreationsTable({
     onPaste: (text, ids) => applyPasteText(text, ids),
   });
 
+  // Listener doc global pour les fleches : le onKeyDown du hook est branche
+  // sur <table tabIndex=0> mais le focus va sur le picker quand on clique
+  // une cellule -> les fleches ne marchaient plus. On duplique au document
+  // tant qu'une row est focused (peu importe ou est le focus DOM).
+  useEffect(() => {
+    if (!focusedId) return;
+    function onDocKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
+      if (document.querySelector("[role='listbox']")) return;
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      onKeyDown({
+        key: e.key,
+        shiftKey: e.shiftKey,
+        preventDefault: () => e.preventDefault(),
+      } as React.KeyboardEvent);
+    }
+    document.addEventListener("keydown", onDocKey);
+    return () => document.removeEventListener("keydown", onDocKey);
+  }, [focusedId, onKeyDown]);
+
   // ============================================================================
   // Actions
   // ============================================================================

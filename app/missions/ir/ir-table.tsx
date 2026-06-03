@@ -168,6 +168,28 @@ export default function IrTable({
   }, [visibleRows]);
   const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds);
 
+  // Listener doc global pour les fleches : fix focus DOM (cf. pilotage).
+  // Le onKeyDown du hook est branche sur <table tabIndex=0> mais le focus
+  // DOM part sur le picker quand on clique une cellule -> fleches mortes.
+  useEffect(() => {
+    if (!focusedId) return;
+    function onDocKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
+      if (document.querySelector("[role='listbox']")) return;
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      onKeyDown({
+        key: e.key,
+        shiftKey: e.shiftKey,
+        preventDefault: () => e.preventDefault(),
+      } as React.KeyboardEvent);
+    }
+    document.addEventListener("keydown", onDocKey);
+    return () => document.removeEventListener("keydown", onDocKey);
+  }, [focusedId, onKeyDown]);
+
   // Parse les composite IDs pour le bulk apply : separe IR cells / IFI cells
   function splitSelectedByType(): { ir: string[]; ifi: string[] } {
     const ir: string[] = [];
