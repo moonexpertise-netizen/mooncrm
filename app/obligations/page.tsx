@@ -84,6 +84,23 @@ export default async function ObligationsSommaire({
     });
   }
 
+  // Buckets de charge a venir : agreges sur toutes les obligations non
+  // terminees, scopes au filtre Production (LDM/Interne/ST). Permet de
+  // visualiser la "vague" qui arrive sans avoir a deduire des compteurs
+  // tracker par tracker.
+  const charge = {
+    enRetard: 0,        // echeance < today
+    cetteSemaine: 0,    // 0-7 jours
+    ceMois: 0,          // 8-30 jours
+    moisProchain: 0,    // 31-60 jours
+    deuxMois: 0,        // 61-90 jours
+    plusTard: 0,        // > 90 jours
+  };
+  const sevenDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().substring(0, 10); })();
+  const thirtyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10); })();
+  const sixtyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().substring(0, 10); })();
+  const ninetyDaysIso = (() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().substring(0, 10); })();
+
   for (const r of (rows ?? []) as unknown as Row[]) {
     const c = r.clients;
     if (!isClientBillable(c)) continue;
@@ -120,6 +137,14 @@ export default async function ObligationsSommaire({
     // En retard = échéance dépassée + pas terminé
     if (!isDone && dueDateStr && dueDateStr < today) {
       agg.enRetard++;
+      charge.enRetard++;
+    } else if (!isDone && dueDateStr) {
+      // Bucket charge a venir
+      if (dueDateStr <= sevenDaysIso) charge.cetteSemaine++;
+      else if (dueDateStr <= thirtyDaysIso) charge.ceMois++;
+      else if (dueDateStr <= sixtyDaysIso) charge.moisProchain++;
+      else if (dueDateStr <= ninetyDaysIso) charge.deuxMois++;
+      else charge.plusTard++;
     }
 
     // Dernière action : max updated_at
@@ -155,7 +180,7 @@ export default async function ObligationsSommaire({
         actions={<YearSelector year={selectedYear} />}
       />
 
-      <SommaireCards rows={stats} year={selectedYear} />
+      <SommaireCards rows={stats} year={selectedYear} charge={charge} />
     </div>
   );
 }
