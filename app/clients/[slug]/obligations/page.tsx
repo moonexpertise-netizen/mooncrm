@@ -4,15 +4,22 @@ import ObligationsMatrix, {
   type Sub as MatrixSub,
   type YearConfig as MatrixYC,
 } from "../obligations-matrix";
-import { loadClient } from "../_data";
+import { Card } from "../_components";
+import { loadClient, loadActiveTvaTags } from "../_data";
+import TvaFieldsCard from "../tva-fields-card";
+import PilotageFieldsCard from "../pilotage-fields-card";
 
 export const dynamic = "force-dynamic";
 
 const CURRENT_YEAR = 2026;
 
 /**
- * Onglet "Obligations" : matrice paramétrage par année.
- * Active/désactive les obligations applicables au client × par année.
+ * Onglet "Obligations" : matrice paramétrage par année + Cards de
+ * configuration TVA mensuelle (étiquette + jour échéance) et Pilotage
+ * (cadences TdB + RDV expert).
+ *
+ * On regroupe ici toute la config "production" du client (par opposition
+ * à l'onglet Identité qui reste centré sur l'identité légale et les honos).
  */
 export default async function ObligationsTab({
   params,
@@ -44,13 +51,44 @@ export default async function ObligationsTab({
     regime: (c.regime as "IR" | "IS" | null) ?? null,
   }));
 
+  // Données pour les Cards TVA mensuelle + Pilotage. Tout fallback null si
+  // migration pas appliquee (cast unknown + ?? null). Aucune query ne throw
+  // grâce à la robustesse de loadClient (fallback) et loadActiveTvaTags
+  // (catch + return []).
+  const currentTvaTagId = (client as unknown as { tva_tag_id: string | null }).tva_tag_id ?? null;
+  const currentTvaEcheanceJour = (client as unknown as { tva_echeance_jour: number | null }).tva_echeance_jour ?? null;
+  const currentTdbPeriode = (client as unknown as { tdb_livraison_periode: string | null }).tdb_livraison_periode ?? null;
+  const currentRdvPeriode = (client as unknown as { rdv_expert_periode: string | null }).rdv_expert_periode ?? null;
+  const tvaTags = await loadActiveTvaTags(currentTvaTagId);
+
   return (
-    <ObligationsMatrix
-      clientId={id}
-      subs={matrixSubs}
-      yearConfigs={matrixYC}
-      years={yearsList}
-      debutObligations={client.debut_obligations}
-    />
+    <div className="space-y-6">
+      <ObligationsMatrix
+        clientId={id}
+        subs={matrixSubs}
+        yearConfigs={matrixYC}
+        years={yearsList}
+        debutObligations={client.debut_obligations}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card title="TVA mensuelle">
+          <TvaFieldsCard
+            clientId={id}
+            initialTagId={currentTvaTagId}
+            initialEcheanceJour={currentTvaEcheanceJour}
+            tags={tvaTags}
+          />
+        </Card>
+
+        <Card title="Pilotage / Dashboard">
+          <PilotageFieldsCard
+            clientId={id}
+            initialTdbPeriode={currentTdbPeriode}
+            initialRdvPeriode={currentRdvPeriode}
+          />
+        </Card>
+      </div>
+    </div>
   );
 }

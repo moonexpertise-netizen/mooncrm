@@ -38,10 +38,15 @@ export const loadClient = cache(async (slug: string) => {
 
 export const loadContactsLink = cache(async (clientId: string) => {
   const sb = await createClient();
-  const { data } = await sb
+  const { data, error } = await sb
     .from("client_contacts")
     .select("role, contacts(id, nom, prenom, email, telephone, civilite)")
     .eq("client_id", clientId);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error("[loadContactsLink] erreur :", error.message);
+    return [];
+  }
   return data ?? [];
 });
 
