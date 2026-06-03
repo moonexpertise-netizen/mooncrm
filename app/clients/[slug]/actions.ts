@@ -14,7 +14,11 @@ export type TypeObligation =
   | "CFE"
   | "DAS2" | "DECL_2561" | "DECL_2777" | "OSS" | "DES"
   | "COMPTA" | "LIASSE_PLAQUETTE" | "AGO_DEPOT" | "DEPOT_COMPTES"
-  | "FACTURATION_JUR" | "ETAT_CREATION";
+  | "FACTURATION_JUR" | "ETAT_CREATION"
+  | "PILOTAGE_TDB" | "PILOTAGE_RDV";
+
+/** Les 2 types du module Pilotage/Dashboard, activés ensemble par le toggle. */
+export const PILOTAGE_TYPES: TypeObligation[] = ["PILOTAGE_TDB", "PILOTAGE_RDV"];
 
 export type Regime = "IR" | "IS";
 export type PipelineStatut =
@@ -38,7 +42,7 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
   const sb = await createClient();
 
   const [{ data: client }, { data: subs }] = await Promise.all([
-    sb.from("clients").select("jour_cloture, mois_cloture, debut_obligations").eq("id", clientId).single(),
+    sb.from("clients").select("jour_cloture, mois_cloture, debut_obligations, tdb_livraison_periode, rdv_expert_periode").eq("id", clientId).single(),
     sb.from("obligation_subscriptions").select("id, type, annee").eq("client_id", clientId).eq("annee", annee).eq("actif", true),
   ]);
   if (!client || !subs?.length) {
@@ -64,7 +68,12 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
       generateInstancesForType(
         sub.type as TypeObligation,
         sub.annee,
-        { jour_cloture: client.jour_cloture, mois_cloture: client.mois_cloture }
+        {
+          jour_cloture: client.jour_cloture,
+          mois_cloture: client.mois_cloture,
+          tdb_livraison_periode: (client as { tdb_livraison_periode?: string | null }).tdb_livraison_periode ?? null,
+          rdv_expert_periode: (client as { rdv_expert_periode?: string | null }).rdv_expert_periode ?? null,
+        }
       ),
       client.debut_obligations
     );
@@ -433,6 +442,131 @@ export async function toggleSubscription(
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/parametrage");
+}
+
+// ---------------------------------------------------------------------------
+// MODULE PILOTAGE / DASHBOARD
+// ---------------------------------------------------------------------------
+
+export type PilotagePeriode = "Mensuelle" | "Trimestrielle" | "Mensuel" | "Trimestriel";
+
+/**
+ * Active/désactive le suivi "Dashboard" pour un client sur une année.
+ * Un seul toggle pilote les 2 aspects (PILOTAGE_TDB + PILOTAGE_RDV).
+ *
+ * À l'activation : si les cadences ne sont pas encore définies, on les
+ * pré-remplit depuis le Forfait pilotage (tdb_periode) du client :
+ *   - tdb_periode = "Trimestriel" -> TdB "Trimestrielle" + RDV "Trimestriel"
+ *   - sinon (Mensuel / Non souscrit / null) -> TdB "Mensuelle" + RDV "Mensuel"
+ */
+export async function setDashboardSubscription(
+  clientId: string,
+  annee: number,
+  enabled: boolean
+) {
+  const sb = await createClient();
+
+  // Toggle les 2 subs (même logique que toggleSubscription, en lot)
+  for (const type of PILOTAGE_TYPES) {
+    const { data: existing, error: e0 } = await sb
+      .from("obligation_subscriptions")
+      .select("id")
+      .eq("client_id", clientId)
+      .eq("type", type)
+      .eq("annee", annee)
+      .maybeSingle();
+    if (e0) throw new Error(e0.message);
+    if (existing) {
+      const { error } = await sb
+        .from("obligation_subscriptions")
+        .update({ actif: enabled })
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+    } else if (enabled) {
+      const { error } = await sb
+        .from("obligation_subscriptions")
+        .insert({ client_id: clientId, type, annee, actif: true });
+      if (error) throw new Error(error.message);
+    }
+  }
+
+  if (enabled) {
+    // Pré-remplissage des cadences si absentes (depuis tdb_periode)
+    const { data: c } = await sb
+      .from("clients")
+      .select("tdb_periode, tdb_livraison_periode, rdv_expert_periode")
+      .eq("id", clientId)
+      .single();
+    const isTri = c?.tdb_periode === "Trimestriel";
+    const patch: Record<string, string> = {};
+    if (!c?.tdb_livraison_periode) patch.tdb_livraison_periode = isTri ? "Trimestrielle" : "Mensuelle";
+    if (!c?.rdv_expert_periode) patch.rdv_expert_periode = isTri ? "Trimestriel" : "Mensuel";
+    if (Object.keys(patch).length > 0) {
+      await sb.from("clients").update(patch).eq("id", clientId);
+    }
+    await regenerateObligationsForYear(clientId, annee);
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/parametrage");
+  revalidatePath("/obligations/tableau-de-bord");
+  revalidatePath("/obligations/rdv-expert");
+}
+
+/**
+ * Change la cadence d'un aspect pilotage (TdB ou RDV), au niveau client.
+ * Régénère les obligations pour toutes les années où l'aspect est souscrit,
+ * et purge les instances devenues obsolètes (mois hors cadence) qui sont
+ * encore à l'état initial A_FAIRE (on préserve celles où du travail a été fait).
+ */
+export async function setPilotagePeriode(
+  clientId: string,
+  aspect: "tdb" | "rdv",
+  value: PilotagePeriode | null
+) {
+  const sb = await createClient();
+  const col = aspect === "tdb" ? "tdb_livraison_periode" : "rdv_expert_periode";
+  const type: TypeObligation = aspect === "tdb" ? "PILOTAGE_TDB" : "PILOTAGE_RDV";
+
+  const { error } = await sb.from("clients").update({ [col]: value }).eq("id", clientId);
+  if (error) throw new Error(error.message);
+
+  // Années où cet aspect est actif
+  const { data: subs } = await sb
+    .from("obligation_subscriptions")
+    .select("annee")
+    .eq("client_id", clientId)
+    .eq("type", type)
+    .eq("actif", true);
+  const years = [...new Set((subs ?? []).map((s) => s.annee))];
+
+  // Mois cibles selon la nouvelle cadence
+  const isTri = !!value && value.toLowerCase().startsWith("trim");
+  const targetMonths = isTri ? [3, 6, 9, 12] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+  for (const y of years) {
+    const targetPeriodes = new Set(targetMonths.map((m) => `${y}-${String(m).padStart(2, "0")}`));
+    // Purge les instances hors cadence ET encore vierges (A_FAIRE) pour ne pas
+    // perdre le travail déjà saisi sur un mois.
+    const { data: toDelete } = await sb
+      .from("obligations")
+      .select("id, periode")
+      .eq("client_id", clientId)
+      .eq("type", type)
+      .eq("annee", y)
+      .eq("statut_logique", "A_FAIRE");
+    const obsoleteIds = (toDelete ?? [])
+      .filter((o) => !targetPeriodes.has(o.periode))
+      .map((o) => o.id);
+    if (obsoleteIds.length > 0) {
+      await sb.from("obligations").delete().in("id", obsoleteIds);
+    }
+    await regenerateObligationsForYear(clientId, y);
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/obligations/tableau-de-bord");
+  revalidatePath("/obligations/rdv-expert");
 }
 
 /**

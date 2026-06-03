@@ -7,10 +7,13 @@ import { cn } from "@/lib/utils";
 import { useAlert } from "@/app/_components/confirm-modal";
 import {
   reconduireAnnee,
+  setDashboardSubscription,
+  setPilotagePeriode,
   setRegime as setRegimeAction,
   setTvaMode,
   toggleSubscription,
   updateClient,
+  type PilotagePeriode,
   type Regime,
   type TypeObligation,
 } from "./actions";
@@ -57,6 +60,8 @@ export default function ObligationsMatrix({
   yearConfigs,
   years,
   debutObligations,
+  tdbLivraisonPeriode,
+  rdvExpertPeriode,
 }: {
   clientId: string;
   subs: Sub[];
@@ -64,6 +69,10 @@ export default function ObligationsMatrix({
   years: number[];
   /** Date "Prise en charge" YYYY-MM-DD ou null - années antérieures marquées "-" */
   debutObligations: string | null;
+  /** Cadence pilotage TdB (Mensuelle/Trimestrielle) - client-level */
+  tdbLivraisonPeriode: string | null;
+  /** Cadence pilotage RDV (Mensuel/Trimestriel) - client-level */
+  rdvExpertPeriode: string | null;
 }) {
   // Année de reprise (4 premiers chars), null si pas défini
   const debutYear =
@@ -115,6 +124,12 @@ export default function ObligationsMatrix({
   function isActive(type: string, annee: number): boolean {
     return display.subs.some((s) => s.type === type && s.annee === annee && s.actif);
   }
+  // Dashboard = PILOTAGE_TDB + PILOTAGE_RDV activés ensemble. On teste TDB
+  // (le toggle garde les 2 synchronisés).
+  function isDashboardActive(annee: number): boolean {
+    return isActive("PILOTAGE_TDB", annee);
+  }
+  const dashboardActiveAnywhere = years.some((y) => isDashboardActive(y));
   function getTva(annee: number): TvaMode | null {
     const tva = display.subs.find(
       (s) => s.annee === annee && s.actif && TVA_TYPES.includes(s.type)
@@ -188,6 +203,28 @@ export default function ObligationsMatrix({
     }
     startTransition(async () => {
       await setTvaMode(clientId, annee, mode);
+      router.refresh();
+    });
+  }
+
+  function onToggleDashboard(annee: number) {
+    if (pendingReconduits.length > 0) {
+      void alert({
+        title: "Reconductions en attente",
+        description: "Valide d'abord les reconductions en attente, ou annule-les.",
+      });
+      return;
+    }
+    const next = !isDashboardActive(annee);
+    startTransition(async () => {
+      await setDashboardSubscription(clientId, annee, next);
+      router.refresh();
+    });
+  }
+
+  function onPilotagePeriode(aspect: "tdb" | "rdv", value: PilotagePeriode) {
+    startTransition(async () => {
+      await setPilotagePeriode(clientId, aspect, value);
       router.refresh();
     });
   }
@@ -465,9 +502,95 @@ export default function ObligationsMatrix({
                 })}
               </tr>
             ))}
+
+            {/* Dashboard / Pilotage : toggle par année. Active simultanément le
+                suivi Tableau de bord + RDV expert. Les cadences se règlent
+                sous la matrice. */}
+            <tr className="border-t group/row hover:bg-sky-50/70 transition-colors">
+              <td
+                className={cn(
+                  "sticky left-0 z-10 px-3 py-2 border-r bg-white transition-colors",
+                  "group-hover/row:bg-sky-100 group-hover/row:font-semibold group-hover/row:text-zinc-900"
+                )}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden>📊</span> Dashboard / Pilotage
+                </span>
+              </td>
+              {years.map((y) => {
+                const before = isBeforeDebut(y);
+                if (before) {
+                  return (
+                    <td key={y} className="px-0.5 text-center align-middle bg-zinc-100 text-zinc-400">-</td>
+                  );
+                }
+                const v = isDashboardActive(y);
+                return (
+                  <td key={y} className={cn("px-0.5 text-center align-middle", isYearInDraft(y) && "bg-[hsl(var(--gold))]/5")}>
+                    <button
+                      onClick={() => onToggleDashboard(y)}
+                      className={cn(
+                        "w-7 h-7 inline-flex items-center justify-center rounded border border-zinc-200 bg-white",
+                        "active:scale-95 group/cell relative overflow-hidden transition-transform duration-100"
+                      )}
+                      title={v ? "Désactiver le suivi Dashboard" : "Activer le suivi Dashboard (TdB + RDV)"}
+                    >
+                      <span
+                        className={cn(
+                          "absolute inset-0 inline-flex items-center justify-center",
+                          "bg-sky-500/95 text-white transition-opacity duration-100",
+                          v ? "opacity-100" : "opacity-0 group-hover/cell:opacity-60"
+                        )}
+                      >
+                        <span className="text-[13px] font-bold leading-none">✓</span>
+                      </span>
+                    </button>
+                  </td>
+                );
+              })}
+            </tr>
           </tbody>
         </table>
       </div>
+
+      {/* Cadences pilotage (client-level) : visibles dès que Dashboard est
+          actif sur au moins une année. */}
+      {dashboardActiveAnywhere && (
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <span aria-hidden>📊</span> Cadences pilotage
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Rythme de production · sans impact sur la lettre de mission. Génère les obligations dans les onglets <span className="font-medium">Tableau de bord</span> et <span className="font-medium">RDV Expert</span>.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-zinc-600">Mise à disposition tableau de bord</span>
+              <select
+                value={tdbLivraisonPeriode ?? "Mensuelle"}
+                onChange={(e) => onPilotagePeriode("tdb", e.target.value as PilotagePeriode)}
+                disabled={isPending}
+                className="px-2 py-1 rounded border border-zinc-300 text-[13px] bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))]"
+              >
+                <option value="Mensuelle">Mensuelle</option>
+                <option value="Trimestrielle">Trimestrielle</option>
+              </select>
+            </label>
+            <label className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-zinc-600">Rendez-vous expert</span>
+              <select
+                value={rdvExpertPeriode ?? "Mensuel"}
+                onChange={(e) => onPilotagePeriode("rdv", e.target.value as PilotagePeriode)}
+                disabled={isPending}
+                className="px-2 py-1 rounded border border-zinc-300 text-[13px] bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))]"
+              >
+                <option value="Mensuel">Mensuel</option>
+                <option value="Trimestriel">Trimestriel</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
