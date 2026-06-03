@@ -7,7 +7,6 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
-import { useRowSelection } from "@/app/_components/use-row-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import {
@@ -121,23 +120,33 @@ export default function PilotageTable({
   }, [sortedRows, filter]);
 
   // ============================================================================
-  //  Selection Excel-style (composite IDs = pilotage_obligations.id)
+  //  Selection Excel-style avec navigation 2D (row, col)
   // ============================================================================
-  // orderedIds : tous les cellIds visibles, dans l'ordre (row apres row,
-  // gauche -> droite). Une cellule est "visible" si elle existe (= souscrite).
-  const orderedIds = useMemo(() => {
-    const ids: string[] = [];
-    for (const r of filteredRows) {
-      for (const m of MENSUEL_MONTHS) {
+  // Grille 2D : gridIds[row][col] = cellId ou null. row = index dans
+  // filteredRows. col = 0-11 (Janv-Dec). Permet la navigation ↑↓←→ qui
+  // saute les cellules vides (mois sans periodicite).
+  const gridIds: (string | null)[][] = useMemo(() => {
+    return filteredRows.map((r) =>
+      MENSUEL_MONTHS.map((m) => {
         const periode = `${year}-${String(m).padStart(2, "0")}`;
         const cell = r.cells.get(periode);
-        if (cell && !cell.id.startsWith("optimistic-")) ids.push(cell.id);
-      }
-    }
-    return ids;
+        return cell && !cell.id.startsWith("optimistic-") ? cell.id : null;
+      })
+    );
   }, [filteredRows, year]);
 
-  // Map id -> { rowId, periode } pour les bulk operations
+  // Lookup inverse cellId -> (row, col) pour onClick + bulk
+  const posByCellId = useMemo(() => {
+    const m = new Map<string, { row: number; col: number }>();
+    gridIds.forEach((rowArr, r) => {
+      rowArr.forEach((id, c) => {
+        if (id) m.set(id, { row: r, col: c });
+      });
+    });
+    return m;
+  }, [gridIds]);
+
+  // Map cellId -> { rowId, periode } pour les bulk operations
   const idToContext = useMemo(() => {
     const m = new Map<string, { rowId: string; periode: string }>();
     for (const r of localRows) {
@@ -147,6 +156,116 @@ export default function PilotageTable({
     }
     return m;
   }, [localRows]);
+
+  // State selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [focusedPos, setFocusedPos] = useState<{ row: number; col: number } | null>(null);
+  const [anchorPos, setAnchorPos] = useState<{ row: number; col: number } | null>(null);
+  const selectedCount = selectedIds.size;
+
+  // Clean up selection si les cellules disparaissent (changement de filtre/annee)
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const valid = new Set<string>();
+      gridIds.forEach((row) => row.forEach((id) => { if (id) valid.add(id); }));
+      const next = new Set<string>();
+      let changed = false;
+      for (const id of prev) {
+        if (valid.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+    setFocusedPos((prev) => {
+      if (!prev) return prev;
+      if (prev.row >= gridIds.length || prev.col < 0 || prev.col >= 12) return null;
+      return prev;
+    });
+  }, [gridIds]);
+
+  const isSelected = (cellId: string) => selectedIds.has(cellId);
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setFocusedPos(null);
+    setAnchorPos(null);
+  }
+
+  function selectAll() {
+    const all = new Set<string>();
+    gridIds.forEach((row) => row.forEach((id) => { if (id) all.add(id); }));
+    setSelectedIds(all);
+    // Set focus sur la 1ere cellule non-null
+    for (let r = 0; r < gridIds.length; r++) {
+      for (let c = 0; c < 12; c++) {
+        if (gridIds[r][c]) {
+          setFocusedPos({ row: r, col: c });
+          setAnchorPos({ row: r, col: c });
+          return;
+        }
+      }
+    }
+  }
+
+  // Range rectangulaire entre 2 positions (ancre <-> cible). Inclut TOUS
+  // les cellIds non-null dans le rectangle.
+  function rangeIds(a: { row: number; col: number }, b: { row: number; col: number }): Set<string> {
+    const rMin = Math.min(a.row, b.row);
+    const rMax = Math.max(a.row, b.row);
+    const cMin = Math.min(a.col, b.col);
+    const cMax = Math.max(a.col, b.col);
+    const ids = new Set<string>();
+    for (let r = rMin; r <= rMax; r++) {
+      for (let c = cMin; c <= cMax; c++) {
+        const id = gridIds[r]?.[c];
+        if (id) ids.add(id);
+      }
+    }
+    return ids;
+  }
+
+  // Click sur une cellule : shift = range, cmd = toggle, simple = selection
+  function onCellClick(row: number, col: number, e: React.MouseEvent) {
+    const cellId = gridIds[row]?.[col];
+    if (!cellId) return;
+    if (e.shiftKey && anchorPos) {
+      setSelectedIds(rangeIds(anchorPos, { row, col }));
+      setFocusedPos({ row, col });
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(cellId)) next.delete(cellId);
+        else next.add(cellId);
+        return next;
+      });
+      setFocusedPos({ row, col });
+      setAnchorPos({ row, col });
+      return;
+    }
+    setSelectedIds(new Set([cellId]));
+    setFocusedPos({ row, col });
+    setAnchorPos({ row, col });
+  }
+
+  // Trouve la prochaine position non-null dans une direction donnee, en
+  // sautant les cellules vides. Retourne null si on sort de la grille.
+  function nextPos(
+    from: { row: number; col: number },
+    direction: "up" | "down" | "left" | "right"
+  ): { row: number; col: number } | null {
+    const dr = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+    const dc = direction === "left" ? -1 : direction === "right" ? 1 : 0;
+    let r = from.row + dr;
+    let c = from.col + dc;
+    while (r >= 0 && r < gridIds.length && c >= 0 && c < 12) {
+      if (gridIds[r][c]) return { row: r, col: c };
+      r += dr;
+      c += dc;
+    }
+    return null;
+  }
 
   // Copy TSV : 1 ligne par cellule, valeur = libelle
   function buildCopyText(ids: string[]): string {
@@ -221,40 +340,81 @@ export default function PilotageTable({
     });
   }
 
-  const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds, {
-    onCopy: (ids) => {
-      const text = buildCopyText(ids);
-      navigator.clipboard?.writeText?.(text).then(() => {
-        toastSuccess(`${ids.length} cellule${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
-      }).catch(() => { /* ignore */ });
-    },
-    onPaste: (text, ids) => applyPasteText(text, ids),
-  });
-
-  // Listener global pour les fleches : le hook useRowSelection expose un
-  // onKeyDown a brancher sur un element avec focus, mais quand on clique
-  // dans une cellule le focus va sur le picker (button), pas la table.
-  // Solution : on duplique au document tant qu'on a une cellule focused.
+  // Listener doc global : flèches 2D, Cmd+A, Cmd+C/V, Esc.
+  // Plus fiable que onKeyDown sur la table : marche peu importe ou est le
+  // focus DOM (le focus part sur le button picker quand on clique).
   useEffect(() => {
-    if (!focusedId) return;
     function onDocKey(e: KeyboardEvent) {
-      // Ignore si on est dans un input/textarea/editable
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
-      // Ignore si un popover de picker est ouvert
-      if (document.querySelector("[role='listbox']")) return;
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      // Si un popover picker est ouvert, on lui laisse les flèches
+      if (document.querySelector("[role='listbox']") &&
+          (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        return;
+      }
+
+      // Esc -> clear
+      if (e.key === "Escape" && selectedIds.size > 0) {
+        clearSelection();
+        return;
+      }
+
+      const meta = e.metaKey || e.ctrlKey;
+
+      // Cmd+A : tout selectionner
+      if (meta && e.key.toLowerCase() === "a" && gridIds.length > 0) {
+        e.preventDefault();
+        selectAll();
+        return;
+      }
+
+      // Cmd+C : copy
+      if (meta && e.key.toLowerCase() === "c" && selectedIds.size > 0) {
+        const ids = Array.from(selectedIds);
+        const text = buildCopyText(ids);
+        navigator.clipboard?.writeText?.(text).then(() => {
+          toastSuccess(`${ids.length} cellule${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
+        }).catch(() => { /* ignore */ });
+        return;
+      }
+
+      // Cmd+V : paste
+      if (meta && e.key.toLowerCase() === "v" && selectedIds.size > 0) {
+        e.preventDefault();
+        navigator.clipboard?.readText?.().then((text) => {
+          if (text) applyPasteText(text, Array.from(selectedIds));
+        }).catch(() => { /* ignore */ });
+        return;
+      }
+
+      // Fleches : navigation 2D (skip cellules vides). Requiert focusedPos.
+      if (!focusedPos) return;
+      let dir: "up" | "down" | "left" | "right" | null = null;
+      if (e.key === "ArrowUp") dir = "up";
+      else if (e.key === "ArrowDown") dir = "down";
+      else if (e.key === "ArrowLeft") dir = "left";
+      else if (e.key === "ArrowRight") dir = "right";
+      if (!dir) return;
       e.preventDefault();
-      onKeyDown({
-        key: e.key,
-        shiftKey: e.shiftKey,
-        preventDefault: () => e.preventDefault(),
-      } as React.KeyboardEvent);
+      const next = nextPos(focusedPos, dir);
+      if (!next) return;
+      const nextId = gridIds[next.row][next.col];
+      if (!nextId) return;
+
+      if (e.shiftKey && anchorPos) {
+        // Étend la sélection depuis l'ancre
+        setSelectedIds(rangeIds(anchorPos, next));
+      } else {
+        setSelectedIds(new Set([nextId]));
+        setAnchorPos(next);
+      }
+      setFocusedPos(next);
     }
     document.addEventListener("keydown", onDocKey);
     return () => document.removeEventListener("keydown", onDocKey);
-  }, [focusedId, onKeyDown]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedPos, anchorPos, selectedIds, gridIds]);
 
   function onBulkApply(libelleKey: string) {
     const ids = Array.from(selectedIds);
@@ -432,12 +592,7 @@ export default function PilotageTable({
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto">
-          <table
-            className="w-full text-sm min-w-[1100px] focus:outline-none"
-            aria-label="Suivi Pilotage"
-            tabIndex={0}
-            onKeyDown={onKeyDown}
-          >
+          <table className="w-full text-sm min-w-[1100px]" aria-label="Suivi Pilotage">
             <thead className="bg-zinc-50/50 dark:bg-white/[0.02] border-b border-zinc-200/70 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-white/[0.02] min-w-[220px]">
@@ -455,7 +610,7 @@ export default function PilotageTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {filteredRows.map((r) => {
+              {filteredRows.map((r, rowIdx) => {
                 return (
                   <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-3 py-2 sticky left-0 bg-white dark:bg-[hsl(var(--card))]">
@@ -479,7 +634,7 @@ export default function PilotageTable({
                         <option value={cadenceLabelTri}>{cadenceLabelTri}</option>
                       </select>
                     </td>
-                    {MENSUEL_MONTHS.map((m) => {
+                    {MENSUEL_MONTHS.map((m, colIdx) => {
                       const periode = `${year}-${String(m).padStart(2, "0")}`;
                       const cell = r.cells.get(periode);
                       const isTri = !!r.cadence && r.cadence.toLowerCase().startsWith("trim");
@@ -487,26 +642,34 @@ export default function PilotageTable({
                       const cellTitle = isTrimestreColumn ? TRIMESTRE_LABEL[m] : undefined;
                       const cellId = cell?.id;
                       const selected = !!cellId && isSelected(cellId);
-                      const focused = !!cellId && focusedId === cellId;
+                      const focused = focusedPos?.row === rowIdx && focusedPos?.col === colIdx;
                       return (
                         <td
                           key={m}
                           className={cn(
                             "px-1 py-2 text-center align-middle transition-colors",
                             isTrimestreColumn && "bg-zinc-50/40 dark:bg-white/[0.02]",
-                            // Selection cellulaire Excel-style : clic sur la td
-                            // pour selectionner, clic sur le picker pour ouvrir.
                             cell && "cursor-pointer",
                             selected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
-                            focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
+                            focused && "outline outline-2 outline-sky-500 dark:outline-sky-400 outline-offset-[-2px]"
                           )}
                           title={cellTitle}
                           onClick={(e) => {
-                            // Ignore les clics sur le picker (button) ou ses enfants
+                            // Clic sur la cellule (mais pas sur le picker) =
+                            // sélectionne + focus. Le picker s'ouvre par clic
+                            // explicit sur son button.
                             if (!cellId) return;
                             const target = e.target as HTMLElement;
-                            if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
-                            onRowClick(cellId, e);
+                            if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
+                              // Clic sur le button picker : on selectionne quand meme
+                              // (pour que le bulk fonctionne) mais on n'empeche pas
+                              // l'ouverture du picker.
+                              setSelectedIds(new Set([cellId]));
+                              setFocusedPos({ row: rowIdx, col: colIdx });
+                              setAnchorPos({ row: rowIdx, col: colIdx });
+                              return;
+                            }
+                            onCellClick(rowIdx, colIdx, e);
                           }}
                         >
                           {cell ? (
@@ -550,7 +713,7 @@ export default function PilotageTable({
             Cadence trimestrielle : le statut est porté sur le dernier mois du trimestre (<span className="font-medium">Mars</span> = T1, <span className="font-medium">Juin</span> = T2, <span className="font-medium">Septembre</span> = T3, <span className="font-medium">Décembre</span> = T4). Échéance de livraison au mois suivant (avril, juillet, octobre, janvier N+1).
           </p>
         </div>
-        {orderedIds.length > 0 && (
+        {filteredRows.length > 0 && (
           <button
             type="button"
             onClick={selectAll}
