@@ -92,6 +92,18 @@ export default function SommaireCards({
   const totalEnRetardTrackers = rows.filter((r) => r.enRetard > 0).length;
   const totalEnRetardObligations = rows.reduce((s, r) => s + r.enRetard, 0);
 
+  // Detail textuel du compteur "A traiter" : liste des trackers contributeurs
+  // avec leur poids. Permet de retracer le total meme si un tracker est hors
+  // viewport. Ex : "AGO 5 · DAS2 2 · IS soldes 1" pour total = 8.
+  const aTraiterBreakdown = rows
+    .filter((r) => r.aTraiter > 0)
+    .map((r) => `${r.title} : ${r.aTraiter}`)
+    .join(" · ");
+  const enRetardBreakdown = rows
+    .filter((r) => r.enRetard > 0)
+    .map((r) => `${r.title} : ${r.enRetard}`)
+    .join(" · ");
+
   return (
     <div className="space-y-6">
       {/* KPI synthétiques : pilules cliquables = filtres rapides.
@@ -107,7 +119,11 @@ export default function SommaireCards({
           icon={<CalendarDays className="h-3 w-3" />}
           active={statusFilter.has("todo")}
           onClick={() => toggleStatus("todo")}
-          title={`${totalATraiter} obligation${totalATraiter > 1 ? "s" : ""} a echeance proche (≤ 30 jours ou depassee) et non terminee${totalATraiter > 1 ? "s" : ""}`}
+          title={
+            totalATraiter > 0
+              ? `${totalATraiter} obligation${totalATraiter > 1 ? "s" : ""} a echeance proche (≤ 30 jours ou depassee) et non terminee${totalATraiter > 1 ? "s" : ""}\n\nDetail : ${aTraiterBreakdown}`
+              : "Rien a traiter dans les 30 prochains jours"
+          }
         />
         <KpiPill
           label="Terminés"
@@ -123,7 +139,11 @@ export default function SommaireCards({
           icon={<CalendarDays className="h-3 w-3" />}
           active={statusFilter.has("overdue")}
           onClick={() => toggleStatus("overdue")}
-          title={`${totalEnRetardObligations} obligation${totalEnRetardObligations > 1 ? "s" : ""} en retard · ${totalEnRetardTrackers} tracker${totalEnRetardTrackers > 1 ? "s" : ""} affecté${totalEnRetardTrackers > 1 ? "s" : ""}`}
+          title={
+            totalEnRetardObligations > 0
+              ? `${totalEnRetardObligations} obligation${totalEnRetardObligations > 1 ? "s" : ""} en retard · ${totalEnRetardTrackers} tracker${totalEnRetardTrackers > 1 ? "s" : ""} affecte${totalEnRetardTrackers > 1 ? "s" : ""}\n\nDetail : ${enRetardBreakdown}`
+              : "Aucune obligation en retard"
+          }
         />
         {statusFilter.size > 0 && (
           <button
