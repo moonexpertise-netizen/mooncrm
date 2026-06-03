@@ -5,7 +5,7 @@ import ObligationsMatrix, {
   type YearConfig as MatrixYC,
 } from "../obligations-matrix";
 import { Card } from "../_components";
-import { loadClient, loadActiveTvaTags } from "../_data";
+import { loadClient } from "../_data";
 import TvaFieldsCard from "../tva-fields-card";
 import PilotageFieldsCard from "../pilotage-fields-card";
 
@@ -18,8 +18,9 @@ const CURRENT_YEAR = 2026;
  * configuration TVA mensuelle (étiquette + jour échéance) et Pilotage
  * (cadences TdB + RDV expert).
  *
- * On regroupe ici toute la config "production" du client (par opposition
- * à l'onglet Identité qui reste centré sur l'identité légale et les honos).
+ * ULTRA-DEFENSIVE : chaque query est wrappee dans son propre try/catch,
+ * avec fallback []. Aucune exception ne peut planter le SSR (qui causerait
+ * un 500 sur cette route et trigger l'error boundary).
  */
 export default async function ObligationsTab({
   params,
@@ -32,34 +33,80 @@ export default async function ObligationsTab({
   const id = client.id;
 
   const sb = await createClient();
-  const [{ data: allSubs }, { data: yearConfigs }] = await Promise.all([
-    sb.from("obligation_subscriptions").select("type, annee, actif").eq("client_id", id),
-    sb.from("client_year_config").select("annee, regime").eq("client_id", id),
+
+  // Helper : safe query qui ne throw jamais
+  async function safeQuery<T>(
+    fn: () => PromiseLike<{ data: T | null; error: unknown }>,
+    fallback: T,
+    label: string
+  ): Promise<T> {
+    try {
+      const r = await fn();
+      if (r.error) {
+        // eslint-disable-next-line no-console
+        console.error(`[obligations/page ${label}]`, r.error);
+        return fallback;
+      }
+      return r.data ?? fallback;
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`[obligations/page ${label}] throw:`, e);
+      return fallback;
+    }
+  }
+
+  const [allSubs, yearConfigs, tvaTagsRaw] = await Promise.all([
+    safeQuery<Array<{ type: string; annee: number; actif: boolean | null }>>(
+      () => sb.from("obligation_subscriptions").select("type, annee, actif").eq("client_id", id),
+      [],
+      "allSubs"
+    ),
+    safeQuery<Array<{ annee: number; regime: string | null }>>(
+      () => sb.from("client_year_config").select("annee, regime").eq("client_id", id),
+      [],
+      "yearConfigs"
+    ),
+    // tva_tags : peut etre absent si migration 0059 pas appliquee. On utilise
+    // un simple .eq("actif", true) au lieu de .or() pour eviter les surprises.
+    safeQuery<Array<{ id: string; label: string; color: string; actif: boolean }>>(
+      () => sb.from("tva_tags").select("id, label, color, actif").eq("actif", true).order("ordre"),
+      [],
+      "tvaTags"
+    ),
   ]);
 
-  const subYears = new Set<number>((allSubs ?? []).map((s) => s.annee));
+  const subYears = new Set<number>(allSubs.map((s) => s.annee));
   subYears.add(CURRENT_YEAR);
   subYears.add(CURRENT_YEAR + 1);
   const yearsList = [...subYears].sort((a, b) => a - b);
-  const matrixSubs: MatrixSub[] = (allSubs ?? []).map((s) => ({
+  const matrixSubs: MatrixSub[] = allSubs.map((s) => ({
     type: s.type,
     annee: s.annee,
     actif: !!s.actif,
   }));
-  const matrixYC: MatrixYC[] = (yearConfigs ?? []).map((c) => ({
+  const matrixYC: MatrixYC[] = yearConfigs.map((c) => ({
     annee: c.annee,
     regime: (c.regime as "IR" | "IS" | null) ?? null,
   }));
 
-  // Données pour les Cards TVA mensuelle + Pilotage. Tout fallback null si
-  // migration pas appliquee (cast unknown + ?? null). Aucune query ne throw
-  // grâce à la robustesse de loadClient (fallback) et loadActiveTvaTags
-  // (catch + return []).
+  // Donnees client pour les Cards : tout fallback null. Casts unknown -> safe
+  // meme si les colonnes n'existent pas (migrations 0059/0060 pas appliquees).
   const currentTvaTagId = (client as unknown as { tva_tag_id: string | null }).tva_tag_id ?? null;
   const currentTvaEcheanceJour = (client as unknown as { tva_echeance_jour: number | null }).tva_echeance_jour ?? null;
   const currentTdbPeriode = (client as unknown as { tdb_livraison_periode: string | null }).tdb_livraison_periode ?? null;
   const currentRdvPeriode = (client as unknown as { rdv_expert_periode: string | null }).rdv_expert_periode ?? null;
-  const tvaTags = await loadActiveTvaTags(currentTvaTagId);
+
+  // Si le tag du client n'est pas dans la liste actuelle des actifs (cas
+  // d'un tag desactive), on l'ajoute pour ne pas perdre l'affichage.
+  let tvaTags = tvaTagsRaw;
+  if (currentTvaTagId && !tvaTagsRaw.some((t) => t.id === currentTvaTagId)) {
+    const extra = await safeQuery<Array<{ id: string; label: string; color: string; actif: boolean }>>(
+      () => sb.from("tva_tags").select("id, label, color, actif").eq("id", currentTvaTagId),
+      [],
+      "tvaTagCurrent"
+    );
+    tvaTags = [...tvaTagsRaw, ...extra];
+  }
 
   return (
     <div className="space-y-6">
