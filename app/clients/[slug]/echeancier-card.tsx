@@ -37,8 +37,6 @@ const TYPE_LABEL: Record<string, string> = {
   DES: "DES",
   LIASSE_PLAQUETTE: "Liasse / Plaquette",
   AGO_DEPOT: "AGO + dépôt",
-  PILOTAGE_TDB: "Tableau de bord",
-  PILOTAGE_RDV: "RDV Expert",
   COMPTA: "Compta",
   DEPOT_COMPTES: "Dépôt comptes",
   FACTURATION_JUR: "Facturation Jur",

@@ -94,30 +94,11 @@ export default async function ClientLayout({
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  try {
-    return await renderClientLayout(children, await params);
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[ClientLayout] FATAL throw:", e);
-    // Fallback minimaliste : on rend juste les children, sans le header/nav.
-    // Mieux que 500 + error boundary sur tout le segment.
-    return <div className="space-y-6 p-4">{children}</div>;
-  }
-}
+  const { slug } = await params;
 
-async function renderClientLayout(
-  children: React.ReactNode,
-  { slug }: { slug: string }
-) {
   const client = await loadClient(slug);
   if (!client) notFound();
-  let contactsLink: Awaited<ReturnType<typeof loadContactsLink>> = [];
-  try {
-    contactsLink = await loadContactsLink(client.id);
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[ClientLayout] loadContactsLink throw:", e);
-  }
+  const contactsLink = await loadContactsLink(client.id);
   const dirigeantContact = extractDirigeant(contactsLink);
 
   // Navigation prev/next : lecture des nav-* params depuis l'URL via headers().
@@ -140,23 +121,13 @@ async function renderClientLayout(
   const hasNavFilter =
     navQ !== "" || navPipeline.size > 0 || navForme.size > 0 || navOrigine.size > 0;
 
-  // Defensive : la query clients pour la nav peut planter dans certains cas
-  // (RLS, timeout). On accepte une liste vide -> prev/next disabled.
-  let allClientsList: Array<Record<string, unknown>> | null = null;
-  try {
-    const sb = await createClient();
-    const r = hasNavFilter
-      ? await sb
-          .from("clients")
-          .select("id, slug, denomination, pipeline_statut, forme, origine, groupes(nom)")
-          .order("denomination")
-      : await sb.from("clients").select("id, slug, denomination").order("denomination");
-    allClientsList = (r.data ?? []) as Array<Record<string, unknown>>;
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[ClientLayout] allClients throw:", e);
-    allClientsList = [];
-  }
+  const supabase = await createClient();
+  const { data: allClientsList } = hasNavFilter
+    ? await supabase
+        .from("clients")
+        .select("id, slug, denomination, pipeline_statut, forme, origine, groupes(nom)")
+        .order("denomination")
+    : await supabase.from("clients").select("id, slug, denomination").order("denomination");
 
   let clientList: Array<{ slug: string; denomination: string }>;
   if (hasNavFilter) {

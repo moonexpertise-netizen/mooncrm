@@ -39,8 +39,6 @@ const TYPE_LABEL: Record<TypeObligation, string> = {
   DEPOT_COMPTES: "Dépôt comptes",
   FACTURATION_JUR: "Facturation Jur",
   ETAT_CREATION: "État création",
-  PILOTAGE_TDB: "Tableau de bord",
-  PILOTAGE_RDV: "RDV Expert",
 };
 
 const TVA_MODES: Tva[] = [

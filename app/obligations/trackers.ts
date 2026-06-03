@@ -4,7 +4,7 @@
  * les colonnes (périodes) affichées en table.
  */
 
-export type TrackerGroup = "tva" | "is" | "ago" | "bilan" | "pilotage" | "autres";
+export type TrackerGroup = "tva" | "is" | "ago" | "bilan" | "autres";
 
 export type Tracker = {
   slug: string;
@@ -40,7 +40,6 @@ export const TRACKER_GROUPS: { id: TrackerGroup; label: string }[] = [
   { id: "is", label: "IS · Impôt sur les sociétés" },
   { id: "ago", label: "AGO" },
   { id: "bilan", label: "Suivi Bilan" },
-  { id: "pilotage", label: "Pilotage · Dashboard" },
   { id: "autres", label: "Autres déclarations" },
 ];
 
@@ -271,52 +270,6 @@ export const TRACKERS: Tracker[] = [
       { key: `liasse-${y}`, label: "Liasse", type: "LIASSE_PLAQUETTE", periode: `${y}` },
       { key: `liasse-fact-${y}`, label: "Facturation", type: "LIASSE_PLAQUETTE", periode: `${y}`, kind: "facturation" },
     ],
-  },
-  {
-    slug: "tableau-de-bord",
-    title: "Tableau de bord",
-    group: "pilotage",
-    description: "Mise à disposition du tableau de bord. Cadence mensuelle ou trimestrielle selon le dossier.",
-    icon: "📊",
-    accent: "sky",
-    notes: [
-      { text: "À préparer → Préparé → Présenté." },
-      { text: "Cadence configurée par client (fiche · Pilotage)." },
-    ],
-    types: ["PILOTAGE_TDB"],
-    cols: (y) =>
-      Array.from({ length: 12 }, (_, i) => {
-        const m = i + 1;
-        return {
-          key: `tdb-${y}-${pad(m)}`,
-          label: MONTHS_SHORT[i],
-          type: "PILOTAGE_TDB",
-          periode: `${y}-${pad(m)}`,
-        };
-      }),
-  },
-  {
-    slug: "rdv-expert",
-    title: "RDV Expert",
-    group: "pilotage",
-    description: "Suivi des rendez-vous expert. Cadence mensuelle ou trimestrielle selon le dossier.",
-    icon: "🤝",
-    accent: "violet",
-    notes: [
-      { text: "RDV à planifier → RDV planifié → RDV réalisé." },
-      { text: "Cadence configurée par client (fiche · Pilotage)." },
-    ],
-    types: ["PILOTAGE_RDV"],
-    cols: (y) =>
-      Array.from({ length: 12 }, (_, i) => {
-        const m = i + 1;
-        return {
-          key: `rdv-${y}-${pad(m)}`,
-          label: MONTHS_SHORT[i],
-          type: "PILOTAGE_RDV",
-          periode: `${y}-${pad(m)}`,
-        };
-      }),
   },
   {
     slug: "ago-depot",

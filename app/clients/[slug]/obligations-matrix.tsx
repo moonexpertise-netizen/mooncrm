@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAlert } from "@/app/_components/confirm-modal";
-import { toastError } from "@/lib/toast-helpers";
 import {
   reconduireAnnee,
-  setDashboardSubscription,
   setRegime as setRegimeAction,
   setTvaMode,
   toggleSubscription,
@@ -117,12 +115,6 @@ export default function ObligationsMatrix({
   function isActive(type: string, annee: number): boolean {
     return display.subs.some((s) => s.type === type && s.annee === annee && s.actif);
   }
-  // Dashboard = PILOTAGE_TDB + PILOTAGE_RDV activés ensemble. On teste TDB
-  // (le toggle garde les 2 synchronisés). Les cadences se règlent dans la
-  // fiche client onglet Identité (Card "Pilotage / Dashboard").
-  function isDashboardActive(annee: number): boolean {
-    return isActive("PILOTAGE_TDB", annee);
-  }
   function getTva(annee: number): TvaMode | null {
     const tva = display.subs.find(
       (s) => s.annee === annee && s.actif && TVA_TYPES.includes(s.type)
@@ -197,32 +189,6 @@ export default function ObligationsMatrix({
     startTransition(async () => {
       await setTvaMode(clientId, annee, mode);
       router.refresh();
-    });
-  }
-
-  function onToggleDashboard(annee: number) {
-    if (pendingReconduits.length > 0) {
-      void alert({
-        title: "Reconductions en attente",
-        description: "Valide d'abord les reconductions en attente, ou annule-les.",
-      });
-      return;
-    }
-    const next = !isDashboardActive(annee);
-    // L'action server ne throw jamais (cf. setDashboardSubscription) :
-    // retourne { ok, error } a la place. On affiche un toast si error mais
-    // la page n'est jamais crashee meme si migration 0061 manquante.
-    startTransition(async () => {
-      try {
-        const res = await setDashboardSubscription(clientId, annee, next);
-        if (!res.ok) {
-          toastError(new Error(res.error ?? "Erreur inconnue"), "Échec activation Dashboard");
-        }
-        router.refresh();
-      } catch (e) {
-        // Filet de securite ultime : meme si l'action throw, on absorbe.
-        toastError(e, "Échec activation Dashboard");
-      }
     });
   }
 
@@ -499,53 +465,6 @@ export default function ObligationsMatrix({
                 })}
               </tr>
             ))}
-
-            {/* Dashboard / Pilotage : toggle par annee. Active simultanement
-                le suivi Tableau de bord + RDV expert. Les cadences se reglent
-                sous la matrice. Meme markup que les rows SUB_ROWS pour rester
-                visuellement coherent (carre blanc + hover preview emerald). */}
-            <tr className="border-t group/row hover:bg-amber-50/70 transition-colors">
-              <td
-                className={cn(
-                  "sticky left-0 z-10 px-3 py-2 border-r bg-white transition-colors",
-                  "group-hover/row:bg-amber-100 group-hover/row:font-semibold group-hover/row:text-zinc-900"
-                )}
-              >
-                Dashboard / Pilotage
-              </td>
-              {years.map((y) => {
-                const before = isBeforeDebut(y);
-                if (before) {
-                  return (
-                    <td key={y} className="px-0.5 text-center align-middle bg-zinc-100 text-zinc-400">-</td>
-                  );
-                }
-                const v = isDashboardActive(y);
-                return (
-                  <td key={y} className={cn("px-0.5 text-center align-middle", isYearInDraft(y) && "bg-[hsl(var(--gold))]/5")}>
-                    <button
-                      onClick={() => onToggleDashboard(y)}
-                      className={cn(
-                        "w-7 h-7 inline-flex items-center justify-center rounded border",
-                        "active:scale-95 group/cell relative overflow-hidden transition-transform duration-100",
-                        "border-zinc-200 bg-white"
-                      )}
-                      title={v ? "Désactiver le suivi Dashboard" : "Activer le suivi Dashboard (TdB + RDV)"}
-                    >
-                      <span
-                        className={cn(
-                          "absolute inset-0 inline-flex items-center justify-center",
-                          "bg-emerald-500/95 text-white transition-opacity duration-100",
-                          v ? "opacity-100" : "opacity-0 group-hover/cell:opacity-60"
-                        )}
-                      >
-                        <span className="text-[13px] font-bold leading-none">✓</span>
-                      </span>
-                    </button>
-                  </td>
-                );
-              })}
-            </tr>
           </tbody>
         </table>
       </div>

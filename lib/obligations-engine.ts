@@ -19,11 +19,6 @@ export type GeneratedInstance = {
 export type ClotureInfo = {
   jour_cloture: number | null;
   mois_cloture: number | null;
-  /** Cadence pilotage (module Dashboard). Optionnels : seuls PILOTAGE_TDB /
-   *  PILOTAGE_RDV les lisent. Valeurs : "Mensuelle"/"Trimestrielle" (TdB),
-   *  "Mensuel"/"Trimestriel" (RDV). NULL/absent -> defaut mensuel. */
-  tdb_livraison_periode?: string | null;
-  rdv_expert_periode?: string | null;
 };
 
 /**
@@ -282,26 +277,6 @@ function agoDepotInstances(annee: number, moisCloture: number | null): Generated
   ];
 }
 
-/**
- * Pilotage (Dashboard) : tableau de bord OU RDV expert.
- *   - cadence mensuelle    -> 12 instances (1 par mois, periode YYYY-MM)
- *   - cadence trimestrielle -> 4 instances (mars/juin/sept/dec)
- * Pas d'echeance fiscale : c'est un rythme de production interne. On garde des
- * periodes mensuelles (YYYY-MM) dans les 2 cas pour cohabiter dans une grille
- * 12 colonnes (un dossier trimestriel a juste 4 cellules remplies).
- */
-function isTrimestriel(periode: string | null | undefined): boolean {
-  return !!periode && periode.toLowerCase().startsWith("trim");
-}
-function pilotageInstances(annee: number, periode: string | null | undefined): GeneratedInstance[] {
-  const mois = isTrimestriel(periode) ? [3, 6, 9, 12] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  return mois.map((m) => ({
-    periode: `${annee}-${pad(m)}`,
-    annee,
-    echeance: null,
-  }));
-}
-
 // ---------------------------------------------------------------------------
 // Point d'entrée
 // ---------------------------------------------------------------------------
@@ -330,8 +305,6 @@ export function generateInstancesForType(
     case "DES":                return desInstances(annee);
     case "LIASSE_PLAQUETTE":   return liasseInstances(annee, moisCloture);
     case "AGO_DEPOT":          return agoDepotInstances(annee, moisCloture);
-    case "PILOTAGE_TDB":       return pilotageInstances(annee, cloture.tdb_livraison_periode);
-    case "PILOTAGE_RDV":       return pilotageInstances(annee, cloture.rdv_expert_periode);
     // Types présents en DB depuis Notion mais non générés par le moteur
     // (utilisateur les considère redondants / hors scope MoonCRM).
     case "COMPTA":

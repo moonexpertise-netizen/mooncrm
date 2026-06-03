@@ -14,11 +14,7 @@ export type TypeObligation =
   | "CFE"
   | "DAS2" | "DECL_2561" | "DECL_2777" | "OSS" | "DES"
   | "COMPTA" | "LIASSE_PLAQUETTE" | "AGO_DEPOT" | "DEPOT_COMPTES"
-  | "FACTURATION_JUR" | "ETAT_CREATION"
-  | "PILOTAGE_TDB" | "PILOTAGE_RDV";
-
-/** Les 2 types du module Pilotage/Dashboard, activés ensemble par le toggle. */
-export const PILOTAGE_TYPES: TypeObligation[] = ["PILOTAGE_TDB", "PILOTAGE_RDV"];
+  | "FACTURATION_JUR" | "ETAT_CREATION";
 
 export type Regime = "IR" | "IS";
 export type PipelineStatut =
@@ -41,28 +37,10 @@ export type PipelineStatut =
 export async function regenerateObligationsForYear(clientId: string, annee: number) {
   const sb = await createClient();
 
-  // Defensive : SELECT avec les cols pilotage, fallback sans si migration 0060
-  // pas encore appliquee. Evite que toute action regenerative crashe.
-  const r1 = await sb
-    .from("clients")
-    .select("jour_cloture, mois_cloture, debut_obligations, tdb_livraison_periode, rdv_expert_periode")
-    .eq("id", clientId)
-    .single();
-  const clientRes = r1.error
-    ? await sb
-        .from("clients")
-        .select("jour_cloture, mois_cloture, debut_obligations")
-        .eq("id", clientId)
-        .single()
-    : r1;
-  const subsRes = await sb
-    .from("obligation_subscriptions")
-    .select("id, type, annee")
-    .eq("client_id", clientId)
-    .eq("annee", annee)
-    .eq("actif", true);
-  const client = clientRes.data;
-  const subs = subsRes.data;
+  const [{ data: client }, { data: subs }] = await Promise.all([
+    sb.from("clients").select("jour_cloture, mois_cloture, debut_obligations").eq("id", clientId).single(),
+    sb.from("obligation_subscriptions").select("id, type, annee").eq("client_id", clientId).eq("annee", annee).eq("actif", true),
+  ]);
   if (!client || !subs?.length) {
     revalidatePath(`/clients/${clientId}`);
     return { inserted: 0, updated: 0 };
@@ -86,12 +64,7 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
       generateInstancesForType(
         sub.type as TypeObligation,
         sub.annee,
-        {
-          jour_cloture: client.jour_cloture,
-          mois_cloture: client.mois_cloture,
-          tdb_livraison_periode: (client as { tdb_livraison_periode?: string | null }).tdb_livraison_periode ?? null,
-          rdv_expert_periode: (client as { rdv_expert_periode?: string | null }).rdv_expert_periode ?? null,
-        }
+        { jour_cloture: client.jour_cloture, mois_cloture: client.mois_cloture }
       ),
       client.debut_obligations
     );
@@ -114,26 +87,15 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
   }
 
   // 3. Exécution parallèle : 1 INSERT en bloc + tous les UPDATE en parallèle
-  // Defensive : si l'INSERT plante (enum invalide), on continue quand meme
-  // pour ne pas faire crasher l'action appelante.
-  try {
-    await Promise.all([
-      toInsertAll.length ? sb.from("obligations").insert(toInsertAll) : Promise.resolve(),
-      ...toUpdate.map((u) =>
-        sb.from("obligations").update({ echeance: u.echeance }).eq("id", u.id)
-      ),
-    ]);
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[regenerateObligationsForYear] insert/update throw:", e);
-  }
+  await Promise.all([
+    toInsertAll.length ? sb.from("obligations").insert(toInsertAll) : Promise.resolve(),
+    ...toUpdate.map((u) =>
+      sb.from("obligations").update({ echeance: u.echeance }).eq("id", u.id)
+    ),
+  ]);
 
-  try {
-    revalidatePath(`/clients/${clientId}`);
-    revalidatePath("/parametrage");
-  } catch {
-    // revalidatePath ne devrait jamais throw, mais on est paranoid.
-  }
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/parametrage");
   return { inserted: toInsertAll.length, updated: toUpdate.length };
 }
 
@@ -471,199 +433,6 @@ export async function toggleSubscription(
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/parametrage");
-}
-
-// ---------------------------------------------------------------------------
-// MODULE PILOTAGE / DASHBOARD
-// ---------------------------------------------------------------------------
-
-export type PilotagePeriode = "Mensuelle" | "Trimestrielle" | "Mensuel" | "Trimestriel";
-
-/**
- * Active/désactive le suivi "Dashboard" pour un client sur une année.
- * Un seul toggle pilote les 2 aspects (PILOTAGE_TDB + PILOTAGE_RDV).
- *
- * À l'activation : si les cadences ne sont pas encore définies, on les
- * pré-remplit depuis le Forfait pilotage (tdb_periode) du client :
- *   - tdb_periode = "Trimestriel" -> TdB "Trimestrielle" + RDV "Trimestriel"
- *   - sinon (Mensuel / Non souscrit / null) -> TdB "Mensuelle" + RDV "Mensuel"
- */
-export async function setDashboardSubscription(
-  clientId: string,
-  annee: number,
-  enabled: boolean
-): Promise<{ ok: boolean; error?: string }> {
-  // ULTRA-DEFENSIVE : aucune exception ne sort de cette action. Toutes les
-  // erreurs DB (enum non etendu si migration 0061 manquante, RLS, colonnes
-  // absentes si 0060 manquante, etc.) sont capturees et retournees comme
-  // { ok: false, error }. Empeche absolument tout error boundary cote UI.
-  try {
-    const sb = await createClient();
-
-    // Toggle les 2 subs (memes logique que toggleSubscription, en lot).
-    // Chaque INSERT est dans son propre try : si PILOTAGE_TDB plante sur
-    // l'enum, on essaie quand meme PILOTAGE_RDV (au cas ou seul un des 2
-    // serait manquant - improbable mais defensif).
-    const errors: string[] = [];
-    for (const type of PILOTAGE_TYPES) {
-      try {
-        const { data: existing, error: e0 } = await sb
-          .from("obligation_subscriptions")
-          .select("id")
-          .eq("client_id", clientId)
-          .eq("type", type)
-          .eq("annee", annee)
-          .maybeSingle();
-        if (e0) {
-          errors.push(`${type}: ${e0.message}`);
-          continue;
-        }
-        if (existing) {
-          const { error } = await sb
-            .from("obligation_subscriptions")
-            .update({ actif: enabled })
-            .eq("id", existing.id);
-          if (error) errors.push(`${type} update: ${error.message}`);
-        } else if (enabled) {
-          const { error } = await sb
-            .from("obligation_subscriptions")
-            .insert({ client_id: clientId, type, annee, actif: true });
-          if (error) errors.push(`${type} insert: ${error.message}`);
-        }
-      } catch (e) {
-        errors.push(`${type}: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-
-    if (enabled) {
-      // Pre-remplissage des cadences (best-effort)
-      try {
-        const { data: c, error } = await sb
-          .from("clients")
-          .select("tdb_periode, tdb_livraison_periode, rdv_expert_periode")
-          .eq("id", clientId)
-          .single();
-        if (!error && c) {
-          const isTri = (c as { tdb_periode?: string | null }).tdb_periode === "Trimestriel";
-          const patch: Record<string, string> = {};
-          const cc = c as { tdb_livraison_periode?: string | null; rdv_expert_periode?: string | null };
-          if (!cc.tdb_livraison_periode) patch.tdb_livraison_periode = isTri ? "Trimestrielle" : "Mensuelle";
-          if (!cc.rdv_expert_periode) patch.rdv_expert_periode = isTri ? "Trimestriel" : "Mensuel";
-          if (Object.keys(patch).length > 0) {
-            await sb.from("clients").update(patch).eq("id", clientId);
-          }
-        }
-      } catch {
-        // best-effort : on continue meme si echec
-      }
-      // Regenerate : peut throw si enum manquante. On wrap.
-      try {
-        await regenerateObligationsForYear(clientId, annee);
-      } catch (e) {
-        errors.push(`regenerate: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-
-    // IMPORTANT : on ne revalide PAS /obligations/tableau-de-bord ni
-    // /obligations/rdv-expert ici. Ces revalidations forcent Next.js a
-    // re-fetcher ces routes en arriere-plan ; si l'enum Postgres
-    // type_obligation n'a pas PILOTAGE_TDB/RDV (migration 0061 manquante),
-    // la query .in("type", [...]) du tracker plante et fait apparaitre
-    // "An error occurred in the Server Components render" cote UI.
-    // Le user verra les nouvelles donnees au prochain visit naturel du tracker.
-    revalidatePath(`/clients/${clientId}`);
-    revalidatePath("/parametrage");
-
-    if (errors.length > 0) {
-      // eslint-disable-next-line no-console
-      console.error("[setDashboardSubscription] partial errors:", errors);
-      return { ok: false, error: errors.join(" · ") };
-    }
-    return { ok: true };
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[setDashboardSubscription] fatal:", e);
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
-}
-
-/**
- * Change la cadence d'un aspect pilotage (TdB ou RDV), au niveau client.
- * Régénère les obligations pour toutes les années où l'aspect est souscrit,
- * et purge les instances devenues obsolètes (mois hors cadence) qui sont
- * encore à l'état initial A_FAIRE (on préserve celles où du travail a été fait).
- */
-export async function setPilotagePeriode(
-  clientId: string,
-  aspect: "tdb" | "rdv",
-  value: PilotagePeriode | null
-): Promise<{ ok: boolean; error?: string }> {
-  // ULTRA-DEFENSIVE (cf. setDashboardSubscription) : aucune throw, retourne
-  // { ok: false, error } en cas d'echec.
-  try {
-    const sb = await createClient();
-    const col = aspect === "tdb" ? "tdb_livraison_periode" : "rdv_expert_periode";
-    const type: TypeObligation = aspect === "tdb" ? "PILOTAGE_TDB" : "PILOTAGE_RDV";
-
-    // Update la colonne client (migration 0060). Si elle n'existe pas, on
-    // retourne une erreur explicite mais on ne crashe pas.
-    const { error: errUpd } = await sb.from("clients").update({ [col]: value }).eq("id", clientId);
-    if (errUpd) {
-      // eslint-disable-next-line no-console
-      console.error(`[setPilotagePeriode] update ${col}:`, errUpd.message);
-      return { ok: false, error: `Migration 0060 manquante ? (${errUpd.message})` };
-    }
-
-    // Best-effort : regenerate + purge des mois obsoletes. Si l'enum n'est
-    // pas etendu, ces queries plantent. On capture par annee pour qu'au moins
-    // l'update du clients.{col} reste applique.
-    try {
-      const { data: subs } = await sb
-        .from("obligation_subscriptions")
-        .select("annee")
-        .eq("client_id", clientId)
-        .eq("type", type)
-        .eq("actif", true);
-      const years = [...new Set((subs ?? []).map((s) => s.annee))];
-      const isTri = !!value && value.toLowerCase().startsWith("trim");
-      const targetMonths = isTri ? [3, 6, 9, 12] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-      for (const y of years) {
-        try {
-          const targetPeriodes = new Set(targetMonths.map((m) => `${y}-${String(m).padStart(2, "0")}`));
-          const { data: toDelete } = await sb
-            .from("obligations")
-            .select("id, periode")
-            .eq("client_id", clientId)
-            .eq("type", type)
-            .eq("annee", y)
-            .eq("statut_logique", "A_FAIRE");
-          const obsoleteIds = (toDelete ?? [])
-            .filter((o) => !targetPeriodes.has(o.periode))
-            .map((o) => o.id);
-          if (obsoleteIds.length > 0) {
-            await sb.from("obligations").delete().in("id", obsoleteIds);
-          }
-          await regenerateObligationsForYear(clientId, y);
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.error(`[setPilotagePeriode] regen ${y}:`, e);
-        }
-      }
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error("[setPilotagePeriode] regen step:", e);
-    }
-
-    // Idem setDashboardSubscription : pas de revalidatePath sur les trackers
-    // pilotage pour eviter un SSR background qui planterait sur enum manquante.
-    revalidatePath(`/clients/${clientId}`);
-    return { ok: true };
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[setPilotagePeriode] fatal:", e);
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
 }
 
 /**
