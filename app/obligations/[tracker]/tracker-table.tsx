@@ -128,6 +128,10 @@ export default function TrackerTable({
   >(null);
   const [statusFilter, setStatusFilter] = useState<Set<StatutFilter>>(new Set());
   const [periodFilter, setPeriodFilter] = useState<Set<string>>(new Set());
+  // Filtre par mois de cloture du client : utile sur les trackers annuels
+  // (Liasse, AGO, Depot, Solde IS, CA12 annuel) ou la date d'echeance depend
+  // de la cloture. Set vide = tous.
+  const [filterCloture, setFilterCloture] = useState<Set<number>>(new Set());
   // Vue TVA mensuelle : "3m" (mois precedent/actuel/suivant) vs "12m" (annee).
   // Defaut 3m sur tva-mensuelle car c'est l'usage quotidien. Le user toggle
   // vers 12m pour la vue annuelle bilan.
@@ -357,6 +361,53 @@ export default function TrackerTable({
     return m;
   }, [isTvaMensuelle, tvaTags]);
 
+  // Trackers "annuels a cloture" : Liasse, AGO, Depot, Solde IS, CA12 annuel.
+  // Sur ces trackers on affiche une colonne "Echeance" (apres le nom client)
+  // et on permet de filtrer par mois de cloture.
+  const CLOTURE_BASED_TYPES = useMemo(() => new Set([
+    "IS_SOLDE", "LIASSE_PLAQUETTE", "COMPTA",
+    "AGO_DEPOT", "DEPOT_COMPTES",
+    "TVA_ANNUELLE_CA12",
+  ]), []);
+  const MOIS_FR = useMemo(() => [
+    "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
+    "Juil", "Août", "Sept", "Oct", "Nov", "Déc"
+  ], []);
+  const hasClotureBasedCols = useMemo(
+    () => cols.some((c) => CLOTURE_BASED_TYPES.has(c.type)),
+    [cols, CLOTURE_BASED_TYPES]
+  );
+
+  // Calcule la prochaine echeance pour une row donnee (la plus proche parmi
+  // les cellules cloture-based non terminees). null = pas d'echeance.
+  function computeNextEcheance(r: TrackerRow): Date | null {
+    const cloture = (r.jour_cloture && r.mois_cloture)
+      ? { jour: r.jour_cloture, mois: r.mois_cloture }
+      : { jour: 31, mois: 12 };
+    let earliest: Date | null = null;
+    for (const c of r.cells) {
+      if (!CLOTURE_BASED_TYPES.has(c.type)) continue;
+      if (c.statut_logique === "TERMINE" || c.statut_logique === "NON_APPLICABLE") continue;
+      const col = cols.find((co) => co.key === c.colKey);
+      if (!col) continue;
+      const anneePeriode = parseInt(col.periode.split("-")[0] ?? "0", 10);
+      const ech = computeEcheance(c.type, col.periode, anneePeriode, cloture);
+      if (!ech) continue;
+      if (!earliest || ech.dueDate < earliest) earliest = ech.dueDate;
+    }
+    return earliest;
+  }
+
+  // Liste dynamique des mois de cloture presents dans les clients (pour
+  // generer les chips filter). Trie : decembre + mois civils.
+  const clotureMoisPresents = useMemo(() => {
+    const s = new Set<number>();
+    for (const r of localRows) {
+      if (r.mois_cloture) s.add(r.mois_cloture);
+    }
+    return Array.from(s).sort((a, b) => a - b);
+  }, [localRows]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const hasStatusFilter = statusFilter.size > 0;
@@ -385,6 +436,10 @@ export default function TrackerTable({
           if (r.tva_tag_id !== tvaTagFilter) return false;
         }
       }
+      // Filtre par mois de cloture (uniquement sur trackers cloture-based)
+      if (hasClotureBasedCols && filterCloture.size > 0) {
+        if (!r.mois_cloture || !filterCloture.has(r.mois_cloture)) return false;
+      }
       return true;
     });
     // Tri TVA par etiquette : groupe par ordre du tag puis alphabetique
@@ -398,9 +453,21 @@ export default function TrackerTable({
         return a.denomination.localeCompare(b.denomination, "fr");
       });
     }
+    // Tri par echeance croissante sur les trackers cloture-based : la plus
+    // proche / la plus urgente en haut. denomination en tri secondaire.
+    if (hasClotureBasedCols) {
+      const FAR_FUTURE = Number.MAX_SAFE_INTEGER;
+      out.sort((a, b) => {
+        const da = computeNextEcheance(a)?.getTime() ?? FAR_FUTURE;
+        const db = computeNextEcheance(b)?.getTime() ?? FAR_FUTURE;
+        if (da !== db) return da - db;
+        return a.denomination.localeCompare(b.denomination, "fr");
+      });
+    }
     // (sinon : on garde le tri par denomination defini par le server cote page.tsx)
     return out;
-  }, [localRows, search, statusFilter, visibleColKeysSet, isTvaMensuelle, tvaTagFilter, tvaSort, tvaTagOrderMap]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localRows, search, statusFilter, visibleColKeysSet, isTvaMensuelle, tvaTagFilter, tvaSort, tvaTagOrderMap, hasClotureBasedCols, filterCloture, cols]);
 
   // Compteurs par tag TVA pour les chips (independants du filtre tag courant)
   const tvaTagCounts = useMemo(() => {
@@ -1279,6 +1346,33 @@ export default function TrackerTable({
             accent="zinc"
           />
         </div>
+        {/* Filtre par mois de cloture (uniquement trackers annuels) */}
+        {hasClotureBasedCols && clotureMoisPresents.length > 1 && (
+          <>
+            <div className="h-6 w-px bg-zinc-200 mx-1" />
+            <div className="inline-flex gap-1 items-center flex-wrap" title="Filtrer par mois de clôture client">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 mr-1">Clôture</span>
+              {clotureMoisPresents.map((mois) => (
+                <StatusFilterChip
+                  key={mois}
+                  label={MOIS_FR[mois - 1]}
+                  active={filterCloture.has(mois)}
+                  onClick={(e) => setFilterCloture(toggleFilterKey(filterCloture, mois, e))}
+                  accent="zinc"
+                />
+              ))}
+              {filterCloture.size > 0 && (
+                <button
+                  onClick={() => setFilterCloture(new Set())}
+                  className="text-[11px] text-zinc-400 hover:text-zinc-700 transition-colors ml-0.5"
+                  title="Toutes les clôtures"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </>
+        )}
         {cols.length > 1 && (
           <>
             <div className="h-6 w-px bg-zinc-200 mx-1" />
@@ -1416,6 +1510,34 @@ export default function TrackerTable({
                           {r.siren}
                         </Link>
                       )}
+                      {/* Date d'echeance sur les trackers cloture-based : sous
+                          le nom, format JJ/MM/YYYY. Couleur selon urgence :
+                          rouge si depassee, ambre si <=30j, zinc sinon. */}
+                      {hasClotureBasedCols && (() => {
+                        const due = computeNextEcheance(r);
+                        if (!due) return null;
+                        const days = (due.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+                        const color = days < 0
+                          ? "text-rose-600 font-semibold"
+                          : days <= 30
+                          ? "text-amber-700 font-medium"
+                          : "text-zinc-500";
+                        return (
+                          <div
+                            className={cn("flex items-center gap-1 text-[11px] mt-0.5 tabular-nums", color)}
+                            title={
+                              days < 0
+                                ? `En retard de ${Math.abs(Math.round(days))} jour(s) · ${fmtDateFr(due.toISOString().substring(0, 10))}`
+                                : `Échéance dans ${Math.round(days)} jour(s) · ${fmtDateFr(due.toISOString().substring(0, 10))}`
+                            }
+                          >
+                            <span>{fmtDateFr(due.toISOString().substring(0, 10))}</span>
+                            {r.mois_cloture && (
+                              <span className="text-zinc-400">· clôture {MOIS_FR[r.mois_cloture - 1]}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </td>
