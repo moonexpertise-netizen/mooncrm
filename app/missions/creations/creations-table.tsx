@@ -10,6 +10,7 @@ import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useColumnSelection } from "@/app/_components/use-column-selection";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
+import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import {
   bulkSetCreationStatut,
@@ -118,9 +119,13 @@ export default function CreationsTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
-  // Set vide = "Tous". Cmd/Ctrl+clic = toggle (pattern multi-select uniforme).
+  // Set vide = "Tous". Cmd/Ctrl+clic = toggle. Persiste dans localStorage.
   type StatusGroup = "a_faire" | "en_cours" | "termine";
-  const [filter, setFilter] = useState<Set<StatusGroup>>(new Set());
+  const [filter, setFilter] = useLocalStorageSet<StatusGroup>(
+    "moon.creations.statusFilter",
+    new Set(),
+    (k): k is StatusGroup => k === "a_faire" || k === "en_cours" || k === "termine",
+  );
   useEffect(() => setLocalRows(rows), [rows]);
 
   // Vue Annee : on n'affiche QUE les dossiers souscrits a l'annee selectionnee,

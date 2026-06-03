@@ -21,6 +21,7 @@ import { useConfirm } from "@/app/_components/confirm-modal";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
+import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import {
   createMission,
   createMissionType,
@@ -245,8 +246,18 @@ export default function MissionExcTable({
   const [localTypes, setLocalTypes] = useState(types);
   const [adding, setAdding] = useState(false);
   const [editingTypes, setEditingTypes] = useState(false);
-  const [filterMission, setFilterMission] = useState<Set<FilterMission>>(new Set());
-  const [filterFact, setFilterFact] = useState<Set<FilterFact>>(new Set());
+  // Filtres persistes dans localStorage (filterType reste local, change peu)
+  const [filterMission, setFilterMission] = useLocalStorageSet<FilterMission>(
+    "moon.missionsExc.filterMission",
+    new Set(),
+    (k): k is FilterMission =>
+      k === "a_demarrer" || k === "en_cours" || k === "livree" || k === "annulee",
+  );
+  const [filterFact, setFilterFact] = useLocalStorageSet<FilterFact>(
+    "moon.missionsExc.filterFact",
+    new Set(),
+    (k): k is FilterFact => k === "a_facturer" || k === "facturee" || k === "sans_facture",
+  );
   const [filterType, setFilterType] = useState<FilterType>("all");
 
   useEffect(() => setLocalRows(rows), [rows]);

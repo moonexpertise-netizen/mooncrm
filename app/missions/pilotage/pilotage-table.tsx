@@ -10,6 +10,7 @@ import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
+import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import {
   bulkSetPilotageStatut,
   setPilotageCadence,
@@ -82,9 +83,14 @@ export default function PilotageTable({
   const [, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
   useEffect(() => setLocalRows(rows), [rows]);
-  // Set vide = "Tous". Cmd/Ctrl+clic = toggle (pattern multi-select uniforme).
+  // Set vide = "Tous". Cmd/Ctrl+clic = toggle. Persiste dans localStorage.
   type StatusGroup = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
-  const [filter, setFilter] = useState<Set<StatusGroup>>(new Set());
+  const [filter, setFilter] = useLocalStorageSet<StatusGroup>(
+    `moon.pilotage.${type}.statusFilter`,
+    new Set(),
+    (k): k is StatusGroup =>
+      k === "A_FAIRE" || k === "EN_COURS" || k === "TERMINE" || k === "NON_APPLICABLE",
+  );
 
   const STATUS_OPTIONS = type === "TDB" ? TDB_OPTIONS : RDV_OPTIONS;
   const cadenceLabel = type === "TDB" ? "Mensuelle" : "Mensuel";
