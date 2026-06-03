@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { categorieActivite } from "@/lib/activite-categorie";
+import { computeEcheance } from "@/lib/echeances";
 
 /**
  * Loader d'agrégats pour le dashboard d'accueil.
@@ -132,9 +133,9 @@ export async function loadDashboardData(): Promise<DashboardData> {
     sb
       .from("obligations")
       .select(
-        "echeance, statut_logique, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine)"
+        "type, periode, annee, echeance, statut_logique, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)"
       )
-      .gte("echeance", twelveMonthsAgo) // limite la taille du fetch
+      .gte("annee", new Date().getFullYear() - 1) // limite a 1 an en arriere
       .eq("obligation_subscriptions.actif", true),
   ]);
 
@@ -268,10 +269,21 @@ export async function loadDashboardData(): Promise<DashboardData> {
     .sort((a, b) => b.value - a.value);
 
   // --- Production à risque ---
+  // Calcul d'echeance via lib/echeances.ts : ne depend pas du champ DB
+  // r.echeance (pas toujours rempli). On utilise type + periode + cloture
+  // du client pour avoir une echeance reelle precise.
   type OblRow = {
+    type: string;
+    periode: string;
+    annee: number;
     echeance: string | null;
     statut_logique: string | null;
-    clients: { pipeline_statut: string | null; origine: string | null };
+    clients: {
+      pipeline_statut: string | null;
+      origine: string | null;
+      jour_cloture: number | null;
+      mois_cloture: number | null;
+    };
   };
   let enRetard = 0;
   let sous7Jours = 0;
@@ -288,9 +300,6 @@ export async function loadDashboardData(): Promise<DashboardData> {
   })();
   for (const o of (obligations ?? []) as unknown as OblRow[]) {
     const c = o.clients;
-    // Production : on couvre les dossiers reellement geres (LDM + Interne +
-    // ST), pas seulement les clients commerciaux. Benjamin doit aussi voir
-    // les obligations en retard sur ses dossiers internes.
     if (
       !(
         (c.pipeline_statut && DOSSIERS_GERES.has(c.pipeline_statut)) ||
@@ -298,13 +307,21 @@ export async function loadDashboardData(): Promise<DashboardData> {
       )
     )
       continue;
-    if (!o.echeance) continue;
     const done =
       o.statut_logique === "TERMINE" || o.statut_logique === "NON_APPLICABLE";
     if (done) continue;
-    if (o.echeance < todayIso) enRetard++;
-    else if (o.echeance <= sevenDaysIso) sous7Jours++;
-    else if (o.echeance <= thirtyDaysIso) sous30Jours++;
+
+    // Echeance reelle calculee via lib/echeances.ts
+    const cloture = (c.jour_cloture && c.mois_cloture)
+      ? { jour: c.jour_cloture, mois: c.mois_cloture }
+      : { jour: 31, mois: 12 };
+    const ech = computeEcheance(o.type, o.periode, o.annee, cloture);
+    if (!ech) continue;
+    const dueIso = ech.dueDate.toISOString().substring(0, 10);
+
+    if (dueIso < todayIso) enRetard++;
+    else if (dueIso <= sevenDaysIso) sous7Jours++;
+    else if (dueIso <= thirtyDaysIso) sous30Jours++;
   }
 
   // Silencer unused (utilisé en debug si besoin)

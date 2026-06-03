@@ -477,21 +477,21 @@ function ProductionRisque({
           value={risque.enRetard}
           color="rose"
           icon={<AlertTriangle className="h-4 w-4" />}
-          href="/obligations"
+          href="/obligations/echeances?filter=overdue"
         />
         <RisqueRow
           label="Échéance ≤ 7 jours"
           value={risque.sous7Jours}
           color="amber"
           icon={<Clock className="h-4 w-4" />}
-          href="/obligations"
+          href="/obligations/echeances?filter=7j"
         />
         <RisqueRow
           label="Échéance ≤ 30 jours"
           value={risque.sous30Jours}
           color="blue"
           icon={<CalendarClock className="h-4 w-4" />}
-          href="/obligations"
+          href="/obligations/echeances?filter=30j"
         />
       </div>
     </section>
