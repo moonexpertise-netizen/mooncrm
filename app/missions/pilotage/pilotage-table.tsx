@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
-import { Check, ChevronDown, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
+import { Picker } from "@/app/_components/picker";
 import {
   bulkSetPilotageStatut,
   setPilotageCadence,
@@ -64,8 +64,6 @@ const RDV_OPTIONS: Array<{ libelle: string; logique: PilotageStatutLogique; colo
   { libelle: "RDV réalisé", logique: "TERMINE", color: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/30" },
   { libelle: "N/A", logique: "NON_APPLICABLE", color: "bg-zinc-50 dark:bg-white/[0.04] text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-white/[0.10]" },
 ];
-
-const EMPTY_COLOR = "bg-white dark:bg-white/[0.02] text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]";
 
 // ============================================================================
 //  Composant principal
@@ -694,10 +692,19 @@ export default function PilotageTable({
                           }}
                         >
                           {cell ? (
-                            <StatutPicker
+                            <Picker
                               value={cell.statut_detail}
-                              options={STATUS_OPTIONS}
+                              options={STATUS_OPTIONS.map((o) => ({
+                                key: o.libelle,
+                                label: o.libelle,
+                                color: o.color,
+                              }))}
                               onChange={(libelle) => onSetStatut(r.id, periode, libelle)}
+                              onReset={() => onSetStatut(r.id, periode, null)}
+                              allowEmpty
+                              align="center"
+                              size="xs"
+                              minWidth={200}
                             />
                           ) : (
                             <span className="inline-block w-6 h-6 rounded border border-dashed border-zinc-200 dark:border-white/[0.06]" />
@@ -760,116 +767,3 @@ export default function PilotageTable({
   );
 }
 
-// ============================================================================
-//  StatutPicker : popover Notion-style en portal
-// ============================================================================
-
-function StatutPicker({
-  value,
-  options,
-  onChange,
-}: {
-  value: string | null;
-  options: Array<{ libelle: string; logique: PilotageStatutLogique; color: string }>;
-  onChange: (libelle: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-  const current = options.find((o) => o.libelle === value) ?? null;
-
-  useEffect(() => {
-    if (!open || !btnRef.current) {
-      setPos(null);
-      return;
-    }
-    const rect = btnRef.current.getBoundingClientRect();
-    const POPOVER_HEIGHT = options.length * 32 + 50;
-    const POPOVER_WIDTH = 200;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const desiredLeft = rect.left + rect.width / 2 - POPOVER_WIDTH / 2;
-    const left = Math.max(MARGIN, Math.min(desiredLeft, window.innerWidth - MARGIN - POPOVER_WIDTH));
-    setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
-  }, [open, options.length]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t)) return;
-      if (popRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="inline-block">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={cn(
-          "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80 whitespace-nowrap min-w-[64px] justify-center",
-          current ? current.color : EMPTY_COLOR
-        )}
-      >
-        <span className="truncate max-w-[80px]">{current ? current.libelle : "-"}</span>
-        <ChevronDown className="h-2.5 w-2.5 opacity-60 shrink-0" />
-      </button>
-      {open &&
-        pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={popRef}
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
-              zIndex: 1000,
-            }}
-            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
-          >
-            {options.map((o) => {
-              const isActive = value === o.libelle;
-              return (
-                <button
-                  key={o.libelle}
-                  type="button"
-                  onClick={() => {
-                    onChange(o.libelle);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                    isActive && "bg-zinc-50 dark:bg-white/[0.04]"
-                  )}
-                >
-                  <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
-                    {o.libelle}
-                  </span>
-                  {isActive && <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 ml-auto" />}
-                </button>
-              );
-            })}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-}
