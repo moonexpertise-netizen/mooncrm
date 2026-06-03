@@ -11,6 +11,7 @@ import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
+import { useGridSelection } from "@/app/_components/use-grid-selection";
 import {
   bulkSetPilotageStatut,
   setPilotageCadence,
@@ -142,17 +143,6 @@ export default function PilotageTable({
     );
   }, [filteredRows, year]);
 
-  // Lookup inverse cellId -> (row, col) pour onClick + bulk
-  const posByCellId = useMemo(() => {
-    const m = new Map<string, { row: number; col: number }>();
-    gridIds.forEach((rowArr, r) => {
-      rowArr.forEach((id, c) => {
-        if (id) m.set(id, { row: r, col: c });
-      });
-    });
-    return m;
-  }, [gridIds]);
-
   // Map cellId -> { rowId, periode } pour les bulk operations
   const idToContext = useMemo(() => {
     const m = new Map<string, { rowId: string; periode: string }>();
@@ -163,116 +153,6 @@ export default function PilotageTable({
     }
     return m;
   }, [localRows]);
-
-  // State selection
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [focusedPos, setFocusedPos] = useState<{ row: number; col: number } | null>(null);
-  const [anchorPos, setAnchorPos] = useState<{ row: number; col: number } | null>(null);
-  const selectedCount = selectedIds.size;
-
-  // Clean up selection si les cellules disparaissent (changement de filtre/annee)
-  useEffect(() => {
-    setSelectedIds((prev) => {
-      const valid = new Set<string>();
-      gridIds.forEach((row) => row.forEach((id) => { if (id) valid.add(id); }));
-      const next = new Set<string>();
-      let changed = false;
-      for (const id of prev) {
-        if (valid.has(id)) next.add(id);
-        else changed = true;
-      }
-      return changed ? next : prev;
-    });
-    setFocusedPos((prev) => {
-      if (!prev) return prev;
-      if (prev.row >= gridIds.length || prev.col < 0 || prev.col >= 12) return null;
-      return prev;
-    });
-  }, [gridIds]);
-
-  const isSelected = (cellId: string) => selectedIds.has(cellId);
-
-  function clearSelection() {
-    setSelectedIds(new Set());
-    setFocusedPos(null);
-    setAnchorPos(null);
-  }
-
-  function selectAll() {
-    const all = new Set<string>();
-    gridIds.forEach((row) => row.forEach((id) => { if (id) all.add(id); }));
-    setSelectedIds(all);
-    // Set focus sur la 1ere cellule non-null
-    for (let r = 0; r < gridIds.length; r++) {
-      for (let c = 0; c < 12; c++) {
-        if (gridIds[r][c]) {
-          setFocusedPos({ row: r, col: c });
-          setAnchorPos({ row: r, col: c });
-          return;
-        }
-      }
-    }
-  }
-
-  // Range rectangulaire entre 2 positions (ancre <-> cible). Inclut TOUS
-  // les cellIds non-null dans le rectangle.
-  function rangeIds(a: { row: number; col: number }, b: { row: number; col: number }): Set<string> {
-    const rMin = Math.min(a.row, b.row);
-    const rMax = Math.max(a.row, b.row);
-    const cMin = Math.min(a.col, b.col);
-    const cMax = Math.max(a.col, b.col);
-    const ids = new Set<string>();
-    for (let r = rMin; r <= rMax; r++) {
-      for (let c = cMin; c <= cMax; c++) {
-        const id = gridIds[r]?.[c];
-        if (id) ids.add(id);
-      }
-    }
-    return ids;
-  }
-
-  // Click sur une cellule : shift = range, cmd = toggle, simple = selection
-  function onCellClick(row: number, col: number, e: React.MouseEvent) {
-    const cellId = gridIds[row]?.[col];
-    if (!cellId) return;
-    if (e.shiftKey && anchorPos) {
-      setSelectedIds(rangeIds(anchorPos, { row, col }));
-      setFocusedPos({ row, col });
-      return;
-    }
-    if (e.metaKey || e.ctrlKey) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(cellId)) next.delete(cellId);
-        else next.add(cellId);
-        return next;
-      });
-      setFocusedPos({ row, col });
-      setAnchorPos({ row, col });
-      return;
-    }
-    setSelectedIds(new Set([cellId]));
-    setFocusedPos({ row, col });
-    setAnchorPos({ row, col });
-  }
-
-  // Trouve la prochaine position non-null dans une direction donnee, en
-  // sautant les cellules vides. Retourne null si on sort de la grille.
-  function nextPos(
-    from: { row: number; col: number },
-    direction: "up" | "down" | "left" | "right"
-  ): { row: number; col: number } | null {
-    const dr = direction === "up" ? -1 : direction === "down" ? 1 : 0;
-    const dc = direction === "left" ? -1 : direction === "right" ? 1 : 0;
-    let r = from.row + dr;
-    let c = from.col + dc;
-    while (r >= 0 && r < gridIds.length && c >= 0 && c < 12) {
-      if (gridIds[r][c]) return { row: r, col: c };
-      r += dr;
-      c += dc;
-    }
-    return null;
-  }
 
   // Copy TSV : 1 ligne par cellule, valeur = libelle
   function buildCopyText(ids: string[]): string {
@@ -347,83 +227,27 @@ export default function PilotageTable({
     });
   }
 
-  // Listener doc global : flèches 2D, Cmd+A, Cmd+C/V, Esc.
-  // Plus fiable que onKeyDown sur la table : marche peu importe ou est le
-  // focus DOM (le focus part sur le button picker quand on clique).
-  useEffect(() => {
-    function onDocKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
-      // Si un popover picker est ouvert, on lui laisse les flèches
-      if (document.querySelector("[role='listbox']") &&
-          (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-        return;
-      }
-
-      // Esc -> vide la SELECTION mais garde focusedPos / anchorPos pour
-      // pouvoir continuer a naviguer avec les fleches (sinon Esc = fleches
-      // mortes, frustrant).
-      if (e.key === "Escape" && selectedIds.size > 0) {
-        setSelectedIds(new Set());
-        return;
-      }
-
-      const meta = e.metaKey || e.ctrlKey;
-
-      // Cmd+A : tout selectionner
-      if (meta && e.key.toLowerCase() === "a" && gridIds.length > 0) {
-        e.preventDefault();
-        selectAll();
-        return;
-      }
-
-      // Cmd+C : copy
-      if (meta && e.key.toLowerCase() === "c" && selectedIds.size > 0) {
-        const ids = Array.from(selectedIds);
-        const text = buildCopyText(ids);
-        navigator.clipboard?.writeText?.(text).then(() => {
-          toastSuccess(`${ids.length} cellule${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
-        }).catch(() => { /* ignore */ });
-        return;
-      }
-
-      // Cmd+V : paste
-      if (meta && e.key.toLowerCase() === "v" && selectedIds.size > 0) {
-        e.preventDefault();
-        navigator.clipboard?.readText?.().then((text) => {
-          if (text) applyPasteText(text, Array.from(selectedIds));
-        }).catch(() => { /* ignore */ });
-        return;
-      }
-
-      // Fleches : navigation 2D (skip cellules vides). Requiert focusedPos.
-      if (!focusedPos) return;
-      let dir: "up" | "down" | "left" | "right" | null = null;
-      if (e.key === "ArrowUp") dir = "up";
-      else if (e.key === "ArrowDown") dir = "down";
-      else if (e.key === "ArrowLeft") dir = "left";
-      else if (e.key === "ArrowRight") dir = "right";
-      if (!dir) return;
-      e.preventDefault();
-      const next = nextPos(focusedPos, dir);
-      if (!next) return;
-      const nextId = gridIds[next.row][next.col];
-      if (!nextId) return;
-
-      if (e.shiftKey && anchorPos) {
-        // Étend la sélection depuis l'ancre
-        setSelectedIds(rangeIds(anchorPos, next));
-      } else {
-        setSelectedIds(new Set([nextId]));
-        setAnchorPos(next);
-      }
-      setFocusedPos(next);
-    }
-    document.addEventListener("keydown", onDocKey);
-    return () => document.removeEventListener("keydown", onDocKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedPos, anchorPos, selectedIds, gridIds]);
+  // Selection 2D Excel-style via le hook partage useGridSelection :
+  // gere clic / shift+clic / cmd+clic / ←→↑↓ / Cmd+A / Cmd+C / Cmd+V / Esc.
+  // Remplace ~290 lignes inline qui dupliquaient cette logique.
+  const {
+    selectedIds,
+    selectedCount,
+    focusedPos,
+    isSelected,
+    onCellClick,
+    clearSelection,
+    selectAll,
+    selectOne,
+  } = useGridSelection(gridIds, {
+    onCopy: (ids) => {
+      const text = buildCopyText(ids);
+      navigator.clipboard?.writeText?.(text).then(() => {
+        toastSuccess(`${ids.length} cellule${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
+      }).catch(() => { /* ignore */ });
+    },
+    onPaste: (text, ids) => applyPasteText(text, ids),
+  });
 
   function onBulkApply(libelleKey: string) {
     const ids = Array.from(selectedIds);
@@ -689,9 +513,7 @@ export default function PilotageTable({
                               // Clic sur le button picker : on selectionne quand meme
                               // (pour que le bulk fonctionne) mais on n'empeche pas
                               // l'ouverture du picker.
-                              setSelectedIds(new Set([cellId]));
-                              setFocusedPos({ row: rowIdx, col: colIdx });
-                              setAnchorPos({ row: rowIdx, col: colIdx });
+                              selectOne(cellId);
                               return;
                             }
                             onCellClick(rowIdx, colIdx, e);
