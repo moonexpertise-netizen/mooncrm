@@ -51,29 +51,33 @@ export function BulkActionBar({
   const helpRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const helpPopRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
-  const [helpPos, setHelpPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; bottom: number; maxHeight: number } | null>(null);
+  const [helpPos, setHelpPos] = useState<{ left: number; bottom: number; maxHeight: number } | null>(null);
 
   // Hybride : chips inline si peu d'options + pas de groupes multiples
   const groupSet = new Set(options.map((o) => o.group ?? ""));
   const hasMultipleGroups = groupSet.size > 1;
   const useInlineChips = options.length <= 4 && !hasMultipleGroups;
 
-  // Position du popover "Appliquer"
+  // Position du popover "Appliquer" : ancre depuis le bas (bottom) du viewport
+  // jusqu'au-dessus du bouton, avec maxHeight pour rentrer dans l'espace dispo.
+  // Le popover grandit donc vers le haut depuis le bouton sans deborder.
   useEffect(() => {
     if (!pickerOpen || !btnRef.current) {
       setPos(null);
       return;
     }
     const rect = btnRef.current.getBoundingClientRect();
-    const POPOVER_HEIGHT = options.length * 32 + 60;
     const POPOVER_WIDTH = 260;
-    const top = rect.top - POPOVER_HEIGHT - 8;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - POPOVER_WIDTH - 8));
-    setPos({ left, top: Math.max(8, top) });
+    // bottom = espace entre le bord bas du viewport et le bord haut du bouton + gap
+    const bottom = window.innerHeight - rect.top + 8;
+    // maxHeight = tout l'espace dispo au-dessus du bouton (avec 16px margin top)
+    const maxHeight = Math.max(180, rect.top - 16);
+    setPos({ left, bottom, maxHeight });
   }, [pickerOpen, options.length]);
 
-  // Position du tooltip aide
+  // Position du tooltip aide (meme logique : ancre depuis le bas)
   useEffect(() => {
     if (!helpOpen || !helpRef.current) {
       setHelpPos(null);
@@ -81,10 +85,10 @@ export function BulkActionBar({
     }
     const rect = helpRef.current.getBoundingClientRect();
     const POPOVER_WIDTH = 280;
-    const POPOVER_HEIGHT = 220;
-    const top = rect.top - POPOVER_HEIGHT - 8;
     const left = Math.max(8, Math.min(rect.left + rect.width / 2 - POPOVER_WIDTH / 2, window.innerWidth - POPOVER_WIDTH - 8));
-    setHelpPos({ left, top: Math.max(8, top) });
+    const bottom = window.innerHeight - rect.top + 8;
+    const maxHeight = Math.max(180, rect.top - 16);
+    setHelpPos({ left, bottom, maxHeight });
   }, [helpOpen]);
 
   // Click outside + Esc pour les 2 popovers
@@ -216,15 +220,21 @@ export function BulkActionBar({
         createPortal(
           <div
             ref={popRef}
-            style={{ position: "fixed", left: `${pos.left}px`, top: `${pos.top}px`, zIndex: 1500 }}
-            className="min-w-[260px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+            style={{
+              position: "fixed",
+              left: `${pos.left}px`,
+              bottom: `${pos.bottom}px`,
+              maxHeight: `${pos.maxHeight}px`,
+              zIndex: 1500,
+            }}
+            className="min-w-[260px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] flex flex-col overflow-hidden animate-slide-up-fade"
           >
-            <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06]">
+            <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06] shrink-0">
               <div className="text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
                 Appliquer à {count} cellule{count > 1 ? "s" : ""}
               </div>
             </div>
-            <div className="max-h-[320px] overflow-y-auto py-1">
+            <div className="flex-1 overflow-y-auto py-1">
               {[...grouped.entries()].map(([groupLabel, opts], gi) => (
                 <div key={groupLabel || gi}>
                   {groupLabel && (
@@ -265,8 +275,14 @@ export function BulkActionBar({
         createPortal(
           <div
             ref={helpPopRef}
-            style={{ position: "fixed", left: `${helpPos.left}px`, top: `${helpPos.top}px`, zIndex: 1500 }}
-            className="min-w-[280px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+            style={{
+              position: "fixed",
+              left: `${helpPos.left}px`,
+              bottom: `${helpPos.bottom}px`,
+              maxHeight: `${helpPos.maxHeight}px`,
+              zIndex: 1500,
+            }}
+            className="min-w-[280px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-y-auto animate-slide-up-fade"
           >
             <div className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06]">
               <div className="text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
