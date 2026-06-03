@@ -806,9 +806,10 @@ function MissionRow({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  // Pastille rouge a la racine du dossier si la mission est encore a demarrer.
-  // Coherent avec IR/CAA/Creations/Pilotage : repere les missions a traiter.
-  const isAFaire = row.etat_mission === "a_demarrer";
+  // Pastille rouge tant que la mission n'est pas livree ou annulee.
+  // Logique metier : une mission en cours n'est pas terminee, elle reste
+  // a traiter (le user veut pas voir les en_cours comme "deja faites").
+  const isAFaire = row.etat_mission === "a_demarrer" || row.etat_mission === "en_cours";
   return (
     <tr className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors align-top">
       {/* Client (+ pastille a faire en racine) */}

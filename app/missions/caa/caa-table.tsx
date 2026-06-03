@@ -723,18 +723,24 @@ export default function CaaTable({
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex items-start gap-2">
-                      {/* Pastille rouge si au moins une mission CAA est A_FAIRE.
-                          Pas d'echeance reglementaire pour les CAA -> pas de
-                          distinction orange/rouge, juste le signal "a traiter". */}
-                      {((mode === "year" && r.obligations.get(selectedYear)?.statut_logique === "A_FAIRE") ||
-                        (mode === "base" &&
-                          [...r.obligations.values()].some((o) => o.statut_logique === "A_FAIRE"))) && (
-                        <span
-                          aria-label="À faire"
-                          title={mode === "year" ? "Mission CAA à traiter" : "Au moins une mission CAA à traiter (toutes années)"}
-                          className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
-                        />
-                      )}
+                      {/* Pastille rouge si au moins une mission CAA n'est PAS terminee.
+                          Logique metier : tant qu'une mission n'est pas TERMINE/N/A,
+                          elle reste "a traiter" (EN_COURS inclus). */}
+                      {(() => {
+                        const isPasTerminee = (s: string | null | undefined) =>
+                          s !== "TERMINE" && s !== "NON_APPLICABLE" && s !== null && s !== undefined;
+                        const aTraiter =
+                          (mode === "year" && isPasTerminee(r.obligations.get(selectedYear)?.statut_logique)) ||
+                          (mode === "base" && [...r.obligations.values()].some((o) => isPasTerminee(o.statut_logique)));
+                        if (!aTraiter) return null;
+                        return (
+                          <span
+                            aria-label="À traiter"
+                            title={mode === "year" ? "Mission CAA à traiter (À faire ou En cours)" : "Au moins une mission CAA à traiter (toutes années)"}
+                            className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+                          />
+                        );
+                      })()}
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium text-zinc-900 dark:text-zinc-100">{r.denomination}</span>
                         {(r.siren || r.forme) && (

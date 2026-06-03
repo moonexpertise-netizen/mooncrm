@@ -102,8 +102,13 @@ export default function SommaireCards({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered]);
 
-  const totalTodo = rows.reduce((s, r) => s + r.todo, 0);
+  // Une tache tant qu'elle n'est pas TERMINE reste a traiter (logique metier :
+  // une obligation EN_COURS n'est pas "deja faite", elle reste dangereuse vis-a-vis
+  // de l'echeance). On regroupe donc A_FAIRE + EN_COURS dans le compteur principal
+  // "A traiter". Garde wip separe en complement informatif.
+  const totalTodoPur = rows.reduce((s, r) => s + r.todo, 0);
   const totalWip = rows.reduce((s, r) => s + r.wip, 0);
+  const totalATraiter = totalTodoPur + totalWip;
   const totalDone = rows.reduce((s, r) => s + r.done, 0);
   const totalUrgent = rows.filter(isUrgent).length;
   // Nombre de trackers avec au moins une obligation en retard (echeance dépassée
@@ -123,13 +128,14 @@ export default function SommaireCards({
       <div className="flex flex-wrap items-center gap-2">
         <KpiPill
           label="À traiter"
-          value={totalTodo}
+          value={totalATraiter}
           color="rose"
-          active={statusFilter.has("todo")}
+          active={statusFilter.has("todo") || statusFilter.has("wip")}
           onClick={() => toggleStatus("todo")}
+          title={`${totalATraiter} obligation${totalATraiter > 1 ? "s" : ""} non terminée${totalATraiter > 1 ? "s" : ""} (${totalTodoPur} À faire + ${totalWip} En cours)`}
         />
         <KpiPill
-          label="En cours"
+          label="dont En cours"
           value={totalWip}
           color="amber"
           active={statusFilter.has("wip")}
