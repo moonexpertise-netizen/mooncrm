@@ -15,6 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import CommentsPopover from "./comments-panel";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
+import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { setClientTvaTag } from "@/app/parametrage/tva-tags/actions";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
@@ -412,13 +413,10 @@ export default function TrackerTable({
   const maxRow = filtered.length - 1;
   const maxCol = visibleCols.length - 1;
 
-  function toggleStatusFilter(s: StatutFilter) {
-    setStatusFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) next.delete(s);
-      else next.add(s);
-      return next;
-    });
+  // Pattern uniforme : clic simple = single-select (remplace), Cmd/Ctrl+clic = toggle.
+  // Coherent avec IR / CAA / Creations / Missions exc / Pilotage.
+  function handleStatusFilter(s: StatutFilter, e?: React.MouseEvent) {
+    setStatusFilter((prev) => toggleFilterKey(prev, s, e));
   }
 
   // Récupère l'obligationId d'une cellule (row, col)
@@ -1239,25 +1237,25 @@ export default function TrackerTable({
             label="À faire"
             color="bg-amber-100 text-amber-800 border-amber-300"
             active={statusFilter.has("A_FAIRE")}
-            onClick={() => toggleStatusFilter("A_FAIRE")}
+            onClick={(e) => handleStatusFilter("A_FAIRE", e)}
           />
           <StatusFilterPill
             label="En cours"
             color="bg-blue-100 text-blue-800 border-blue-300"
             active={statusFilter.has("EN_COURS")}
-            onClick={() => toggleStatusFilter("EN_COURS")}
+            onClick={(e) => handleStatusFilter("EN_COURS", e)}
           />
           <StatusFilterPill
             label="Terminé"
             color="bg-emerald-100 text-emerald-800 border-emerald-300"
             active={statusFilter.has("TERMINE")}
-            onClick={() => toggleStatusFilter("TERMINE")}
+            onClick={(e) => handleStatusFilter("TERMINE", e)}
           />
           <StatusFilterPill
             label="N/A"
             color="bg-zinc-100 text-zinc-700 border-zinc-300"
             active={statusFilter.has("NON_APPLICABLE")}
-            onClick={() => toggleStatusFilter("NON_APPLICABLE")}
+            onClick={(e) => handleStatusFilter("NON_APPLICABLE", e)}
           />
         </div>
         {cols.length > 1 && (
@@ -1762,11 +1760,12 @@ function StatusFilterPill({
   label: string;
   color: string;
   active: boolean;
-  onClick: () => void;
+  /** Recoit l'event pour pouvoir detecter Cmd/Ctrl (multi-select uniforme). */
+  onClick: (e?: React.MouseEvent) => void;
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => onClick(e)}
       className={cn(
         "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95",
         active

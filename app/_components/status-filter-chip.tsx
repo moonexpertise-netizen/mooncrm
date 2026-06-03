@@ -23,7 +23,9 @@ export function StatusFilterChip({
   label: string;
   count: number;
   active: boolean;
-  onClick: () => void;
+  /** Event React expose pour pouvoir detecter Cmd/Ctrl (multi-select Excel-style).
+   *  Les callers qui n'utilisent pas le multi-select peuvent ignorer l'event. */
+  onClick: (e?: React.MouseEvent) => void;
   accent?: "amber" | "sky" | "emerald" | "zinc" | "violet" | "rose" | "teal" | "indigo";
 }) {
   // 8 couleurs : couvre les statuts semantiques (a_faire/en_cours/termine)
@@ -41,7 +43,7 @@ export function StatusFilterChip({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => onClick(e)}
       className={cn(
         "inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors border",
         active

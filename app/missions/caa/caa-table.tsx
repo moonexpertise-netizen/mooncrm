@@ -21,6 +21,7 @@ import {
 } from "./actions";
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { useColumnSelection } from "@/app/_components/use-column-selection";
+import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -90,7 +91,9 @@ export default function CaaTable({
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [localRows, setLocalRows] = useState(rows);
-  const [filter, setFilter] = useState<"all" | "a_faire" | "en_cours" | "termine">("all");
+  // Set vide = "Tous". Cmd/Ctrl+clic = toggle (pattern multi-select uniforme).
+  type StatusGroup = "a_faire" | "en_cours" | "termine";
+  const [filter, setFilter] = useState<Set<StatusGroup>>(new Set());
   useEffect(() => setLocalRows(rows), [rows]);
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -113,10 +116,11 @@ export default function CaaTable({
   );
 
   const visibleRows = useMemo(() => {
-    if (mode !== "year" || filter === "all") return yearRows;
+    if (mode !== "year" || filter.size === 0) return yearRows;
     return yearRows.filter((r) => {
       const cell = r.obligations.get(selectedYear);
-      return statutGroup(cell?.statut_logique) === filter;
+      const g = statutGroup(cell?.statut_logique);
+      return g !== "na" && filter.has(g as StatusGroup);
     });
   }, [yearRows, mode, filter, selectedYear]);
 
@@ -595,10 +599,10 @@ export default function CaaTable({
 
         {mode === "year" && (
           <div className="flex items-center gap-1">
-            <StatusFilterChip label="Tous" count={yearRows.length} active={filter === "all"} onClick={() => setFilter("all")} />
-            <StatusFilterChip label="À faire" count={yearCounts.a_faire} active={filter === "a_faire"} onClick={() => setFilter("a_faire")} accent="amber" />
-            <StatusFilterChip label="En cours" count={yearCounts.en_cours} active={filter === "en_cours"} onClick={() => setFilter("en_cours")} accent="sky" />
-            <StatusFilterChip label="Terminé" count={yearCounts.termine} active={filter === "termine"} onClick={() => setFilter("termine")} accent="emerald" />
+            <StatusFilterChip label="Tous" count={yearRows.length} active={filter.size === 0} onClick={() => setFilter(new Set())} />
+            <StatusFilterChip label="À faire" count={yearCounts.a_faire} active={filter.has("a_faire")} onClick={(e) => setFilter(toggleFilterKey(filter, "a_faire", e))} accent="amber" />
+            <StatusFilterChip label="En cours" count={yearCounts.en_cours} active={filter.has("en_cours")} onClick={(e) => setFilter(toggleFilterKey(filter, "en_cours", e))} accent="sky" />
+            <StatusFilterChip label="Terminé" count={yearCounts.termine} active={filter.has("termine")} onClick={(e) => setFilter(toggleFilterKey(filter, "termine", e))} accent="emerald" />
           </div>
         )}
 

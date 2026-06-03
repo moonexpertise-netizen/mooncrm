@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
+import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import {
   bulkSetPilotageStatut,
   setPilotageCadence,
@@ -83,7 +84,9 @@ export default function PilotageTable({
   const [, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
   useEffect(() => setLocalRows(rows), [rows]);
-  const [filter, setFilter] = useState<"all" | "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE">("all");
+  // Set vide = "Tous". Cmd/Ctrl+clic = toggle (pattern multi-select uniforme).
+  type StatusGroup = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
+  const [filter, setFilter] = useState<Set<StatusGroup>>(new Set());
 
   const STATUS_OPTIONS = type === "TDB" ? TDB_OPTIONS : RDV_OPTIONS;
   const cadenceLabel = type === "TDB" ? "Mensuelle" : "Mensuel";
@@ -110,10 +113,10 @@ export default function PilotageTable({
   // Filtre rows : si statusFilter actif, on garde les rows qui ont au moins
   // une cellule du statut selectionne.
   const filteredRows = useMemo(() => {
-    if (filter === "all") return sortedRows;
+    if (filter.size === 0) return sortedRows;
     return sortedRows.filter((r) => {
       for (const cell of r.cells.values()) {
-        if (cell.statut_logique === filter) return true;
+        if (filter.has(cell.statut_logique as StatusGroup)) return true;
       }
       return false;
     });
@@ -575,12 +578,12 @@ export default function PilotageTable({
 
       {/* Filtres chips : Tous / À faire / En cours / Terminé / N/A */}
       <div className="flex items-center gap-1 flex-wrap">
-        <StatusFilterChip label="Tous" count={counts.total} active={filter === "all"} onClick={() => setFilter("all")} />
-        <StatusFilterChip label="À faire" count={counts.A_FAIRE} active={filter === "A_FAIRE"} onClick={() => setFilter("A_FAIRE")} accent="amber" />
-        <StatusFilterChip label="En cours" count={counts.EN_COURS} active={filter === "EN_COURS"} onClick={() => setFilter("EN_COURS")} accent="sky" />
-        <StatusFilterChip label="Terminé" count={counts.TERMINE} active={filter === "TERMINE"} onClick={() => setFilter("TERMINE")} accent="emerald" />
+        <StatusFilterChip label="Tous" count={counts.total} active={filter.size === 0} onClick={() => setFilter(new Set())} />
+        <StatusFilterChip label="À faire" count={counts.A_FAIRE} active={filter.has("A_FAIRE")} onClick={(e) => setFilter(toggleFilterKey(filter, "A_FAIRE", e))} accent="amber" />
+        <StatusFilterChip label="En cours" count={counts.EN_COURS} active={filter.has("EN_COURS")} onClick={(e) => setFilter(toggleFilterKey(filter, "EN_COURS", e))} accent="sky" />
+        <StatusFilterChip label="Terminé" count={counts.TERMINE} active={filter.has("TERMINE")} onClick={(e) => setFilter(toggleFilterKey(filter, "TERMINE", e))} accent="emerald" />
         {counts.NON_APPLICABLE > 0 && (
-          <StatusFilterChip label="N/A" count={counts.NON_APPLICABLE} active={filter === "NON_APPLICABLE"} onClick={() => setFilter("NON_APPLICABLE")} />
+          <StatusFilterChip label="N/A" count={counts.NON_APPLICABLE} active={filter.has("NON_APPLICABLE")} onClick={(e) => setFilter(toggleFilterKey(filter, "NON_APPLICABLE", e))} />
         )}
       </div>
 
@@ -708,7 +711,7 @@ export default function PilotageTable({
         <div className="space-y-1">
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
             {filteredRows.length} dossier{filteredRows.length > 1 ? "s" : ""} affiché{filteredRows.length > 1 ? "s" : ""}
-            {filter !== "all" && ` (filtre : ${filter})`}
+            {filter.size > 0 && ` (filtre : ${Array.from(filter).join(", ")})`}
             {sortedRows.length !== filteredRows.length && ` sur ${sortedRows.length} au total`}.
           </p>
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500">

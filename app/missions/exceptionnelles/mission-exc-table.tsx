@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
+import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import {
   createMission,
   createMissionType,
@@ -222,8 +223,9 @@ function formatDate(iso: string | null): string {
 //  Composant principal
 // ============================================================================
 
-type FilterMission = "all" | EtatMission;
-type FilterFact = "all" | EtatFacturation;
+// Filtres etat / facturation : Set vide = "Tous". Multi-select via Cmd/Ctrl+clic.
+type FilterMission = EtatMission;
+type FilterFact = EtatFacturation;
 // Filtre type : "all" = tous, "none" = missions sans type, sinon UUID du type.
 type FilterType = "all" | "none" | string;
 
@@ -242,8 +244,8 @@ export default function MissionExcTable({
   const [localTypes, setLocalTypes] = useState(types);
   const [adding, setAdding] = useState(false);
   const [editingTypes, setEditingTypes] = useState(false);
-  const [filterMission, setFilterMission] = useState<FilterMission>("all");
-  const [filterFact, setFilterFact] = useState<FilterFact>("all");
+  const [filterMission, setFilterMission] = useState<Set<FilterMission>>(new Set());
+  const [filterFact, setFilterFact] = useState<Set<FilterFact>>(new Set());
   const [filterType, setFilterType] = useState<FilterType>("all");
 
   useEffect(() => setLocalRows(rows), [rows]);
@@ -297,8 +299,11 @@ export default function MissionExcTable({
   // ============================================================================
   const filteredRows = useMemo(() => {
     return localRows.filter((r) => {
-      if (filterMission !== "all" && r.etat_mission !== filterMission) return false;
-      if (filterFact !== "all" && r.etat_facturation !== filterFact) return false;
+      if (filterMission.size > 0 && !filterMission.has(r.etat_mission)) return false;
+      // etat_facturation peut etre null -> exclu si le filtre fact est actif
+      if (filterFact.size > 0) {
+        if (!r.etat_facturation || !filterFact.has(r.etat_facturation)) return false;
+      }
       if (filterType === "none" && r.type_id !== null) return false;
       if (filterType !== "all" && filterType !== "none" && r.type_id !== filterType) return false;
       return true;
@@ -476,35 +481,35 @@ export default function MissionExcTable({
             <StatusFilterChip
               label="Toutes"
               count={counts.total}
-              active={filterMission === "all"}
-              onClick={() => setFilterMission("all")}
+              active={filterMission.size === 0}
+              onClick={() => setFilterMission(new Set())}
             />
             <StatusFilterChip
               label="À démarrer"
               count={counts.mission.a_demarrer}
-              active={filterMission === "a_demarrer"}
-              onClick={() => setFilterMission("a_demarrer")}
+              active={filterMission.has("a_demarrer")}
+              onClick={(e) => setFilterMission(toggleFilterKey(filterMission, "a_demarrer", e))}
               accent="amber"
             />
             <StatusFilterChip
               label="En cours"
               count={counts.mission.en_cours}
-              active={filterMission === "en_cours"}
-              onClick={() => setFilterMission("en_cours")}
+              active={filterMission.has("en_cours")}
+              onClick={(e) => setFilterMission(toggleFilterKey(filterMission, "en_cours", e))}
               accent="sky"
             />
             <StatusFilterChip
               label="Livrée"
               count={counts.mission.livree}
-              active={filterMission === "livree"}
-              onClick={() => setFilterMission("livree")}
+              active={filterMission.has("livree")}
+              onClick={(e) => setFilterMission(toggleFilterKey(filterMission, "livree", e))}
               accent="emerald"
             />
             <StatusFilterChip
               label="Annulée"
               count={counts.mission.annulee}
-              active={filterMission === "annulee"}
-              onClick={() => setFilterMission("annulee")}
+              active={filterMission.has("annulee")}
+              onClick={(e) => setFilterMission(toggleFilterKey(filterMission, "annulee", e))}
             />
           </div>
 
@@ -514,28 +519,28 @@ export default function MissionExcTable({
             <StatusFilterChip
               label="Toutes"
               count={counts.total}
-              active={filterFact === "all"}
-              onClick={() => setFilterFact("all")}
+              active={filterFact.size === 0}
+              onClick={() => setFilterFact(new Set())}
             />
             <StatusFilterChip
               label="À facturer"
               count={counts.fact.a_facturer}
-              active={filterFact === "a_facturer"}
-              onClick={() => setFilterFact("a_facturer")}
+              active={filterFact.has("a_facturer")}
+              onClick={(e) => setFilterFact(toggleFilterKey(filterFact, "a_facturer", e))}
               accent="amber"
             />
             <StatusFilterChip
               label="Facturée"
               count={counts.fact.facturee}
-              active={filterFact === "facturee"}
-              onClick={() => setFilterFact("facturee")}
+              active={filterFact.has("facturee")}
+              onClick={(e) => setFilterFact(toggleFilterKey(filterFact, "facturee", e))}
               accent="emerald"
             />
             <StatusFilterChip
               label="Sans facture"
               count={counts.fact.sans_facture}
-              active={filterFact === "sans_facture"}
-              onClick={() => setFilterFact("sans_facture")}
+              active={filterFact.has("sans_facture")}
+              onClick={(e) => setFilterFact(toggleFilterKey(filterFact, "sans_facture", e))}
             />
           </div>
 
@@ -565,12 +570,12 @@ export default function MissionExcTable({
             </div>
           )}
 
-          {(filterMission !== "all" || filterFact !== "all" || filterType !== "all") && (
+          {(filterMission.size > 0 || filterFact.size > 0 || filterType !== "all") && (
             <button
               type="button"
               onClick={() => {
-                setFilterMission("all");
-                setFilterFact("all");
+                setFilterMission(new Set());
+                setFilterFact(new Set());
                 setFilterType("all");
               }}
               className="self-start text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
