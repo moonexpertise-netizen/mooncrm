@@ -153,10 +153,12 @@ export default function PilotageCard({
         </table>
       </div>
 
-      {/* Cadences (visibles si au moins un suivi est actif quelque part) */}
+      {/* Cadences (visibles si au moins un suivi est actif quelque part).
+          Les 2 selecteurs sont colles a leur label puis cote a cote avec un
+          gap modere pour rester atteignables sans traverser toute la largeur. */}
       {hasAnyActive && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-zinc-100 dark:border-white/[0.06]">
-          <label className="flex items-center justify-between gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-3 border-t border-zinc-100 dark:border-white/[0.06]">
+          <label className="inline-flex items-center gap-2 text-sm">
             <span className="text-zinc-600 dark:text-zinc-400">Cadence tableau de bord</span>
             <select
               value={tdbCadence || "Mensuelle"}
@@ -167,7 +169,7 @@ export default function PilotageCard({
               <option value="Trimestrielle">Trimestrielle</option>
             </select>
           </label>
-          <label className="flex items-center justify-between gap-2 text-sm">
+          <label className="inline-flex items-center gap-2 text-sm">
             <span className="text-zinc-600 dark:text-zinc-400">Cadence RDV expert</span>
             <select
               value={rdvCadence || "Mensuel"}
