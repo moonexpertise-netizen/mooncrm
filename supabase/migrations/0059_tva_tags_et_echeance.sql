@@ -55,6 +55,19 @@ create index if not exists clients_tva_tag_id_idx
   where tva_tag_id is not null;
 
 -- ----------------------------------------------------------------------------
+-- RLS : enable + policy ouverte aux utilisateurs authentifies (= pattern
+-- coherent avec mission_exc_types, status_options, etc. cf. migration 0048).
+-- Le cabinet MOON n'est pas multi-tenant : tout user approuve peut lire/ecrire
+-- toutes les etiquettes. L'isolation se fait au niveau auth (middleware
+-- approval workflow), pas en RLS par row.
+-- ----------------------------------------------------------------------------
+alter table public.tva_tags enable row level security;
+
+drop policy if exists p_tva_tags_all on public.tva_tags;
+create policy p_tva_tags_all on public.tva_tags
+  for all to authenticated using (true) with check (true);
+
+-- ----------------------------------------------------------------------------
 -- SEEDS : quelques tags d'exemple (creation seulement si la table est vide).
 --         L'utilisateur les renomme/supprime/ajoute via /parametrage/tva-tags.
 -- ----------------------------------------------------------------------------
