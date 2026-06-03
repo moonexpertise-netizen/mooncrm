@@ -41,12 +41,22 @@ export default async function ObligationsSommaire({
   // faux (ex. 199 TVA mensuelles janvier 2025 toutes "464j en retard" pour
   // des cellules jamais materialisees). Si une cellule n'est pas en DB,
   // elle n'apparait pas dans les compteurs - on ne ment pas.
+  //
+  // Fenetre annee elargie [N-1, N+1] : les obligations annuelles (AGO,
+  // BILAN, DAS2, IS_SOLDE) ont en DB `annee = exercice clos` mais leur
+  // echeance tombe en N+1. Ex : OUI SPORTS clo 31/12/2025 -> obligation
+  // annee=2025, echeance 30/06/2026. Sans fenetre elargie, l'echeance
+  // 30/06/2026 etait invisible dans le suivi 2026. On filtre ensuite
+  // dans ingest : todo/wip/done/total restent scopes a l'annee selectionnee,
+  // mais aTraiter/enRetard couvrent tout ce qui demande action MAINTENANT,
+  // peu importe l'annee fiscale.
   const { data: rows } = await supabase
     .from("obligations")
     .select(
       "client_id, type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
     )
-    .eq("annee", selectedYear)
+    .gte("annee", selectedYear - 1)
+    .lte("annee", selectedYear + 1)
     .eq("obligation_subscriptions.actif", true);
 
   type Row = {
@@ -74,6 +84,8 @@ export default async function ObligationsSommaire({
     prochaineEcheance: string | null; // min des échéances non terminées et >= today
     enRetard: number; // nb d'obligations dont l'échéance est dépassée et pas terminées
     aTraiter: number; // echeance ≤ 30j ou depassee, non terminee
+    /** Set des periodes brutes qui contribuent a aTraiter, pour traçabilite. */
+    aTraiterPeriodes: Set<string>;
     derniereAction: string | null; // max updated_at
   };
   const bySlug = new Map<string, Agg>();
@@ -87,6 +99,7 @@ export default async function ObligationsSommaire({
       prochaineEcheance: null,
       enRetard: 0,
       aTraiter: 0,
+      aTraiterPeriodes: new Set<string>(),
       derniereAction: null,
     });
   }
@@ -99,6 +112,8 @@ export default async function ObligationsSommaire({
 
   function ingest(opts: {
     slug: string;
+    annee: number;
+    periode: string;
     isDone: boolean;
     isWip: boolean;
     dueDateStr: string | null;
@@ -106,11 +121,18 @@ export default async function ObligationsSommaire({
   }) {
     const agg = bySlug.get(opts.slug);
     if (!agg) return;
-    agg.total++;
-    if (opts.isDone) agg.done++;
-    else if (opts.isWip) agg.wip++;
-    else agg.todo++;
-
+    // Compteurs todo/wip/done/total : scopes a l'annee selectionnee (sinon
+    // un AGO de l'exercice 2024 termine en 2025 polluerait le compteur 2026).
+    if (opts.annee === selectedYear) {
+      agg.total++;
+      if (opts.isDone) agg.done++;
+      else if (opts.isWip) agg.wip++;
+      else agg.todo++;
+    }
+    // aTraiter / enRetard / prochaineEcheance : couvrent TOUTES les
+    // obligations non terminees de la fenetre [N-1, N+1] qui demandent
+    // action maintenant. C'est ca le pilotage : peu importe l'annee
+    // fiscale, on doit voir tout ce qui arrive a echeance.
     if (!opts.isDone && opts.dueDateStr && opts.dueDateStr >= today) {
       if (!agg.prochaineEcheance || opts.dueDateStr < agg.prochaineEcheance) {
         agg.prochaineEcheance = opts.dueDateStr;
@@ -119,11 +141,13 @@ export default async function ObligationsSommaire({
     if (!opts.isDone && opts.dueDateStr && opts.dueDateStr < today) {
       agg.enRetard++;
       agg.aTraiter++;
+      agg.aTraiterPeriodes.add(opts.periode);
     } else if (!opts.isDone && opts.dueDateStr && opts.dueDateStr <= thirtyDaysIso) {
       // Echeance proche (≤ 30j) -> a traiter prioritaire
       agg.aTraiter++;
+      agg.aTraiterPeriodes.add(opts.periode);
     }
-    if (opts.updatedAt) {
+    if (opts.updatedAt && opts.annee === selectedYear) {
       if (!agg.derniereAction || opts.updatedAt > agg.derniereAction) {
         agg.derniereAction = opts.updatedAt;
       }
@@ -148,7 +172,7 @@ export default async function ObligationsSommaire({
     const ech = computeEcheance(r.type, r.periode, r.annee, cloture);
     const dueDateStr = ech ? ech.dueDate.toISOString().substring(0, 10) : null;
 
-    ingest({ slug, isDone, isWip, dueDateStr, updatedAt: r.updated_at });
+    ingest({ slug, annee: r.annee, periode: r.periode, isDone, isWip, dueDateStr, updatedAt: r.updated_at });
   }
 
   const stats: TrackerStat[] = TRACKERS.map((t) => {
@@ -165,6 +189,9 @@ export default async function ObligationsSommaire({
       prochaineEcheance: a.prochaineEcheance,
       enRetard: a.enRetard,
       aTraiter: a.aTraiter,
+      // Liste des periodes (uniques) qui composent aTraiter, pour tracabilite.
+      // Ex: ["2026-06"] sur IS acomptes signifie "on compte que juin".
+      aTraiterPeriodes: Array.from(a.aTraiterPeriodes).sort(),
       derniereAction: a.derniereAction,
     };
   });

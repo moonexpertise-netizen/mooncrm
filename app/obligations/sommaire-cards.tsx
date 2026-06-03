@@ -24,6 +24,8 @@ export type TrackerStat = {
    * "A traiter" actionnable : ce qui doit etre fait maintenant.
    */
   aTraiter: number;
+  /** Periodes uniques qui composent aTraiter (ex. ["2026-06"]). Tracabilite. */
+  aTraiterPeriodes: string[];
   derniereAction: string | null;
 };
 
@@ -249,7 +251,9 @@ function TrackerRow({
       {/* Compteur "a traiter" : nb d'obligations DB dont l'echeance arrive
           dans les 30 prochains jours OU est deja depassee, ET non terminees.
           Donne directement la charge de travail actionnable sur ce tracker.
-          Masque si 0 -> l'oeil va aux trackers qui demandent action. */}
+          Masque si 0 -> l'oeil va aux trackers qui demandent action.
+          Tooltip detaillee : liste des periodes contributrices pour qu'on
+          puisse retracer ce qui compose le chiffre. */}
       <div className="shrink-0 tabular-nums text-[11px] min-w-[80px] text-right">
         {row.aTraiter > 0 ? (
           <span
@@ -257,11 +261,15 @@ function TrackerRow({
               "font-semibold",
               row.enRetard > 0 ? "text-rose-600 dark:text-rose-400" : "text-amber-700 dark:text-amber-400",
             )}
-            title={
-              row.enRetard > 0
-                ? `${row.aTraiter} a traiter · dont ${row.enRetard} deja en retard`
-                : `${row.aTraiter} a traiter (echeance dans ≤ 30j)`
-            }
+            title={[
+              `${row.aTraiter} a traiter (echeance dans ≤ 30j ou depassee)`,
+              row.enRetard > 0 ? `dont ${row.enRetard} deja en retard` : null,
+              row.aTraiterPeriodes.length > 0
+                ? `Periodes : ${row.aTraiterPeriodes.join(", ")}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join("\n")}
           >
             {row.aTraiter} à traiter
           </span>
