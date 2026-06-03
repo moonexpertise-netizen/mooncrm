@@ -28,35 +28,79 @@ export default async function ObligationsPage({
   const cols = tracker.cols(year);
   const supabase = await createClient();
   const isTvaMensuelle = trackerSlug === "tva-mensuelle";
+  // Capture tracker dans une variable non-nullable pour les closures async
+  // ci-dessous (TS n'infere pas le narrowing notFound() a travers les async fn).
+  const trackerTypes = tracker.types;
 
   // Perf : status_options ne dépend que de tracker.types (connu d'entrée).
   // On lance les queries en parallèle. Pour le tracker TVA mensuelles on
   // charge en plus les tva_tags (etiquettes vitesse de realisation) pour
   // alimenter le bandeau filtre chips. Les autres trackers ne paient pas
   // cette query (Promise resolvee avec data null).
-  const [{ data: subs }, { data: opts }, tvaTagsRes] = await Promise.all([
-    supabase
-      .from("obligation_subscriptions")
-      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans, tva_tag_id, tva_echeance_jour)")
-      .eq("annee", year)
-      .eq("actif", true)
-      .in("type", tracker.types),
-    supabase
-      .from("status_options")
-      .select("type_code, libelle, statut_logique, ordre, color")
-      .eq("scope", "obligation")
-      .in("type_code", tracker.types)
-      .eq("actif", true)
-      .order("ordre"),
-    isTvaMensuelle
-      ? supabase
-          .from("tva_tags")
-          .select("id, label, color, ordre, actif")
+  // Defensive : .in("type", [...]) peut throw si l'enum Postgres n'a pas
+  // une des valeurs (ex. PILOTAGE_TDB sur DB sans migration 0061). On wrap
+  // chaque query individuellement et on fallback a [] silencieusement.
+  // Le user verra un tracker vide plutot qu'une page "Server Components render".
+  async function safeSubs() {
+    try {
+      const r = await supabase
+        .from("obligation_subscriptions")
+        .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans, tva_tag_id, tva_echeance_jour)")
+        .eq("annee", year)
+        .eq("actif", true)
+        .in("type", trackerTypes);
+      if (r.error) {
+        // eslint-disable-next-line no-console
+        console.error(`[tracker ${trackerSlug}] subs error:`, r.error.message);
+        // Retry sans tva_tag_id / tva_echeance_jour si colonnes manquent (0059 pas appliquee)
+        const r2 = await supabase
+          .from("obligation_subscriptions")
+          .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans)")
+          .eq("annee", year)
           .eq("actif", true)
-          .order("ordre")
-      : Promise.resolve({ data: null }),
-  ]);
-  const tvaTags = (tvaTagsRes?.data ?? null) as TvaTag[] | null;
+          .in("type", trackerTypes);
+        return r2.data ?? [];
+      }
+      return r.data ?? [];
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`[tracker ${trackerSlug}] subs throw:`, e);
+      return [];
+    }
+  }
+  async function safeOpts() {
+    try {
+      const r = await supabase
+        .from("status_options")
+        .select("type_code, libelle, statut_logique, ordre, color")
+        .eq("scope", "obligation")
+        .in("type_code", trackerTypes)
+        .eq("actif", true)
+        .order("ordre");
+      return r.data ?? [];
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`[tracker ${trackerSlug}] opts throw:`, e);
+      return [];
+    }
+  }
+  async function safeTvaTags() {
+    if (!isTvaMensuelle) return null;
+    try {
+      const r = await supabase
+        .from("tva_tags")
+        .select("id, label, color, ordre, actif")
+        .eq("actif", true)
+        .order("ordre");
+      return r.data ?? null;
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`[tracker ${trackerSlug}] tva_tags throw:`, e);
+      return null;
+    }
+  }
+  const [subs, opts, tvaTagsData] = await Promise.all([safeSubs(), safeOpts(), safeTvaTags()]);
+  const tvaTags = tvaTagsData as TvaTag[] | null;
 
   type SubRow = {
     client_id: string;

@@ -553,10 +553,15 @@ export async function setDashboardSubscription(
       }
     }
 
+    // IMPORTANT : on ne revalide PAS /obligations/tableau-de-bord ni
+    // /obligations/rdv-expert ici. Ces revalidations forcent Next.js a
+    // re-fetcher ces routes en arriere-plan ; si l'enum Postgres
+    // type_obligation n'a pas PILOTAGE_TDB/RDV (migration 0061 manquante),
+    // la query .in("type", [...]) du tracker plante et fait apparaitre
+    // "An error occurred in the Server Components render" cote UI.
+    // Le user verra les nouvelles donnees au prochain visit naturel du tracker.
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/parametrage");
-    revalidatePath("/obligations/tableau-de-bord");
-    revalidatePath("/obligations/rdv-expert");
 
     if (errors.length > 0) {
       // eslint-disable-next-line no-console
@@ -639,9 +644,9 @@ export async function setPilotagePeriode(
       console.error("[setPilotagePeriode] regen step:", e);
     }
 
+    // Idem setDashboardSubscription : pas de revalidatePath sur les trackers
+    // pilotage pour eviter un SSR background qui planterait sur enum manquante.
     revalidatePath(`/clients/${clientId}`);
-    revalidatePath("/obligations/tableau-de-bord");
-    revalidatePath("/obligations/rdv-expert");
     return { ok: true };
   } catch (e) {
     // eslint-disable-next-line no-console
