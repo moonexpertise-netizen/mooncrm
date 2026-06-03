@@ -24,6 +24,7 @@ import { useConfirm } from "@/app/_components/confirm-modal";
 import { useColumnSelection } from "@/app/_components/use-column-selection";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
+import { FormModal } from "@/app/_components/form-modal";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -1148,49 +1149,32 @@ function EditClientIrModal({
     });
   }
 
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-fade-in" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-zinc-900/50 backdrop-blur-md" onClick={onClose} aria-hidden />
-      <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
-        <div className="px-5 py-4 border-b bg-zinc-50 dark:bg-white/[0.03] border-zinc-200 dark:border-white/[0.06] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Modifier {row.nom}</h3>
-          <button type="button" onClick={onClose} className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label="Fermer">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
-            <select
-              value={civilite}
-              onChange={(e) => setCivilite(e.target.value as "M." | "Mme" | "Mlle" | "")}
-              className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm"
-            >
-              <option value="">- Civ. -</option>
-              <option value="M.">M.</option>
-              <option value="Mme">Mme</option>
-              <option value="Mlle">Mlle</option>
-            </select>
-            <input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
-            <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
-            <input value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="Téléphone" type="tel" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums" />
-          </div>
-          {error && <div className="text-[11px] text-rose-600 dark:text-rose-400">{error}</div>}
-        </div>
-
-        <div className="px-5 py-3 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-200 dark:border-white/[0.06] flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={isPending} className="px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
-            Annuler
-          </button>
-          <button type="button" onClick={submit} disabled={isPending || !nom.trim()} className="px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            {isPending ? "Sauvegarde…" : "Enregistrer"}
-          </button>
-        </div>
+  return (
+    <FormModal
+      title={`Modifier ${row.nom}`}
+      onClose={onClose}
+      onSubmit={submit}
+      submitDisabled={!nom.trim()}
+      isPending={isPending}
+      error={error}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+        <select
+          value={civilite}
+          onChange={(e) => setCivilite(e.target.value as "M." | "Mme" | "Mlle" | "")}
+          className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm"
+        >
+          <option value="">- Civ. -</option>
+          <option value="M.">M.</option>
+          <option value="Mme">Mme</option>
+          <option value="Mlle">Mlle</option>
+        </select>
+        <input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
+        <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm" />
+        <input value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="Téléphone" type="tel" className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums" />
       </div>
-    </div>,
-    document.body
+    </FormModal>
   );
 }
 
