@@ -760,12 +760,7 @@ export default function CreationsTable({
       <BulkActionBar
         count={selectedCount}
         onClear={clearSelection}
-        hint={
-          activeCol === COL_STATUT ? "Colonne Statut · ↑↓ nav · ← → change · shift+clic étend"
-          : activeCol === COL_FACT ? "Colonne Facturation · ↑↓ nav · ← → change · shift+clic étend"
-          : "clic une cellule pour commencer"
-        }
-        label={activeCol === COL_FACT ? "Facturation" : "Statut"}
+        columnLabel={activeCol === COL_FACT ? "Facturation" : "Statut création"}
         options={
           activeCol === COL_FACT
             ? FACT_OPTIONS.map((o) => ({

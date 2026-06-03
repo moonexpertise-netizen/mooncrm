@@ -584,7 +584,7 @@ export default function PilotageTable({
       <BulkActionBar
         count={selectedCount}
         onClear={clearSelection}
-        hint="clic + shift / cmd · ↑↓ flèches · Cmd+A/C/V"
+        columnLabel={type === "TDB" ? "Statut TdB" : "Statut RDV"}
         options={[
           ...STATUS_OPTIONS.map((o) => ({ key: o.libelle, label: o.libelle, color: o.color })),
           { key: "__reset__", label: "Réinitialiser (À faire)", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },

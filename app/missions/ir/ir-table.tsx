@@ -976,17 +976,11 @@ export default function IrTable({
         <BulkActionBar
           count={selectedCount}
           onClear={clearSelection}
-          hint={
-            activeCol === COL_IR ? "Colonne IR · ↑↓ nav · ← → change colonne · shift+clic étend"
-            : activeCol === COL_IFI ? "Colonne IFI · ↑↓ nav · ← → change colonne · shift+clic étend"
-            : activeCol === COL_FACT ? "Colonne Facturation · ↑↓ nav · ← → change colonne · shift+clic étend"
-            : "clic une cellule pour commencer"
-          }
-          label={
+          columnLabel={
             activeCol === COL_IR ? "Statut IR"
             : activeCol === COL_IFI ? "Statut IFI"
             : activeCol === COL_FACT ? "Facturation"
-            : "Appliquer"
+            : undefined
           }
           options={
             activeCol === COL_IR
