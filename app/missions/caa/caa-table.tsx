@@ -20,7 +20,7 @@ import {
   type StatutLogique,
 } from "./actions";
 import { useConfirm } from "@/app/_components/confirm-modal";
-import { useRowSelection } from "@/app/_components/use-row-selection";
+import { useGridSelection } from "@/app/_components/use-grid-selection";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -130,12 +130,35 @@ export default function CaaTable({
     return c;
   }, [yearRows, selectedYear]);
 
-  // Selection multi-rows en vue annee, pour bulk apply d'un statut + copy/paste
-  const orderedIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
+  // Selection 2D en vue annee : 2 colonnes Statut | Facturation. Composite
+  // IDs "rowId|STATUT" / "rowId|FACT" -> nav ←→ entre les 2 colonnes.
+  const gridIds = useMemo<(string | null)[][]>(() => {
+    if (mode !== "year") return [];
+    return visibleRows.map((r) => [`${r.id}|STATUT`, `${r.id}|FACT`]);
+  }, [visibleRows, mode]);
 
-  // Copy : libelle CAA pour selectedYear, 1 par ligne
+  // Extracte les rowId des cellules STATUT selectionnees (utilise par copy/paste
+  // et bulk apply statut - les cellules FACT sont ignorees ici)
+  function statutRowIds(ids: string[]): string[] {
+    const out: string[] = [];
+    for (const cid of ids) {
+      const [rowId, type] = cid.split("|");
+      if (rowId && type === "STATUT") out.push(rowId);
+    }
+    return out;
+  }
+  function factRowIds(ids: string[]): string[] {
+    const out: string[] = [];
+    for (const cid of ids) {
+      const [rowId, type] = cid.split("|");
+      if (rowId && type === "FACT") out.push(rowId);
+    }
+    return out;
+  }
+
+  // Copy : libelle CAA pour selectedYear, 1 par ligne (seulement cells STATUT)
   function buildCopyText(ids: string[]): string {
-    return ids
+    return statutRowIds(ids)
       .map((id) => {
         const r = localRows.find((x) => x.id === id);
         const cell = r?.obligations.get(selectedYear);
@@ -144,8 +167,9 @@ export default function CaaTable({
       .join("\n");
   }
 
-  // Paste : 1 valeur = fill-all, sinon positional
-  function applyPasteText(text: string, ids: string[]) {
+  // Paste : 1 valeur = fill-all, sinon positional. Filtre aux STATUT seulement.
+  function applyPasteText(text: string, allIds: string[]) {
+    const ids = statutRowIds(allIds);
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length === 0 || ids.length === 0) return;
     const knownLibs = new Set(statusOptions.map((o) => o.libelle.toLowerCase()));
@@ -210,45 +234,76 @@ export default function CaaTable({
     });
   }
 
-  const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds, {
+  const {
+    selectedIds,
+    selectedCount,
+    focusedPos,
+    isSelected,
+    onCellClick,
+    clearSelection,
+    selectAll,
+    selectOne,
+  } = useGridSelection(gridIds, {
     onCopy: (ids) => {
+      const statutIds = statutRowIds(ids);
+      if (statutIds.length === 0) return;
       const text = buildCopyText(ids);
       navigator.clipboard?.writeText?.(text).then(() => {
-        toastSuccess(`${ids.length} ligne${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
+        toastSuccess(`${statutIds.length} ligne${statutIds.length > 1 ? "s" : ""} copiée${statutIds.length > 1 ? "s" : ""}`);
       }).catch(() => {});
     },
     onPaste: (text, ids) => applyPasteText(text, ids),
   });
 
-  // Listener doc global pour les fleches : fix focus DOM (cf. pilotage).
-  useEffect(() => {
-    if (!focusedId) return;
-    function onDocKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
-      if (document.querySelector("[role='listbox']")) return;
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-      e.preventDefault();
-      onKeyDown({
-        key: e.key,
-        shiftKey: e.shiftKey,
-        preventDefault: () => e.preventDefault(),
-      } as React.KeyboardEvent);
-    }
-    document.addEventListener("keydown", onDocKey);
-    return () => document.removeEventListener("keydown", onDocKey);
-  }, [focusedId, onKeyDown]);
+  // Dispatcher : "STATUT:libelle" -> bulk statut, "FACT:etat" -> bulk facturation
+  function onBulkApply(prefixedKey: string) {
+    const [type, value] = prefixedKey.split(":");
+    if (!value) return;
+    const all = Array.from(selectedIds);
 
-  function onBulkApplyStatut(libelle: string) {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    if (type === "FACT") {
+      const ids = factRowIds(all);
+      if (ids.length === 0) {
+        toastError(new Error("Aucune cellule Facturation sélectionnée"), "Sélection invalide");
+        return;
+      }
+      const etat = value as EtatFacturation;
+      setLocalRows((prev) =>
+        prev.map((r) => {
+          if (!ids.includes(r.id)) return r;
+          const existing = r.obligations.get(selectedYear);
+          if (!existing) return r;
+          const newMap = new Map(r.obligations);
+          newMap.set(selectedYear, { ...existing, etat_facturation: etat });
+          return { ...r, obligations: newMap };
+        })
+      );
+      startTransition(async () => {
+        try {
+          await Promise.all(ids.map((id) => setCaaFacturation(id, selectedYear, etat)));
+          toastSuccess(`${ids.length} facturation${ids.length > 1 ? "s" : ""} mise${ids.length > 1 ? "s" : ""} à jour`);
+          clearSelection();
+          router.refresh();
+        } catch (e) {
+          toastError(e, "Echec mise à jour facturation");
+          router.refresh();
+        }
+      });
+      return;
+    }
+
+    if (type !== "STATUT") return;
+    const ids = statutRowIds(all);
+    if (ids.length === 0) {
+      toastError(new Error("Aucune cellule Statut sélectionnée"), "Sélection invalide");
+      return;
+    }
+    const libelle = value;
     const opt = statusOptions.find((o) => o.libelle === libelle);
     const sl = opt?.statut_logique ?? "A_FAIRE";
-    // Optimistic mirror
     setLocalRows((prev) =>
       prev.map((r) => {
-        if (!selectedIds.has(r.id)) return r;
+        if (!ids.includes(r.id)) return r;
         const existing = r.obligations.get(selectedYear);
         const newMap = new Map(r.obligations);
         newMap.set(selectedYear, {
@@ -596,8 +651,6 @@ export default function CaaTable({
           <table
             className="w-full text-sm min-w-[820px] focus:outline-none"
             aria-label="Dossiers CAA"
-            tabIndex={mode === "year" ? 0 : -1}
-            onKeyDown={mode === "year" ? onKeyDown : undefined}
           >
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
@@ -619,9 +672,13 @@ export default function CaaTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {visibleRows.map((r) => {
-                const selected = mode === "year" && isSelected(r.id);
-                const focused = mode === "year" && focusedId === r.id;
+              {visibleRows.map((r, rowIdx) => {
+                const statutCellId = `${r.id}|STATUT`;
+                const factCellId = `${r.id}|FACT`;
+                const statutSelected = mode === "year" && isSelected(statutCellId);
+                const factSelected = mode === "year" && isSelected(factCellId);
+                const statutFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 0;
+                const factFocused = mode === "year" && focusedPos?.row === rowIdx && focusedPos?.col === 1;
                 return (
                 <tr
                   key={r.id}
@@ -674,13 +731,16 @@ export default function CaaTable({
                       <td
                         className={cn(
                           "px-2 py-2.5 text-center transition-colors cursor-pointer",
-                          selected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
-                          focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
+                          statutSelected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
+                          statutFocused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
                         )}
                         onClick={(e) => {
                           const target = e.target as HTMLElement;
-                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
-                          onRowClick(r.id, e);
+                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
+                            selectOne(statutCellId);
+                            return;
+                          }
+                          onCellClick(rowIdx, 0, e);
                         }}
                       >
                         <StatutCell
@@ -696,7 +756,21 @@ export default function CaaTable({
                           disabled={!r.obligations.has(selectedYear)}
                         />
                       </td>
-                      <td className="px-2 py-2.5 text-center">
+                      <td
+                        className={cn(
+                          "px-2 py-2.5 text-center transition-colors cursor-pointer",
+                          factSelected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
+                          factFocused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
+                        )}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) {
+                            selectOne(factCellId);
+                            return;
+                          }
+                          onCellClick(rowIdx, 1, e);
+                        }}
+                      >
                         <FacturationPicker
                           value={r.obligations.get(selectedYear)?.etat_facturation ?? null}
                           onChange={(v) => onSetFacturation(r.id, v)}
@@ -754,13 +828,23 @@ export default function CaaTable({
         <BulkActionBar
           count={selectedCount}
           onClear={clearSelection}
-          hint="clic + shift / cmd pour étendre"
-          options={statusOptions.map((o) => ({
-            key: o.libelle,
-            label: o.libelle,
-            color: statutColorClass(o.statut_logique, o.color),
-          }))}
-          onApply={(libelle) => onBulkApplyStatut(libelle)}
+          hint="← → entre Statut / Facturation · shift + clic pour étendre"
+          label="Appliquer"
+          options={[
+            ...statusOptions.map((o) => ({
+              key: `STATUT:${o.libelle}`,
+              label: o.libelle,
+              color: statutColorClass(o.statut_logique, o.color),
+              group: "Statut",
+            })),
+            ...FACT_OPTIONS.map((o) => ({
+              key: `FACT:${o.key}`,
+              label: o.label,
+              color: o.color,
+              group: "Facturation",
+            })),
+          ]}
+          onApply={onBulkApply}
         />
       )}
     </div>
