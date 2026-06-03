@@ -29,10 +29,40 @@ export default async function PilotagePage({
 
   const sb = await createClient();
 
-  // 1. Tous les clients facturables (signés / interne / sous-traitance)
+  // 1. Toutes les pilotage_obligations pour l'année selectionnée + type
+  const { data: oblig } = await sb
+    .from("pilotage_obligations")
+    .select("id, client_id, periode, statut_logique, statut_detail")
+    .eq("annee", year)
+    .eq("type", type);
+  type Ob = {
+    id: string;
+    client_id: string;
+    periode: string;
+    statut_logique: string;
+    statut_detail: string | null;
+  };
+  const subscribedClientIds = [...new Set((oblig ?? []).map((o) => (o as Ob).client_id))];
+
+  // 2. Charger uniquement les clients souscrits (= ayant au moins 1 oblig
+  //    pilotage pour cette annee/type). On ne montre PAS les autres : la
+  //    souscription se fait via la fiche client > Obligations.
+  if (subscribedClientIds.length === 0) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Pilotage · Dashboard"
+          description="Suivi de la mise à disposition du tableau de bord et des rendez-vous expert · cadence configurable par client."
+        />
+        <PilotageTable rows={[]} year={year} type={type} />
+      </div>
+    );
+  }
+
   const { data: clientsRaw } = await sb
     .from("clients")
     .select("id, slug, denomination, siren, pipeline_statut, origine, tdb_livraison_periode, rdv_expert_periode")
+    .in("id", subscribedClientIds)
     .order("denomination");
   const clients = (clientsRaw ?? []).filter(isClientBillable) as Array<{
     id: string;
@@ -44,21 +74,6 @@ export default async function PilotagePage({
     tdb_livraison_periode: string | null;
     rdv_expert_periode: string | null;
   }>;
-
-  // 2. Toutes les pilotage_obligations pour l'année selectionnée + type
-  const { data: oblig } = await sb
-    .from("pilotage_obligations")
-    .select("id, client_id, periode, statut_logique, statut_detail")
-    .eq("annee", year)
-    .eq("type", type);
-
-  type Ob = {
-    id: string;
-    client_id: string;
-    periode: string;
-    statut_logique: string;
-    statut_detail: string | null;
-  };
 
   // 3. Pivot : 1 row par client, dans une Map cells[periode] = ...
   const rows: PilotageRow[] = clients.map((c) => {

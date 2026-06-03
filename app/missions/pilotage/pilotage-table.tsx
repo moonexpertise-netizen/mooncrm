@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { toastError } from "@/lib/toast-helpers";
 import {
   setPilotageCadence,
   setPilotageStatut,
-  togglePilotageSubscription,
   type PilotageType,
   type PilotageStatutLogique,
 } from "./actions";
@@ -77,50 +76,12 @@ export default function PilotageTable({
   const cadenceLabel = type === "TDB" ? "Mensuelle" : "Mensuel";
   const cadenceLabelTri = type === "TDB" ? "Trimestrielle" : "Trimestriel";
 
-  // Lignes triées : souscrites en premier (par denomination), puis non-souscrites
-  const sortedRows = useMemo(() => {
-    const subscribed = localRows.filter((r) => r.cells.size > 0).sort((a, b) => a.denomination.localeCompare(b.denomination, "fr"));
-    const others = localRows.filter((r) => r.cells.size === 0).sort((a, b) => a.denomination.localeCompare(b.denomination, "fr"));
-    return [...subscribed, ...others];
-  }, [localRows]);
+  // Tri par denomination. Tous les rows sont souscrits (filtre cote server).
+  const sortedRows = localRows.slice().sort((a, b) => a.denomination.localeCompare(b.denomination, "fr"));
 
   // ============================================================================
   //  Actions
   // ============================================================================
-
-  function onToggleSubscription(clientId: string, enabled: boolean) {
-    // Optimistic
-    setLocalRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== clientId) return r;
-        if (enabled) {
-          const isTri = !!r.cadence && r.cadence.toLowerCase().startsWith("trim");
-          const months = isTri ? TRIMESTRIEL_MONTHS : MENSUEL_MONTHS;
-          const newCells = new Map<string, PilotageCell>(r.cells);
-          for (const m of months) {
-            const periode = `${year}-${String(m).padStart(2, "0")}`;
-            if (!newCells.has(periode)) {
-              newCells.set(periode, {
-                id: `optimistic-${periode}`,
-                statut_logique: "A_FAIRE",
-                statut_detail: type === "TDB" ? "À préparer" : "RDV à planifier",
-              });
-            }
-          }
-          return { ...r, cells: newCells };
-        } else {
-          return { ...r, cells: new Map() };
-        }
-      })
-    );
-    startTransition(async () => {
-      const res = await togglePilotageSubscription(clientId, year, type, enabled);
-      if (!res.ok) {
-        toastError(new Error(res.error ?? "Erreur"), "Échec activation suivi");
-      }
-      router.refresh();
-    });
-  }
 
   function onSetCadence(clientId: string, value: string) {
     // Optimistic
@@ -234,8 +195,11 @@ export default function PilotageTable({
 
       {/* Table */}
       {sortedRows.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-          Aucun dossier client facturable.
+        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 space-y-2">
+          <p>Aucun dossier souscrit au suivi {type === "TDB" ? "Tableau de bord" : "RDV Expert"} pour l&apos;exercice {year}.</p>
+          <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
+            Active le suivi depuis la fiche client → onglet Obligations → carte « Pilotage / Dashboard ».
+          </p>
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto">
@@ -258,44 +222,28 @@ export default function PilotageTable({
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {sortedRows.map((r) => {
-                const isSubscribed = r.cells.size > 0;
                 return (
-                  <tr key={r.id} className={cn("hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors", !isSubscribed && "opacity-60")}>
+                  <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-3 py-2 sticky left-0 bg-white dark:bg-[hsl(var(--card))]">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/clients/${r.slug}`}
-                          className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
-                        >
-                          {r.denomination}
-                        </Link>
-                        {!isSubscribed && (
-                          <button
-                            type="button"
-                            onClick={() => onToggleSubscription(r.id, true)}
-                            className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 px-2 py-0.5 rounded border border-dashed border-zinc-300 dark:border-white/[0.10] hover:border-zinc-400 dark:hover:border-white/[0.20] transition-colors"
-                          >
-                            + Activer
-                          </button>
-                        )}
-                      </div>
+                      <Link
+                        href={`/clients/${r.slug}`}
+                        className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                      >
+                        {r.denomination}
+                      </Link>
                       {r.siren && (
                         <div className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{r.siren}</div>
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      {isSubscribed ? (
-                        <select
-                          value={r.cadence ?? cadenceLabel}
-                          onChange={(e) => onSetCadence(r.id, e.target.value)}
-                          className="px-1.5 py-0.5 rounded text-[12px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                        >
-                          <option value={cadenceLabel}>{cadenceLabel}</option>
-                          <option value={cadenceLabelTri}>{cadenceLabelTri}</option>
-                        </select>
-                      ) : (
-                        <span className="text-[11px] text-zinc-400 italic">-</span>
-                      )}
+                      <select
+                        value={r.cadence ?? cadenceLabel}
+                        onChange={(e) => onSetCadence(r.id, e.target.value)}
+                        className="px-1.5 py-0.5 rounded text-[12px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                      >
+                        <option value={cadenceLabel}>{cadenceLabel}</option>
+                        <option value={cadenceLabelTri}>{cadenceLabelTri}</option>
+                      </select>
                     </td>
                     {MENSUEL_MONTHS.map((m) => {
                       const periode = `${year}-${String(m).padStart(2, "0")}`;
@@ -333,7 +281,7 @@ export default function PilotageTable({
       )}
 
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {sortedRows.filter((r) => r.cells.size > 0).length} dossier{sortedRows.filter((r) => r.cells.size > 0).length > 1 ? "s" : ""} souscrit{sortedRows.filter((r) => r.cells.size > 0).length > 1 ? "s" : ""} à l&apos;exercice {year} · {sortedRows.filter((r) => r.cells.size === 0).length} non souscrit{sortedRows.filter((r) => r.cells.size === 0).length > 1 ? "s" : ""}.
+        {sortedRows.length} dossier{sortedRows.length > 1 ? "s" : ""} souscrit{sortedRows.length > 1 ? "s" : ""} à l&apos;exercice {year}.
       </p>
     </div>
   );
