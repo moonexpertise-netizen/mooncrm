@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { cn, fmtDateFr } from "@/lib/utils";
 import { TRACKER_GROUPS, type TrackerGroup } from "./trackers";
@@ -139,55 +138,27 @@ export default function SommaireCards({
       {/* Sections par groupe - chaque groupe = une card distincte avec
           header intégré + liste de trackers. Donne un effet "blocs separes". */}
       {grouped.map(({ group, rows: groupRows }) => {
-        const gTodo = groupRows.reduce((s, r) => s + r.todo, 0);
-        const gWip = groupRows.reduce((s, r) => s + r.wip, 0);
-        const gDone = groupRows.reduce((s, r) => s + r.done, 0);
+        // Total a traiter du groupe = somme des aTraiter (echeance proche
+        // OU depassee, non terminee). Compteur unique et actionnable, pas de
+        // mix de chiffres flous (A faire / En cours / Termine).
+        const gATraiter = groupRows.reduce((s, r) => s + r.aTraiter, 0);
         return (
           <section
             key={group.id}
             className="rounded-2xl border border-zinc-200/70 bg-white shadow-card overflow-hidden"
           >
-            {/* Header integre + ligne de legende dessous : titre du groupe a
-                gauche, et 3 mini-pastilles A faire / En cours / Termine pour
-                expliciter l'ordre des compteurs ci-dessous. */}
-            <header className="flex flex-col gap-2 px-4 py-2.5 border-b border-zinc-100 bg-zinc-50/40">
-              <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
-                  {group.label}
-                </h2>
-                <div
-                  className="text-[11px] text-zinc-400 tabular-nums"
-                  title={`Totaux : ${gTodo} à traiter · ${gWip} en cours · ${gDone} terminés`}
-                >
-                  <span className={cn(gTodo > 0 && "text-rose-600 font-medium")}>
-                    {gTodo}
-                  </span>
-                  <span className="mx-1">·</span>
-                  <span className={cn(gWip > 0 && "text-amber-600 font-medium")}>
-                    {gWip}
-                  </span>
-                  <span className="mx-1">·</span>
-                  <span className={cn(gDone > 0 && "text-emerald-600 font-medium")}>
-                    {gDone}
-                  </span>
-                </div>
-              </div>
-              {/* Legende des colonnes : alignee a droite, meme largeur que les
-                  Counter dans les rows pour signaler "ces 3 colonnes = ces 3
-                  statuts". Masquee en mobile (compteurs compactes sur 1 ligne). */}
-              <div className="hidden sm:flex items-center gap-3 justify-end text-[9px] uppercase tracking-[0.06em] text-zinc-400 dark:text-zinc-500 pr-[156px]">
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500" aria-hidden />
-                  À faire
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden />
-                  En cours
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden />
-                  Terminé
-                </span>
+            <header className="flex items-baseline justify-between gap-3 px-4 py-2.5 border-b border-zinc-100 bg-zinc-50/40">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
+                {group.label}
+              </h2>
+              <div
+                className={cn(
+                  "text-[11px] tabular-nums",
+                  gATraiter > 0 ? "text-rose-600 dark:text-rose-400 font-medium" : "text-zinc-400 dark:text-zinc-500",
+                )}
+                title={`${gATraiter} obligation${gATraiter > 1 ? "s" : ""} a traiter dans les 30 prochains jours (echeance proche ou depassee, non terminee)`}
+              >
+                {gATraiter > 0 ? `${gATraiter} à traiter` : "rien à traiter"}
               </div>
             </header>
 
@@ -255,69 +226,55 @@ function TrackerRow({
         </div>
       </div>
 
-      {/* 3 compteurs alignés verticalement, largeur fixe. Le 0 est en gris
-          discret → l'œil se concentre sur ce qui n'est pas zéro.
-          Au survol : mini-tooltip "À faire : 5" avec pastille de couleur. */}
-      <div className="hidden sm:flex items-center gap-1 shrink-0 tabular-nums">
-        <Counter value={row.todo} color="rose" label="À faire" />
-        <Counter value={row.wip} color="amber" label="En cours" />
-        <Counter value={row.done} color="emerald" label="Terminé" />
+      {/* Compteur "a traiter" : nb d'obligations DB dont l'echeance arrive
+          dans les 30 prochains jours OU est deja depassee, ET non terminees.
+          Donne directement la charge de travail actionnable sur ce tracker.
+          Masque si 0 -> l'oeil va aux trackers qui demandent action. */}
+      <div className="shrink-0 tabular-nums text-[11px] min-w-[80px] text-right">
+        {row.aTraiter > 0 ? (
+          <span
+            className={cn(
+              "font-semibold",
+              row.enRetard > 0 ? "text-rose-600 dark:text-rose-400" : "text-amber-700 dark:text-amber-400",
+            )}
+            title={
+              row.enRetard > 0
+                ? `${row.aTraiter} a traiter · dont ${row.enRetard} deja en retard`
+                : `${row.aTraiter} a traiter (echeance dans ≤ 30j)`
+            }
+          >
+            {row.aTraiter} à traiter
+          </span>
+        ) : (
+          <span className="text-zinc-300 dark:text-zinc-600" title="Rien a traiter dans les 30 prochains jours">
+            -
+          </span>
+        )}
       </div>
 
-      {/* Sur mobile : compteurs compactés en une ligne - meme info en tooltip. */}
-      <div
-        className="sm:hidden flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums"
-        title={`${row.todo} à traiter · ${row.wip} en cours · ${row.done} terminés`}
-      >
-        <span className={cn(row.todo > 0 ? "text-rose-600 font-semibold" : "text-zinc-300")}>
-          {row.todo}
-        </span>
-        <span className="text-zinc-300">/</span>
-        <span className={cn(row.wip > 0 ? "text-amber-600 font-semibold" : "text-zinc-300")}>
-          {row.wip}
-        </span>
-        <span className="text-zinc-300">/</span>
-        <span className={cn(row.done > 0 ? "text-emerald-600 font-semibold" : "text-zinc-300")}>
-          {row.done}
-        </span>
-      </div>
-
-      {/* Échéance : info la plus critique pour le pilotage.
-          3 niveaux de mise en valeur :
-            - rouge (en retard) : au moins une obligation depassee + pas terminée
-            - ambre (urgent) : prochaine echeance dans 30j
-            - zinc (calme) : echeance lointaine ou aucune */}
+      {/* Prochaine echeance : date informative (la plus proche non terminee) */}
       <div
         className={cn(
-          "hidden md:flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums w-32 justify-end",
+          "hidden md:flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums w-28 justify-end",
           row.enRetard > 0
-            ? "text-rose-700 font-semibold"
+            ? "text-rose-700 dark:text-rose-400 font-semibold"
             : urgent
-            ? "text-amber-700 font-medium"
-            : "text-zinc-500"
+            ? "text-amber-700 dark:text-amber-400 font-medium"
+            : "text-zinc-500 dark:text-zinc-400",
         )}
         title={
-          row.enRetard > 0
-            ? `${row.enRetard} obligation${row.enRetard > 1 ? "s" : ""} en retard${row.prochaineEcheance ? ` · prochaine echeance restante : ${fmtDateFr(row.prochaineEcheance)}` : ""}`
-            : row.prochaineEcheance
-            ? `Prochaine échéance ${urgent ? "(urgent - dans moins de 30 j)" : ""} : ${fmtDateFr(row.prochaineEcheance)}`
-            : "Aucune échéance à venir sur ce tracker"
+          row.prochaineEcheance
+            ? `Prochaine echeance non terminee : ${fmtDateFr(row.prochaineEcheance)}`
+            : "Aucune echeance a venir sur ce tracker"
         }
       >
-        {row.enRetard > 0 ? (
+        {row.prochaineEcheance ? (
           <>
-            <CalendarDays className="h-3 w-3 text-rose-500" aria-hidden="true" />
-            <span>
-              {row.enRetard} en retard
-            </span>
-          </>
-        ) : row.prochaineEcheance ? (
-          <>
-            <CalendarDays className={cn("h-3 w-3", urgent ? "text-amber-500" : "text-zinc-400")} aria-hidden="true" />
+            <CalendarDays className={cn("h-3 w-3", row.enRetard > 0 ? "text-rose-500" : urgent ? "text-amber-500" : "text-zinc-400")} aria-hidden="true" />
             <span>{fmtDateFr(row.prochaineEcheance)}</span>
           </>
         ) : (
-          <span className="text-zinc-300">-</span>
+          <span className="text-zinc-300 dark:text-zinc-600">-</span>
         )}
       </div>
 
@@ -329,117 +286,6 @@ function TrackerRow({
         )}
       />
     </button>
-  );
-}
-
-// ============================================================================
-//  Counter : pastille compacte d'un statut. Gris si 0, coloré sinon.
-// ============================================================================
-
-/**
- * Compteur d'une categorie de statut sur un tracker. Au survol : mini-tooltip
- * portaille qui rappelle le label + la pastille de couleur ("En cours : 1").
- *
- * Le compteur lui-meme n'est pas cliquable : c'est la row entiere qui
- * navigue vers le tracker. On utilise un <span> (et pas un <button>) pour
- * eviter button-in-button.
- */
-function Counter({
-  value,
-  color,
-  label,
-}: {
-  value: number;
-  color: "rose" | "amber" | "emerald";
-  label: string;
-}) {
-  const muted = value === 0;
-  const palette = {
-    rose: { bg: "bg-rose-50 text-rose-700", dot: "bg-rose-500" },
-    amber: { bg: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
-    emerald: { bg: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  } as const;
-
-  const ref = useRef<HTMLSpanElement>(null);
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!open || !ref.current) {
-      setPos(null);
-      return;
-    }
-    const rect = ref.current.getBoundingClientRect();
-    const POPOVER_WIDTH = 140;
-    const POPOVER_HEIGHT = 36;
-    const MARGIN = 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < POPOVER_HEIGHT && rect.top > spaceBelow;
-    const rawLeft = rect.left + rect.width / 2;
-    const halfW = POPOVER_WIDTH / 2;
-    const clampedLeft = Math.max(
-      MARGIN + halfW,
-      Math.min(rawLeft, window.innerWidth - MARGIN - halfW)
-    );
-    setPos({ left: clampedLeft, top: openUp ? rect.top : rect.bottom, openUp });
-  }, [open]);
-
-  function onEnter() {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setOpen(true);
-  }
-  function onLeave() {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpen(false), 80);
-  }
-
-  return (
-    <>
-      <span
-        ref={ref}
-        tabIndex={0}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
-        onFocus={onEnter}
-        onBlur={onLeave}
-        aria-label={`${label} : ${value}`}
-        className={cn(
-          "inline-block min-w-[36px] px-1.5 py-1 rounded text-[11px] font-semibold text-center tabular-nums cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
-          muted
-            ? "bg-transparent text-zinc-400 dark:text-zinc-600"
-            : palette[color].bg
-        )}
-      >
-        {value}
-      </span>
-
-      {open && pos && typeof document !== "undefined" &&
-        createPortal(
-          <div
-            style={{
-              position: "fixed",
-              left: `${pos.left}px`,
-              top: `${pos.top}px`,
-              transform: pos.openUp
-                ? "translate(-50%, calc(-100% - 8px))"
-                : "translate(-50%, 8px)",
-              zIndex: 1000,
-            }}
-            className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 rounded-md shadow-lg text-[11px] font-medium whitespace-nowrap pointer-events-none animate-slide-up-fade"
-          >
-            <span
-              className={cn("inline-block w-1.5 h-1.5 rounded-full shrink-0", palette[color].dot)}
-              aria-hidden
-            />
-            <span>
-              {label} :{" "}
-              <span className="tabular-nums font-semibold">{value}</span>
-            </span>
-          </div>,
-          document.body
-        )}
-    </>
   );
 }
 

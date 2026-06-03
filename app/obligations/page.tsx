@@ -36,25 +36,18 @@ export default async function ObligationsSommaire({
   const supabase = await createClient();
   const today = new Date().toISOString().substring(0, 10);
 
-  // 1) Obligations materialisees pour l'annee selectionnee
-  // 2) Subscriptions actives pour deduire les obligations "virtuelles"
-  //    (cellules placeholder "À traiter" cote tracker mais aucune ligne en DB)
-  const [{ data: rows }, { data: subs }] = await Promise.all([
-    supabase
-      .from("obligations")
-      .select(
-        "client_id, type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
-      )
-      .eq("annee", selectedYear)
-      .eq("obligation_subscriptions.actif", true),
-    supabase
-      .from("obligation_subscriptions")
-      .select(
-        "client_id, type, annee, clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
-      )
-      .eq("annee", selectedYear)
-      .eq("actif", true),
-  ]);
+  // On ne compte QUE les obligations qui existent reellement en DB. Pas de
+  // "virtuelles" deduites des subscriptions : ca produisait des chiffres
+  // faux (ex. 199 TVA mensuelles janvier 2025 toutes "464j en retard" pour
+  // des cellules jamais materialisees). Si une cellule n'est pas en DB,
+  // elle n'apparait pas dans les compteurs - on ne ment pas.
+  const { data: rows } = await supabase
+    .from("obligations")
+    .select(
+      "client_id, type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
+    )
+    .eq("annee", selectedYear)
+    .eq("obligation_subscriptions.actif", true);
 
   type Row = {
     client_id: string;
@@ -70,12 +63,6 @@ export default async function ObligationsSommaire({
       jour_cloture: number | null;
       mois_cloture: number | null;
     };
-  };
-  type SubRow = {
-    client_id: string;
-    type: string;
-    annee: number;
-    clients: Row["clients"];
   };
 
   // Agrégation par slug de tracker
@@ -110,12 +97,6 @@ export default async function ObligationsSommaire({
     return d.toISOString().substring(0, 10);
   })();
 
-  // Index des obligations materialisees pour deduplication des virtuelles
-  const materializedSommaire = new Set<string>();
-  for (const r of (rows ?? []) as unknown as Row[]) {
-    materializedSommaire.add(`${r.client_id}|${r.type}|${r.annee}`);
-  }
-
   function ingest(opts: {
     slug: string;
     isDone: boolean;
@@ -149,7 +130,7 @@ export default async function ObligationsSommaire({
     }
   }
 
-  // 1) Pass : obligations materialisees
+  // Pass unique : obligations REELLEMENT en DB
   for (const r of (rows ?? []) as unknown as Row[]) {
     const c = r.clients;
     if (!isClientBillable(c)) continue;
@@ -168,36 +149,6 @@ export default async function ObligationsSommaire({
     const dueDateStr = ech ? ech.dueDate.toISOString().substring(0, 10) : null;
 
     ingest({ slug, isDone, isWip, dueDateStr, updatedAt: r.updated_at });
-  }
-
-  // 2) Pass : obligations virtuelles (subscription active sans materialisation)
-  function periodesAttenduesSommaire(type: string, annee: number): string[] {
-    const tracker = TRACKERS.find((t) => t.types.includes(type));
-    if (!tracker) return [];
-    return tracker.cols(annee).filter((col) => col.type === type).map((col) => col.periode);
-  }
-  const seenSommaireVirtual = new Set<string>();
-  for (const s of (subs ?? []) as unknown as SubRow[]) {
-    const c = s.clients;
-    if (!isClientBillable(c)) continue;
-    if (materializedSommaire.has(`${s.client_id}|${s.type}|${s.annee}`)) continue;
-
-    const slug = slugForType(s.type);
-    if (!slug) continue;
-
-    const cloture = (c.jour_cloture && c.mois_cloture)
-      ? { jour: c.jour_cloture, mois: c.mois_cloture }
-      : { jour: 31, mois: 12 };
-
-    const periodes = periodesAttenduesSommaire(s.type, s.annee);
-    for (const periode of periodes) {
-      const key = `${s.client_id}|${s.type}|${s.annee}|${periode}`;
-      if (seenSommaireVirtual.has(key)) continue;
-      seenSommaireVirtual.add(key);
-      const ech = computeEcheance(s.type, periode, s.annee, cloture);
-      const dueDateStr = ech ? ech.dueDate.toISOString().substring(0, 10) : null;
-      ingest({ slug, isDone: false, isWip: false, dueDateStr, updatedAt: null });
-    }
   }
 
   const stats: TrackerStat[] = TRACKERS.map((t) => {
