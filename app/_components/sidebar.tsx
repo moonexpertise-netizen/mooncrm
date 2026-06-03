@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronDown,
   ClipboardList,
+  GaugeCircle,
   GitBranch,
   GripVertical,
   LayoutDashboard,
@@ -121,6 +122,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/missions/creations", label: "Créations", icon: Sparkles, matchPrefix: "/missions/creations", badgeKey: "creations" },
   { href: "/missions/ir", label: "IR + IFI", icon: Receipt, matchPrefix: "/missions/ir", badgeKey: "ir" },
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa", badgeKey: "caa" },
+  { href: "/missions/pilotage", label: "Pilotage · Dashboard", icon: GaugeCircle, matchPrefix: "/missions/pilotage" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
   { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation" },
   { href: "/finance", label: "Finance", icon: LineChart, matchPrefix: "/finance" },

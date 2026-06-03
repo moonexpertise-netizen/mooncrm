@@ -65,6 +65,7 @@ const STATIC_ROUTES: Item[] = [
   { id: "r-/missions/creations", kind: "route", label: "Créations", hint: "Suivi des créations de sociétés", href: "/missions/creations" },
   { id: "r-/missions/ir", kind: "route", label: "IR + IFI", hint: "Déclarations IR / IFI", href: "/missions/ir" },
   { id: "r-/missions/caa", kind: "route", label: "CAA", hint: "Commissariat aux apports", href: "/missions/caa" },
+  { id: "r-/missions/pilotage", kind: "route", label: "Pilotage · Dashboard", hint: "Tableau de bord + RDV Expert", href: "/missions/pilotage" },
   { id: "r-/facturation", kind: "route", label: "Facturation", hint: "Factures à émettre · tous modules", href: "/facturation" },
   { id: "r-/finance", kind: "route", label: "Finance", hint: "MRR · ARR · CA pondéré · à facturer", href: "/finance" },
   { id: "r-/parametrage", kind: "route", label: "Paramétrage obligations", hint: "Grille des souscriptions", href: "/parametrage" },
