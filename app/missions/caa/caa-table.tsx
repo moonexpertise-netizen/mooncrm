@@ -25,7 +25,6 @@ import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
 import { FormModal } from "@/app/_components/form-modal";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
-import { computeEcheance, getUrgencyStatus } from "@/lib/echeances";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
@@ -724,36 +723,18 @@ export default function CaaTable({
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex items-start gap-2">
-                      {/* Pastille a la racine : urgence calculee (regle AGO par
-                          defaut clôture 31/12 -> echeance 30 juin N+1). Avant :
-                          pastille rouge des qu'une mission etait A_FAIRE -> bruit
-                          visuel meme pour echeance lointaine. */}
-                      {(() => {
-                        const checkYears = mode === "year" ? [selectedYear]
-                          : Array.from(new Set([...r.obligations.values()].map((o) => o.annee)));
-                        let worst: "none" | "due_soon" | "overdue" = "none";
-                        for (const yr of checkYears) {
-                          const cell = r.obligations.get(yr);
-                          if (!cell) continue;
-                          // CAA : on utilise la regle AGO_DEPOT avec cloture 31/12 par defaut
-                          // (la plupart des associations sont en annee civile).
-                          const ech = computeEcheance("AGO_DEPOT", String(yr), yr, { jour: 31, mois: 12 });
-                          const u = getUrgencyStatus(ech, cell.statut_logique);
-                          if (u === "overdue") { worst = "overdue"; break; }
-                          if (u === "due_soon") worst = "due_soon";
-                        }
-                        if (worst === "none") return null;
-                        return (
-                          <span
-                            aria-label={worst === "overdue" ? "En retard" : "À traiter"}
-                            title={worst === "overdue" ? "Mission CAA en retard" : "Mission CAA à traiter"}
-                            className={cn(
-                              "mt-1.5 inline-block w-1.5 h-1.5 rounded-full shrink-0",
-                              worst === "overdue" ? "bg-rose-500" : "bg-amber-500"
-                            )}
-                          />
-                        );
-                      })()}
+                      {/* Pastille rouge si au moins une mission CAA est A_FAIRE.
+                          Pas d'echeance reglementaire pour les CAA -> pas de
+                          distinction orange/rouge, juste le signal "a traiter". */}
+                      {((mode === "year" && r.obligations.get(selectedYear)?.statut_logique === "A_FAIRE") ||
+                        (mode === "base" &&
+                          [...r.obligations.values()].some((o) => o.statut_logique === "A_FAIRE"))) && (
+                        <span
+                          aria-label="À faire"
+                          title={mode === "year" ? "Mission CAA à traiter" : "Au moins une mission CAA à traiter (toutes années)"}
+                          className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+                        />
+                      )}
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium text-zinc-900 dark:text-zinc-100">{r.denomination}</span>
                         {(r.siren || r.forme) && (
