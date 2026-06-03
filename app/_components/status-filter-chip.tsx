@@ -24,12 +24,19 @@ export function StatusFilterChip({
   count: number;
   active: boolean;
   onClick: () => void;
-  accent?: "amber" | "sky" | "emerald";
+  accent?: "amber" | "sky" | "emerald" | "zinc" | "violet" | "rose" | "teal" | "indigo";
 }) {
+  // 8 couleurs : couvre les statuts semantiques (a_faire/en_cours/termine)
+  // + les tags libres TVA (zinc/violet/rose/teal/indigo en complement).
   const accentDot: Record<NonNullable<typeof accent>, string> = {
     amber: "bg-amber-400 dark:bg-amber-500",
     sky: "bg-sky-400 dark:bg-sky-500",
     emerald: "bg-emerald-400 dark:bg-emerald-500",
+    zinc: "bg-zinc-400 dark:bg-zinc-500",
+    violet: "bg-violet-400 dark:bg-violet-500",
+    rose: "bg-rose-400 dark:bg-rose-500",
+    teal: "bg-teal-400 dark:bg-teal-500",
+    indigo: "bg-indigo-400 dark:bg-indigo-500",
   };
   return (
     <button

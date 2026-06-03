@@ -14,8 +14,9 @@ import {
 } from "./editable";
 import { ClotureSplit, EditableGestionTns, EditableTextArea } from "./editable-extras";
 import { Card, FieldReadonly, SectionTitle } from "./_components";
-import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
+import { loadClient, loadContactsLink, loadActiveTvaTags, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
+import TvaFieldsCard from "./tva-fields-card";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,11 @@ export default async function IdentiteTab({
   const { data: allGroupes } = await sb.from("groupes").select("nom").order("nom");
   const groupesOptions = (allGroupes ?? []).map((g) => g.nom);
   const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
+
+  // Etiquettes TVA pour le picker (actives + l'unique tag courant s'il est inactif)
+  const currentTvaTagId = (client as unknown as { tva_tag_id: string | null }).tva_tag_id ?? null;
+  const currentTvaEcheanceJour = (client as unknown as { tva_echeance_jour: number | null }).tva_echeance_jour ?? null;
+  const tvaTags = await loadActiveTvaTags(currentTvaTagId);
 
   return (
     <div className="space-y-6">
@@ -189,6 +195,15 @@ export default async function IdentiteTab({
           <EditableDate clientId={id} field="debut_obligations" value={client.debut_obligations} label="Reprise à partir de" />
           <EditableDate clientId={id} field="mois_signature" value={client.mois_signature} label="Date signature LDM" />
           <EditableGestionTns clientId={id} value={client.gestion_tns} label="Gestion TNS" />
+        </Card>
+
+        <Card title="TVA mensuelle">
+          <TvaFieldsCard
+            clientId={id}
+            initialTagId={currentTvaTagId}
+            initialEcheanceJour={currentTvaEcheanceJour}
+            tags={tvaTags}
+          />
         </Card>
       </div>
 

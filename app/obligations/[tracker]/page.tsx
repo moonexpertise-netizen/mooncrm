@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isClientBillable as clientIsBillable } from "@/lib/billable";
 import { getTracker } from "../trackers";
 import { countCommentsByObligation } from "../comments-actions";
-import TrackerTable, { type StatusOption, type TrackerRow } from "./tracker-table";
+import TrackerTable, { type StatusOption, type TrackerRow, type TvaTag } from "./tracker-table";
 
 export const dynamic = "force-dynamic";
 
@@ -27,14 +27,17 @@ export default async function ObligationsPage({
   const year = sp.year ? parseInt(sp.year, 10) : CURRENT_YEAR;
   const cols = tracker.cols(year);
   const supabase = await createClient();
+  const isTvaMensuelle = trackerSlug === "tva-mensuelle";
 
   // Perf : status_options ne dépend que de tracker.types (connu d'entrée).
-  // On lance les 2 queries en parallèle au lieu de séquentiel → -1 RTT
-  // transatlantique (~100ms en moins sur la page).
-  const [{ data: subs }, { data: opts }] = await Promise.all([
+  // On lance les queries en parallèle. Pour le tracker TVA mensuelles on
+  // charge en plus les tva_tags (etiquettes vitesse de realisation) pour
+  // alimenter le bandeau filtre chips. Les autres trackers ne paient pas
+  // cette query (Promise resolvee avec data null).
+  const [{ data: subs }, { data: opts }, tvaTagsRes] = await Promise.all([
     supabase
       .from("obligation_subscriptions")
-      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans)")
+      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans, tva_tag_id, tva_echeance_jour)")
       .eq("annee", year)
       .eq("actif", true)
       .in("type", tracker.types),
@@ -45,7 +48,15 @@ export default async function ObligationsPage({
       .in("type_code", tracker.types)
       .eq("actif", true)
       .order("ordre"),
+    isTvaMensuelle
+      ? supabase
+          .from("tva_tags")
+          .select("id, label, color, ordre, actif")
+          .eq("actif", true)
+          .order("ordre")
+      : Promise.resolve({ data: null }),
   ]);
+  const tvaTags = (tvaTagsRes?.data ?? null) as TvaTag[] | null;
 
   type SubRow = {
     client_id: string;
@@ -58,6 +69,8 @@ export default async function ObligationsPage({
       pipeline_statut: string | null;
       origine: string | null;
       type_honos_bilans: string | null;
+      tva_tag_id: string | null;
+      tva_echeance_jour: number | null;
     };
   };
 
@@ -144,6 +157,8 @@ export default async function ObligationsPage({
     pipeline: c.pipeline_statut,
     origine: c.origine,
     type_honos_bilans: c.type_honos_bilans,
+    tva_tag_id: c.tva_tag_id ?? null,
+    tva_echeance_jour: c.tva_echeance_jour ?? null,
     cells: cols.map((col) => {
       const o = oblByKey.get(`${c.id}|${col.type}|${col.periode}`);
       return o
@@ -198,6 +213,8 @@ export default async function ObligationsPage({
         focus={focus}
         initialCommentCounts={commentCounts}
         currentUserEmail={currentUserEmail}
+        trackerSlug={trackerSlug}
+        tvaTags={tvaTags}
       />
     </div>
   );

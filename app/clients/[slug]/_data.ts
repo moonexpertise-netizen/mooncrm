@@ -10,7 +10,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 export const CLIENT_SELECT =
-  "id, denomination, siren, slug, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, gestion_tns, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, groupes(nom)";
+  "id, denomination, siren, slug, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, gestion_tns, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, tva_tag_id, tva_echeance_jour, groupes(nom)";
 
 export const loadClient = cache(async (slug: string) => {
   const sb = await createClient();
@@ -38,6 +38,20 @@ export const loadAllStatusOpts = cache(async () => {
     .select("type_code, libelle, color")
     .eq("scope", "obligation");
   return data ?? [];
+});
+
+/**
+ * Charge les etiquettes TVA actives + l'unique tag eventuellement deja affecte
+ * au client courant meme s'il est inactif (sinon on perdrait l'affichage).
+ */
+export const loadActiveTvaTags = cache(async (currentTagId?: string | null) => {
+  const sb = await createClient();
+  const { data } = await sb
+    .from("tva_tags")
+    .select("id, label, color, actif")
+    .or(currentTagId ? `actif.eq.true,id.eq.${currentTagId}` : `actif.eq.true`)
+    .order("ordre");
+  return (data ?? []) as Array<{ id: string; label: string; color: string; actif: boolean }>;
 });
 
 export type DirigeantContact = {

@@ -14,6 +14,7 @@ import {
 } from "../actions";
 import { createPortal } from "react-dom";
 import CommentsPopover from "./comments-panel";
+import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 
 type StatutLogique = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 
@@ -52,7 +53,22 @@ export type TrackerRow = {
    *  sur les cellules LIASSE_PLAQUETTE : seulement 'Facturés' = facturation
    *  separee a suivre. */
   type_honos_bilans: string | null;
+  /** Tag TVA (vitesse de realisation : Express / Standard / + longue / ...).
+   *  Seulement pertinent pour le tracker tva-mensuelle. NULL = pas de tag. */
+  tva_tag_id: string | null;
+  /** Jour du mois de l'echeance TVA (1..31). NULL = defaut 24.
+   *  Sert au calcul du "mois actuel TVA" en vue 3m + pastille echeance proche. */
+  tva_echeance_jour: number | null;
   cells: TrackerCell[];
+};
+
+/** Etiquette TVA configurable par le user via /parametrage/tva-tags. */
+export type TvaTag = {
+  id: string;
+  label: string;
+  color: string;
+  ordre: number;
+  actif: boolean;
 };
 
 type StatutFilter = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
@@ -64,6 +80,8 @@ export default function TrackerTable({
   focus,
   initialCommentCounts,
   currentUserEmail,
+  trackerSlug,
+  tvaTags,
 }: {
   rows: TrackerRow[];
   cols: Array<{
@@ -80,7 +98,13 @@ export default function TrackerTable({
   focus?: string | null;
   initialCommentCounts: Record<string, number>;
   currentUserEmail: string | null;
+  /** Slug du tracker actif. Sert a activer des features specifiques
+   *  (ex: vue 3 mois + chips tag pour tva-mensuelle). */
+  trackerSlug?: string;
+  /** Tags TVA (charge uniquement si trackerSlug === "tva-mensuelle"). */
+  tvaTags?: TvaTag[] | null;
 }) {
+  const isTvaMensuelle = trackerSlug === "tva-mensuelle";
   const [search, setSearch] = useState("");
   const [openCellId, setOpenCellId] = useState<string | null>(null);
   const [highlightedCellId, setHighlightedCellId] = useState<string | null>(null);
@@ -97,6 +121,12 @@ export default function TrackerTable({
   >(null);
   const [statusFilter, setStatusFilter] = useState<Set<StatutFilter>>(new Set());
   const [periodFilter, setPeriodFilter] = useState<Set<string>>(new Set());
+  // Vue TVA mensuelle : "3m" (mois precedent/actuel/suivant) vs "12m" (annee).
+  // Defaut 3m sur tva-mensuelle car c'est l'usage quotidien. Le user toggle
+  // vers 12m pour la vue annuelle bilan.
+  const [tvaView, setTvaView] = useState<"3m" | "12m">("3m");
+  // Filtre par etiquette TVA : id du tag, "all" (defaut), ou "none" (sans tag)
+  const [tvaTagFilter, setTvaTagFilter] = useState<string>("all");
   // Largeur auto-fit pour les colonnes (sinon min-w-[120px] par défaut)
   const [autoFit, setAutoFit] = useState(false);
   // Sélection multi-cellules (set d'obligationIds)
@@ -181,11 +211,46 @@ export default function TrackerTable({
     return () => clearTimeout(t);
   }, [focus, cols]);
 
-  // Colonnes visibles d'après le filtre période (vide = toutes)
-  const visibleCols = useMemo(
-    () => (periodFilter.size > 0 ? cols.filter((c) => periodFilter.has(c.key)) : cols),
-    [cols, periodFilter]
-  );
+  // Trio de periodes TVA (precedent / actuel / suivant) calcule d'apres
+  // l'echeance par defaut (24 du mois suivant). Le "mois actuel" est celui
+  // dont l'echeance n'est PAS encore depassee.
+  //   - Aujourd'hui 20/05 (jour 20 <= 24) -> mois actuel = avril
+  //   - Aujourd'hui 25/05 (jour 25 > 24)  -> mois actuel = mai
+  // Le jour d'echeance par client (tva_echeance_jour) sert pour la pastille
+  // par ligne ; le trio global utilise 24 comme valeur de reference.
+  const tvaPeriodes3m = useMemo(() => {
+    if (!isTvaMensuelle) return null;
+    const ECHEANCE_DEFAULT = 24;
+    const today = new Date();
+    const baseYear = today.getDate() > ECHEANCE_DEFAULT ? today.getFullYear() : (today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear());
+    const baseMonth = today.getDate() > ECHEANCE_DEFAULT ? today.getMonth() : today.getMonth() - 1; // 0..11 ; -1 = decembre N-1
+    const pad = (n: number) => String(n).padStart(2, "0");
+    // Decale pour gerer le passage d'annee (decembre -> janvier)
+    function periodeAt(deltaMonths: number): string {
+      const d = new Date(baseYear, baseMonth + deltaMonths, 1);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    }
+    return {
+      precedent: periodeAt(-1),
+      actuel: periodeAt(0),
+      suivant: periodeAt(1),
+    };
+  }, [isTvaMensuelle]);
+
+  // Colonnes visibles d'après :
+  //  - le filtre période (vide = toutes), commun a tous les trackers
+  //  - + en plus, sur tva-mensuelle en vue 3m : on garde uniquement les 3
+  //    periodes precedent/actuel/suivant. Note : si tvaPeriodes3m vise une
+  //    annee != year affichee, les cols ne matchent pas et la vue 3m est vide
+  //    (cas attendu : on est en 2026 mais l'user regarde 2024 -> 12m sinon vide).
+  const visibleCols = useMemo(() => {
+    let next = periodFilter.size > 0 ? cols.filter((c) => periodFilter.has(c.key)) : cols;
+    if (isTvaMensuelle && tvaView === "3m" && tvaPeriodes3m) {
+      const wanted = new Set([tvaPeriodes3m.precedent, tvaPeriodes3m.actuel, tvaPeriodes3m.suivant]);
+      next = next.filter((c) => wanted.has(c.periode));
+    }
+    return next;
+  }, [cols, periodFilter, isTvaMensuelle, tvaView, tvaPeriodes3m]);
 
   // Set pour lookups O(1) sur les colKey visibles. Évite des
   // `visibleCols.some(vc => vc.key === c.colKey)` répétés (O(n²) sur 790 cells).
@@ -214,9 +279,29 @@ export default function TrackerTable({
         );
         if (!has) return false;
       }
+      // Filtre tag TVA (uniquement sur tva-mensuelle)
+      if (isTvaMensuelle && tvaTagFilter !== "all") {
+        if (tvaTagFilter === "none") {
+          if (r.tva_tag_id !== null) return false;
+        } else {
+          if (r.tva_tag_id !== tvaTagFilter) return false;
+        }
+      }
       return true;
     });
-  }, [localRows, search, statusFilter, visibleColKeysSet]);
+  }, [localRows, search, statusFilter, visibleColKeysSet, isTvaMensuelle, tvaTagFilter]);
+
+  // Compteurs par tag TVA pour les chips (independants du filtre tag courant)
+  const tvaTagCounts = useMemo(() => {
+    if (!isTvaMensuelle) return null;
+    const byTag = new Map<string, number>();
+    let none = 0;
+    for (const r of localRows) {
+      if (r.tva_tag_id) byTag.set(r.tva_tag_id, (byTag.get(r.tva_tag_id) ?? 0) + 1);
+      else none++;
+    }
+    return { byTag, none, total: localRows.length };
+  }, [localRows, isTvaMensuelle]);
 
   // Bornes nav (déclarées tôt pour être dispo dans tous les hooks/handlers)
   const maxRow = filtered.length - 1;
@@ -890,6 +975,93 @@ export default function TrackerTable({
 
   return (
     <div className="space-y-3">
+      {/* Barre TVA mensuelle : visible uniquement sur ce tracker.
+          - Toggle Vue 3 mois (precedent/actuel/suivant) <-> Vue 12 mois (annee).
+          - Chips de filtre par etiquette TVA (vitesse de realisation : Express
+            / Standard / + longue / ...) configurables via /parametrage/tva-tags. */}
+      {isTvaMensuelle && (
+        <div className="flex items-center gap-3 flex-wrap rounded-lg border bg-card px-3 py-2">
+          {/* Toggle 3m / 12m */}
+          <div className="inline-flex items-center gap-1 p-0.5 rounded-md bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
+            <button
+              type="button"
+              onClick={() => setTvaView("3m")}
+              aria-pressed={tvaView === "3m"}
+              className={cn(
+                "px-2.5 py-1 rounded text-[12px] font-medium transition-colors",
+                tvaView === "3m"
+                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              )}
+              title="Affiche le mois précédent, le mois actuel et le mois suivant"
+            >
+              Vue 3 mois
+            </button>
+            <button
+              type="button"
+              onClick={() => setTvaView("12m")}
+              aria-pressed={tvaView === "12m"}
+              className={cn(
+                "px-2.5 py-1 rounded text-[12px] font-medium transition-colors",
+                tvaView === "12m"
+                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              )}
+              title="Affiche les 12 mois de l'année"
+            >
+              Vue annuelle
+            </button>
+          </div>
+
+          {/* Repere visuel du mois actuel (vue 3m seulement) */}
+          {tvaView === "3m" && tvaPeriodes3m && (
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+              Mois actuel : <span className="font-medium text-zinc-700 dark:text-zinc-300">{tvaPeriodes3m.actuel}</span>
+            </div>
+          )}
+
+          {/* Chips tags TVA */}
+          {tvaTags && tvaTags.length > 0 && tvaTagCounts && (
+            <>
+              <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08]" />
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <StatusFilterChip
+                  label="Tous"
+                  count={tvaTagCounts.total}
+                  active={tvaTagFilter === "all"}
+                  onClick={() => setTvaTagFilter("all")}
+                />
+                {tvaTags.map((t) => (
+                  <StatusFilterChip
+                    key={t.id}
+                    label={t.label}
+                    count={tvaTagCounts.byTag.get(t.id) ?? 0}
+                    active={tvaTagFilter === t.id}
+                    onClick={() => setTvaTagFilter(t.id)}
+                    accent={t.color as Parameters<typeof StatusFilterChip>[0]["accent"]}
+                  />
+                ))}
+                {tvaTagCounts.none > 0 && (
+                  <StatusFilterChip
+                    label="Sans étiquette"
+                    count={tvaTagCounts.none}
+                    active={tvaTagFilter === "none"}
+                    onClick={() => setTvaTagFilter("none")}
+                  />
+                )}
+              </div>
+              <Link
+                href="/parametrage/tva-tags"
+                className="ml-auto text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+                title="Créer ou modifier les étiquettes TVA"
+              >
+                Gérer les étiquettes
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Barre d'outils unique, dense et ordonnée */}
       <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-card px-3 py-2">
         <input
