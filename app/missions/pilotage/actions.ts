@@ -25,6 +25,13 @@ export type TdbCadence = "Mensuelle" | "Trimestrielle";
 export type RdvCadence = "Mensuel" | "Trimestriel";
 
 const MENSUEL_MOIS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+// Trimestriel : on affiche les cellules sur le DERNIER mois du trimestre
+// (= mois qui ferme la periode couverte) :
+//   T1 (Jan-Fev-Mars)    -> cellule Mars,      echeance livraison avril
+//   T2 (Avr-Mai-Juin)    -> cellule Juin,      echeance livraison juillet
+//   T3 (Juil-Aout-Sept)  -> cellule Septembre, echeance livraison octobre
+//   T4 (Oct-Nov-Dec)     -> cellule Decembre,  echeance livraison janvier N+1
+// Le statut sur la cellule "Mars" suit la livraison du TdB Q1.
 const TRIMESTRIEL_MOIS = [3, 6, 9, 12];
 
 /** Genere la liste des periodes 'YYYY-MM' selon cadence. */

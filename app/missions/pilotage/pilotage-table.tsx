@@ -35,7 +35,16 @@ export type PilotageRow = {
 
 const MONTHS_SHORT = ["Janv", "Févr", "Mars", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
 const MENSUEL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+// Trimestriel : cellule sur le dernier mois du trimestre (= periode couverte).
+// Mars=T1, Juin=T2, Septembre=T3, Decembre=T4. Echeances de livraison au mois
+// suivant (Avr/Juil/Oct/Janv+1) - donnees dans le tooltip.
 const TRIMESTRIEL_MONTHS = [3, 6, 9, 12];
+const TRIMESTRE_LABEL: Record<number, string> = {
+  3: "T1 · Janv-Fév-Mars (livraison avril)",
+  6: "T2 · Avr-Mai-Juin (livraison juillet)",
+  9: "T3 · Juil-Août-Sept (livraison octobre)",
+  12: "T4 · Oct-Nov-Déc (livraison janvier N+1)",
+};
 
 // Statuts (et leurs couleurs) par type
 const TDB_OPTIONS: Array<{ libelle: string; logique: PilotageStatutLogique; color: string }> = [
@@ -248,8 +257,20 @@ export default function PilotageTable({
                     {MENSUEL_MONTHS.map((m) => {
                       const periode = `${year}-${String(m).padStart(2, "0")}`;
                       const cell = r.cells.get(periode);
+                      const isTri = !!r.cadence && r.cadence.toLowerCase().startsWith("trim");
+                      const isTrimestreColumn = isTri && TRIMESTRIEL_MONTHS.includes(m);
+                      const cellTitle = isTrimestreColumn ? TRIMESTRE_LABEL[m] : undefined;
                       return (
-                        <td key={m} className="px-1 py-2 text-center align-middle">
+                        <td
+                          key={m}
+                          className={cn(
+                            "px-1 py-2 text-center align-middle",
+                            // Met en valeur les colonnes "trimestre" pour les dossiers
+                            // trimestriels (= colonnes contenant une cellule).
+                            isTrimestreColumn && "bg-zinc-50/40 dark:bg-white/[0.02]"
+                          )}
+                          title={cellTitle}
+                        >
                           {cell ? (
                             <StatutPicker
                               value={cell.statut_detail}
@@ -280,9 +301,14 @@ export default function PilotageTable({
         </div>
       )}
 
-      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
-        {sortedRows.length} dossier{sortedRows.length > 1 ? "s" : ""} souscrit{sortedRows.length > 1 ? "s" : ""} à l&apos;exercice {year}.
-      </p>
+      <div className="px-1 space-y-1">
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          {sortedRows.length} dossier{sortedRows.length > 1 ? "s" : ""} souscrit{sortedRows.length > 1 ? "s" : ""} à l&apos;exercice {year}.
+        </p>
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          Cadence trimestrielle : le statut est porté sur le dernier mois du trimestre (<span className="font-medium">Mars</span> = T1, <span className="font-medium">Juin</span> = T2, <span className="font-medium">Septembre</span> = T3, <span className="font-medium">Décembre</span> = T4). Échéance de livraison au mois suivant (avril, juillet, octobre, janvier N+1).
+        </p>
+      </div>
     </div>
   );
 }
