@@ -858,12 +858,14 @@ function MissionRow({
       </td>
 
       {/* Etat facturation : tiret tant que la mission n'est pas livree.
-          Auto-set a "À facturer" au passage en "livree" (trigger DB + UI). */}
+          Auto-set a "À facturer" au passage en "livree" (trigger DB + UI).
+          Bouton "Reinitialiser" pour revider la cellule. */}
       <td className="px-2 py-2.5 text-center">
         <BadgePicker
           value={row.etat_facturation}
           options={ETAT_FACTURATION_OPTIONS}
           onChange={(v) => onSetEtatFacturation(v as EtatFacturation)}
+          onReset={() => onSetEtatFacturation(null)}
           allowEmpty
         />
       </td>
@@ -1472,6 +1474,9 @@ function BadgePicker<T extends string>({
   value,
   options,
   onChange,
+  /** Si fourni, affiche un bouton "Réinitialiser" en bas du popover (visible
+   *  uniquement si value !== null). Permet de revider la cellule vers null. */
+  onReset,
   /** Si true et value=null, affiche "—" (tiret) au lieu du fallback options[0].
    *  Le bouton reste cliquable pour ouvrir le picker et choisir une option. */
   allowEmpty = false,
@@ -1479,6 +1484,7 @@ function BadgePicker<T extends string>({
   value: T | null;
   options: Array<{ key: T; label: string; color: string }>;
   onChange: (v: T) => void;
+  onReset?: () => void;
   allowEmpty?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -1581,6 +1587,18 @@ function BadgePicker<T extends string>({
                 )}
               </button>
             ))}
+            {onReset && value !== null && (
+              <button
+                type="button"
+                onClick={() => {
+                  onReset();
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors border-t border-zinc-100 dark:border-white/[0.06]"
+              >
+                Réinitialiser
+              </button>
+            )}
           </div>,
           document.body
         )}
