@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toastError } from "@/lib/toast-helpers";
+import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useRowSelection } from "@/app/_components/use-row-selection";
+import { BulkActionBar } from "@/app/_components/bulk-action-bar";
+import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import {
+  bulkSetPilotageStatut,
   setPilotageCadence,
   setPilotageStatut,
   type PilotageType,
@@ -80,13 +84,191 @@ export default function PilotageTable({
   const [, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
   useEffect(() => setLocalRows(rows), [rows]);
+  const [filter, setFilter] = useState<"all" | "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE">("all");
 
   const STATUS_OPTIONS = type === "TDB" ? TDB_OPTIONS : RDV_OPTIONS;
   const cadenceLabel = type === "TDB" ? "Mensuelle" : "Mensuel";
   const cadenceLabelTri = type === "TDB" ? "Trimestrielle" : "Trimestriel";
 
   // Tri par denomination. Tous les rows sont souscrits (filtre cote server).
-  const sortedRows = localRows.slice().sort((a, b) => a.denomination.localeCompare(b.denomination, "fr"));
+  const sortedRows = useMemo(
+    () => localRows.slice().sort((a, b) => a.denomination.localeCompare(b.denomination, "fr")),
+    [localRows]
+  );
+
+  // Compteurs par statut (sur toutes les cellules de tous les rows)
+  const counts = useMemo(() => {
+    const c = { total: 0, A_FAIRE: 0, EN_COURS: 0, TERMINE: 0, NON_APPLICABLE: 0 };
+    for (const r of localRows) {
+      for (const cell of r.cells.values()) {
+        c.total++;
+        c[cell.statut_logique]++;
+      }
+    }
+    return c;
+  }, [localRows]);
+
+  // Filtre rows : si statusFilter actif, on garde les rows qui ont au moins
+  // une cellule du statut selectionne.
+  const filteredRows = useMemo(() => {
+    if (filter === "all") return sortedRows;
+    return sortedRows.filter((r) => {
+      for (const cell of r.cells.values()) {
+        if (cell.statut_logique === filter) return true;
+      }
+      return false;
+    });
+  }, [sortedRows, filter]);
+
+  // ============================================================================
+  //  Selection Excel-style (composite IDs = pilotage_obligations.id)
+  // ============================================================================
+  // orderedIds : tous les cellIds visibles, dans l'ordre (row apres row,
+  // gauche -> droite). Une cellule est "visible" si elle existe (= souscrite).
+  const orderedIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const r of filteredRows) {
+      for (const m of MENSUEL_MONTHS) {
+        const periode = `${year}-${String(m).padStart(2, "0")}`;
+        const cell = r.cells.get(periode);
+        if (cell && !cell.id.startsWith("optimistic-")) ids.push(cell.id);
+      }
+    }
+    return ids;
+  }, [filteredRows, year]);
+
+  // Map id -> { rowId, periode } pour les bulk operations
+  const idToContext = useMemo(() => {
+    const m = new Map<string, { rowId: string; periode: string }>();
+    for (const r of localRows) {
+      for (const [periode, cell] of r.cells) {
+        m.set(cell.id, { rowId: r.id, periode });
+      }
+    }
+    return m;
+  }, [localRows]);
+
+  // Copy TSV : 1 ligne par cellule, valeur = libelle
+  function buildCopyText(ids: string[]): string {
+    return ids
+      .map((id) => {
+        const ctx = idToContext.get(id);
+        if (!ctx) return "";
+        const r = localRows.find((x) => x.id === ctx.rowId);
+        const cell = r?.cells.get(ctx.periode);
+        return cell?.statut_detail ?? "";
+      })
+      .join("\n");
+  }
+
+  // Paste TSV : 1 valeur -> fill-all selected | N valeurs -> positional
+  function applyPasteText(text: string, ids: string[]) {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0 || ids.length === 0) return;
+    const byLabel = new Map<string, string | null>();
+    for (const opt of STATUS_OPTIONS) byLabel.set(opt.libelle.toLowerCase(), opt.libelle);
+
+    // Group : libelle -> [ids]
+    const updates = new Map<string | null, string[]>();
+    if (lines.length === 1) {
+      const target = byLabel.get(lines[0].trim().toLowerCase());
+      if (target === undefined) return;
+      updates.set(target, ids);
+    } else {
+      for (let i = 0; i < ids.length && i < lines.length; i++) {
+        const target = byLabel.get(lines[i].trim().toLowerCase());
+        if (target === undefined) continue;
+        if (!updates.has(target)) updates.set(target, []);
+        updates.get(target)!.push(ids[i]);
+      }
+    }
+    if (updates.size === 0) return;
+
+    // Optimistic
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        const newCells = new Map(r.cells);
+        for (const [libelle, idsList] of updates) {
+          for (const id of idsList) {
+            const ctx = idToContext.get(id);
+            if (!ctx || ctx.rowId !== r.id) continue;
+            const cell = newCells.get(ctx.periode);
+            if (!cell) continue;
+            const opt = STATUS_OPTIONS.find((o) => o.libelle === libelle);
+            newCells.set(ctx.periode, {
+              ...cell,
+              statut_logique: opt?.logique ?? "A_FAIRE",
+              statut_detail: libelle ?? (type === "TDB" ? "À préparer" : "RDV à planifier"),
+            });
+          }
+        }
+        return { ...r, cells: newCells };
+      })
+    );
+    startTransition(async () => {
+      try {
+        let totalUpdated = 0;
+        for (const [libelle, idsList] of updates) {
+          const res = await bulkSetPilotageStatut(idsList, libelle, type);
+          totalUpdated += res.updated;
+        }
+        toastSuccess(`${totalUpdated} cellule${totalUpdated > 1 ? "s" : ""} mise${totalUpdated > 1 ? "s" : ""} à jour`);
+        clearSelection();
+      } catch (e) {
+        toastError(e, "Échec collage");
+        router.refresh();
+      }
+    });
+  }
+
+  const { selectedIds, selectedCount, isSelected, focusedId, onRowClick, onKeyDown, clearSelection, selectAll } = useRowSelection(orderedIds, {
+    onCopy: (ids) => {
+      const text = buildCopyText(ids);
+      navigator.clipboard?.writeText?.(text).then(() => {
+        toastSuccess(`${ids.length} cellule${ids.length > 1 ? "s" : ""} copiée${ids.length > 1 ? "s" : ""}`);
+      }).catch(() => { /* ignore */ });
+    },
+    onPaste: (text, ids) => applyPasteText(text, ids),
+  });
+
+  function onBulkApply(libelleKey: string) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const libelle = libelleKey === "__reset__" ? null : libelleKey;
+
+    // Optimistic
+    const opt = libelle ? STATUS_OPTIONS.find((o) => o.libelle === libelle) : null;
+    setLocalRows((prev) =>
+      prev.map((r) => {
+        const newCells = new Map(r.cells);
+        for (const [periode, cell] of newCells) {
+          if (selectedIds.has(cell.id)) {
+            newCells.set(periode, {
+              ...cell,
+              statut_logique: opt?.logique ?? "A_FAIRE",
+              statut_detail: libelle ?? (type === "TDB" ? "À préparer" : "RDV à planifier"),
+            });
+          }
+        }
+        return { ...r, cells: newCells };
+      })
+    );
+    startTransition(async () => {
+      try {
+        const res = await bulkSetPilotageStatut(ids, libelle, type);
+        if (!res.ok) {
+          toastError(new Error(res.error ?? "Erreur"), "Échec mise à jour groupée");
+          router.refresh();
+          return;
+        }
+        toastSuccess(`${res.updated} cellule${res.updated > 1 ? "s" : ""} mise${res.updated > 1 ? "s" : ""} à jour`);
+        clearSelection();
+      } catch (e) {
+        toastError(e, "Échec mise à jour groupée");
+        router.refresh();
+      }
+    });
+  }
 
   // ============================================================================
   //  Actions
@@ -202,8 +384,19 @@ export default function PilotageTable({
         </div>
       </div>
 
+      {/* Filtres chips : Tous / À faire / En cours / Terminé / N/A */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <StatusFilterChip label="Tous" count={counts.total} active={filter === "all"} onClick={() => setFilter("all")} />
+        <StatusFilterChip label="À faire" count={counts.A_FAIRE} active={filter === "A_FAIRE"} onClick={() => setFilter("A_FAIRE")} accent="amber" />
+        <StatusFilterChip label="En cours" count={counts.EN_COURS} active={filter === "EN_COURS"} onClick={() => setFilter("EN_COURS")} accent="sky" />
+        <StatusFilterChip label="Terminé" count={counts.TERMINE} active={filter === "TERMINE"} onClick={() => setFilter("TERMINE")} accent="emerald" />
+        {counts.NON_APPLICABLE > 0 && (
+          <StatusFilterChip label="N/A" count={counts.NON_APPLICABLE} active={filter === "NON_APPLICABLE"} onClick={() => setFilter("NON_APPLICABLE")} />
+        )}
+      </div>
+
       {/* Table */}
-      {sortedRows.length === 0 ? (
+      {filteredRows.length === 0 ? (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 space-y-2">
           <p>Aucun dossier souscrit au suivi {type === "TDB" ? "Tableau de bord" : "RDV Expert"} pour l&apos;exercice {year}.</p>
           <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
@@ -212,7 +405,12 @@ export default function PilotageTable({
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto">
-          <table className="w-full text-sm min-w-[1100px]" aria-label="Suivi Pilotage">
+          <table
+            className="w-full text-sm min-w-[1100px] focus:outline-none"
+            aria-label="Suivi Pilotage"
+            tabIndex={0}
+            onKeyDown={onKeyDown}
+          >
             <thead className="bg-zinc-50/50 dark:bg-white/[0.02] border-b border-zinc-200/70 dark:border-white/[0.06]">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-white/[0.02] min-w-[220px]">
@@ -230,7 +428,7 @@ export default function PilotageTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
-              {sortedRows.map((r) => {
+              {filteredRows.map((r) => {
                 return (
                   <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-3 py-2 sticky left-0 bg-white dark:bg-[hsl(var(--card))]">
@@ -260,16 +458,29 @@ export default function PilotageTable({
                       const isTri = !!r.cadence && r.cadence.toLowerCase().startsWith("trim");
                       const isTrimestreColumn = isTri && TRIMESTRIEL_MONTHS.includes(m);
                       const cellTitle = isTrimestreColumn ? TRIMESTRE_LABEL[m] : undefined;
+                      const cellId = cell?.id;
+                      const selected = !!cellId && isSelected(cellId);
+                      const focused = !!cellId && focusedId === cellId;
                       return (
                         <td
                           key={m}
                           className={cn(
-                            "px-1 py-2 text-center align-middle",
-                            // Met en valeur les colonnes "trimestre" pour les dossiers
-                            // trimestriels (= colonnes contenant une cellule).
-                            isTrimestreColumn && "bg-zinc-50/40 dark:bg-white/[0.02]"
+                            "px-1 py-2 text-center align-middle transition-colors",
+                            isTrimestreColumn && "bg-zinc-50/40 dark:bg-white/[0.02]",
+                            // Selection cellulaire Excel-style : clic sur la td
+                            // pour selectionner, clic sur le picker pour ouvrir.
+                            cell && "cursor-pointer",
+                            selected && "bg-sky-50/80 dark:bg-sky-500/[0.12]",
+                            focused && "outline outline-1 outline-sky-400 dark:outline-sky-500 outline-offset-[-2px]"
                           )}
                           title={cellTitle}
+                          onClick={(e) => {
+                            // Ignore les clics sur le picker (button) ou ses enfants
+                            if (!cellId) return;
+                            const target = e.target as HTMLElement;
+                            if (target.closest("button, a, input, [role='listbox'], [role='dialog']")) return;
+                            onRowClick(cellId, e);
+                          }}
                         >
                           {cell ? (
                             <StatutPicker
@@ -301,14 +512,39 @@ export default function PilotageTable({
         </div>
       )}
 
-      <div className="px-1 space-y-1">
-        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-          {sortedRows.length} dossier{sortedRows.length > 1 ? "s" : ""} souscrit{sortedRows.length > 1 ? "s" : ""} à l&apos;exercice {year}.
-        </p>
-        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-          Cadence trimestrielle : le statut est porté sur le dernier mois du trimestre (<span className="font-medium">Mars</span> = T1, <span className="font-medium">Juin</span> = T2, <span className="font-medium">Septembre</span> = T3, <span className="font-medium">Décembre</span> = T4). Échéance de livraison au mois suivant (avril, juillet, octobre, janvier N+1).
-        </p>
+      <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
+        <div className="space-y-1">
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            {filteredRows.length} dossier{filteredRows.length > 1 ? "s" : ""} affiché{filteredRows.length > 1 ? "s" : ""}
+            {filter !== "all" && ` (filtre : ${filter})`}
+            {sortedRows.length !== filteredRows.length && ` sur ${sortedRows.length} au total`}.
+          </p>
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            Cadence trimestrielle : le statut est porté sur le dernier mois du trimestre (<span className="font-medium">Mars</span> = T1, <span className="font-medium">Juin</span> = T2, <span className="font-medium">Septembre</span> = T3, <span className="font-medium">Décembre</span> = T4). Échéance de livraison au mois suivant (avril, juillet, octobre, janvier N+1).
+          </p>
+        </div>
+        {orderedIds.length > 0 && (
+          <button
+            type="button"
+            onClick={selectAll}
+            className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+          >
+            Tout sélectionner
+          </button>
+        )}
       </div>
+
+      {/* Barre bulk : sticky en bas, visible si selection > 0 */}
+      <BulkActionBar
+        count={selectedCount}
+        onClear={clearSelection}
+        hint="clic + shift / cmd · ↑↓ flèches · Cmd+A/C/V"
+        options={[
+          ...STATUS_OPTIONS.map((o) => ({ key: o.libelle, label: o.libelle, color: o.color })),
+          { key: "__reset__", label: "Réinitialiser (À faire)", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },
+        ]}
+        onApply={onBulkApply}
+      />
     </div>
   );
 }
