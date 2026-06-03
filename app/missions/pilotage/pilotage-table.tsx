@@ -12,6 +12,7 @@ import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import { useGridSelection } from "@/app/_components/use-grid-selection";
+import { computeEcheancePilotage, getUrgencyStatus } from "@/lib/echeances";
 import {
   bulkSetPilotageStatut,
   setPilotageCadence,
@@ -444,20 +445,31 @@ export default function PilotageTable({
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {filteredRows.map((r, rowIdx) => {
-                // Pastille rouge a la racine du dossier si au moins une cellule
-                // est en A_FAIRE pour l'annee active. Coherent avec IR/CAA/Creations.
-                const hasAFaire = Array.from(r.cells.values()).some(
-                  (c) => c.statut_logique === "A_FAIRE"
-                );
+                // Pastille a la racine : prend le pire des etats d'urgence
+                // pour toutes les cellules du dossier (rouge > orange > rien).
+                // Affiche uniquement les cellules vraiment urgentes, pas toutes
+                // celles "a faire" (qui peut etre lointain).
+                let rowUrgency: "none" | "due_soon" | "overdue" = "none";
+                for (const [periode, c] of r.cells) {
+                  const u = getUrgencyStatus(
+                    computeEcheancePilotage(periode),
+                    c.statut_logique
+                  );
+                  if (u === "overdue") { rowUrgency = "overdue"; break; }
+                  if (u === "due_soon") rowUrgency = "due_soon";
+                }
                 return (
                   <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-3 py-2 sticky left-0 bg-white dark:bg-[hsl(var(--card))]">
                       <div className="flex items-start gap-2">
-                        {hasAFaire && (
+                        {rowUrgency !== "none" && (
                           <span
-                            aria-label="À faire"
-                            title="Au moins une période à traiter"
-                            className="mt-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"
+                            aria-label={rowUrgency === "overdue" ? "En retard" : "À traiter"}
+                            title={rowUrgency === "overdue" ? "Au moins une période en retard" : "Au moins une période à traiter"}
+                            className={cn(
+                              "mt-1.5 inline-block w-1.5 h-1.5 rounded-full shrink-0",
+                              rowUrgency === "overdue" ? "bg-rose-500" : "bg-amber-500"
+                            )}
                           />
                         )}
                         <div className="min-w-0">
@@ -492,6 +504,14 @@ export default function PilotageTable({
                       const cellId = cell?.id;
                       const selected = !!cellId && isSelected(cellId);
                       const focused = focusedPos?.row === rowIdx && focusedPos?.col === colIdx;
+                      // Urgence : 1er du mois M+1 (activation) -> 15 du mois M+1 (echeance)
+                      // cf. lib/echeances.ts > computeEcheancePilotage.
+                      const urgency = cell
+                        ? getUrgencyStatus(
+                            computeEcheancePilotage(periode),
+                            cell.statut_logique
+                          )
+                        : "none";
                       return (
                         <td
                           key={m}
@@ -520,20 +540,40 @@ export default function PilotageTable({
                           }}
                         >
                           {cell ? (
-                            <Picker
-                              value={cell.statut_detail}
-                              options={STATUS_OPTIONS.map((o) => ({
-                                key: o.libelle,
-                                label: o.libelle,
-                                color: o.color,
-                              }))}
-                              onChange={(libelle) => onSetStatut(r.id, periode, libelle)}
-                              onReset={() => onSetStatut(r.id, periode, null)}
-                              allowEmpty
-                              align="center"
-                              size="xs"
-                              minWidth={200}
-                            />
+                            <div className="relative inline-block">
+                              {urgency !== "none" && (
+                                <span
+                                  aria-label={urgency === "overdue" ? "En retard" : "Échéance proche"}
+                                  title={urgency === "overdue" ? "En retard" : "Échéance proche"}
+                                  className={cn(
+                                    "absolute -top-0.5 -right-0.5 z-10 w-1.5 h-1.5 rounded-full ring-2 ring-white dark:ring-[hsl(var(--card))] pointer-events-none",
+                                    urgency === "overdue" ? "bg-rose-500" : "bg-amber-500"
+                                  )}
+                                />
+                              )}
+                              {urgency === "overdue" && (
+                                <span
+                                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-10 text-[8px] leading-none font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-rose-500 text-white pointer-events-none whitespace-nowrap"
+                                  aria-hidden
+                                >
+                                  Retard
+                                </span>
+                              )}
+                              <Picker
+                                value={cell.statut_detail}
+                                options={STATUS_OPTIONS.map((o) => ({
+                                  key: o.libelle,
+                                  label: o.libelle,
+                                  color: o.color,
+                                }))}
+                                onChange={(libelle) => onSetStatut(r.id, periode, libelle)}
+                                onReset={() => onSetStatut(r.id, periode, null)}
+                                allowEmpty
+                                align="center"
+                                size="xs"
+                                minWidth={200}
+                              />
+                            </div>
                           ) : (
                             <span className="inline-block w-6 h-6 rounded border border-dashed border-zinc-200 dark:border-white/[0.06]" />
                           )}
