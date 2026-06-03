@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Search, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { TRACKERS, TRACKER_GROUPS } from "@/app/obligations/trackers";
 
 /**
  * Palette de commandes globale (style Cmd+K / Linear / Notion).
@@ -33,11 +34,24 @@ type ClientHit = {
 
 type Item = {
   id: string;
-  kind: "route" | "client";
+  kind: "route" | "client" | "tracker";
   label: string;
   hint?: string;
   href: string;
 };
+
+// Construit dynamiquement les items "tracker" depuis TRACKERS (cf.
+// app/obligations/trackers.ts). Avantage : ajouter un nouveau tracker = mise
+// a jour automatique de la palette. Le `hint` reprend le libelle du groupe
+// (TVA / IS / AGO / Bilan / Autres) pour donner du contexte.
+const GROUP_LABELS = new Map(TRACKER_GROUPS.map((g) => [g.id, g.label]));
+const TRACKER_ROUTES: Item[] = TRACKERS.map((t) => ({
+  id: `t-${t.slug}`,
+  kind: "tracker",
+  label: t.title,
+  hint: GROUP_LABELS.get(t.group) ?? t.group,
+  href: `/obligations/${t.slug}`,
+}));
 
 const STATIC_ROUTES: Item[] = [
   { id: "r-/", kind: "route", label: "Dashboard", hint: "Vue d'ensemble", href: "/" },
@@ -119,6 +133,11 @@ export default function CommandPalette() {
           (r.label + " " + (r.hint ?? "")).toLowerCase().includes(q)
         )
       : STATIC_ROUTES.slice(0, 5);
+    const trackersMatch = q
+      ? TRACKER_ROUTES.filter((t) =>
+          (t.label + " " + (t.hint ?? "")).toLowerCase().includes(q)
+        )
+      : []; // sans query : on cache pour ne pas saturer la vue par defaut
     const clientsMatch = q
       ? clients
           .filter((c) => {
@@ -134,7 +153,7 @@ export default function CommandPalette() {
             href: `/clients/${c.slug}`,
           }))
       : [];
-    return [...routesMatch, ...clientsMatch];
+    return [...routesMatch, ...trackersMatch, ...clientsMatch];
   }, [query, clients]);
 
   // Reset selection quand items changent
@@ -225,6 +244,26 @@ export default function CommandPalette() {
               {items
                 .map((it, i) => ({ it, i }))
                 .filter(({ it }) => it.kind === "route")
+                .map(({ it, i }) => (
+                  <ItemRow
+                    key={it.id}
+                    item={it}
+                    idx={i}
+                    selected={selectedIdx === i}
+                    onSelect={() => {
+                      router.push(it.href);
+                      setOpen(false);
+                    }}
+                    onHover={() => setSelectedIdx(i)}
+                  />
+                ))}
+              {/* Section trackers production (TVA, IS, AGO, Bilan, ...) */}
+              {items.some((i) => i.kind === "tracker") && (
+                <SectionHeader label="Production" />
+              )}
+              {items
+                .map((it, i) => ({ it, i }))
+                .filter(({ it }) => it.kind === "tracker")
                 .map(({ it, i }) => (
                   <ItemRow
                     key={it.id}
