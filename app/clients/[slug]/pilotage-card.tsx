@@ -13,96 +13,109 @@ import {
 /**
  * Card "Pilotage / Dashboard" pour la fiche client - onglet Obligations.
  *
- * ISOLE de la matrice : utilise pilotage_obligations (table dediee, cf.
- * migration 0062), pas l'enum type_obligation partage. Aucun risque de
- * crash cascadant sur la matrice ou les autres modules.
+ * ISOLE de la matrice : utilise pilotage_obligations + client_year_config,
+ * pas l'enum type_obligation partage. Aucun risque de crash cascadant.
  *
- * Permet par annee :
- *   - Toggle "Suivi Tableau de bord" (TDB) ON/OFF
- *   - Toggle "Suivi RDV Expert" (RDV) ON/OFF
- * Au niveau client :
- *   - Cadence TdB (Mensuelle / Trimestrielle)
- *   - Cadence RDV (Mensuel / Trimestriel)
+ * Par annee, on peut :
+ *   - Toggle Tableau de bord ON/OFF (PILOTAGE_TDB)
+ *   - Toggle RDV Expert ON/OFF (PILOTAGE_RDV)
+ *   - Choisir la cadence TdB (Mensuelle/Trimestrielle) - cf. client_year_config
+ *   - Choisir la cadence RDV (Mensuel/Trimestriel)
+ *
+ * La cadence est par annee (comme le regime IR/IS), donc un client peut
+ * passer mensuel -> trimestriel d'une annee a l'autre.
  */
 export type PilotageActiveMap = {
-  // { 2025: { TDB: true, RDV: false }, ... }
-  [annee: number]: { TDB: boolean; RDV: boolean };
+  // { 2025: { TDB: true, RDV: false, tdbCadence: "Mensuelle", rdvCadence: null }, ... }
+  [annee: number]: {
+    TDB: boolean;
+    RDV: boolean;
+    tdbCadence: string | null;
+    rdvCadence: string | null;
+  };
 };
 
 export default function PilotageCard({
   clientId,
   years,
   active,
-  initialTdbCadence,
-  initialRdvCadence,
 }: {
   clientId: string;
   years: number[];
   active: PilotageActiveMap;
-  initialTdbCadence: string | null;
-  initialRdvCadence: string | null;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [localActive, setLocalActive] = useState<PilotageActiveMap>(active);
-  const [tdbCadence, setTdbCadence] = useState<string>(initialTdbCadence ?? "");
-  const [rdvCadence, setRdvCadence] = useState<string>(initialRdvCadence ?? "");
+
+  function getCell(annee: number) {
+    return localActive[annee] ?? { TDB: false, RDV: false, tdbCadence: null, rdvCadence: null };
+  }
 
   function isActive(annee: number, type: "TDB" | "RDV"): boolean {
-    return localActive[annee]?.[type] ?? false;
+    return getCell(annee)[type];
   }
 
   function onToggle(annee: number, type: "TDB" | "RDV") {
-    const next = !isActive(annee, type);
-    // Optimistic
+    const cur = getCell(annee);
+    const next = !cur[type];
     setLocalActive((prev) => ({
       ...prev,
-      [annee]: { ...(prev[annee] ?? { TDB: false, RDV: false }), [type]: next },
+      [annee]: { ...cur, [type]: next },
     }));
     startTransition(async () => {
       const res = await togglePilotageSubscription(clientId, annee, type, next);
       if (!res.ok) {
         toastError(new Error(res.error ?? "Erreur"), "Échec activation suivi");
-        // Revert
         setLocalActive((prev) => ({
           ...prev,
-          [annee]: { ...(prev[annee] ?? { TDB: false, RDV: false }), [type]: !next },
+          [annee]: { ...cur, [type]: !next },
         }));
       }
       router.refresh();
     });
   }
 
-  function onCadenceChange(aspect: "tdb" | "rdv", value: string) {
-    const prevValue = aspect === "tdb" ? tdbCadence : rdvCadence;
-    if (aspect === "tdb") setTdbCadence(value);
-    else setRdvCadence(value);
+  function onCadenceChange(annee: number, aspect: "tdb" | "rdv", value: string) {
+    const cur = getCell(annee);
+    const prevValue = aspect === "tdb" ? cur.tdbCadence : cur.rdvCadence;
+    setLocalActive((prev) => ({
+      ...prev,
+      [annee]: {
+        ...cur,
+        tdbCadence: aspect === "tdb" ? value : cur.tdbCadence,
+        rdvCadence: aspect === "rdv" ? value : cur.rdvCadence,
+      },
+    }));
     startTransition(async () => {
       const res = await setPilotageCadence(
         clientId,
+        annee,
         aspect,
-        value as Parameters<typeof setPilotageCadence>[2]
+        value as Parameters<typeof setPilotageCadence>[3]
       );
       if (!res.ok) {
         toastError(new Error(res.error ?? "Erreur"), "Échec changement cadence");
-        if (aspect === "tdb") setTdbCadence(prevValue);
-        else setRdvCadence(prevValue);
+        setLocalActive((prev) => ({
+          ...prev,
+          [annee]: {
+            ...cur,
+            tdbCadence: aspect === "tdb" ? prevValue : cur.tdbCadence,
+            rdvCadence: aspect === "rdv" ? prevValue : cur.rdvCadence,
+          },
+        }));
       }
       router.refresh();
     });
   }
 
-  const hasAnyActive = years.some((y) => isActive(y, "TDB") || isActive(y, "RDV"));
-
   return (
     <div className="rounded-lg border bg-card p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-medium flex items-center gap-1.5">
-            Pilotage / Dashboard
-          </h3>
+          <h3 className="text-sm font-medium">Pilotage / Dashboard</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Suivi Tableau de bord + RDV Expert · sans impact sur la lettre de mission.
+            Suivi Tableau de bord + RDV Expert · cadence par exercice · sans impact sur la lettre de mission.
           </p>
         </div>
         <Link
@@ -113,38 +126,64 @@ export default function PilotageCard({
         </Link>
       </div>
 
-      {/* Tableau toggle par annee + type */}
+      {/* Tableau toggle + cadence par annee */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 dark:bg-white/[0.02] text-zinc-600 dark:text-zinc-400 text-xs">
             <tr>
-              <th className="px-3 py-2 text-left font-medium">Aspect</th>
+              <th className="px-3 py-2 text-left font-medium min-w-[200px]">Aspect</th>
               {years.map((y) => (
-                <th key={y} className="px-2 py-2 text-center font-medium tabular-nums w-[80px]">
+                <th key={y} className="px-2 py-2 text-center font-medium tabular-nums w-[120px]">
                   {y}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
+            {/* TDB : toggle + cadence */}
             <tr className="hover:bg-amber-50/40 dark:hover:bg-white/[0.02] transition-colors">
               <td className="px-3 py-2 font-medium">Tableau de bord</td>
               {years.map((y) => {
                 const on = isActive(y, "TDB");
                 return (
-                  <td key={y} className="px-1 py-2 text-center">
-                    <Toggle on={on} onClick={() => onToggle(y, "TDB")} />
+                  <td key={y} className="px-1 py-2 text-center align-middle">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <Toggle on={on} onClick={() => onToggle(y, "TDB")} />
+                      {on && (
+                        <select
+                          value={getCell(y).tdbCadence || "Mensuelle"}
+                          onChange={(e) => onCadenceChange(y, "tdb", e.target.value)}
+                          className="px-1.5 py-0.5 rounded text-[11px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                        >
+                          <option value="Mensuelle">Mensuelle</option>
+                          <option value="Trimestrielle">Trimestrielle</option>
+                        </select>
+                      )}
+                    </div>
                   </td>
                 );
               })}
             </tr>
+            {/* RDV : toggle + cadence */}
             <tr className="hover:bg-amber-50/40 dark:hover:bg-white/[0.02] transition-colors">
               <td className="px-3 py-2 font-medium">RDV Expert</td>
               {years.map((y) => {
                 const on = isActive(y, "RDV");
                 return (
-                  <td key={y} className="px-1 py-2 text-center">
-                    <Toggle on={on} onClick={() => onToggle(y, "RDV")} />
+                  <td key={y} className="px-1 py-2 text-center align-middle">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <Toggle on={on} onClick={() => onToggle(y, "RDV")} />
+                      {on && (
+                        <select
+                          value={getCell(y).rdvCadence || "Mensuel"}
+                          onChange={(e) => onCadenceChange(y, "rdv", e.target.value)}
+                          className="px-1.5 py-0.5 rounded text-[11px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                        >
+                          <option value="Mensuel">Mensuel</option>
+                          <option value="Trimestriel">Trimestriel</option>
+                        </select>
+                      )}
+                    </div>
                   </td>
                 );
               })}
@@ -152,36 +191,6 @@ export default function PilotageCard({
           </tbody>
         </table>
       </div>
-
-      {/* Cadences (visibles si au moins un suivi est actif quelque part).
-          Les 2 selecteurs sont colles a leur label puis cote a cote avec un
-          gap modere pour rester atteignables sans traverser toute la largeur. */}
-      {hasAnyActive && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-3 border-t border-zinc-100 dark:border-white/[0.06]">
-          <label className="inline-flex items-center gap-2 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">Cadence tableau de bord</span>
-            <select
-              value={tdbCadence || "Mensuelle"}
-              onChange={(e) => onCadenceChange("tdb", e.target.value)}
-              className="px-2 py-1 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-[13px] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-            >
-              <option value="Mensuelle">Mensuelle</option>
-              <option value="Trimestrielle">Trimestrielle</option>
-            </select>
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">Cadence RDV expert</span>
-            <select
-              value={rdvCadence || "Mensuel"}
-              onChange={(e) => onCadenceChange("rdv", e.target.value)}
-              className="px-2 py-1 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-[13px] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-            >
-              <option value="Mensuel">Mensuel</option>
-              <option value="Trimestriel">Trimestriel</option>
-            </select>
-          </label>
-        </div>
-      )}
     </div>
   );
 }

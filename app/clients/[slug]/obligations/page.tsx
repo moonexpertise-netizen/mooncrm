@@ -45,32 +45,54 @@ export default async function ObligationsTab({
     regime: (c.regime as "IR" | "IS" | null) ?? null,
   }));
 
-  // Defensive : la requete pilotage_obligations peut echouer si la table
-  // n'existe pas encore (migration 0062 pas appliquee) -> on fallback a
-  // un objet vide. La Card sera presente mais tous les toggles seront off.
+  // Defensive : les requetes pilotage peuvent echouer si la migration 0062/0063
+  // n'est pas encore appliquee -> on fallback a un objet vide. La Card sera
+  // presente mais tous les toggles seront off.
   let pilotageActive: PilotageActiveMap = {};
-  let tdbCadence: string | null = null;
-  let rdvCadence: string | null = null;
   try {
-    const pilotageRes = await sb
+    // 1. Souscriptions par (annee, type)
+    const subsRes = await sb
       .from("pilotage_obligations")
       .select("annee, type")
       .eq("client_id", id);
-    if (!pilotageRes.error) {
-      const map: PilotageActiveMap = {};
-      for (const row of pilotageRes.data ?? []) {
+    if (!subsRes.error) {
+      for (const row of subsRes.data ?? []) {
         const r = row as { annee: number; type: "TDB" | "RDV" };
-        if (!map[r.annee]) map[r.annee] = { TDB: false, RDV: false };
-        map[r.annee][r.type] = true;
+        if (!pilotageActive[r.annee]) {
+          pilotageActive[r.annee] = { TDB: false, RDV: false, tdbCadence: null, rdvCadence: null };
+        }
+        pilotageActive[r.annee][r.type] = true;
       }
-      pilotageActive = map;
     } else {
       // eslint-disable-next-line no-console
-      console.error("[obligations/page] pilotage_obligations:", pilotageRes.error);
+      console.error("[obligations/page] pilotage_obligations:", subsRes.error);
     }
-    // Cadences (sur clients, depuis colonnes 0060). Fallback null si colonnes absentes.
-    tdbCadence = (client as unknown as { tdb_livraison_periode?: string | null }).tdb_livraison_periode ?? null;
-    rdvCadence = (client as unknown as { rdv_expert_periode?: string | null }).rdv_expert_periode ?? null;
+    // 2. Cadences par annee (client_year_config). Fallback sur clients.* si
+    //    pas de config pour cette annee (back-compat avec stockage globaux).
+    const ycRes = await sb
+      .from("client_year_config")
+      .select("annee, tdb_livraison_periode, rdv_expert_periode")
+      .eq("client_id", id);
+    const fallbackTdb = (client as unknown as { tdb_livraison_periode?: string | null }).tdb_livraison_periode ?? null;
+    const fallbackRdv = (client as unknown as { rdv_expert_periode?: string | null }).rdv_expert_periode ?? null;
+    if (!ycRes.error) {
+      for (const row of ycRes.data ?? []) {
+        const r = row as { annee: number; tdb_livraison_periode: string | null; rdv_expert_periode: string | null };
+        if (!pilotageActive[r.annee]) {
+          pilotageActive[r.annee] = { TDB: false, RDV: false, tdbCadence: null, rdvCadence: null };
+        }
+        pilotageActive[r.annee].tdbCadence = r.tdb_livraison_periode ?? fallbackTdb;
+        pilotageActive[r.annee].rdvCadence = r.rdv_expert_periode ?? fallbackRdv;
+      }
+    }
+    // Pour chaque annee active sans config encore, appliquer le fallback
+    for (const y of yearsList) {
+      const cell = pilotageActive[y];
+      if (cell) {
+        if (cell.tdbCadence === null) cell.tdbCadence = fallbackTdb;
+        if (cell.rdvCadence === null) cell.rdvCadence = fallbackRdv;
+      }
+    }
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("[obligations/page] pilotage section throw:", e);
@@ -85,13 +107,7 @@ export default async function ObligationsTab({
         years={yearsList}
         debutObligations={client.debut_obligations}
       />
-      <PilotageCard
-        clientId={id}
-        years={yearsList}
-        active={pilotageActive}
-        initialTdbCadence={tdbCadence}
-        initialRdvCadence={rdvCadence}
-      />
+      <PilotageCard clientId={id} years={yearsList} active={pilotageActive} />
     </div>
   );
 }

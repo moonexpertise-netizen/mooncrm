@@ -75,9 +75,32 @@ export default async function PilotagePage({
     rdv_expert_periode: string | null;
   }>;
 
+  // 2b. Cadences par (client, annee) depuis client_year_config (cf. 0063)
+  //     Fallback sur clients.tdb_livraison_periode / rdv_expert_periode si
+  //     pas de config pour cette annee (back-compat avec ancien stockage).
+  const { data: ycRaw } = await sb
+    .from("client_year_config")
+    .select("client_id, annee, tdb_livraison_periode, rdv_expert_periode")
+    .in("client_id", subscribedClientIds)
+    .eq("annee", year);
+  const cadenceByClient = new Map<string, string | null>();
+  for (const yc of (ycRaw ?? []) as Array<{
+    client_id: string;
+    annee: number;
+    tdb_livraison_periode: string | null;
+    rdv_expert_periode: string | null;
+  }>) {
+    cadenceByClient.set(
+      yc.client_id,
+      type === "TDB" ? yc.tdb_livraison_periode : yc.rdv_expert_periode
+    );
+  }
+
   // 3. Pivot : 1 row par client, dans une Map cells[periode] = ...
   const rows: PilotageRow[] = clients.map((c) => {
-    const cadence = type === "TDB" ? c.tdb_livraison_periode : c.rdv_expert_periode;
+    const cadenceAnnuelle = cadenceByClient.get(c.id) ?? null;
+    const fallback = type === "TDB" ? c.tdb_livraison_periode : c.rdv_expert_periode;
+    const cadence = cadenceAnnuelle ?? fallback;
     const cells = new Map<string, PilotageCell>();
     for (const o of (oblig ?? []) as Ob[]) {
       if (o.client_id !== c.id) continue;

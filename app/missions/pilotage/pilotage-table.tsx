@@ -278,10 +278,12 @@ export default function PilotageTable({
     // Optimistic
     setLocalRows((prev) => prev.map((r) => (r.id === clientId ? { ...r, cadence: value } : r)));
     startTransition(async () => {
+      // Cadence par annee (cf. migration 0063) - on passe l'annee active.
       const res = await setPilotageCadence(
         clientId,
+        year,
         type === "TDB" ? "tdb" : "rdv",
-        value as Parameters<typeof setPilotageCadence>[2]
+        value as Parameters<typeof setPilotageCadence>[3]
       );
       if (!res.ok) {
         toastError(new Error(res.error ?? "Erreur"), "Échec changement cadence");

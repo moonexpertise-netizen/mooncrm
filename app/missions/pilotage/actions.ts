@@ -76,15 +76,28 @@ export async function togglePilotageSubscription(
       return { ok: true };
     }
 
-    // Lire la cadence du client pour generer les bonnes periodes
-    const { data: c } = await sb
-      .from("clients")
+    // Lire la cadence pour CETTE annee (client_year_config). Fallback sur
+    // clients.tdb_livraison_periode si pas de config pour cette annee
+    // (back-compat avec l'ancien stockage globaux).
+    const { data: yc } = await sb
+      .from("client_year_config")
       .select("tdb_livraison_periode, rdv_expert_periode")
-      .eq("id", clientId)
-      .single();
-    const cadence = type === "TDB"
-      ? (c as { tdb_livraison_periode: string | null } | null)?.tdb_livraison_periode ?? null
-      : (c as { rdv_expert_periode: string | null } | null)?.rdv_expert_periode ?? null;
+      .eq("client_id", clientId)
+      .eq("annee", annee)
+      .maybeSingle();
+    let cadence: string | null = type === "TDB"
+      ? (yc as { tdb_livraison_periode?: string | null } | null)?.tdb_livraison_periode ?? null
+      : (yc as { rdv_expert_periode?: string | null } | null)?.rdv_expert_periode ?? null;
+    if (!cadence) {
+      const { data: c } = await sb
+        .from("clients")
+        .select("tdb_livraison_periode, rdv_expert_periode")
+        .eq("id", clientId)
+        .single();
+      cadence = type === "TDB"
+        ? (c as { tdb_livraison_periode?: string | null } | null)?.tdb_livraison_periode ?? null
+        : (c as { rdv_expert_periode?: string | null } | null)?.rdv_expert_periode ?? null;
+    }
     const isTri = isTrimestrielFromValue(cadence);
 
     // Lire les rows existantes pour ne pas re-creer (idempotent)
@@ -172,14 +185,18 @@ export async function setPilotageStatut(
 }
 
 /**
- * Change la cadence (TDB livraison ou RDV) d'un client. Met aussi a jour les
- * rows pilotage_obligations existantes :
+ * Change la cadence (TDB livraison ou RDV) pour UNE annee d'un client.
+ * Stocke dans client_year_config (la cadence peut differer d'une annee a
+ * l'autre, comme le regime fiscal IR/IS).
+ *
+ * Met aussi a jour les rows pilotage_obligations de cette annee :
  *   - Supprime les rows hors cadence ET encore vierges (A_FAIRE)
  *   - Cree les rows manquantes pour la nouvelle cadence
  *   - Preserve les rows deja travaillees (EN_COURS / TERMINE)
  */
 export async function setPilotageCadence(
   clientId: string,
+  annee: number,
   aspect: "tdb" | "rdv",
   value: TdbCadence | RdvCadence | null
 ): Promise<{ ok: boolean; error?: string }> {
@@ -188,54 +205,46 @@ export async function setPilotageCadence(
     const col = aspect === "tdb" ? "tdb_livraison_periode" : "rdv_expert_periode";
     const type: PilotageType = aspect === "tdb" ? "TDB" : "RDV";
 
+    // Upsert dans client_year_config pour cette (client, annee)
     const { error: errUpd } = await sb
-      .from("clients")
-      .update({ [col]: value })
-      .eq("id", clientId);
+      .from("client_year_config")
+      .upsert(
+        { client_id: clientId, annee, [col]: value },
+        { onConflict: "client_id,annee" }
+      );
     if (errUpd) throw new Error(errUpd.message);
 
     const isTri = isTrimestrielFromValue(value);
+    const targetPeriodes = new Set(periodesForYear(annee, isTri));
 
-    // Annees ou cet aspect est souscrit
-    const { data: yearsRows } = await sb
+    // 1. Supprimer les rows hors cadence ET encore A_FAIRE (preserve le travail)
+    const { data: existing } = await sb
       .from("pilotage_obligations")
-      .select("annee")
+      .select("id, periode, statut_logique")
       .eq("client_id", clientId)
+      .eq("annee", annee)
       .eq("type", type);
-    const years = [...new Set((yearsRows ?? []).map((r) => r.annee))];
+    const obsoleteIds = (existing ?? [])
+      .filter((r) => !targetPeriodes.has(r.periode) && r.statut_logique === "A_FAIRE")
+      .map((r) => r.id);
+    if (obsoleteIds.length > 0) {
+      await sb.from("pilotage_obligations").delete().in("id", obsoleteIds);
+    }
 
-    for (const y of years) {
-      const targetPeriodes = new Set(periodesForYear(y, isTri));
-
-      // 1. Supprimer les rows hors cadence ET encore A_FAIRE
-      const { data: existing } = await sb
-        .from("pilotage_obligations")
-        .select("id, periode, statut_logique")
-        .eq("client_id", clientId)
-        .eq("annee", y)
-        .eq("type", type);
-      const obsoleteIds = (existing ?? [])
-        .filter((r) => !targetPeriodes.has(r.periode) && r.statut_logique === "A_FAIRE")
-        .map((r) => r.id);
-      if (obsoleteIds.length > 0) {
-        await sb.from("pilotage_obligations").delete().in("id", obsoleteIds);
-      }
-
-      // 2. Creer les rows manquantes
-      const existingPeriodes = new Set((existing ?? []).map((r) => r.periode));
-      const toInsert = [...targetPeriodes]
-        .filter((p) => !existingPeriodes.has(p))
-        .map((p) => ({
-          client_id: clientId,
-          annee: y,
-          type,
-          periode: p,
-          statut_logique: "A_FAIRE",
-          statut_detail: type === "TDB" ? "À préparer" : "RDV à planifier",
-        }));
-      if (toInsert.length > 0) {
-        await sb.from("pilotage_obligations").insert(toInsert);
-      }
+    // 2. Creer les rows manquantes pour la nouvelle cadence
+    const existingPeriodes = new Set((existing ?? []).map((r) => r.periode));
+    const toInsert = [...targetPeriodes]
+      .filter((p) => !existingPeriodes.has(p))
+      .map((p) => ({
+        client_id: clientId,
+        annee,
+        type,
+        periode: p,
+        statut_logique: "A_FAIRE",
+        statut_detail: type === "TDB" ? "À préparer" : "RDV à planifier",
+      }));
+    if (toInsert.length > 0) {
+      await sb.from("pilotage_obligations").insert(toInsert);
     }
 
     revalidatePath("/missions/pilotage");
