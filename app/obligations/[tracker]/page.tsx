@@ -37,7 +37,7 @@ export default async function ObligationsPage({
   const [{ data: subs }, { data: opts }, tvaTagsRes] = await Promise.all([
     supabase
       .from("obligation_subscriptions")
-      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans, tva_tag_id, tva_echeance_jour)")
+      .select("client_id, type, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, type_honos_bilans, tva_tag_id, tva_echeance_jour, jour_cloture, mois_cloture)")
       .eq("annee", year)
       .eq("actif", true)
       .in("type", tracker.types),
@@ -71,6 +71,8 @@ export default async function ObligationsPage({
       type_honos_bilans: string | null;
       tva_tag_id: string | null;
       tva_echeance_jour: number | null;
+      jour_cloture: number | null;
+      mois_cloture: number | null;
     };
   };
 
@@ -159,6 +161,8 @@ export default async function ObligationsPage({
     type_honos_bilans: c.type_honos_bilans,
     tva_tag_id: c.tva_tag_id ?? null,
     tva_echeance_jour: c.tva_echeance_jour ?? null,
+    jour_cloture: c.jour_cloture ?? null,
+    mois_cloture: c.mois_cloture ?? null,
     cells: cols.map((col) => {
       const o = oblByKey.get(`${c.id}|${col.type}|${col.periode}`);
       return o

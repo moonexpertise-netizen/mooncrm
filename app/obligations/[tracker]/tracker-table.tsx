@@ -61,6 +61,10 @@ export type TrackerRow = {
   /** Jour du mois de l'echeance TVA (1..31). NULL = defaut 24.
    *  Sert au calcul du "mois actuel TVA" en vue 3m + pastille echeance proche. */
   tva_echeance_jour: number | null;
+  /** Jour de cloture du client (1..31). NULL = inconnu (defaut 31/12). */
+  jour_cloture: number | null;
+  /** Mois de cloture du client (1..12). NULL = inconnu (defaut 31/12). */
+  mois_cloture: number | null;
   cells: TrackerCell[];
 };
 
