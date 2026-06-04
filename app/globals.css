@@ -157,38 +157,87 @@
 
   /* ============ THEME NAVY MOON ============
    *
-   * Variation du dark mode : meme palette / contrastes / accents, mais le
-   * fond gris pur est remplace par le navy MOON #0D1122 (identite cabinet).
-   * Le toggle applique `.dark .navy` sur <html> -> beneficie de toutes les
-   * utilities Tailwind `dark:` ET d'un override des couleurs de fond.
+   * Reecriture COMPLETE du dark mode en bleu marine MOON. Meme hierarchie
+   * de luminosite que le dark Notion (background 10% -> card 12.5% ->
+   * muted 14.5% -> border 17% -> border-strong 24%), mais teinte navy
+   * (hue 226, saturation degressive en montant en lightness).
    *
-   * Reference fond : #0D1122 (HSL 226 45% 10%). Les surfaces sont des
-   * variations bleutees de plus en plus claires pour la hierarchie. Texte
-   * inchange par rapport au dark, contrastes verifies.
+   * Reference identite : #0D1122 (HSL 226 45% 10%) = navy MOON.
+   *
+   * Saturation degressive : on saute de 45% (fond) a 28% (borders les
+   * plus claires). Si on garde 45% partout, les surfaces claires
+   * deviennent trop bleues / lumineuses. Une saturation progressive
+   * donne un degrade naturel comme le dark Notion.
+   *
+   * Le toggle applique `.dark .navy` sur <html> -> les utilities Tailwind
+   * `dark:` continuent de s'appliquer, et `.navy` override les couleurs
+   * de fond. Resultat : meme experience que le dark mais en bleu MOON.
    */
   .navy {
-    --background: 226 45% 10%;          /* #0D1122  fond navy MOON */
-    --card: 226 40% 14%;                /* #161b2e  surface principale */
+    /* Surfaces principales ------------------------------------------- */
+    --background: 226 45% 10%;          /* #0D1122  fond app (navy MOON) */
+    --foreground: 0 0% 94.5%;           /* #F1F1F1  texte principal */
+    --card: 226 42% 13%;                /* #151a2e  surface principale */
     --card-foreground: 0 0% 94.5%;
-    --muted: 226 36% 17%;               /* #1c2238  surface elevee */
-    --border: 226 30% 22%;              /* #2b3149  bordure discrete */
-    --border-strong: 226 28% 30%;       /* #3b4361  bordure marquee */
+    --muted: 226 38% 16%;               /* #1a2038  surface elevee */
+    --muted-foreground: 226 15% 78%;    /* texte secondaire bleute clair */
+    --border: 226 32% 21%;              /* #232b46  bordure discrete */
+    --border-strong: 226 28% 29%;       /* #353e5a  bordure marquee */
 
-    /* Surfaces hierarchisees ----------------------------------------- */
-    --surface: 226 40% 14%;             /* card */
-    --surface-muted: 226 42% 12%;       /* zone interne, leger contraste */
-    --surface-elevated: 226 36% 17%;    /* modal / popover */
+    /* Surfaces hierarchisees (3 niveaux) ----------------------------- */
+    --surface: 226 42% 13%;             /* = card */
+    --surface-muted: 226 44% 11%;       /* zone interne, leger contraste sous le bg */
+    --surface-elevated: 226 38% 16%;    /* modal, popover, dropdown */
 
-    /* Sidebar : encore plus foncee pour rester distincte du fond app */
-    --sidebar: 226 50% 7%;              /* #0a0d1c */
-    --sidebar-foreground: 0 0% 81%;
-    --sidebar-border: 0 0% 100% / 0.08;
+    /* Sidebar : plus foncee que le bg, identite MOON renforcee ------- */
+    --sidebar: 226 50% 7%;              /* #0a0d1c  navy ultra-fonce */
+    --sidebar-foreground: 226 15% 80%;
+    --sidebar-border: 226 30% 100% / 0.06;
 
-    /* Primary CTA inchange (= dark) -------------------------------- */
+    /* Primary CTA inchange (= dark) ---------------------------------- */
     --primary: 0 0% 92%;
     --primary-foreground: 226 45% 10%;
-    --accent: 226 35% 18%;
+    --accent: 226 36% 17%;              /* hover doux */
     --accent-foreground: 0 0% 92%;
+
+    /* Gold MOON : on reste sur le meme que dark (eclaire) ------------ */
+    --gold: 38 55% 68%;
+    --gold-soft: 36 30% 22%;
+    --gold-dark: 38 60% 76%;
+
+    /* Semantique : les softs (fond) prennent une teinte navy en plus
+       de leur teinte semantique pour rester coherent avec le fond ---- */
+    --success: 152 55% 58%;
+    --success-soft: 152 25% 14%;
+    --warning: 38 85% 64%;
+    --warning-soft: 38 35% 14%;
+    --danger: 0 75% 67%;
+    --danger-soft: 0 38% 16%;
+    --info: 199 75% 64%;
+    --info-soft: 199 38% 14%;
+
+    /* Shadows : un peu plus marquees en navy car le fond est plus
+       sombre saturé, on a besoin d'aider la profondeur ---------------- */
+    --shadow-sm: 0 1px 0 0 rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.45), 0 1px 2px -1px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.60), 0 3px 6px -3px rgba(0, 0, 0, 0.40);
+    --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.75);
+  }
+
+  /* ---- Override gradients body / hero pour navy ------------------- */
+  /* Le body en .dark a un radial-gradient base sur 220 50% 30%. En navy
+     on le decale plus saturee navy et on augmente l'opacite pour qu'il
+     se voit sur le fond plus fonce. */
+  .navy body {
+    background-image:
+      radial-gradient(at 20% -10%, hsl(var(--gold) / 0.08) 0px, transparent 50%),
+      radial-gradient(at 95% 5%, hsl(226 60% 35% / 0.12) 0px, transparent 60%);
+  }
+  .navy .hero-surface {
+    background:
+      radial-gradient(at 95% 5%, hsl(var(--gold) / 0.14) 0px, transparent 50%),
+      linear-gradient(135deg, hsl(var(--surface)) 0%, hsl(226 38% 17%) 100%);
+    border-color: hsl(var(--border));
   }
 }
 
