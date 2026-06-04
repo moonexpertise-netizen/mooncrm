@@ -206,10 +206,36 @@ export async function getEcheancesPourMois(
       .lte("annee", anneeMax),
   ]);
 
-  // Index des obligations DB par (client_id|type|annee|periode) -> ligne
+  // Index des obligations DB par (client_id|type|periode).
+  //
+  // On exclut volontairement `annee` de la cle de matching : en pratique
+  // une obligation TVA mensuelle "2025-01" peut avoir annee=2025 en DB
+  // alors qu'une autre cellule attendue d'une sub annee=2025 referencerait
+  // theoriquement la meme periode mais avec une annee fiscale differente
+  // (ex. import legacy avec annee=2024). Sans cette tolerance, les
+  // obligations TERMINE deviennent invisibles -> tout ressort en placeholder
+  // "A faire" alors que la cellule est saisie en DB.
+  //
+  // En cas de doublon en DB pour la meme cle (rare mais arrive avec des
+  // imports), on garde celle dont le statut est le plus avance :
+  //   TERMINE > NON_APPLICABLE > EN_COURS > A_FAIRE
+  // Comme ca une cellule cochee "Termine" ne risque pas d'etre ecrasee
+  // par un doublon en A_FAIRE.
+  const STATUT_RANK: Record<StatutLogique, number> = {
+    TERMINE: 4,
+    NON_APPLICABLE: 3,
+    EN_COURS: 2,
+    A_FAIRE: 1,
+  };
   const oblByKey = new Map<string, OblRow>();
   for (const o of (obls ?? []) as OblRow[]) {
-    oblByKey.set(`${o.client_id}|${o.type}|${o.annee}|${o.periode}`, o);
+    const key = `${o.client_id}|${o.type}|${o.periode}`;
+    const existing = oblByKey.get(key);
+    if (!existing) {
+      oblByKey.set(key, o);
+    } else if ((STATUT_RANK[o.statut_logique] ?? 0) > (STATUT_RANK[existing.statut_logique] ?? 0)) {
+      oblByKey.set(key, o);
+    }
   }
 
   // On itere sur les subscriptions. Pour chaque (sub, periode attendue par
@@ -243,16 +269,20 @@ export async function getEcheancesPourMois(
       .filter((c) => c.type === s.type && c.kind !== "facturation");
 
     for (const col of cols) {
-      const cellKey = `${s.client_id}|${s.type}|${s.annee}|${col.periode}`;
-      if (seen.has(cellKey)) continue;
-      seen.add(cellKey);
+      // Cle de deduplication des cellules vues (inclut annee = annee fiscale
+      // de la sub, pour ne pas confondre 2 cellules de meme periode mais
+      // d'exercices differents, ex. AGO 2024 et AGO 2025).
+      const seenKey = `${s.client_id}|${s.type}|${s.annee}|${col.periode}`;
+      if (seen.has(seenKey)) continue;
+      seen.add(seenKey);
 
       const ech = computeEcheance(s.type, col.periode, s.annee, cloture);
       if (!ech) continue;
       const dueIso = isoDay(ech.dueDate);
 
-      // Statut DB : si existe, sinon placeholder (= A_FAIRE par defaut)
-      const obl = oblByKey.get(cellKey);
+      // Lookup obligation DB : cle SANS annee (cf. commentaire ci-dessus).
+      const oblKey = `${s.client_id}|${s.type}|${col.periode}`;
+      const obl = oblByKey.get(oblKey);
       const statut: StatutLogique | null = obl ? obl.statut_logique : null;
       const isDone =
         statut === "TERMINE" || statut === "NON_APPLICABLE";
