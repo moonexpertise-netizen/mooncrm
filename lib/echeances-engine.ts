@@ -190,6 +190,14 @@ export async function getEcheancesPourMois(
 
   // 1) Subscriptions actives = cellules attendues
   // 2) Obligations en DB = statuts reels
+  //
+  // IMPORTANT : Supabase tronque silencieusement a 1000 lignes par defaut.
+  // Avec ~80 clients x ~12 TVA x ~3 ans, on depasse largement -> les
+  // obligations "hors top 1000" disparaissaient et mon engine les voyait
+  // comme placeholders ("A faire" affiche partout pour des cellules
+  // pourtant Terminees dans le tracker). On fixe une limite tres haute
+  // (50k) pour englober toute la prod.
+  const HARD_LIMIT = 50000;
   const [{ data: subs }, { data: obls }] = await Promise.all([
     sb
       .from("obligation_subscriptions")
@@ -198,12 +206,14 @@ export async function getEcheancesPourMois(
       )
       .gte("annee", anneeMin)
       .lte("annee", anneeMax)
-      .eq("actif", true),
+      .eq("actif", true)
+      .limit(HARD_LIMIT),
     sb
       .from("obligations")
       .select("id, client_id, type, periode, annee, statut_logique, statut_detail")
       .gte("annee", anneeMin)
-      .lte("annee", anneeMax),
+      .lte("annee", anneeMax)
+      .limit(HARD_LIMIT),
   ]);
 
   // Index des obligations DB par (client_id|type|periode).
