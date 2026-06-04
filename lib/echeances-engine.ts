@@ -191,30 +191,54 @@ export async function getEcheancesPourMois(
   // 1) Subscriptions actives = cellules attendues
   // 2) Obligations en DB = statuts reels
   //
-  // IMPORTANT : Supabase tronque silencieusement a 1000 lignes par defaut.
-  // Avec ~80 clients x ~12 TVA x ~3 ans, on depasse largement -> les
-  // obligations "hors top 1000" disparaissaient et mon engine les voyait
-  // comme placeholders ("A faire" affiche partout pour des cellules
-  // pourtant Terminees dans le tracker). On fixe une limite tres haute
-  // (50k) pour englober toute la prod.
-  const HARD_LIMIT = 50000;
-  const [{ data: subs }, { data: obls }] = await Promise.all([
-    sb
-      .from("obligation_subscriptions")
-      .select(
-        "client_id, type, annee, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, jour_cloture, mois_cloture)",
-      )
-      .gte("annee", anneeMin)
-      .lte("annee", anneeMax)
-      .eq("actif", true)
-      .limit(HARD_LIMIT),
-    sb
-      .from("obligations")
-      .select("id, client_id, type, periode, annee, statut_logique, statut_detail")
-      .gte("annee", anneeMin)
-      .lte("annee", anneeMax)
-      .limit(HARD_LIMIT),
-  ]);
+  // Pagination explicite : Supabase / PostgREST tronque silencieusement les
+  // SELECT a 1000 lignes par defaut (max-rows). Meme `.limit(50000)` ne suffit
+  // pas si le serveur enforce une borne stricte. On itere par chunks de 1000
+  // jusqu'a avoir tout. Avec ~80 clients x ~12 TVA x plusieurs annees on a
+  // facilement plusieurs milliers d'obligations en DB.
+  //
+  // Quand des obligations sont tronquees, le matching oblByKey echoue ->
+  // l'engine tombe sur le placeholder et affiche "A faire" pour des cellules
+  // pourtant Terminees dans le tracker. C'est exactement le bug visible sur
+  // Borio TVA janvier 2025.
+  async function fetchAllSubs(): Promise<SubRow[]> {
+    const PAGE = 1000;
+    const out: SubRow[] = [];
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await sb
+        .from("obligation_subscriptions")
+        .select(
+          "client_id, type, annee, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, jour_cloture, mois_cloture)",
+        )
+        .gte("annee", anneeMin)
+        .lte("annee", anneeMax)
+        .eq("actif", true)
+        .range(offset, offset + PAGE - 1);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as SubRow[];
+      out.push(...rows);
+      if (rows.length < PAGE) break;
+    }
+    return out;
+  }
+  async function fetchAllObligations(): Promise<OblRow[]> {
+    const PAGE = 1000;
+    const out: OblRow[] = [];
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await sb
+        .from("obligations")
+        .select("id, client_id, type, periode, annee, statut_logique, statut_detail")
+        .gte("annee", anneeMin)
+        .lte("annee", anneeMax)
+        .range(offset, offset + PAGE - 1);
+      if (error) throw error;
+      const rows = (data ?? []) as OblRow[];
+      out.push(...rows);
+      if (rows.length < PAGE) break;
+    }
+    return out;
+  }
+  const [subs, obls] = await Promise.all([fetchAllSubs(), fetchAllObligations()]);
 
   // Index des obligations DB par (client_id|type|periode).
   //
@@ -238,7 +262,7 @@ export async function getEcheancesPourMois(
     A_FAIRE: 1,
   };
   const oblByKey = new Map<string, OblRow>();
-  for (const o of (obls ?? []) as OblRow[]) {
+  for (const o of obls) {
     const key = `${o.client_id}|${o.type}|${o.periode}`;
     const existing = oblByKey.get(key);
     if (!existing) {
@@ -260,7 +284,7 @@ export async function getEcheancesPourMois(
     for (const ty of t.types) trackerByType.set(ty, t);
   }
 
-  for (const s of (subs ?? []) as unknown as SubRow[]) {
+  for (const s of subs) {
     if (!isClientBillable(s.clients)) continue;
 
     const tracker = trackerByType.get(s.type);
@@ -320,11 +344,13 @@ export async function getEcheancesPourMois(
           : null,
       };
 
-      // Classement
+      // Classement (on exclut systematiquement les Termine/NA : si c'est
+      // fait, ca n'a plus rien a faire dans une liste "a traiter").
+      if (isDone) continue;
       if (dueIso >= monthStartIso && dueIso <= monthEndIso) {
         // L'echeance tombe dans le mois cible
         duMois.push(item);
-      } else if (dueIso < monthStartIso && !isDone && dueIso < todayIso) {
+      } else if (dueIso < monthStartIso && dueIso < todayIso) {
         // Echeance passee non terminee et anterieure au mois cible
         enRetard.push(item);
       }
