@@ -36,21 +36,35 @@ export default async function ObligationsSommaire({
   const supabase = await createClient();
   const today = new Date().toISOString().substring(0, 10);
 
-  // On ne compte QUE les obligations qui existent reellement en DB. Pas de
-  // "virtuelles" deduites des subscriptions : ca produisait des chiffres
-  // faux (ex. 199 TVA mensuelles janvier 2025 toutes "464j en retard" pour
-  // des cellules jamais materialisees). Si une cellule n'est pas en DB,
-  // elle n'apparait pas dans les compteurs - on ne ment pas.
-  //
-  // Query stricte sur l'annee selectionnee : "Suivi 2025" ne montre QUE
-  // des obligations annee=2025. Pas de melange entre exercices.
-  const { data: rows } = await supabase
-    .from("obligations")
-    .select(
-      "client_id, type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
-    )
-    .eq("annee", selectedYear)
-    .eq("obligation_subscriptions.actif", true);
+  // On charge :
+  //   1) les obligations EN DB pour la stat brute (todo/wip/done/total)
+  //   2) les subscriptions actives pour deduire les cellules ATTENDUES
+  //      du tracker (= la grille). Le compteur "a traiter" est ensuite
+  //      calcule en parcourant les cellules attendues : pour chaque
+  //      (client x type x periode) dont l'echeance est ≤ 30j ou
+  //      depassee, on regarde si l'obligation DB est TERMINE/NA :
+  //        - oui    -> deja fait, ne compte pas
+  //        - non    -> a traiter
+  //        - absente -> a traiter (cellule placeholder dans le tracker)
+  //   Resultat : meme decompte que la grille du tracker, traçable,
+  //   et zombies legacy au mauvais format de periode sont ignores (le
+  //   tracker ne les voit pas non plus, ils ne polluent plus).
+  const [{ data: rows }, { data: subs }] = await Promise.all([
+    supabase
+      .from("obligations")
+      .select(
+        "client_id, type, periode, annee, statut_logique, echeance, updated_at, obligation_subscriptions!inner(actif), clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
+      )
+      .eq("annee", selectedYear)
+      .eq("obligation_subscriptions.actif", true),
+    supabase
+      .from("obligation_subscriptions")
+      .select(
+        "client_id, type, annee, clients!inner(pipeline_statut, origine, jour_cloture, mois_cloture)",
+      )
+      .eq("annee", selectedYear)
+      .eq("actif", true),
+  ]);
 
   type Row = {
     client_id: string;
@@ -66,6 +80,12 @@ export default async function ObligationsSommaire({
       jour_cloture: number | null;
       mois_cloture: number | null;
     };
+  };
+  type SubRow = {
+    client_id: string;
+    type: string;
+    annee: number;
+    clients: Row["clients"];
   };
 
   // Agrégation par slug de tracker
@@ -103,53 +123,27 @@ export default async function ObligationsSommaire({
     return d.toISOString().substring(0, 10);
   })();
 
-  function ingest(opts: {
-    slug: string;
-    periode: string;
-    isDone: boolean;
-    isWip: boolean;
-    dueDateStr: string | null;
-    updatedAt: string | null;
-  }) {
-    const agg = bySlug.get(opts.slug);
-    if (!agg) return;
-    agg.total++;
-    if (opts.isDone) agg.done++;
-    else if (opts.isWip) agg.wip++;
-    else agg.todo++;
-
-    if (!opts.isDone && opts.dueDateStr && opts.dueDateStr >= today) {
-      if (!agg.prochaineEcheance || opts.dueDateStr < agg.prochaineEcheance) {
-        agg.prochaineEcheance = opts.dueDateStr;
-      }
-    }
-    if (!opts.isDone && opts.dueDateStr && opts.dueDateStr < today) {
-      agg.enRetard++;
-      agg.aTraiter++;
-      agg.aTraiterPeriodes.add(opts.periode);
-    } else if (!opts.isDone && opts.dueDateStr && opts.dueDateStr <= thirtyDaysIso) {
-      // Echeance proche (≤ 30j) -> a traiter prioritaire
-      agg.aTraiter++;
-      agg.aTraiterPeriodes.add(opts.periode);
-    }
-    if (opts.updatedAt) {
-      if (!agg.derniereAction || opts.updatedAt > agg.derniereAction) {
-        agg.derniereAction = opts.updatedAt;
-      }
-    }
-  }
-
-  // Pass unique : obligations REELLEMENT en DB
+  // ============================================================================
+  //  Pass 1 : stats brutes sur les obligations qui existent en DB
+  //           (todo/wip/done/total/prochaineEcheance/derniereAction)
+  // ============================================================================
   for (const r of (rows ?? []) as unknown as Row[]) {
     const c = r.clients;
     if (!isClientBillable(c)) continue;
 
     const slug = slugForType(r.type);
     if (!slug) continue;
+    const agg = bySlug.get(slug);
+    if (!agg) continue;
 
     const isDone =
       r.statut_logique === "TERMINE" || r.statut_logique === "NON_APPLICABLE";
     const isWip = r.statut_logique === "EN_COURS";
+
+    agg.total++;
+    if (isDone) agg.done++;
+    else if (isWip) agg.wip++;
+    else agg.todo++;
 
     const cloture = (r.clients.jour_cloture && r.clients.mois_cloture)
       ? { jour: r.clients.jour_cloture, mois: r.clients.mois_cloture }
@@ -157,7 +151,85 @@ export default async function ObligationsSommaire({
     const ech = computeEcheance(r.type, r.periode, r.annee, cloture);
     const dueDateStr = ech ? ech.dueDate.toISOString().substring(0, 10) : null;
 
-    ingest({ slug, periode: r.periode, isDone, isWip, dueDateStr, updatedAt: r.updated_at });
+    if (!isDone && dueDateStr && dueDateStr >= today) {
+      if (!agg.prochaineEcheance || dueDateStr < agg.prochaineEcheance) {
+        agg.prochaineEcheance = dueDateStr;
+      }
+    }
+    if (r.updated_at) {
+      if (!agg.derniereAction || r.updated_at > agg.derniereAction) {
+        agg.derniereAction = r.updated_at;
+      }
+    }
+  }
+
+  // ============================================================================
+  //  Pass 2 : calcul de aTraiter / enRetard via subscriptions x periodes
+  //           attendues du tracker. Source de verite = la grille du tracker.
+  // ============================================================================
+  //
+  // Pour chaque (client x type) abonne :
+  //   1) On enumere les periodes attendues (= colonnes du tracker)
+  //   2) Pour chaque periode dont l'echeance est ≤ 30j ou depassee :
+  //        - Si une obligation DB existe ET est TERMINE/NA -> deja fait
+  //        - Sinon (placeholder OU A_FAIRE OU EN_COURS) -> a traiter
+  //
+  // Avantage : meme decompte que ce que tu vois dans le tracker (les
+  // placeholders comptent comme "a faire"), et les obligations zombies
+  // au mauvais format de periode ne polluent plus.
+  const obligationsByKey = new Map<string, Row>();
+  for (const r of (rows ?? []) as unknown as Row[]) {
+    obligationsByKey.set(`${r.client_id}|${r.type}|${r.periode}`, r);
+  }
+  function periodesAttenduesParTracker(type: string, annee: number, slug: string): string[] {
+    const tracker = TRACKERS.find((t) => t.slug === slug);
+    if (!tracker) return [];
+    // On filtre par type (un meme tracker peut avoir plusieurs types) et
+    // on ignore les colonnes "facturation" (rendu seulement, pas de cellule
+    // d'obligation distincte cote DB).
+    return tracker
+      .cols(annee)
+      .filter((col) => col.type === type && col.kind !== "facturation")
+      .map((col) => col.periode);
+  }
+  const seenATraiter = new Set<string>();
+  for (const s of (subs ?? []) as unknown as SubRow[]) {
+    const c = s.clients;
+    if (!isClientBillable(c)) continue;
+    const slug = slugForType(s.type);
+    if (!slug) continue;
+    const agg = bySlug.get(slug);
+    if (!agg) continue;
+
+    const cloture = (c.jour_cloture && c.mois_cloture)
+      ? { jour: c.jour_cloture, mois: c.mois_cloture }
+      : { jour: 31, mois: 12 };
+
+    const periodes = periodesAttenduesParTracker(s.type, s.annee, slug);
+    for (const periode of periodes) {
+      const cellKey = `${s.client_id}|${s.type}|${periode}`;
+      if (seenATraiter.has(cellKey)) continue;
+      seenATraiter.add(cellKey);
+
+      const ech = computeEcheance(s.type, periode, s.annee, cloture);
+      if (!ech) continue;
+      const dueIso = ech.dueDate.toISOString().substring(0, 10);
+      // On ne compte QUE les echeances proches (≤ 30j) ou deja depassees.
+      if (dueIso > thirtyDaysIso) continue;
+
+      // Cellule existe-t-elle en DB ?
+      const obl = obligationsByKey.get(cellKey);
+      if (obl) {
+        const isDone =
+          obl.statut_logique === "TERMINE" ||
+          obl.statut_logique === "NON_APPLICABLE";
+        if (isDone) continue; // deja fait
+      }
+      // Placeholder OU obligation A_FAIRE/EN_COURS -> a traiter
+      agg.aTraiter++;
+      agg.aTraiterPeriodes.add(periode);
+      if (dueIso < today) agg.enRetard++;
+    }
   }
 
   const stats: TrackerStat[] = TRACKERS.map((t) => {
