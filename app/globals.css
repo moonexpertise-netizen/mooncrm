@@ -174,30 +174,31 @@
    * de fond. Resultat : meme experience que le dark mais en bleu MOON.
    */
   .navy {
-    /* Surfaces principales ------------------------------------------- */
-    --background: 226 45% 10%;          /* #0D1122  fond app (navy MOON) */
+    /* Surfaces principales (saturation elevee pour que le bleu soit
+       visiblement bleu, pas gris bleute) ------------------------------ */
+    --background: 226 55% 10%;          /* #0b1124  fond app (plus sature) */
     --foreground: 0 0% 94.5%;           /* #F1F1F1  texte principal */
-    --card: 226 42% 13%;                /* #151a2e  surface principale */
+    --card: 226 50% 15%;                /* #182143  surface principale bleu net */
     --card-foreground: 0 0% 94.5%;
-    --muted: 226 38% 16%;               /* #1a2038  surface elevee */
-    --muted-foreground: 226 15% 78%;    /* texte secondaire bleute clair */
-    --border: 226 32% 21%;              /* #232b46  bordure discrete */
-    --border-strong: 226 28% 29%;       /* #353e5a  bordure marquee */
+    --muted: 226 47% 20%;               /* #232d5b  surface elevee bleu clair */
+    --muted-foreground: 226 22% 80%;    /* texte secondaire bleute clair */
+    --border: 226 42% 27%;              /* #2f3c70  bordure visiblement bleue */
+    --border-strong: 226 38% 36%;       /* #44528f  bordure marquee bleu vif */
 
     /* Surfaces hierarchisees (3 niveaux) ----------------------------- */
-    --surface: 226 42% 13%;             /* = card */
-    --surface-muted: 226 44% 11%;       /* zone interne, leger contraste sous le bg */
-    --surface-elevated: 226 38% 16%;    /* modal, popover, dropdown */
+    --surface: 226 50% 15%;             /* = card */
+    --surface-muted: 226 52% 12%;       /* zone interne, contraste sous le bg */
+    --surface-elevated: 226 47% 20%;    /* modal, popover, dropdown */
 
-    /* Sidebar : plus foncee que le bg, identite MOON renforcee ------- */
-    --sidebar: 226 50% 7%;              /* #0a0d1c  navy ultra-fonce */
-    --sidebar-foreground: 226 15% 80%;
-    --sidebar-border: 226 30% 100% / 0.06;
+    /* Sidebar : encore plus foncee, identite MOON renforcee ---------- */
+    --sidebar: 226 60% 8%;              /* #080d20  navy ultra-fonce */
+    --sidebar-foreground: 226 22% 82%;
+    --sidebar-border: 226 30% 100% / 0.07;
 
     /* Primary CTA inchange (= dark) ---------------------------------- */
     --primary: 0 0% 92%;
-    --primary-foreground: 226 45% 10%;
-    --accent: 226 36% 17%;              /* hover doux */
+    --primary-foreground: 226 55% 10%;
+    --accent: 226 47% 22%;              /* hover doux */
     --accent-foreground: 0 0% 92%;
 
     /* Gold MOON : on reste sur le meme que dark (eclaire) ------------ */
@@ -258,49 +259,49 @@
    * =========================================================== */
 
   /* --- Backgrounds (bg-white/[X]) --- */
-  .navy .dark\:bg-white\/\[0\.01\] { background-color: rgb(190 200 230 / 0.01) !important; }
-  .navy .dark\:bg-white\/\[0\.02\] { background-color: rgb(190 200 230 / 0.03) !important; }
-  .navy .dark\:bg-white\/\[0\.03\] { background-color: rgb(190 200 230 / 0.04) !important; }
-  .navy .dark\:bg-white\/\[0\.04\] { background-color: rgb(190 200 230 / 0.05) !important; }
-  .navy .dark\:bg-white\/\[0\.05\] { background-color: rgb(190 200 230 / 0.06) !important; }
-  .navy .dark\:bg-white\/\[0\.06\] { background-color: rgb(190 200 230 / 0.08) !important; }
-  .navy .dark\:bg-white\/\[0\.08\] { background-color: rgb(190 200 230 / 0.10) !important; }
-  .navy .dark\:bg-white\/\[0\.10\] { background-color: rgb(190 200 230 / 0.12) !important; }
-  .navy .dark\:bg-white\/\[0\.12\] { background-color: rgb(190 200 230 / 0.14) !important; }
-  .navy .dark\:bg-white\/\[0\.14\] { background-color: rgb(190 200 230 / 0.16) !important; }
-  .navy .dark\:bg-white\/\[0\.15\] { background-color: rgb(190 200 230 / 0.18) !important; }
-  .navy .dark\:bg-white\/\[0\.16\] { background-color: rgb(190 200 230 / 0.18) !important; }
-  .navy .dark\:bg-white\/\[0\.20\] { background-color: rgb(190 200 230 / 0.22) !important; }
-  .navy .dark\:bg-white\/\[0\.25\] { background-color: rgb(190 200 230 / 0.28) !important; }
+  .navy .dark\:bg-white\/\[0\.01\] { background-color: rgb(130 165 235 / 0.01) !important; }
+  .navy .dark\:bg-white\/\[0\.02\] { background-color: rgb(130 165 235 / 0.03) !important; }
+  .navy .dark\:bg-white\/\[0\.03\] { background-color: rgb(130 165 235 / 0.04) !important; }
+  .navy .dark\:bg-white\/\[0\.04\] { background-color: rgb(130 165 235 / 0.05) !important; }
+  .navy .dark\:bg-white\/\[0\.05\] { background-color: rgb(130 165 235 / 0.06) !important; }
+  .navy .dark\:bg-white\/\[0\.06\] { background-color: rgb(130 165 235 / 0.08) !important; }
+  .navy .dark\:bg-white\/\[0\.08\] { background-color: rgb(130 165 235 / 0.10) !important; }
+  .navy .dark\:bg-white\/\[0\.10\] { background-color: rgb(130 165 235 / 0.12) !important; }
+  .navy .dark\:bg-white\/\[0\.12\] { background-color: rgb(130 165 235 / 0.14) !important; }
+  .navy .dark\:bg-white\/\[0\.14\] { background-color: rgb(130 165 235 / 0.16) !important; }
+  .navy .dark\:bg-white\/\[0\.15\] { background-color: rgb(130 165 235 / 0.18) !important; }
+  .navy .dark\:bg-white\/\[0\.16\] { background-color: rgb(130 165 235 / 0.18) !important; }
+  .navy .dark\:bg-white\/\[0\.20\] { background-color: rgb(130 165 235 / 0.22) !important; }
+  .navy .dark\:bg-white\/\[0\.25\] { background-color: rgb(130 165 235 / 0.28) !important; }
 
   /* --- Hover backgrounds (hover:bg-white/[X]) --- */
-  .navy .dark\:hover\:bg-white\/\[0\.02\]:hover { background-color: rgb(190 200 230 / 0.04) !important; }
-  .navy .dark\:hover\:bg-white\/\[0\.03\]:hover { background-color: rgb(190 200 230 / 0.05) !important; }
-  .navy .dark\:hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(190 200 230 / 0.06) !important; }
-  .navy .dark\:hover\:bg-white\/\[0\.05\]:hover { background-color: rgb(190 200 230 / 0.07) !important; }
-  .navy .dark\:hover\:bg-white\/\[0\.06\]:hover { background-color: rgb(190 200 230 / 0.09) !important; }
-  .navy .dark\:hover\:bg-white\/\[0\.08\]:hover { background-color: rgb(190 200 230 / 0.11) !important; }
-  .navy .dark\:hover\:bg-white\/\[0\.10\]:hover { background-color: rgb(190 200 230 / 0.13) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.02\]:hover { background-color: rgb(130 165 235 / 0.04) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.03\]:hover { background-color: rgb(130 165 235 / 0.05) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(130 165 235 / 0.06) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.05\]:hover { background-color: rgb(130 165 235 / 0.07) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.06\]:hover { background-color: rgb(130 165 235 / 0.09) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.08\]:hover { background-color: rgb(130 165 235 / 0.11) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.10\]:hover { background-color: rgb(130 165 235 / 0.13) !important; }
 
   /* --- Borders (border-white/[X]) --- */
-  .navy .dark\:border-white\/\[0\.04\] { border-color: rgb(190 200 230 / 0.08) !important; }
-  .navy .dark\:border-white\/\[0\.05\] { border-color: rgb(190 200 230 / 0.10) !important; }
-  .navy .dark\:border-white\/\[0\.06\] { border-color: rgb(190 200 230 / 0.12) !important; }
-  .navy .dark\:border-white\/\[0\.08\] { border-color: rgb(190 200 230 / 0.14) !important; }
-  .navy .dark\:border-white\/\[0\.10\] { border-color: rgb(190 200 230 / 0.16) !important; }
-  .navy .dark\:border-white\/\[0\.12\] { border-color: rgb(190 200 230 / 0.18) !important; }
-  .navy .dark\:border-white\/\[0\.15\] { border-color: rgb(190 200 230 / 0.20) !important; }
-  .navy .dark\:border-white\/\[0\.16\] { border-color: rgb(190 200 230 / 0.20) !important; }
-  .navy .dark\:border-white\/\[0\.20\] { border-color: rgb(190 200 230 / 0.25) !important; }
-  .navy .dark\:hover\:border-white\/\[0\.12\]:hover { border-color: rgb(190 200 230 / 0.18) !important; }
-  .navy .dark\:hover\:border-white\/\[0\.16\]:hover { border-color: rgb(190 200 230 / 0.22) !important; }
+  .navy .dark\:border-white\/\[0\.04\] { border-color: rgb(130 165 235 / 0.08) !important; }
+  .navy .dark\:border-white\/\[0\.05\] { border-color: rgb(130 165 235 / 0.10) !important; }
+  .navy .dark\:border-white\/\[0\.06\] { border-color: rgb(130 165 235 / 0.12) !important; }
+  .navy .dark\:border-white\/\[0\.08\] { border-color: rgb(130 165 235 / 0.14) !important; }
+  .navy .dark\:border-white\/\[0\.10\] { border-color: rgb(130 165 235 / 0.16) !important; }
+  .navy .dark\:border-white\/\[0\.12\] { border-color: rgb(130 165 235 / 0.18) !important; }
+  .navy .dark\:border-white\/\[0\.15\] { border-color: rgb(130 165 235 / 0.20) !important; }
+  .navy .dark\:border-white\/\[0\.16\] { border-color: rgb(130 165 235 / 0.20) !important; }
+  .navy .dark\:border-white\/\[0\.20\] { border-color: rgb(130 165 235 / 0.25) !important; }
+  .navy .dark\:hover\:border-white\/\[0\.12\]:hover { border-color: rgb(130 165 235 / 0.18) !important; }
+  .navy .dark\:hover\:border-white\/\[0\.16\]:hover { border-color: rgb(130 165 235 / 0.22) !important; }
 
   /* --- Divides (divide-white/[X]) --- */
   .navy .dark\:divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) {
-    border-color: rgb(190 200 230 / 0.10) !important;
+    border-color: rgb(130 165 235 / 0.10) !important;
   }
   .navy .dark\:divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]) {
-    border-color: rgb(190 200 230 / 0.12) !important;
+    border-color: rgb(130 165 235 / 0.12) !important;
   }
 }
 
