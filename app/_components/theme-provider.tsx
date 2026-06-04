@@ -20,13 +20,14 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
  * Pour toggler depuis l'UI : import { useTheme } from "./theme-provider".
  */
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "navy" | "system";
+type ResolvedTheme = "light" | "dark" | "navy";
 
 const STORAGE_KEY = "mooncrm-theme";
 
 type ThemeContextValue = {
   theme: Theme;
-  resolvedTheme: "light" | "dark";
+  resolvedTheme: ResolvedTheme;
   setTheme: (t: Theme) => void;
 };
 
@@ -45,24 +46,33 @@ function getSystemPreference(): "light" | "dark" {
  * Resoud le theme effectif (jamais "system" en sortie) selon le choix utilisateur
  * et la preference systeme.
  */
-function resolveTheme(theme: Theme): "light" | "dark" {
+function resolveTheme(theme: Theme): ResolvedTheme {
   return theme === "system" ? getSystemPreference() : theme;
 }
 
 /**
- * Applique le theme sur <html> : ajoute/retire la classe `dark`.
+ * Applique le theme sur <html> :
+ *   - light : aucune classe
+ *   - dark  : classe `.dark`
+ *   - navy  : classes `.dark .navy` (= dark + override fond bleu marine)
  * Idempotent.
  */
-function applyTheme(resolved: "light" | "dark") {
+function applyTheme(resolved: ResolvedTheme) {
   const root = document.documentElement;
-  if (resolved === "dark") root.classList.add("dark");
-  else root.classList.remove("dark");
+  root.classList.remove("dark", "navy");
+  if (resolved === "dark") {
+    root.classList.add("dark");
+  } else if (resolved === "navy") {
+    // Navy = dark + override des couleurs de fond. On garde .dark pour que
+    // toutes les utilities Tailwind `dark:` continuent de s'appliquer.
+    root.classList.add("dark", "navy");
+  }
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // On part de "system" par defaut. Le vrai etat est lu en useEffect (cote client).
   const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
   // Au mount : lit localStorage + resout + applique.
   useEffect(() => {
@@ -79,7 +89,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (theme !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
-      const resolved: "light" | "dark" = mq.matches ? "dark" : "light";
+      const resolved: ResolvedTheme = mq.matches ? "dark" : "light";
       setResolvedTheme(resolved);
       applyTheme(resolved);
     };
@@ -131,7 +141,12 @@ export const THEME_INIT_SCRIPT = `
     var resolved = stored === 'system'
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       : stored;
-    if (resolved === 'dark') document.documentElement.classList.add('dark');
+    if (resolved === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (resolved === 'navy') {
+      // Navy = dark + override fond bleu marine
+      document.documentElement.classList.add('dark', 'navy');
+    }
   } catch (e) {}
 })();
 `;

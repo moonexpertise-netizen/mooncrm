@@ -154,6 +154,42 @@
     --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.55), 0 3px 6px -3px rgba(0, 0, 0, 0.35);
     --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.70);
   }
+
+  /* ============ THEME NAVY MOON ============
+   *
+   * Variation du dark mode : meme palette / contrastes / accents, mais le
+   * fond gris pur est remplace par le navy MOON #0D1122 (identite cabinet).
+   * Le toggle applique `.dark .navy` sur <html> -> beneficie de toutes les
+   * utilities Tailwind `dark:` ET d'un override des couleurs de fond.
+   *
+   * Reference fond : #0D1122 (HSL 226 45% 10%). Les surfaces sont des
+   * variations bleutees de plus en plus claires pour la hierarchie. Texte
+   * inchange par rapport au dark, contrastes verifies.
+   */
+  .navy {
+    --background: 226 45% 10%;          /* #0D1122  fond navy MOON */
+    --card: 226 40% 14%;                /* #161b2e  surface principale */
+    --card-foreground: 0 0% 94.5%;
+    --muted: 226 36% 17%;               /* #1c2238  surface elevee */
+    --border: 226 30% 22%;              /* #2b3149  bordure discrete */
+    --border-strong: 226 28% 30%;       /* #3b4361  bordure marquee */
+
+    /* Surfaces hierarchisees ----------------------------------------- */
+    --surface: 226 40% 14%;             /* card */
+    --surface-muted: 226 42% 12%;       /* zone interne, leger contraste */
+    --surface-elevated: 226 36% 17%;    /* modal / popover */
+
+    /* Sidebar : encore plus foncee pour rester distincte du fond app */
+    --sidebar: 226 50% 7%;              /* #0a0d1c */
+    --sidebar-foreground: 0 0% 81%;
+    --sidebar-border: 0 0% 100% / 0.08;
+
+    /* Primary CTA inchange (= dark) -------------------------------- */
+    --primary: 0 0% 92%;
+    --primary-foreground: 226 45% 10%;
+    --accent: 226 35% 18%;
+    --accent-foreground: 0 0% 92%;
+  }
 }
 
 * { border-color: hsl(var(--border)); }
