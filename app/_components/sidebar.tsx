@@ -110,7 +110,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/obligations",
-    label: "Production",
+    label: "Échéances",
     icon: ClipboardList,
     matchPrefix: "/obligations",
     children: buildProductionChildren(),

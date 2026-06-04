@@ -61,7 +61,7 @@ const STATIC_ROUTES: Item[] = [
   { id: "r-/onboarding/matrice", kind: "route", label: "Matrice onboarding", hint: "Vue transverse", href: "/onboarding/matrice" },
   { id: "r-/onboarding/parametrage", kind: "route", label: "Parcours d'onboarding", hint: "Paramétrage des étapes", href: "/onboarding/parametrage" },
   { id: "r-/missions/exceptionnelles", kind: "route", label: "Missions exceptionnelles", hint: "Transferts de siège, évaluations, attestations…", href: "/missions/exceptionnelles" },
-  { id: "r-/obligations", kind: "route", label: "Production", hint: "Trackers obligations", href: "/obligations" },
+  { id: "r-/obligations", kind: "route", label: "Échéances", hint: "Pilotage mensuel des échéances", href: "/obligations" },
   { id: "r-/missions/creations", kind: "route", label: "Créations", hint: "Suivi des créations de sociétés", href: "/missions/creations" },
   { id: "r-/missions/ir", kind: "route", label: "IR + IFI", hint: "Déclarations IR / IFI", href: "/missions/ir" },
   { id: "r-/missions/caa", kind: "route", label: "CAA", hint: "Commissariat aux apports", href: "/missions/caa" },
