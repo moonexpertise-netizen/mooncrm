@@ -140,6 +140,22 @@ function Section({
   items: SerializedEcheanceItem[];
   emptyState?: string | null;
 }) {
+  // Decoupage par tracker pour lisibilite. On preserve l'ordre d'arrivee
+  // des items (deja triees par dueDate) -> les groupes apparaissent dans
+  // l'ordre du 1er item de chaque tracker.
+  const groups = useMemo(() => {
+    const byTracker = new Map<string, { title: string; items: SerializedEcheanceItem[] }>();
+    for (const it of items) {
+      const existing = byTracker.get(it.trackerSlug);
+      if (existing) {
+        existing.items.push(it);
+      } else {
+        byTracker.set(it.trackerSlug, { title: it.trackerTitle, items: [it] });
+      }
+    }
+    return Array.from(byTracker.entries()).map(([slug, g]) => ({ slug, ...g }));
+  }, [items]);
+
   return (
     <section className="rounded-2xl border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-hidden">
       <header className={cn(
@@ -161,11 +177,29 @@ function Section({
           {emptyState}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-100 dark:divide-white/[0.05]">
-          {items.map((it) => (
-            <EcheanceRow key={`${it.clientId}|${it.type}|${it.annee}|${it.periode}`} item={it} />
+        <div className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
+          {groups.map((g) => (
+            <div key={g.slug}>
+              {/* Sous-header par tracker : nom + compteur */}
+              <div className="flex items-baseline justify-between gap-3 px-4 py-2 bg-zinc-50/60 dark:bg-white/[0.02] border-b border-zinc-100 dark:border-white/[0.04]">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
+                  {g.title}
+                </h3>
+                <span className="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                  {g.items.length} {g.items.length > 1 ? "obligations" : "obligation"}
+                </span>
+              </div>
+              <ul className="divide-y divide-zinc-100 dark:divide-white/[0.05]">
+                {g.items.map((it) => (
+                  <EcheanceRow
+                    key={`${it.clientId}|${it.type}|${it.annee}|${it.periode}`}
+                    item={it}
+                  />
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );
