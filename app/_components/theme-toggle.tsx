@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Sun, Moon, Monitor, Sparkles } from "lucide-react";
+import { Sun, Moon, Monitor, Sparkles, Contrast } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme, type Theme } from "./theme-provider";
 
@@ -58,15 +58,11 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
     };
   }, [open]);
 
-  // Icone affichee sur le declencheur : reflete le theme RESOLU
-  // (light/dark/navy), pas la preference (qui peut etre "system").
-  const Icon = !mounted
-    ? Sun
-    : resolvedTheme === "navy"
-    ? Sparkles
-    : resolvedTheme === "dark"
-    ? Moon
-    : Sun;
+  // Icone declencheur universelle : "Contrast" = cercle moitie plein,
+  // signal neutre "tu peux changer de theme". Les icones specifiques
+  // (Sun / Moon / Sparkles / Monitor) restent dans le menu deroulant
+  // pour differencier les options.
+  const Icon = Contrast;
 
   const options: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
     { value: "light", label: "Clair", icon: Sun },
