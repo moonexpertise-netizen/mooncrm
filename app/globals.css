@@ -239,6 +239,69 @@
       linear-gradient(135deg, hsl(var(--surface)) 0%, hsl(226 38% 17%) 100%);
     border-color: hsl(var(--border));
   }
+
+  /* ============ Overrides Tailwind opacities "white" pour .navy ===========
+   *
+   * Le code utilise massivement `dark:bg-white/[0.04]`, `dark:border-white/
+   * [0.06]`, etc. Ces classes compilent en `rgb(255 255 255 / opacity)` =
+   * blanc pur transparent. Sur fond navy bleute, le melange donne un
+   * overlay GRIS au lieu de bleu -> incoherence visuelle, le user voit
+   * "des cartes grises sur fond bleu".
+   *
+   * Fix : on remplace le BLANC par un BLEU PALE (~ #BEC8E6 = 190/200/230)
+   * a la meme opacite. La transparence se compose alors avec le fond navy
+   * pour donner un bleu legerement plus clair (= effet ascenseur en bleu,
+   * comme le dark Notion mais en bleu).
+   *
+   * !important utilise car ces classes sont generees par Tailwind avec
+   * specificite normale et on a besoin de les overrider depuis .navy.
+   * =========================================================== */
+
+  /* --- Backgrounds (bg-white/[X]) --- */
+  .navy .dark\:bg-white\/\[0\.01\] { background-color: rgb(190 200 230 / 0.01) !important; }
+  .navy .dark\:bg-white\/\[0\.02\] { background-color: rgb(190 200 230 / 0.03) !important; }
+  .navy .dark\:bg-white\/\[0\.03\] { background-color: rgb(190 200 230 / 0.04) !important; }
+  .navy .dark\:bg-white\/\[0\.04\] { background-color: rgb(190 200 230 / 0.05) !important; }
+  .navy .dark\:bg-white\/\[0\.05\] { background-color: rgb(190 200 230 / 0.06) !important; }
+  .navy .dark\:bg-white\/\[0\.06\] { background-color: rgb(190 200 230 / 0.08) !important; }
+  .navy .dark\:bg-white\/\[0\.08\] { background-color: rgb(190 200 230 / 0.10) !important; }
+  .navy .dark\:bg-white\/\[0\.10\] { background-color: rgb(190 200 230 / 0.12) !important; }
+  .navy .dark\:bg-white\/\[0\.12\] { background-color: rgb(190 200 230 / 0.14) !important; }
+  .navy .dark\:bg-white\/\[0\.14\] { background-color: rgb(190 200 230 / 0.16) !important; }
+  .navy .dark\:bg-white\/\[0\.15\] { background-color: rgb(190 200 230 / 0.18) !important; }
+  .navy .dark\:bg-white\/\[0\.16\] { background-color: rgb(190 200 230 / 0.18) !important; }
+  .navy .dark\:bg-white\/\[0\.20\] { background-color: rgb(190 200 230 / 0.22) !important; }
+  .navy .dark\:bg-white\/\[0\.25\] { background-color: rgb(190 200 230 / 0.28) !important; }
+
+  /* --- Hover backgrounds (hover:bg-white/[X]) --- */
+  .navy .dark\:hover\:bg-white\/\[0\.02\]:hover { background-color: rgb(190 200 230 / 0.04) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.03\]:hover { background-color: rgb(190 200 230 / 0.05) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(190 200 230 / 0.06) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.05\]:hover { background-color: rgb(190 200 230 / 0.07) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.06\]:hover { background-color: rgb(190 200 230 / 0.09) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.08\]:hover { background-color: rgb(190 200 230 / 0.11) !important; }
+  .navy .dark\:hover\:bg-white\/\[0\.10\]:hover { background-color: rgb(190 200 230 / 0.13) !important; }
+
+  /* --- Borders (border-white/[X]) --- */
+  .navy .dark\:border-white\/\[0\.04\] { border-color: rgb(190 200 230 / 0.08) !important; }
+  .navy .dark\:border-white\/\[0\.05\] { border-color: rgb(190 200 230 / 0.10) !important; }
+  .navy .dark\:border-white\/\[0\.06\] { border-color: rgb(190 200 230 / 0.12) !important; }
+  .navy .dark\:border-white\/\[0\.08\] { border-color: rgb(190 200 230 / 0.14) !important; }
+  .navy .dark\:border-white\/\[0\.10\] { border-color: rgb(190 200 230 / 0.16) !important; }
+  .navy .dark\:border-white\/\[0\.12\] { border-color: rgb(190 200 230 / 0.18) !important; }
+  .navy .dark\:border-white\/\[0\.15\] { border-color: rgb(190 200 230 / 0.20) !important; }
+  .navy .dark\:border-white\/\[0\.16\] { border-color: rgb(190 200 230 / 0.20) !important; }
+  .navy .dark\:border-white\/\[0\.20\] { border-color: rgb(190 200 230 / 0.25) !important; }
+  .navy .dark\:hover\:border-white\/\[0\.12\]:hover { border-color: rgb(190 200 230 / 0.18) !important; }
+  .navy .dark\:hover\:border-white\/\[0\.16\]:hover { border-color: rgb(190 200 230 / 0.22) !important; }
+
+  /* --- Divides (divide-white/[X]) --- */
+  .navy .dark\:divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgb(190 200 230 / 0.10) !important;
+  }
+  .navy .dark\:divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgb(190 200 230 / 0.12) !important;
+  }
 }
 
 * { border-color: hsl(var(--border)); }
