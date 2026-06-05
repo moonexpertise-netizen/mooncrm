@@ -32,8 +32,10 @@ export async function loadSidebarBadges(): Promise<{
     creationsRes,
     irRes,
     caaRes,
-    // Facturation : 5 sources cumulees (toutes filtrees etat_facturation = 'a_facturer')
-    factObligationsRes,
+    // Facturation : 6 sources cumulees (AGO et LIASSE separes pour les filtres
+    // metier specifiques cf. page /facturation)
+    factAgoRes,
+    factLiasseRes,
     factCaaRes,
     factIrRes,
     factMissionExcRes,
@@ -60,13 +62,23 @@ export async function loadSidebarBadges(): Promise<{
     // Sans la condition 1, on comptait des items en a_facturer dont le
     // statut metier n'est pas encore termine -> compteur > KPI page.
     // ============================================================
-    // 1) obligations (AGO_DEPOT + LIASSE_PLAQUETTE) terminees + a facturer
+    // 1a) AGO depot : TERMINE + a_facturer. Pas de filtre client supplementaire.
     sb
       .from("obligations")
       .select("id", { count: "exact", head: true })
-      .in("type", ["AGO_DEPOT", "LIASSE_PLAQUETTE"])
+      .eq("type", "AGO_DEPOT")
       .eq("statut_logique", "TERMINE")
       .eq("etat_facturation", "a_facturer"),
+    // 1b) LIASSE_PLAQUETTE : TERMINE + a_facturer + client avec type_honos_bilans
+    // = 'Facturés' (sinon le bilan est inclus dans le forfait EC, ne se facture
+    // pas separement -> ne doit pas apparaitre dans la page Facturation).
+    sb
+      .from("obligations")
+      .select("id, clients!inner(type_honos_bilans)", { count: "exact", head: true })
+      .eq("type", "LIASSE_PLAQUETTE")
+      .eq("statut_logique", "TERMINE")
+      .eq("etat_facturation", "a_facturer")
+      .eq("clients.type_honos_bilans", "Facturés"),
     // 2) CAA terminees + a facturer
     sb
       .from("caa_obligations")
@@ -108,7 +120,8 @@ export async function loadSidebarBadges(): Promise<{
   // Facturation : on log les erreurs mais on continue avec count=0 sur les
   // sources qui plantent (defensif si une table manque ou si RLS bloque)
   const factSources = [
-    { name: "obligations", res: factObligationsRes },
+    { name: "ago", res: factAgoRes },
+    { name: "liasse", res: factLiasseRes },
     { name: "caa", res: factCaaRes },
     { name: "ir", res: factIrRes },
     { name: "missions_exc", res: factMissionExcRes },
