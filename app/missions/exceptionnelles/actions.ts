@@ -66,7 +66,10 @@ export async function createMission(input: MissionExcInput) {
     taux_horaire: input.taux_horaire ?? null,
     forfait: input.forfait ?? null,
     etat_mission: input.etat_mission ?? "a_demarrer",
-    etat_facturation: input.etat_facturation ?? "a_facturer",
+    // null par defaut : la facturation se decide quand la mission passe en
+    // "livree" (auto-set a "a_facturer" via trigger / appli a ce moment-la).
+    // Une mission a peine creee n'est pas encore a facturer.
+    etat_facturation: input.etat_facturation ?? null,
     date_debut: input.date_debut || null,
     date_fin: input.date_fin || null,
   };
