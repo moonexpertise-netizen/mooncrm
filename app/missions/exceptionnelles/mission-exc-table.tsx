@@ -36,6 +36,7 @@ import {
   setEtatMission,
   setLdmStatutMission,
   setMissionTypeActif,
+  setMissionTypeTarif,
   updateMission,
   type EtatFacturation,
   type EtatMission,
@@ -77,6 +78,8 @@ export type MissionExcType = {
   label: string;
   ordre: number;
   actif: boolean;
+  /** Tarif par defaut (forfait HT). Pre-remplit le forfait a la creation. */
+  tarif: number;
 };
 
 export type MissionExcClientOption = {
@@ -1781,11 +1784,28 @@ function NewMissionForm({
   const [mission, setMission] = useState("");
   const [clientId, setClientId] = useState<string | null>(null);
   const [clientLibre, setClientLibre] = useState("");
-  const [typeId, setTypeId] = useState<string | null>(types[0]?.id ?? null);
-  const [forfait, setForfait] = useState("");
+  const initialType = types[0] ?? null;
+  const [typeId, setTypeId] = useState<string | null>(initialType?.id ?? null);
+  // Forfait pre-rempli avec le tarif du type courant. A chaque changement de
+  // type, on synchronise sur le tarif du nouveau type (sauf si l'utilisateur
+  // a explicitement modifie le forfait depuis le dernier changement de type).
+  const [forfait, setForfait] = useState(
+    initialType?.tarif ? String(initialType.tarif) : "",
+  );
+  // Tracker si l'utilisateur a touche au forfait manuellement -> on arrete
+  // d'auto-synchroniser pour ne pas ecraser sa saisie.
+  const [forfaitTouched, setForfaitTouched] = useState(false);
   const [dateDebut, setDateDebut] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function onChangeType(nextId: string | null) {
+    setTypeId(nextId);
+    if (!forfaitTouched) {
+      const t = nextId ? types.find((x) => x.id === nextId) : null;
+      setForfait(t?.tarif ? String(t.tarif) : "");
+    }
+  }
 
   function submit() {
     if (!mission.trim()) {
@@ -1830,13 +1850,14 @@ function NewMissionForm({
 
         <select
           value={typeId ?? ""}
-          onChange={(e) => setTypeId(e.target.value || null)}
+          onChange={(e) => onChangeType(e.target.value || null)}
           className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm"
         >
           <option value="">- Type -</option>
           {types.map((t) => (
             <option key={t.id} value={t.id}>
               {t.label}
+              {t.tarif > 0 ? ` · ${t.tarif} €` : ""}
             </option>
           ))}
         </select>
@@ -1869,10 +1890,14 @@ function NewMissionForm({
 
         <input
           value={forfait}
-          onChange={(e) => setForfait(e.target.value)}
+          onChange={(e) => {
+            setForfait(e.target.value);
+            setForfaitTouched(true);
+          }}
           type="number"
           step="50"
           placeholder="Forfait d'honoraires (€ HT)"
+          title="Pré-rempli avec le tarif du type, modifiable librement"
           className="px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm tabular-nums"
         />
         <input
@@ -1912,6 +1937,42 @@ function NewMissionForm({
 //  TypesManagerModal : CRUD inline des types
 // ============================================================================
 
+/** Input numerique pour le tarif d'un type. State local pour ne pas
+ *  declencher de re-render parent a chaque keystroke. Commit au blur
+ *  ou Entree. */
+function TarifInput({
+  initialValue,
+  onCommit,
+}: {
+  initialValue: number;
+  onCommit: (raw: string) => void;
+}) {
+  const [val, setVal] = useState(initialValue ? String(initialValue) : "");
+  // Sync si la valeur change de l'exterieur (ex. optimistic update revert)
+  useEffect(() => {
+    setVal(initialValue ? String(initialValue) : "");
+  }, [initialValue]);
+  return (
+    <div className="flex items-center gap-1 px-1.5 py-0 rounded border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] w-[100px]">
+      <input
+        type="number"
+        min={0}
+        step={50}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={() => onCommit(val)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        placeholder="0"
+        className="w-full px-1 py-1 text-xs tabular-nums bg-transparent focus:outline-none text-zinc-800 dark:text-zinc-200"
+        title="Tarif par défaut (forfait HT) pour ce type"
+      />
+      <span className="text-[9px] text-zinc-400 dark:text-zinc-500 shrink-0">€</span>
+    </div>
+  );
+}
+
 function TypesManagerModal({
   types,
   onTypesChange,
@@ -1922,19 +1983,28 @@ function TypesManagerModal({
   onClose: () => void;
 }) {
   const [newLabel, setNewLabel] = useState("");
+  const [newTarif, setNewTarif] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [, startTransition] = useTransition();
   const { confirm, ConfirmDialog } = useConfirm();
 
+  function parseTarif(raw: string): number {
+    const n = parseFloat(raw.replace(",", "."));
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
   function addType() {
     const lbl = newLabel.trim();
     if (!lbl) return;
+    const tarif = parseTarif(newTarif);
     setNewLabel("");
+    setNewTarif("");
     startTransition(async () => {
       try {
-        const created = await createMissionType(lbl);
-        onTypesChange([...types, created]);
+        const created = await createMissionType(lbl, tarif);
+        // Server ne retourne pas tarif si migration 0067 pas appliquee
+        onTypesChange([...types, { ...created, tarif: (created as { tarif?: number }).tarif ?? tarif } as MissionExcType]);
         toastSuccess("Type ajouté");
       } catch (e) {
         toastError(e, "Echec création type");
@@ -1957,6 +2027,19 @@ function TypesManagerModal({
         await renameMissionType(t.id, lbl);
       } catch (e) {
         toastError(e, "Echec renommage");
+      }
+    });
+  }
+
+  function commitTarif(t: MissionExcType, raw: string) {
+    const tarif = parseTarif(raw);
+    if (tarif === t.tarif) return;
+    onTypesChange(types.map((x) => (x.id === t.id ? { ...x, tarif } : x)));
+    startTransition(async () => {
+      try {
+        await setMissionTypeTarif(t.id, tarif);
+      } catch (e) {
+        toastError(e, "Echec mise à jour tarif");
       }
     });
   }
@@ -2021,8 +2104,8 @@ function TypesManagerModal({
         </div>
 
         <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
-          {/* Ajout */}
-          <div className="flex items-center gap-2">
+          {/* Ajout : libelle + tarif (forfait HT par defaut) */}
+          <div className="flex items-stretch gap-2">
             <input
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
@@ -2032,6 +2115,22 @@ function TypesManagerModal({
               placeholder="Nouveau type (ex. Restructuration)…"
               className="flex-1 px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm"
             />
+            <div className="flex items-center gap-1 px-2 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] w-[120px]">
+              <input
+                type="number"
+                min={0}
+                step={50}
+                value={newTarif}
+                onChange={(e) => setNewTarif(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addType();
+                }}
+                placeholder="0"
+                className="w-full px-1 py-1.5 text-sm tabular-nums bg-transparent focus:outline-none"
+                title="Tarif par défaut (forfait HT) pour ce type"
+              />
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">€ HT</span>
+            </div>
             <button
               type="button"
               onClick={addType}
@@ -2073,6 +2172,11 @@ function TypesManagerModal({
                     {t.label}
                   </button>
                 )}
+                {/* Tarif : edition inline directe (blur ou Entree -> sauvegarde) */}
+                <TarifInput
+                  initialValue={t.tarif}
+                  onCommit={(raw) => commitTarif(t, raw)}
+                />
                 <button
                   type="button"
                   onClick={() => toggleActif(t)}

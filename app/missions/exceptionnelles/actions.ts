@@ -225,8 +225,9 @@ export async function setLdmStatutMission(
 //  Types editables
 // ============================================================================
 
-export async function createMissionType(label: string) {
+export async function createMissionType(label: string, tarif: number = 0) {
   if (!label?.trim()) throw new Error("Libelle obligatoire");
+  if (tarif < 0) throw new Error("Tarif doit etre positif");
   const sb = await createClient();
   // Place le nouveau type en fin d'ordre (max + 10)
   const { data: maxRow } = await sb
@@ -236,13 +237,22 @@ export async function createMissionType(label: string) {
     .limit(1)
     .maybeSingle();
   const ordre = (maxRow?.ordre ?? 0) + 10;
-  const { data, error } = await sb
+  // Try with tarif (migration 0067). Si la colonne n'existe pas, fallback
+  // sans tarif pour ne pas bloquer en attendant la migration.
+  let res = await sb
     .from("mission_exc_types")
-    .insert({ label: label.trim(), ordre, actif: true })
-    .select("id, slug, label, ordre, actif")
+    .insert({ label: label.trim(), ordre, actif: true, tarif })
+    .select("id, slug, label, ordre, actif, tarif")
     .single();
-  if (error) throw new Error(error.message);
-  return data;
+  if (res.error && /tarif/i.test(res.error.message)) {
+    res = await sb
+      .from("mission_exc_types")
+      .insert({ label: label.trim(), ordre, actif: true })
+      .select("id, slug, label, ordre, actif")
+      .single();
+  }
+  if (res.error) throw new Error(res.error.message);
+  return res.data;
 }
 
 export async function renameMissionType(typeId: string, label: string) {
@@ -251,6 +261,17 @@ export async function renameMissionType(typeId: string, label: string) {
   const { error } = await sb
     .from("mission_exc_types")
     .update({ label: label.trim() })
+    .eq("id", typeId);
+  if (error) throw new Error(error.message);
+}
+
+/** Met a jour le tarif (forfait par defaut) d'un type de mission. */
+export async function setMissionTypeTarif(typeId: string, tarif: number) {
+  if (tarif < 0) throw new Error("Tarif doit etre positif");
+  const sb = await createClient();
+  const { error } = await sb
+    .from("mission_exc_types")
+    .update({ tarif })
     .eq("id", typeId);
   if (error) throw new Error(error.message);
 }

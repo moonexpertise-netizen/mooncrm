@@ -32,7 +32,7 @@ export default async function MissionsExcPage() {
     "id, slug, client_id, client_libre, mission, type_id, description, duree_theorique_h, duree_reelle_h, taux_horaire, forfait, etat_mission, etat_facturation, date_debut, date_fin, created_at, clients(slug, denomination)";
   const [
     missionsRes,
-    { data: types },
+    typesRes,
     { data: clients },
   ] = await Promise.all([
     sb
@@ -40,15 +40,26 @@ export default async function MissionsExcPage() {
       .select(missionsCols)
       .order("date_debut", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
+    // Query types defensive : si la colonne tarif (migration 0067) n'est pas
+    // encore appliquee, on retombe sur la query sans tarif et on injecte
+    // tarif=0 dans le mapping ci-dessous.
     sb
       .from("mission_exc_types")
-      .select("id, slug, label, ordre, actif")
+      .select("id, slug, label, ordre, actif, tarif")
       .order("ordre", { ascending: true }),
     sb
       .from("clients")
       .select("id, slug, denomination")
       .order("denomination", { ascending: true }),
   ]);
+  let types = typesRes.data;
+  if (typesRes.error && /tarif/i.test(typesRes.error.message)) {
+    const fb = await sb
+      .from("mission_exc_types")
+      .select("id, slug, label, ordre, actif")
+      .order("ordre", { ascending: true });
+    types = (fb.data ?? []).map((t) => ({ ...t, tarif: 0 }));
+  }
   let missions = missionsRes.data;
   if (missionsRes.error && /ldm_statut/i.test(missionsRes.error.message)) {
     const fb = await sb
@@ -106,12 +117,21 @@ export default async function MissionsExcPage() {
     };
   });
 
-  const typesList: MissionExcType[] = (types ?? []).map((t) => ({
+  type RawType = {
+    id: string;
+    slug: string;
+    label: string;
+    ordre: number;
+    actif: boolean;
+    tarif?: number | string | null;
+  };
+  const typesList: MissionExcType[] = ((types ?? []) as RawType[]).map((t) => ({
     id: t.id,
     slug: t.slug,
     label: t.label,
     ordre: t.ordre,
     actif: t.actif,
+    tarif: Number(t.tarif ?? 0),
   }));
 
   const clientOptions: MissionExcClientOption[] = (clients ?? []).map((c) => ({
