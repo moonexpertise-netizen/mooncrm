@@ -1427,15 +1427,15 @@ export default function TrackerTable({
 
       <div ref={tableRef} onKeyDown={onTableKeyDown} className="rounded-lg border overflow-auto bg-card">
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-zinc-50 text-zinc-700 text-xs">
+          <thead className="bg-zinc-50 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-200 text-xs">
             <tr>
-              <th className="sticky left-0 z-10 bg-zinc-50 text-left px-0 py-0 font-medium border-r min-w-[120px] md:min-w-[220px]">
+              <th className="sticky left-0 z-10 bg-zinc-50 dark:bg-[hsl(var(--card))] text-left px-0 py-0 font-medium border-r border-zinc-200 dark:border-white/[0.06] min-w-[120px] md:min-w-[220px]">
                 <button
                   onClick={selectAll}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[hsl(var(--gold))]/10 transition-colors group/all"
                   title="Tout sélectionner (Ctrl+A)"
                 >
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded border border-zinc-300 bg-white text-zinc-400 group-hover/all:border-[hsl(var(--gold))] group-hover/all:text-[hsl(var(--gold))] transition-colors">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-zinc-400 dark:text-zinc-500 group-hover/all:border-[hsl(var(--gold))] group-hover/all:text-[hsl(var(--gold))] transition-colors">
                     <svg viewBox="0 0 16 16" className="w-3 h-3" fill="currentColor" aria-hidden>
                       <rect x="1" y="1" width="6" height="6" rx="1" />
                       <rect x="9" y="1" width="6" height="6" rx="1" />
@@ -1449,7 +1449,7 @@ export default function TrackerTable({
               {/* Colonne dediee "Echeance" pour les trackers annuels a cloture.
                   Triable, affichee a droite du nom du dossier. */}
               {hasClotureBasedCols && (
-                <th className="bg-zinc-50 text-left px-3 py-2 font-medium border-r min-w-[150px] text-[11px] uppercase tracking-wider text-zinc-500">
+                <th className="bg-zinc-50 dark:bg-white/[0.03] text-left px-3 py-2 font-medium border-r border-zinc-200 dark:border-white/[0.06] min-w-[150px] text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   Échéance
                 </th>
               )}
@@ -1466,11 +1466,11 @@ export default function TrackerTable({
                   >
                     <button
                       onClick={(e) => selectColumn(colIndex, e)}
-                      className="w-full px-2 py-2 hover:bg-zinc-100 transition-colors"
+                      className="w-full px-2 py-2 hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition-colors"
                       title="Sélectionner toute la colonne"
                     >
                       <div>{col.label}</div>
-                      <div className="text-[10px] text-zinc-500 mt-0.5 font-normal">
+                      <div className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 font-normal">
                         {s.done}/{s.total} ({pct}%)
                       </div>
                     </button>

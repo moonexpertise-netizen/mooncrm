@@ -277,6 +277,61 @@ export function computeEcheance(
     };
   }
 
+  // ----- TVS (annuel suite migration 0005 : TVS_MENSUELLE / TVS_TRIMESTRIELLE
+  //       supprimees, TVS = annuel)
+  // Actif 1er janvier N+1, echeance 14 janvier N+1 (taxe annuelle)
+  if (type === "TVS") {
+    return {
+      activeFrom: firstOfMonth(annee + 1, 1),
+      dueDate: makeDate(annee + 1, 1, 14),
+    };
+  }
+
+  // ----- OSS (One-Stop-Shop TVA, declaration trimestrielle UE) -----
+  // Format periode "T1-YYYY" -> echeance 30 du mois suivant le trimestre
+  if (type === "OSS") {
+    if (!p.month) return null;
+    const nextMonth = p.month === 12 ? 1 : p.month + 1;
+    const nextYear = p.month === 12 ? p.year + 1 : p.year;
+    return {
+      activeFrom: firstOfMonth(nextYear, nextMonth),
+      dueDate: makeDate(nextYear, nextMonth, 30),
+    };
+  }
+
+  // ----- DES (Declaration d'Echanges de Services) -----
+  // Mensuelle, format "YYYY-MM", echeance 10 du mois suivant
+  if (type === "DES") {
+    if (!p.month) return null;
+    const nextMonth = p.month === 12 ? 1 : p.month + 1;
+    const nextYear = p.month === 12 ? p.year + 1 : p.year;
+    return {
+      activeFrom: firstOfMonth(nextYear, nextMonth),
+      dueDate: makeDate(nextYear, nextMonth, 10),
+    };
+  }
+
+  // ----- DECL_2561 (IFU / Dividendes) ----------------------------------
+  // Annuel, periode "YYYY", echeance 15 fevrier N+1
+  if (type === "DECL_2561") {
+    return {
+      activeFrom: firstOfMonth(annee + 1, 1),
+      dueDate: makeDate(annee + 1, 2, 15),
+    };
+  }
+
+  // ----- DECL_2777 (Flat-tax dividendes prelevee a la source) ----------
+  // Mensuel quand il y a distribution, format "YYYY-MM", echeance 15 du mois M+1
+  if (type === "DECL_2777") {
+    if (!p.month) return null;
+    const nextMonth = p.month === 12 ? 1 : p.month + 1;
+    const nextYear = p.month === 12 ? p.year + 1 : p.year;
+    return {
+      activeFrom: firstOfMonth(nextYear, nextMonth),
+      dueDate: makeDate(nextYear, nextMonth, 15),
+    };
+  }
+
   // (CFE retiree : type inutilise par MOON Expertise)
 
   // Pas de regle d'echeance pour ce type -> pas d'urgence calculee

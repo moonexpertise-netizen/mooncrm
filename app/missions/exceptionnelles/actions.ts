@@ -161,10 +161,22 @@ export async function duplicateMission(missionId: string) {
   }
   if (!source) throw new Error("Mission introuvable");
 
-  // Copie integrale de tous les champs metier. Pas de suffixe " (copie)" :
-  // le user veut une duplication a l'identique. Le slug est auto-genere par
-  // le trigger DB avec un suffixe '-2' si conflit.
-  const newRow: Record<string, unknown> = { ...source };
+  // Copie des champs metier. Le slug est auto-genere par le trigger DB
+  // avec un suffixe '-2' si conflit.
+  //
+  // On RESET 3 champs :
+  //   - etat_mission     -> "a_demarrer" (la copie est une nouvelle mission)
+  //   - etat_facturation -> null (sera auto-set a "a_facturer" au passage en
+  //                        "livree" via trigger). Sinon la copie d'une
+  //                        mission "facturee" reste cachee du tab a facturer.
+  //   - ldm_statut       -> "a_faire" (idem, repartir a zero)
+  // Le user peut ensuite ajuster sur la copie.
+  const newRow: Record<string, unknown> = {
+    ...source,
+    etat_mission: "a_demarrer",
+    etat_facturation: null,
+    ldm_statut: "a_faire",
+  };
 
   // Insert avec fallback si ldm_statut absent
   let res = await sb
