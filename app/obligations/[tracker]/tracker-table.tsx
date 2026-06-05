@@ -1318,7 +1318,7 @@ export default function TrackerTable({
           placeholder="Filtrer par client..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 transition"
+          className="w-full sm:w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 transition"
         />
         <div className="h-6 w-px bg-zinc-200 mx-1" />
         <div className="inline-flex gap-1 items-center">
@@ -1426,7 +1426,7 @@ export default function TrackerTable({
       </div>
 
       <div ref={tableRef} onKeyDown={onTableKeyDown} className="rounded-lg border overflow-auto bg-card">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full text-sm border-collapse min-w-[640px]">
           <thead className="bg-zinc-50 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-200 text-xs">
             <tr>
               <th className="sticky left-0 z-10 bg-zinc-50 dark:bg-[hsl(var(--card))] text-left px-0 py-0 font-medium border-r border-zinc-200 dark:border-white/[0.06] min-w-[120px] md:min-w-[220px]">

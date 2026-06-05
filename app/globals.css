@@ -944,3 +944,29 @@ button, a, select, input[type="checkbox"], input[type="radio"] {
   background: hsl(var(--gold) / 0.35);
   color: hsl(var(--foreground));
 }
+
+/* ============================================================================
+ *  Mobile : empêcher le zoom auto Safari iOS sur focus input
+ *  ============================================================================
+ *
+ *  iOS Safari zoome automatiquement quand un input est focused si sa
+ *  font-size est < 16px. C'est extrêmement gênant : le viewport saute,
+ *  l'utilisateur doit re-zoomer manuellement.
+ *
+ *  Fix : forcer font-size 16px sur tous les inputs/textarea en mobile
+ *  uniquement. Sur desktop on garde les `text-sm`/`text-xs` Tailwind.
+ *  ============================================================================ */
+@media (max-width: 640px) {
+  input[type="number"],
+  input[type="date"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="text"],
+  input[type="search"],
+  input[type="password"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

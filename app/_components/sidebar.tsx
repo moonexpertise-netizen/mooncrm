@@ -533,7 +533,8 @@ export function Sidebar() {
                     }}
                     className={cn(
                       "flex items-center gap-2.5 transition-colors flex-1 min-w-0 rounded-md",
-                      showCollapsed ? "h-9 w-9 justify-center mx-auto" : "h-8 px-2",
+                      // h-11 mobile (44px = cible tactile iOS HIG), h-8 desktop
+                      showCollapsed ? "h-9 w-9 justify-center mx-auto" : "h-11 md:h-8 px-2",
                       !active && "hover:text-zinc-100 hover:bg-white/[0.05]"
                     )}
                     title={showCollapsed ? item.label : undefined}
@@ -647,7 +648,8 @@ export function Sidebar() {
                             href={withYear(c.href)}
                             aria-current={childActive ? "page" : undefined}
                             className={cn(
-                              "block pl-6 pr-2.5 py-1.5 rounded-md text-[11.5px] transition-colors truncate",
+                              // Mobile : padding plus ample pour zone tactile
+                              "block pl-6 pr-2.5 py-2.5 md:py-1.5 rounded-md text-xs md:text-[11.5px] transition-colors truncate",
                               "relative leading-tight",
                               childActive
                                 ? "text-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10 font-medium"

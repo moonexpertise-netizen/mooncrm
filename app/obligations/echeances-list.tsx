@@ -239,23 +239,45 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
       : "text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15";
 
   return (
-    <li className="grid grid-cols-12 items-center gap-3 px-4 py-2.5 hover:bg-zinc-50/60 dark:hover:bg-white/[0.03] transition-colors">
-      {/* Client */}
-      <div className="col-span-3 min-w-0">
-        <Link
-          href={`/clients/${item.clientSlug}`}
-          className="font-medium text-sm text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate block"
-          title={item.clientName}
-        >
-          {item.clientName}
-        </Link>
-        {item.clientSiren && (
-          <div className="text-[10px] text-zinc-400 tabular-nums">{item.clientSiren}</div>
-        )}
+    <li className="flex flex-col gap-2 md:grid md:grid-cols-12 md:items-center md:gap-3 px-4 py-3 hover:bg-zinc-50/60 dark:hover:bg-white/[0.03] transition-colors">
+      {/* Ligne 1 mobile : Client + Statut + lien tracker (cote a cote)
+          Desktop : col-span-3 isole */}
+      <div className="flex items-center justify-between gap-2 md:col-span-3 md:min-w-0 md:block">
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/clients/${item.clientSlug}`}
+            className="font-medium text-sm text-zinc-900 dark:text-zinc-100 hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate block"
+            title={item.clientName}
+          >
+            {item.clientName}
+          </Link>
+          {item.clientSiren && (
+            <div className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">{item.clientSiren}</div>
+          )}
+        </div>
+        {/* En mobile : statut + lien a droite de la ligne client */}
+        <div className="flex items-center gap-2 md:hidden shrink-0">
+          <span
+            className={cn(
+              "px-2 py-1 rounded text-[11px] font-medium",
+              statutColor,
+            )}
+          >
+            {statutLabel}
+          </span>
+          <Link
+            href={`/obligations/${item.trackerSlug}?year=${item.annee}&focus=${item.clientSlug}`}
+            className="inline-flex items-center justify-center w-9 h-9 rounded-md text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+            title="Ouvrir la cellule dans le tracker"
+            aria-label="Ouvrir la cellule dans le tracker"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
 
-      {/* Obligation : tracker + periode */}
-      <div className="col-span-4 min-w-0">
+      {/* Ligne 2 mobile : Obligation + periode. Desktop col-span-4 */}
+      <div className="md:col-span-4 min-w-0">
         <Link
           href={`/obligations/${item.trackerSlug}?year=${item.annee}`}
           className="text-sm text-zinc-700 dark:text-zinc-300 hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate block"
@@ -273,8 +295,8 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
         </div>
       </div>
 
-      {/* Echeance */}
-      <div className="col-span-3 min-w-0">
+      {/* Ligne 3 mobile : Echeance (date + relatif). Desktop col-span-3 */}
+      <div className="md:col-span-3 min-w-0">
         <div
           className={cn(
             "text-sm tabular-nums font-medium",
@@ -293,8 +315,9 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
         </div>
       </div>
 
-      {/* Statut + lien direct vers tracker */}
-      <div className="col-span-2 flex items-center justify-end gap-2">
+      {/* Statut + lien tracker : visible UNIQUEMENT en desktop (en mobile dans
+          la 1ere ligne, a cote du client) */}
+      <div className="hidden md:flex md:col-span-2 items-center justify-end gap-2">
         <span
           className={cn(
             "px-2 py-0.5 rounded text-[11px] font-medium",
@@ -308,6 +331,7 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
           href={`/obligations/${item.trackerSlug}?year=${item.annee}&focus=${item.clientSlug}`}
           className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
           title="Ouvrir la cellule dans le tracker"
+          aria-label="Ouvrir la cellule dans le tracker"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </Link>
