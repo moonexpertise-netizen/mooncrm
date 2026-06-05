@@ -52,30 +52,44 @@ export async function loadSidebarBadges(): Promise<{
       .from("caa_obligations")
       .select("id", { count: "exact", head: true })
       .eq("statut_logique", "A_FAIRE"),
-    // 1) obligations (AGO_DEPOT + LIASSE_PLAQUETTE) a facturer
+    // ============================================================
+    // Facturation : on filtre comme la page /facturation pour eviter
+    // les fantomes. Une ligne n'est REELLEMENT a facturer que si :
+    //   1. Le statut metier est terminal (TERMINE / livree / actee_kbis_recu)
+    //   2. ET etat_facturation = 'a_facturer'
+    // Sans la condition 1, on comptait des items en a_facturer dont le
+    // statut metier n'est pas encore termine -> compteur > KPI page.
+    // ============================================================
+    // 1) obligations (AGO_DEPOT + LIASSE_PLAQUETTE) terminees + a facturer
     sb
       .from("obligations")
       .select("id", { count: "exact", head: true })
+      .in("type", ["AGO_DEPOT", "LIASSE_PLAQUETTE"])
+      .eq("statut_logique", "TERMINE")
       .eq("etat_facturation", "a_facturer"),
-    // 2) commissariat aux apports
+    // 2) CAA terminees + a facturer
     sb
       .from("caa_obligations")
       .select("id", { count: "exact", head: true })
+      .eq("statut_logique", "TERMINE")
       .eq("etat_facturation", "a_facturer"),
-    // 3) IR / IFI
+    // 3) IR / IFI terminees + a facturer
     sb
       .from("ir_obligations")
       .select("id", { count: "exact", head: true })
+      .eq("statut_logique", "TERMINE")
       .eq("etat_facturation", "a_facturer"),
-    // 4) missions exceptionnelles
+    // 4) missions exc livrees + a facturer
     sb
       .from("missions_exceptionnelles")
       .select("id", { count: "exact", head: true })
+      .eq("etat_mission", "livree")
       .eq("etat_facturation", "a_facturer"),
-    // 5) creations (creation_facturation sur clients)
+    // 5) creations : KBIS reçu + a facturer
     sb
       .from("clients")
       .select("id", { count: "exact", head: true })
+      .eq("creation_statut", "actee_kbis_recu")
       .eq("creation_facturation", "a_facturer"),
   ]);
 
