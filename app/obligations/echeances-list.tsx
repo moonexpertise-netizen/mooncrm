@@ -332,6 +332,21 @@ function EcheanceRow({
     }));
   }, [options]);
 
+  // Libelle A_FAIRE par defaut de ce type (ex. "0 - A traiter" pour AGO,
+  // "Pas commence" pour TVA). On l'utilise comme valeur affichee quand
+  // l'obligation est virtuelle (pas encore en DB) : le chip prend la
+  // couleur amber via le matching dans pickerOptions au lieu de tomber
+  // sur le placeholder transparent "À faire".
+  const defaultLibelle = useMemo(
+    () => options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? null,
+    [options]
+  );
+
+  // Valeur effectivement affichee : statut reel s'il existe, sinon le
+  // default A_FAIRE pour que le chip ait toujours sa couleur metier.
+  const displayStatutDetail = localStatutDetail ?? defaultLibelle;
+  const displayStatut: SerializedEcheanceItem["statut"] = localStatut ?? "A_FAIRE";
+
   const commentCount = localObligationId
     ? commentCounts[localObligationId] ?? 0
     : 0;
@@ -427,8 +442,8 @@ function EcheanceRow({
         {/* En mobile : statut picker + bouton commentaires + lien tracker a droite */}
         <div className="flex items-center gap-1 md:hidden shrink-0">
           <StatusPicker
-            value={localStatutDetail}
-            statut={localStatut}
+            value={displayStatutDetail}
+            statut={displayStatut}
             options={pickerOptions}
             onPick={handlePick}
             placeholder="À faire"

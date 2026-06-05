@@ -188,22 +188,26 @@ export async function setEcheanceStatus(
     return { obligationId: payload.obligationId };
   }
 
-  // Virtuel : insertion d'une nouvelle ligne. Determine statut_logique
-  // depuis status_options ; null -> A_FAIRE.
-  const sb = await createClient();
-  let statut_logique = "A_FAIRE";
-  let statut_detail: string | null = null;
-  if (libelle) {
-    const { data: opt } = await sb
-      .from("status_options")
-      .select("statut_logique")
-      .eq("scope", "obligation")
-      .eq("type_code", payload.type)
-      .eq("libelle", libelle)
-      .maybeSingle();
-    statut_logique = opt?.statut_logique ?? "A_FAIRE";
-    statut_detail = libelle;
+  // Virtuel + reset (libelle null) : delegue a ensureObligationRow qui
+  // remplit le statut_detail avec le libelle A_FAIRE par defaut du type
+  // (ex. "Pas commence" / "0 - A traiter"). Sans ca, l'INSERT mettrait
+  // statut_detail=null et le chip resterait "blanc" cote tracker.
+  if (libelle === null) {
+    const ensured = await ensureObligationRow(payload);
+    revalidateFinanceViews();
+    return ensured;
   }
+
+  // Virtuel + libelle defini : insertion avec le statut choisi.
+  const sb = await createClient();
+  const { data: opt } = await sb
+    .from("status_options")
+    .select("statut_logique")
+    .eq("scope", "obligation")
+    .eq("type_code", payload.type)
+    .eq("libelle", libelle)
+    .maybeSingle();
+  const statut_logique = opt?.statut_logique ?? "A_FAIRE";
 
   const { data: inserted, error } = await sb
     .from("obligations")
@@ -213,7 +217,7 @@ export async function setEcheanceStatus(
       periode: payload.periode,
       annee: payload.annee,
       statut_logique,
-      statut_detail,
+      statut_detail: libelle,
     })
     .select("id")
     .single();
