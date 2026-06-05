@@ -1,11 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, AlertTriangle, Calendar, ExternalLink } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  Calendar,
+  ExternalLink,
+} from "lucide-react";
 import { cn, fmtDateFr } from "@/lib/utils";
-import type { SerializedEcheanceItem } from "./page";
+import { Picker } from "@/app/_components/picker";
+import { setEcheanceStatus } from "./actions";
+import type { SerializedEcheanceItem, EcheanceStatusOption } from "./page";
 
 const MOIS_LABEL = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -39,11 +47,15 @@ export default function EcheancesList({
   year,
   duMois,
   enRetard,
+  statusOptionsByType,
 }: {
   month: number;
   year: number;
   duMois: SerializedEcheanceItem[];
   enRetard: SerializedEcheanceItem[];
+  /** Indexe par type_code -> liste des libelles disponibles (avec leur
+   *  statut_logique pour determiner la couleur d'affichage). */
+  statusOptionsByType: Record<string, EcheanceStatusOption[]>;
 }) {
   const router = useRouter();
 
@@ -101,6 +113,7 @@ export default function EcheancesList({
           icon={<AlertTriangle className="h-4 w-4 text-rose-500" />}
           accent="rose"
           items={enRetard}
+          statusOptionsByType={statusOptionsByType}
         />
       )}
 
@@ -116,6 +129,7 @@ export default function EcheancesList({
         accent="amber"
         items={duMois}
         emptyState={duMois.length === 0 ? "Rien à traiter ce mois-ci." : null}
+        statusOptionsByType={statusOptionsByType}
       />
     </div>
   );
@@ -132,6 +146,7 @@ function Section({
   accent,
   items,
   emptyState,
+  statusOptionsByType,
 }: {
   title: string;
   subtitle: string;
@@ -139,6 +154,7 @@ function Section({
   accent: "rose" | "amber";
   items: SerializedEcheanceItem[];
   emptyState?: string | null;
+  statusOptionsByType: Record<string, EcheanceStatusOption[]>;
 }) {
   // Decoupage par tracker pour lisibilite. On preserve l'ordre d'arrivee
   // des items (deja triees par dueDate) -> les groupes apparaissent dans
@@ -194,6 +210,7 @@ function Section({
                   <EcheanceRow
                     key={`${it.clientId}|${it.type}|${it.annee}|${it.periode}`}
                     item={it}
+                    options={statusOptionsByType[it.type] ?? []}
                   />
                 ))}
               </ul>
@@ -206,10 +223,51 @@ function Section({
 }
 
 // ============================================================================
-//  Ligne d'echeance
+//  Ligne d'echeance avec picker statut interactif
 // ============================================================================
 
-function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
+/**
+ * Determine la classe Tailwind du chip statut. Repris du style picker pour
+ * coherence visuelle (texte + bg colores selon statut_logique). Si une
+ * option custom a une color, on l'utilise ; sinon fallback par logique.
+ */
+function statutChipColor(
+  statut: SerializedEcheanceItem["statut"],
+  optionColor?: string
+): string {
+  if (optionColor) return optionColor;
+  if (statut === "TERMINE") {
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
+  }
+  if (statut === "EN_COURS") {
+    return "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30";
+  }
+  if (statut === "NON_APPLICABLE") {
+    return "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-white/[0.05] dark:text-zinc-400 dark:border-white/[0.08]";
+  }
+  // A_FAIRE / null
+  return "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
+}
+
+function EcheanceRow({
+  item,
+  options,
+}: {
+  item: SerializedEcheanceItem;
+  options: EcheanceStatusOption[];
+}) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+
+  // State local : reflete la derniere valeur "promise" par le user. Permet
+  // un feedback immediat avant que router.refresh() ne ramene la vraie
+  // valeur du serveur. obligationId peut etre cree au 1er pick (cas
+  // virtual), on le memorise pour les pick suivants.
+  const [localObligationId, setLocalObligationId] = useState(item.obligationId);
+  const [localStatutDetail, setLocalStatutDetail] = useState(item.statutDetail);
+  const [localStatut, setLocalStatut] = useState(item.statut);
+  const [pending, setPending] = useState(false);
+
   const isOverdue = item.daysOffset < 0;
   const isToday = item.daysOffset === 0;
 
@@ -220,26 +278,70 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
     ? "aujourd'hui"
     : `dans ${item.daysOffset}j`;
 
-  // Statut affiche (TERMINE = vert, EN_COURS = ambre, A_FAIRE / null = neutre)
-  const statutLabel = (() => {
-    if (item.statutDetail) return item.statutDetail;
-    if (!item.statut) return "À faire";
-    if (item.statut === "A_FAIRE") return "À faire";
-    if (item.statut === "EN_COURS") return "En cours";
-    if (item.statut === "TERMINE") return "Terminé";
-    return "N/A";
-  })();
-  const statutColor =
-    item.statut === "TERMINE"
-      ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/15"
-      : item.statut === "EN_COURS"
-      ? "text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/15"
-      : item.statut === "NON_APPLICABLE"
-      ? "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-white/[0.05]"
-      : "text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15";
+  // Options pour le picker : on les groupe par statut_logique pour avoir
+  // les headers "À faire / En cours / Terminé / N/A" comme dans le tracker.
+  const pickerOptions = useMemo(() => {
+    const GROUP_LABEL: Record<EcheanceStatusOption["statut_logique"], string> = {
+      A_FAIRE: "À faire",
+      EN_COURS: "En cours",
+      TERMINE: "Terminé",
+      NON_APPLICABLE: "N/A",
+    };
+    return options.map((o) => ({
+      key: o.libelle,
+      label: o.libelle,
+      color: o.color,
+      group: GROUP_LABEL[o.statut_logique],
+    }));
+  }, [options]);
+
+  // Couleur affichee : on cherche d'abord l'option qui matche le libelle
+  // courant pour avoir la couleur exacte, sinon fallback selon statut_logique.
+  const matchedOption = options.find((o) => o.libelle === localStatutDetail);
+  const colorClass = statutChipColor(localStatut, matchedOption?.color);
+
+  async function handlePick(libelle: string | null) {
+    setPending(true);
+    // Optimistic : on update tout de suite l'affichage local. Le serveur
+    // confirmera derriere (le router.refresh() retirera la ligne si c'est
+    // un TERMINE/NA, ou ramene la valeur reelle si autre).
+    setLocalStatutDetail(libelle);
+    const opt = libelle ? options.find((o) => o.libelle === libelle) : null;
+    setLocalStatut(opt ? opt.statut_logique : "A_FAIRE");
+
+    try {
+      const result = await setEcheanceStatus(
+        {
+          obligationId: localObligationId,
+          clientId: item.clientId,
+          type: item.type,
+          periode: item.periode,
+          annee: item.annee,
+        },
+        libelle
+      );
+      // Memorise l'id si on vient de creer la ligne (cas virtual)
+      if (!localObligationId) setLocalObligationId(result.obligationId);
+      // Refresh : si TERMINE/NA, la ligne sortira de la liste cote engine ;
+      // sinon le statut affiche sera reconfirme.
+      startTransition(() => router.refresh());
+    } catch (err) {
+      // Revert le state local en cas d'erreur serveur
+      console.error("setEcheanceStatus failed", err);
+      setLocalStatutDetail(item.statutDetail);
+      setLocalStatut(item.statut);
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
-    <li className="flex flex-col gap-2 md:grid md:grid-cols-12 md:items-center md:gap-3 px-4 py-3 hover:bg-zinc-50/60 dark:hover:bg-white/[0.03] transition-colors">
+    <li
+      className={cn(
+        "flex flex-col gap-2 md:grid md:grid-cols-12 md:items-center md:gap-3 px-4 py-3 hover:bg-zinc-50/60 dark:hover:bg-white/[0.03] transition-colors",
+        pending && "opacity-70"
+      )}
+    >
       {/* Ligne 1 mobile : Client + Statut + lien tracker (cote a cote)
           Desktop : col-span-3 isole */}
       <div className="flex items-center justify-between gap-2 md:col-span-3 md:min-w-0 md:block">
@@ -255,16 +357,16 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
             <div className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">{item.clientSiren}</div>
           )}
         </div>
-        {/* En mobile : statut + lien a droite de la ligne client */}
+        {/* En mobile : statut picker + lien a droite */}
         <div className="flex items-center gap-2 md:hidden shrink-0">
-          <span
-            className={cn(
-              "px-2 py-1 rounded text-[11px] font-medium",
-              statutColor,
-            )}
-          >
-            {statutLabel}
-          </span>
+          <StatusPicker
+            value={localStatutDetail}
+            colorClass={colorClass}
+            options={pickerOptions}
+            onPick={handlePick}
+            placeholder="À faire"
+            disabled={pending || options.length === 0}
+          />
           <Link
             href={`/obligations/${item.trackerSlug}?year=${item.annee}&focus=${item.clientSlug}`}
             className="inline-flex items-center justify-center w-9 h-9 rounded-md text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -315,18 +417,17 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
         </div>
       </div>
 
-      {/* Statut + lien tracker : visible UNIQUEMENT en desktop (en mobile dans
-          la 1ere ligne, a cote du client) */}
+      {/* Statut picker + lien tracker : visible UNIQUEMENT en desktop
+          (en mobile dans la 1ere ligne, a cote du client) */}
       <div className="hidden md:flex md:col-span-2 items-center justify-end gap-2">
-        <span
-          className={cn(
-            "px-2 py-0.5 rounded text-[11px] font-medium",
-            statutColor,
-          )}
-          title={item.statut === null ? "Pas encore saisi en DB · placeholder du tracker" : statutLabel}
-        >
-          {statutLabel}
-        </span>
+        <StatusPicker
+          value={localStatutDetail}
+          colorClass={colorClass}
+          options={pickerOptions}
+          onPick={handlePick}
+          placeholder="À faire"
+          disabled={pending || options.length === 0}
+        />
         <Link
           href={`/obligations/${item.trackerSlug}?year=${item.annee}&focus=${item.clientSlug}`}
           className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -337,5 +438,72 @@ function EcheanceRow({ item }: { item: SerializedEcheanceItem }) {
         </Link>
       </div>
     </li>
+  );
+}
+
+// ============================================================================
+//  StatusPicker : wrapper du Picker avec le bon styling
+// ============================================================================
+//
+// Petit adaptateur autour de Picker pour :
+//   1. Forcer la color du chip courant selon le statut_logique (pas juste
+//      celle de l'option matched) -> coherence visuelle si aucune option
+//      ne matche un libelle saisi ailleurs.
+//   2. Gerer le reset (-> A_FAIRE par defaut, libelle remis cote serveur).
+//   3. Fallback discret si aucune option n'est dispo (type sans config).
+
+function StatusPicker({
+  value,
+  colorClass,
+  options,
+  onPick,
+  placeholder,
+  disabled,
+}: {
+  value: string | null;
+  colorClass: string;
+  options: Array<{ key: string; label: string; color: string; group?: string }>;
+  onPick: (libelle: string | null) => void;
+  placeholder: string;
+  disabled: boolean;
+}) {
+  // Si pas d'options dispo (type orphan, ne devrait pas arriver mais
+  // garde-fou), on affiche un chip read-only.
+  if (options.length === 0) {
+    return (
+      <span className={cn("px-2 py-0.5 rounded text-[11px] font-medium border", colorClass)}>
+        {value ?? placeholder}
+      </span>
+    );
+  }
+
+  // Surcharge la couleur de l'option courante pour que le chip refleche
+  // notre colorClass (ex. amber pour A_FAIRE) plutot que celle de l'option
+  // (souvent generique).
+  const pickerOptions = options.map((o) =>
+    o.key === value ? { ...o, color: colorClass } : o
+  );
+  // Ajoute une option synthetique pour la valeur courante quand elle ne
+  // matche aucune option active (libelle obsolete d'un ancien parametrage).
+  const hasMatch = options.some((o) => o.key === value);
+  if (value && !hasMatch) {
+    pickerOptions.unshift({ key: value, label: value, color: colorClass });
+  }
+
+  return (
+    <Picker
+      value={value}
+      options={pickerOptions}
+      onChange={(libelle) => onPick(libelle)}
+      onReset={() => onPick(null)}
+      resetLabel="Réinitialiser"
+      allowEmpty
+      placeholder={placeholder}
+      placeholderTitle="Cliquer pour choisir un statut"
+      align="right"
+      size="sm"
+      minWidth={200}
+      disabled={disabled}
+    />
   );
 }

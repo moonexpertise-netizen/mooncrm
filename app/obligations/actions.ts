@@ -160,6 +160,70 @@ export async function bulkUpdateObligationStatus(
 }
 
 /**
+ * Permet de changer le statut d'une echeance depuis la page /obligations,
+ * y compris quand l'obligation n'a pas encore de ligne en DB (les
+ * "obligations virtuelles" sont des cellules attendues d'apres les
+ * subscriptions mais sans saisie reelle).
+ *
+ * - Si payload.obligationId : delegue a updateObligationStatus (update simple)
+ * - Sinon : INSERT la ligne obligations avec le statut + retour de l'id
+ *
+ * Retourne l'id de la ligne obligations (existant ou nouvellement cree)
+ * pour que l'UI puisse mettre a jour son state local et eviter une 2e
+ * insertion au prochain pick.
+ */
+export async function setEcheanceStatus(
+  payload: {
+    obligationId: string | null;
+    clientId: string;
+    type: string;
+    periode: string;
+    annee: number;
+  },
+  libelle: string | null
+): Promise<{ obligationId: string }> {
+  // Existant : delegue a la fonction simple, qui gere reset + revalidate.
+  if (payload.obligationId) {
+    await updateObligationStatus(payload.obligationId, libelle);
+    return { obligationId: payload.obligationId };
+  }
+
+  // Virtuel : insertion d'une nouvelle ligne. Determine statut_logique
+  // depuis status_options ; null -> A_FAIRE.
+  const sb = await createClient();
+  let statut_logique = "A_FAIRE";
+  let statut_detail: string | null = null;
+  if (libelle) {
+    const { data: opt } = await sb
+      .from("status_options")
+      .select("statut_logique")
+      .eq("scope", "obligation")
+      .eq("type_code", payload.type)
+      .eq("libelle", libelle)
+      .maybeSingle();
+    statut_logique = opt?.statut_logique ?? "A_FAIRE";
+    statut_detail = libelle;
+  }
+
+  const { data: inserted, error } = await sb
+    .from("obligations")
+    .insert({
+      client_id: payload.clientId,
+      type: payload.type,
+      periode: payload.periode,
+      annee: payload.annee,
+      statut_logique,
+      statut_detail,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+
+  revalidateFinanceViews();
+  return { obligationId: inserted.id };
+}
+
+/**
  * Met à jour la note libre sur une obligation. note = null ou "" -> efface.
  */
 export async function updateObligationNote(obligationId: string, note: string | null) {

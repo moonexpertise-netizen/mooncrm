@@ -1,4 +1,5 @@
 import { PageHeader } from "@/app/_components/page-header";
+import { createClient } from "@/lib/supabase/server";
 import {
   getEcheancesPourMois,
   moisLabelCapitalized,
@@ -7,6 +8,13 @@ import {
 import EcheancesList from "./echeances-list";
 
 export const dynamic = "force-dynamic";
+
+/** Option de picker pour un type d'obligation (libelle + couleur + statut_logique). */
+export type EcheanceStatusOption = {
+  libelle: string;
+  color: string;
+  statut_logique: "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
+};
 
 /**
  * Page principale Echeances.
@@ -19,6 +27,10 @@ export const dynamic = "force-dynamic";
  *
  * Source = engine `lib/echeances-engine.ts` qui combine subscriptions actives
  * (cellules attendues par les trackers) et obligations DB (statut reel).
+ *
+ * On precharge en parallele les status_options pour TOUS les types
+ * d'obligations presents dans les resultats : chaque ligne peut ouvrir un
+ * picker de statut (cf. EcheanceRow) qui appelle setEcheanceStatus.
  */
 export default async function EcheancesPage({
   searchParams,
@@ -29,6 +41,34 @@ export default async function EcheancesPage({
   const { month, year } = parseMonthParam(sp.month);
 
   const result = await getEcheancesPourMois(month, year);
+
+  // Types distincts presents dans les items -> on ne tire que ces lignes
+  // de status_options (et pas toute la table). Vide si rien a afficher.
+  const types = new Set<string>();
+  for (const it of result.duMois) types.add(it.type);
+  for (const it of result.enRetard) types.add(it.type);
+
+  const sb = await createClient();
+  const { data: optsRaw } = types.size
+    ? await sb
+        .from("status_options")
+        .select("type_code, libelle, color, statut_logique, ordre")
+        .eq("scope", "obligation")
+        .eq("actif", true)
+        .in("type_code", [...types])
+        .order("ordre")
+    : { data: null };
+
+  const statusOptionsByType: Record<string, EcheanceStatusOption[]> = {};
+  for (const o of optsRaw ?? []) {
+    const t = o.type_code as string;
+    if (!statusOptionsByType[t]) statusOptionsByType[t] = [];
+    statusOptionsByType[t].push({
+      libelle: o.libelle as string,
+      color: (o.color as string) ?? "bg-zinc-100 text-zinc-700 border-zinc-200",
+      statut_logique: o.statut_logique as EcheanceStatusOption["statut_logique"],
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -41,6 +81,7 @@ export default async function EcheancesPage({
         year={year}
         duMois={result.duMois.map(serializeItem)}
         enRetard={result.enRetard.map(serializeItem)}
+        statusOptionsByType={statusOptionsByType}
       />
     </div>
   );
