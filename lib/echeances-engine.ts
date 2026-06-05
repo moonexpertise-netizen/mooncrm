@@ -284,8 +284,16 @@ export async function getEcheancesPourMois(
     for (const ty of t.types) trackerByType.set(ty, t);
   }
 
+  // Types exclus de la page /obligations (echeances mensuelles).
+  // Le tracker dedie reste accessible, mais ces obligations ne polluent
+  // pas la todo-list de pilotage du mois.
+  //  - DES : volume trop important + traite en routine, non strategique
+  //    pour le pilotage cabinet (ajoute par Benjamin, juin 2026).
+  const EXCLUDED_FROM_ECHEANCES = new Set<string>(["DES"]);
+
   for (const s of subs) {
     if (!isClientBillable(s.clients)) continue;
+    if (EXCLUDED_FROM_ECHEANCES.has(s.type)) continue;
 
     const tracker = trackerByType.get(s.type);
     if (!tracker) continue;

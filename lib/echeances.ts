@@ -312,11 +312,14 @@ export function computeEcheance(
   }
 
   // ----- DECL_2561 (IFU / Dividendes) ----------------------------------
-  // Annuel, periode "YYYY", echeance 15 fevrier N+1
+  // Annuel, periode "YYYY". Decalage de 2 ans : un IFU coche pour
+  // l'exercice N concerne des dividendes verses en N+1 (sur la base du
+  // bilan N approuve en AGO), donc l'IFU est a deposer le 15/02/N+2.
+  // Exemple : IFU 2025 -> echeance 15/02/2027 (et non 15/02/2026).
   if (type === "DECL_2561") {
     return {
-      activeFrom: firstOfMonth(annee + 1, 1),
-      dueDate: makeDate(annee + 1, 2, 15),
+      activeFrom: firstOfMonth(annee + 2, 1),
+      dueDate: makeDate(annee + 2, 2, 15),
     };
   }
 
