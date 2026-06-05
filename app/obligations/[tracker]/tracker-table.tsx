@@ -1425,7 +1425,20 @@ export default function TrackerTable({
         </div>
       </div>
 
-      <div ref={tableRef} onKeyDown={onTableKeyDown} className="rounded-lg border overflow-auto bg-card">
+      <div
+        ref={tableRef}
+        onKeyDown={onTableKeyDown}
+        // overflow-x-auto (et non overflow-auto) : isole le scroll horizontal,
+        // evite que le swipe lateral ouvre le drawer sidebar mobile et que le
+        // browser hesite entre pan-x/pan-y. overscroll-behavior-x: contain
+        // empeche le swipe en bord de table de declencher un back-nav iOS.
+        // -webkit-overflow-scrolling: touch garde le momentum sur iOS Safari.
+        style={{
+          WebkitOverflowScrolling: "touch",
+          overscrollBehaviorX: "contain",
+        }}
+        className="rounded-lg border overflow-x-auto bg-card"
+      >
         <table className="w-full text-sm border-collapse min-w-[640px]">
           <thead className="bg-zinc-50 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-200 text-xs">
             <tr>

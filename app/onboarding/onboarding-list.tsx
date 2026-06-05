@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 
@@ -62,27 +62,27 @@ function origineToType(origine: string | null): OrigineType {
 /**
  * Liste compacte des onboardings (vue Liste de /onboarding).
  *
- * Toolbar unifiée avec la matrice : search · Type · TNS · Tri (à droite) · count.
- * Pas de filtres statut séparés (la barre de progression visuelle suffit ;
- * un tri "Progression ↑" met automatiquement les dossiers à finir en haut).
+ * Toolbar :
+ *   - Desktop (md+) : chips de filtres + tri (mêmes que la matrice)
+ *   - Mobile : grid 2x2 de selects natifs (Type / TNS / Statut / Tri)
+ *     pour eviter le wrapping qui mange tout l'ecran
+ *
+ * Chaque ligne : cercle de progression (SVG, 44px) avec "n/total" au centre,
+ * a la place de la barre horizontale ancienne. Plus lisible pour scanner
+ * la liste verticalement, et le format est identique entre desktop et mobile.
  */
 export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   // Filtres persistés dans l'URL (?q=&type=&tns=&status=&sort=) pour survivre
-  // au F5, au router.refresh(), et aux switches Liste ↔ Matrice. Quand
-  // l'utilisateur clique "Onboarding" dans la sidebar (URL sans params),
-  // l'état repart à zéro automatiquement.
+  // au F5, au router.refresh(), et aux switches Liste ↔ Matrice.
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  // URL courante (path + search) - propagee aux liens fiche client comme
-  // ?from=... pour que le bouton retour ramene ici avec filtres + tri.
   const fromUrl = useMemo(() => {
     const qs = searchParams.toString();
     return `${pathname}${qs ? `?${qs}` : ""}`;
   }, [pathname, searchParams]);
 
-  // Highlight + scroll-to-row au retour depuis une fiche client
   useHighlightRow("client");
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
@@ -99,7 +99,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     () => (searchParams.get("sort") as SortMode) || "pct"
   );
 
-  // Sync state → URL (debounced 200ms pour ne pas écrire à chaque keystroke)
+  // Sync state -> URL (debounced 200ms pour ne pas écrire à chaque keystroke)
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const writeParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -120,7 +120,6 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     };
   }, [writeParams]);
 
-  // Annotate rows with derived Type once
   const annotated = useMemo(
     () => rows.map((r) => ({ ...r, type: origineToType(r.origine) })),
     [rows]
@@ -150,8 +149,6 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (sort === "pct") {
-      // Tri : en cours / pas commencés en haut (pct croissant), terminés en bas,
-      // dossiers sans tâches tout à la fin.
       arr.sort((a, b) => {
         if (a.total === 0 && b.total === 0) return a.denomination.localeCompare(b.denomination, "fr");
         if (a.total === 0) return 1;
@@ -164,7 +161,6 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
     return arr;
   }, [filtered, sort]);
 
-  // Compteurs par type / TNS pour les pills
   const typeCounts = useMemo(() => {
     const c = {
       all: annotated.length,
@@ -202,54 +198,114 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Toolbar unifiée (mêmes filtres et tri que la matrice) */}
-      <div className="rounded-lg border border-zinc-200/70 bg-white px-3 py-2 flex items-center gap-2 flex-wrap">
-        <input
-          type="text"
-          placeholder="Filtrer par nom ou SIREN…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-64 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-sm placeholder:text-zinc-400 transition-all hover:border-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/[0.07]"
-        />
-        <div className="h-6 w-px bg-zinc-200 mx-1" />
-        <span className="text-[11px] text-zinc-500">Type :</span>
-        <FilterChip label="Tous" active={typeFilter === "all"} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
-        <FilterChip label="Création" active={typeFilter === "creation"} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
-        <FilterChip label="Reprise avec EC" active={typeFilter === "reprise_ec"} count={typeCounts.reprise_ec} type="reprise_ec" onClick={() => setTypeFilter("reprise_ec")} />
-        <FilterChip label="Reprise sans EC" active={typeFilter === "reprise_sans_ec"} count={typeCounts.reprise_sans_ec} type="reprise_sans_ec" onClick={() => setTypeFilter("reprise_sans_ec")} />
-        <FilterChip label="Interne" active={typeFilter === "interne"} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
-        <FilterChip label="ST" active={typeFilter === "soustraitance"} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
-        <div className="h-6 w-px bg-zinc-200 mx-1" />
-        <span className="text-[11px] text-zinc-500">TNS :</span>
-        <FilterChip label="Tous" active={tnsFilter === "all"} count={tnsCounts.all} onClick={() => setTnsFilter("all")} />
-        <FilterChip label="TNS" active={tnsFilter === "tns"} count={tnsCounts.tns} tone="emerald" onClick={() => setTnsFilter("tns")} />
-        <FilterChip label="Non TNS" active={tnsFilter === "non_tns"} count={tnsCounts.non_tns} tone="zinc" onClick={() => setTnsFilter("non_tns")} />
-        {tnsCounts.undecided > 0 && (
-          <FilterChip label="?" active={tnsFilter === "undecided"} count={tnsCounts.undecided} tone="amber" onClick={() => setTnsFilter("undecided")} />
-        )}
-        <div className="h-6 w-px bg-zinc-200 mx-1" />
-        <span className="text-[11px] text-zinc-500">Statut :</span>
-        <FilterChip label="Tous" active={statusFilter === "all"} count={statusCounts.all} onClick={() => setStatusFilter("all")} />
-        <FilterChip label="En cours" active={statusFilter === "in_progress"} count={statusCounts.in_progress} tone="amber" onClick={() => setStatusFilter("in_progress")} />
-        <FilterChip label="Pas commencé" active={statusFilter === "not_started"} count={statusCounts.not_started} tone="rose" onClick={() => setStatusFilter("not_started")} />
-        <FilterChip label="Terminé" active={statusFilter === "complete"} count={statusCounts.complete} tone="emerald" onClick={() => setStatusFilter("complete")} />
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-[11px] text-zinc-500">Tri :</span>
-          <SortBtn label="Progression" active={sort === "pct"} onClick={() => setSort("pct")} />
-          <SortBtn label="Nom" active={sort === "nom"} onClick={() => setSort("nom")} />
-          <span className="text-[11px] text-zinc-500 tabular-nums ml-2">
-            {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
-          </span>
+      {/* Toolbar */}
+      <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] px-3 py-2.5 space-y-2 md:space-y-0">
+        {/* Ligne 1 (commune) : search + count (count cache mobile, place ailleurs) */}
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Filtrer par nom ou SIREN…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 md:w-64 md:flex-initial px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-base md:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all hover:border-zinc-300 dark:hover:border-white/[0.16] focus:outline-none focus:border-zinc-900 dark:focus:border-white/[0.30] focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.04]"
+          />
+          {/* Desktop : tout sur une ligne, count a droite */}
+          <div className="hidden md:flex items-center gap-2 flex-wrap flex-1">
+            <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08] mx-1" />
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Type :</span>
+            <FilterChip label="Tous" active={typeFilter === "all"} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
+            <FilterChip label="Création" active={typeFilter === "creation"} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
+            <FilterChip label="Reprise avec EC" active={typeFilter === "reprise_ec"} count={typeCounts.reprise_ec} type="reprise_ec" onClick={() => setTypeFilter("reprise_ec")} />
+            <FilterChip label="Reprise sans EC" active={typeFilter === "reprise_sans_ec"} count={typeCounts.reprise_sans_ec} type="reprise_sans_ec" onClick={() => setTypeFilter("reprise_sans_ec")} />
+            <FilterChip label="Interne" active={typeFilter === "interne"} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
+            <FilterChip label="ST" active={typeFilter === "soustraitance"} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
+            <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08] mx-1" />
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">TNS :</span>
+            <FilterChip label="Tous" active={tnsFilter === "all"} count={tnsCounts.all} onClick={() => setTnsFilter("all")} />
+            <FilterChip label="TNS" active={tnsFilter === "tns"} count={tnsCounts.tns} tone="emerald" onClick={() => setTnsFilter("tns")} />
+            <FilterChip label="Non TNS" active={tnsFilter === "non_tns"} count={tnsCounts.non_tns} tone="zinc" onClick={() => setTnsFilter("non_tns")} />
+            {tnsCounts.undecided > 0 && (
+              <FilterChip label="?" active={tnsFilter === "undecided"} count={tnsCounts.undecided} tone="amber" onClick={() => setTnsFilter("undecided")} />
+            )}
+            <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08] mx-1" />
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Statut :</span>
+            <FilterChip label="Tous" active={statusFilter === "all"} count={statusCounts.all} onClick={() => setStatusFilter("all")} />
+            <FilterChip label="En cours" active={statusFilter === "in_progress"} count={statusCounts.in_progress} tone="amber" onClick={() => setStatusFilter("in_progress")} />
+            <FilterChip label="Pas commencé" active={statusFilter === "not_started"} count={statusCounts.not_started} tone="rose" onClick={() => setStatusFilter("not_started")} />
+            <FilterChip label="Terminé" active={statusFilter === "complete"} count={statusCounts.complete} tone="emerald" onClick={() => setStatusFilter("complete")} />
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Tri :</span>
+              <SortBtn label="Progression" active={sort === "pct"} onClick={() => setSort("pct")} />
+              <SortBtn label="Nom" active={sort === "nom"} onClick={() => setSort("nom")} />
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums ml-2">
+                {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile : 4 selects natifs + count en dessous. 2 colonnes pour
+            tenir sur 1 ecran et eviter le scroll horizontal vu sur les chips. */}
+        <div className="md:hidden grid grid-cols-2 gap-2">
+          <MobileSelect
+            label="Type"
+            value={typeFilter}
+            onChange={(v) => setTypeFilter(v as TypeFilter)}
+            options={[
+              { value: "all", label: `Tous (${typeCounts.all})` },
+              { value: "creation", label: `Création (${typeCounts.creation})` },
+              { value: "reprise_ec", label: `Reprise avec EC (${typeCounts.reprise_ec})` },
+              { value: "reprise_sans_ec", label: `Reprise sans EC (${typeCounts.reprise_sans_ec})` },
+              { value: "interne", label: `Interne (${typeCounts.interne})` },
+              { value: "soustraitance", label: `ST (${typeCounts.soustraitance})` },
+            ]}
+          />
+          <MobileSelect
+            label="TNS"
+            value={tnsFilter}
+            onChange={(v) => setTnsFilter(v as TnsFilter)}
+            options={[
+              { value: "all", label: `Tous (${tnsCounts.all})` },
+              { value: "tns", label: `TNS (${tnsCounts.tns})` },
+              { value: "non_tns", label: `Non TNS (${tnsCounts.non_tns})` },
+              ...(tnsCounts.undecided > 0
+                ? [{ value: "undecided", label: `À décider (${tnsCounts.undecided})` }]
+                : []),
+            ]}
+          />
+          <MobileSelect
+            label="Statut"
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v as StatusFilter)}
+            options={[
+              { value: "all", label: `Tous (${statusCounts.all})` },
+              { value: "in_progress", label: `En cours (${statusCounts.in_progress})` },
+              { value: "not_started", label: `Pas commencé (${statusCounts.not_started})` },
+              { value: "complete", label: `Terminé (${statusCounts.complete})` },
+            ]}
+          />
+          <MobileSelect
+            label="Tri"
+            value={sort}
+            onChange={(v) => setSort(v as SortMode)}
+            options={[
+              { value: "pct", label: "Progression" },
+              { value: "nom", label: "Nom" },
+            ]}
+          />
+        </div>
+        <div className="md:hidden text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums px-0.5">
+          {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
         </div>
       </div>
 
       {/* Liste */}
       {sorted.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-10 text-center text-sm text-zinc-500">
+        <div className="rounded-2xl border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] shadow-card p-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
           Aucun dossier ne correspond aux filtres.
         </div>
       ) : (
-        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card divide-y divide-zinc-100 overflow-hidden">
+        <div className="rounded-2xl border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] shadow-card divide-y divide-zinc-100 dark:divide-white/[0.04] overflow-hidden">
           {sorted.map((r) => (
             <OnboardingRowComp key={r.id} row={r} type={r.type} fromUrl={fromUrl} />
           ))}
@@ -260,7 +316,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
 }
 
 // ============================================================================
-//  OnboardingRowComp : ligne d'un dossier (avec chip Type)
+//  OnboardingRowComp : ligne d'un dossier
 // ============================================================================
 
 function OnboardingRowComp({
@@ -278,18 +334,20 @@ function OnboardingRowComp({
     <Link
       id={`client-${row.slug}`}
       href={`/clients/${row.slug}/onboarding?from=${encodeURIComponent(fromUrl)}`}
-      className="group/row flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+      className="group/row flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-white/[0.03] active:bg-zinc-100 transition-colors"
     >
-      <div className="shrink-0">
-        {isComplete ? (
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-        ) : (
-          <Circle className={cn("h-4 w-4", noTasks ? "text-zinc-300" : "text-zinc-400")} />
-        )}
-      </div>
+      <ProgressRing
+        pct={row.pct}
+        done={row.done}
+        total={row.total}
+        isComplete={isComplete}
+        noTasks={noTasks}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="text-sm font-medium text-zinc-900 truncate">{row.denomination}</span>
+          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 truncate">
+            {row.denomination}
+          </span>
           <span
             className={cn(
               "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
@@ -299,48 +357,143 @@ function OnboardingRowComp({
             {TYPE_LABEL[type]}
           </span>
           {row.siren && (
-            <span className="text-[11px] text-zinc-400 tabular-nums shrink-0">{row.siren}</span>
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums shrink-0">
+              {row.siren}
+            </span>
           )}
         </div>
-        {/* Barre de progression sous le nom */}
-        <div className="mt-1.5 flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-            <div
-              className={cn(
-                "h-full transition-all",
-                noTasks
-                  ? "bg-zinc-200"
-                  : isComplete
-                  ? "bg-emerald-500"
-                  : "bg-[hsl(var(--gold))]"
-              )}
-              style={{ width: `${noTasks ? 0 : row.pct}%` }}
-            />
-          </div>
-          <span
-            className={cn(
-              "text-[11px] tabular-nums shrink-0 min-w-[60px] text-right",
-              noTasks
-                ? "text-zinc-400"
-                : isComplete
-                ? "text-emerald-700"
-                : "text-zinc-700"
-            )}
-          >
-            {noTasks ? "-" : `${row.done}/${row.total}`}
-            <span className="text-zinc-400 ml-1">
-              {noTasks ? "" : `(${row.pct}%)`}
-            </span>
-          </span>
+        <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+          {noTasks
+            ? "Pas de tâches"
+            : isComplete
+            ? "Tout est fait"
+            : `${row.done}/${row.total} étape${row.total > 1 ? "s" : ""} · ${row.pct}%`}
         </div>
       </div>
-      <ArrowRight className="h-3.5 w-3.5 text-zinc-300 group-hover/row:text-[hsl(var(--gold))] group-hover/row:translate-x-0.5 transition-all shrink-0" />
+      <ArrowRight className="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600 group-hover/row:text-[hsl(var(--gold))] group-hover/row:translate-x-0.5 transition-all shrink-0" />
     </Link>
   );
 }
 
 // ============================================================================
-//  FilterChip + SortBtn (mêmes composants que dans matrice-table)
+//  ProgressRing : cercle SVG avec "n/total" au centre
+// ============================================================================
+//
+// Remplace l'ancienne barre horizontale : un cercle de 44px, plus lisible
+// quand on scanne verticalement une longue liste. La couleur de l'arc :
+//   - gris : pas de taches
+//   - emerald : tout fait (avec CheckCircle au centre)
+//   - gold : en cours (avec "n/total" au centre)
+// L'arc utilise stroke-dasharray = circonference et stroke-dashoffset
+// proportionnel a (1 - pct/100). Le SVG est tourne de -90deg pour que le
+// debut de l'arc soit en haut (12h) au lieu de droite (3h).
+
+function ProgressRing({
+  pct,
+  done,
+  total,
+  isComplete,
+  noTasks,
+}: {
+  pct: number;
+  done: number;
+  total: number;
+  isComplete: boolean;
+  noTasks: boolean;
+}) {
+  const size = 44;
+  const stroke = 4;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clampedPct = noTasks ? 0 : Math.max(0, Math.min(100, pct));
+  const dashOffset = circumference - (clampedPct / 100) * circumference;
+
+  const arcColor = noTasks
+    ? "stroke-zinc-200 dark:stroke-white/[0.08]"
+    : isComplete
+    ? "stroke-emerald-500"
+    : "stroke-[hsl(var(--gold))]";
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90 block" aria-hidden>
+        {/* Track */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={stroke}
+          fill="none"
+          className="stroke-zinc-100 dark:stroke-white/[0.06]"
+        />
+        {/* Arc de progression (uniquement si > 0) */}
+        {clampedPct > 0 && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            className={cn(arcColor, "transition-[stroke-dashoffset] duration-500")}
+          />
+        )}
+      </svg>
+      {/* Texte centre */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        {noTasks ? (
+          <span className="text-[10px] text-zinc-300 dark:text-zinc-600">–</span>
+        ) : isComplete ? (
+          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+        ) : (
+          <span className="text-[10px] font-semibold text-zinc-700 dark:text-zinc-100 tabular-nums leading-none">
+            {done}/{total}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+//  MobileSelect : select natif stylise pour la toolbar mobile
+// ============================================================================
+
+function MobileSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="flex flex-col gap-0.5 min-w-0">
+      <span className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium px-0.5">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-2 py-2 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-white/[0.30] focus:ring-2 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.04] transition-colors"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// ============================================================================
+//  FilterChip + SortBtn (desktop only)
 // ============================================================================
 
 function FilterChip({
@@ -379,7 +532,7 @@ function FilterChip({
       )}
     >
       {label}
-      <span className={cn("tabular-nums", active ? "" : "text-zinc-400")}>{count}</span>
+      <span className={cn("tabular-nums", active ? "" : "text-zinc-400 dark:text-zinc-500")}>{count}</span>
     </button>
   );
 }
@@ -398,7 +551,9 @@ function SortBtn({
       onClick={onClick}
       className={cn(
         "px-2 py-0.5 rounded text-[11px] transition-colors",
-        active ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900"
+        active
+          ? "bg-zinc-100 text-zinc-900 dark:bg-white/[0.08] dark:text-zinc-50 font-medium"
+          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
       )}
     >
       {label}

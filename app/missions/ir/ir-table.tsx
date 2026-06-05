@@ -726,7 +726,10 @@ export default function IrTable({
             : `Aucun dossier souscrit pour l'exercice ${selectedYear}. Passe en vue « Base » pour souscrire des années.`}
         </div>
       ) : (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
+        <div
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
+          className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card"
+        >
           <table
             className="w-full text-sm min-w-[820px] focus:outline-none"
             aria-label="Dossiers IR"

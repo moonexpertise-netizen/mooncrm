@@ -587,7 +587,10 @@ export default function CreationsTable({
               : "Aucun dossier visible."}
         </div>
       ) : (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto">
+        <div
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
+          className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto"
+        >
           <table
             className="w-full text-sm min-w-[720px] focus:outline-none"
             aria-label="Dossiers en création"

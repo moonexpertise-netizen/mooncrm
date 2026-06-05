@@ -425,7 +425,10 @@ export default function PilotageTable({
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto">
+        <div
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
+          className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto"
+        >
           <table className="w-full text-sm min-w-[1100px]" aria-label="Suivi Pilotage">
             <thead className="bg-zinc-50/50 dark:bg-white/[0.02] border-b border-zinc-200/70 dark:border-white/[0.06]">
               <tr>

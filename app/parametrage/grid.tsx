@@ -414,8 +414,16 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
         </div>
       </div>
 
-      {/* Table - l'entête se fige en haut quand on scrolle */}
-      <div className="rounded-lg border overflow-auto bg-card max-h-[calc(100vh-270px)]">
+      {/* Table - l'entête se fige en haut quand on scrolle.
+          Style : WebkitOverflowScrolling pour momentum iOS, overscrollBehavior
+          pour eviter que le swipe en bord ouvre le drawer / back-nav. */}
+      <div
+        style={{
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+        }}
+        className="rounded-lg border overflow-auto bg-card max-h-[calc(100vh-270px)]"
+      >
         <table className="w-full text-sm border-collapse">
           <thead ref={theadRef} className="bg-zinc-50 text-zinc-700 text-xs border-b border-zinc-200 sticky top-0 z-20 shadow-[0_1px_0_0_rgb(228_228_231)]">
             <tr>

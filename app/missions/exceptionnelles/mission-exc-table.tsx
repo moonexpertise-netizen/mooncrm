@@ -804,7 +804,10 @@ export default function MissionExcTable({
             : "Aucune mission ne correspond aux filtres actuels."}
         </div>
       ) : (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
+        <div
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
+          className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card"
+        >
           <table className="w-full text-sm min-w-[900px]" aria-label="Missions exceptionnelles">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>

@@ -297,7 +297,13 @@ export default function ObligationsMatrix({
         </div>
       )}
 
-      <div className={cn("rounded-lg border overflow-auto bg-card max-h-[calc(100vh-310px)]", isPending && "opacity-80")}>
+      <div
+        style={{
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+        }}
+        className={cn("rounded-lg border overflow-auto bg-card max-h-[calc(100vh-310px)]", isPending && "opacity-80")}
+      >
         <table className="w-full text-sm border-collapse">
           <thead className="bg-zinc-50 text-zinc-700 text-xs sticky top-0 z-20 shadow-[0_1px_0_0_rgb(228_228_231)]">
             <tr>
