@@ -76,6 +76,9 @@ export function Picker<T extends string>({
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+  // Index visuel (parmi options dans l'ordre d'affichage, groupes mis a plat)
+  // pour la navigation clavier. -1 = aucune selection visuelle.
+  const [activeIdx, setActiveIdx] = useState<number>(-1);
 
   const matched = options.find((o) => o.key === value);
   const isEmpty = allowEmpty && value === null;
@@ -129,7 +132,35 @@ export function Picker<T extends string>({
     setPos({ left, top: openUp ? rect.top : rect.bottom, openUp });
   }, [open, options.length, hasGroups, groups.length, onReset, value, align, minWidth]);
 
-  // Fermeture sur clic outside + Escape
+  // Liste plate des options (tous groupes confondus), dans l'ordre
+  // d'affichage. Utilise pour la nav clavier (Up/Down/Home/End/Enter).
+  const flatOptions = groups.flatMap((g) => g.opts);
+
+  // Au moment de l'ouverture, initialise activeIdx sur la valeur courante
+  // (si elle existe) ou la 1ere option.
+  useEffect(() => {
+    if (!open) {
+      setActiveIdx(-1);
+      return;
+    }
+    const currentKey = current?.key;
+    const idx = currentKey
+      ? Math.max(0, flatOptions.findIndex((o) => o.key === currentKey))
+      : 0;
+    setActiveIdx(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Scroll into view de l'option active.
+  useEffect(() => {
+    if (!open || activeIdx < 0 || !popRef.current) return;
+    const el = popRef.current.querySelector<HTMLElement>(
+      `[data-option-idx="${activeIdx}"]`
+    );
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIdx, open]);
+
+  // Fermeture sur clic outside + Escape + nav clavier
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
@@ -139,7 +170,48 @@ export function Picker<T extends string>({
       setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        // Restaure le focus sur le bouton (sinon focus part sur body)
+        btnRef.current?.focus();
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIdx((i) => Math.min(i + 1, flatOptions.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIdx((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Home") {
+        e.preventDefault();
+        setActiveIdx(0);
+        return;
+      }
+      if (e.key === "End") {
+        e.preventDefault();
+        setActiveIdx(flatOptions.length - 1);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const opt = flatOptions[activeIdx];
+        if (opt) {
+          onChange(opt.key);
+          setOpen(false);
+          btnRef.current?.focus();
+        }
+        return;
+      }
+      if (e.key === "Tab") {
+        // Tab ferme le popover (UX standard select / combobox) et laisse
+        // la navigation Tab naturelle continuer vers l'element suivant.
+        setOpen(false);
+        return;
+      }
     }
     document.addEventListener("mousedown", onClickOutside);
     document.addEventListener("keydown", onKey);
@@ -147,7 +219,10 @@ export function Picker<T extends string>({
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+    // flatOptions est recalcule a chaque render mais .length + activeIdx
+    // suffisent comme deps (Enter lit la liste courante via closure).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activeIdx, flatOptions.length, onChange]);
 
   const textSize = size === "xs" ? "text-[10px]" : "text-[11px]";
 
@@ -191,36 +266,53 @@ export function Picker<T extends string>({
             }}
             className="bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
           >
-            {groups.map((g, gi) => (
-              <div key={g.name ?? `__${gi}`}>
-                {g.name && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-medium text-zinc-400 dark:text-zinc-500">
-                    {g.name}
-                  </div>
-                )}
-                {g.opts.map((o) => (
-                  <button
-                    key={o.key}
-                    type="button"
-                    onClick={() => {
-                      onChange(o.key);
-                      setOpen(false);
-                    }}
-                    className={cn(
-                      "w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06] flex items-center gap-2 transition-colors",
-                      value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
-                    )}
-                  >
-                    <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
-                      {o.label}
-                    </span>
-                    {value === o.key && (
-                      <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 ml-auto" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            ))}
+            {(() => {
+              // Recalcule la liste plate ici pour mapper le bon `flatIdx`
+              // a chaque option (la nav clavier l'utilise via data-option-idx).
+              let runningIdx = 0;
+              return groups.map((g, gi) => (
+                <div key={g.name ?? `__${gi}`}>
+                  {g.name && (
+                    <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-medium text-zinc-400 dark:text-zinc-500">
+                      {g.name}
+                    </div>
+                  )}
+                  {g.opts.map((o) => {
+                    const flatIdx = runningIdx++;
+                    const isActive = activeIdx === flatIdx;
+                    const isSelected = value === o.key;
+                    return (
+                      <button
+                        key={o.key}
+                        type="button"
+                        data-option-idx={flatIdx}
+                        onMouseEnter={() => setActiveIdx(flatIdx)}
+                        onClick={() => {
+                          onChange(o.key);
+                          setOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors",
+                          // Couleur de fond cumule : active (clavier/hover) > selected
+                          isActive
+                            ? "bg-zinc-100 dark:bg-white/[0.08]"
+                            : isSelected
+                            ? "bg-zinc-50 dark:bg-white/[0.04]"
+                            : "hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
+                        )}
+                      >
+                        <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
+                          {o.label}
+                        </span>
+                        {isSelected && (
+                          <Check className="h-3 w-3 text-zinc-500 dark:text-zinc-400 ml-auto" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ));
+            })()}
             {onReset && value !== null && (
               <button
                 type="button"

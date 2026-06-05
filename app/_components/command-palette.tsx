@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Search, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { useFocusTrap } from "@/lib/focus-trap";
 import { TRACKERS, TRACKER_GROUPS } from "@/app/obligations/trackers";
 
 /**
@@ -96,7 +97,13 @@ export default function CommandPalette() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // A11y : piege le focus dans la palette + restaure l'element actif
+  // avant l'ouverture quand on ferme (utile pour un user clavier qui
+  // ouvre depuis n'importe ou avec Cmd+K).
+  useFocusTrap(dialogRef, open);
 
   // Ouverture via Cmd+K / Ctrl+K
   useEffect(() => {
@@ -209,6 +216,7 @@ export default function CommandPalette() {
         aria-hidden
       />
       <div
+        ref={dialogRef}
         className="relative w-full max-w-xl rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
         onKeyDown={handleKeyDown}
       >

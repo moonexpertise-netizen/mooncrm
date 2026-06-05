@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFocusTrap } from "@/lib/focus-trap";
 
 /**
  * Modale generique pour les formulaires (creation / edition).
@@ -58,6 +59,9 @@ export function FormModal({
   children: React.ReactNode;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // A11y : piege le Tab dans la modale + restaure le focus au close.
+  useFocusTrap(dialogRef, true);
 
   // Esc -> close
   useEffect(() => {

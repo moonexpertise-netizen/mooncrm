@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFocusTrap } from "@/lib/focus-trap";
 
 /**
  * Modale de confirmation custom, alternative au confirm() natif du browser.
@@ -102,6 +103,10 @@ function ConfirmModalRender({
 
   const [typed, setTyped] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // A11y : piege le Tab + restaure le focus au close.
+  useFocusTrap(dialogRef, true);
 
   // Focus automatique : input si typeToConfirm, sinon bouton Confirmer
   useEffect(() => {
@@ -136,7 +141,10 @@ function ConfirmModalRender({
         aria-hidden
       />
 
-      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
+      <div
+        ref={dialogRef}
+        className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
+      >
         {/* Header */}
         <div
           className={cn(
@@ -289,6 +297,9 @@ function AlertModalRender({
   description?: React.ReactNode;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" || e.key === "Enter") onClose();
@@ -308,7 +319,10 @@ function AlertModalRender({
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
+      <div
+        ref={dialogRef}
+        className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
+      >
         <div className="px-5 py-4 border-b bg-zinc-50 dark:bg-white/[0.03] border-zinc-200 dark:border-white/[0.06]">
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
           {description && (
