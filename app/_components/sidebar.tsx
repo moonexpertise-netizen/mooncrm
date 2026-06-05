@@ -70,7 +70,7 @@ type NavItem = {
   matchPrefix?: string;
   children?: ChildItem[];
   /** Clef pour mapper avec les badges "À faire" (cf. loadSidebarBadges). */
-  badgeKey?: "creations" | "ir" | "caa";
+  badgeKey?: "creations" | "ir" | "caa" | "facturation";
 };
 
 // Construit la liste des enfants Production en intercalant un header par groupe.
@@ -124,7 +124,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa", badgeKey: "caa" },
   { href: "/missions/pilotage", label: "Pilotage · Dashboard", icon: GaugeCircle, matchPrefix: "/missions/pilotage" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
-  { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation" },
+  // badgeKey : compteur de factures a etablir (etat_facturation = 'a_facturer')
+  // cumule sur les 5 sources (obligations / CAA / IR / missions exc / creations).
+  { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation", badgeKey: "facturation" },
   { href: "/finance", label: "Finance", icon: LineChart, matchPrefix: "/finance" },
 ];
 
@@ -177,12 +179,19 @@ export function Sidebar() {
   // Profile du user logué : sert à afficher email dans le footer + lien
   // Admin → Utilisateurs si is_admin. Fetch une seule fois au mount.
   const [me, setMe] = useState<{ email: string; isAdmin: boolean } | null>(null);
-  // Badges "A faire" sur Creations / IR / CAA. Charges au mount + a chaque
-  // changement de route (cf. effet plus bas) pour rester a jour.
-  const [badges, setBadges] = useState<{ creations: number; ir: number; caa: number }>({
+  // Badges "A faire" sur Creations / IR / CAA + factures a etablir sur
+  // Facturation. Charges au mount + a chaque changement de route (cf. effet
+  // plus bas) pour rester a jour.
+  const [badges, setBadges] = useState<{
+    creations: number;
+    ir: number;
+    caa: number;
+    facturation: number;
+  }>({
     creations: 0,
     ir: 0,
     caa: 0,
+    facturation: 0,
   });
   // Ordre custom des nav items (drag-and-drop). Initialise avec l'ordre
   // par defaut puis hydratte depuis localStorage cote client.

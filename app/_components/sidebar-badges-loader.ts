@@ -24,10 +24,21 @@ export async function loadSidebarBadges(): Promise<{
   creations: number;
   ir: number;
   caa: number;
+  facturation: number;
 }> {
   const sb = await createClient();
 
-  const [creationsRes, irRes, caaRes] = await Promise.all([
+  const [
+    creationsRes,
+    irRes,
+    caaRes,
+    // Facturation : 5 sources cumulees (toutes filtrees etat_facturation = 'a_facturer')
+    factObligationsRes,
+    factCaaRes,
+    factIrRes,
+    factMissionExcRes,
+    factCreationsRes,
+  ] = await Promise.all([
     sb
       .from("clients")
       .select("id", { count: "exact", head: true })
@@ -41,6 +52,31 @@ export async function loadSidebarBadges(): Promise<{
       .from("caa_obligations")
       .select("id", { count: "exact", head: true })
       .eq("statut_logique", "A_FAIRE"),
+    // 1) obligations (AGO_DEPOT + LIASSE_PLAQUETTE) a facturer
+    sb
+      .from("obligations")
+      .select("id", { count: "exact", head: true })
+      .eq("etat_facturation", "a_facturer"),
+    // 2) commissariat aux apports
+    sb
+      .from("caa_obligations")
+      .select("id", { count: "exact", head: true })
+      .eq("etat_facturation", "a_facturer"),
+    // 3) IR / IFI
+    sb
+      .from("ir_obligations")
+      .select("id", { count: "exact", head: true })
+      .eq("etat_facturation", "a_facturer"),
+    // 4) missions exceptionnelles
+    sb
+      .from("missions_exceptionnelles")
+      .select("id", { count: "exact", head: true })
+      .eq("etat_facturation", "a_facturer"),
+    // 5) creations (creation_facturation sur clients)
+    sb
+      .from("clients")
+      .select("id", { count: "exact", head: true })
+      .eq("creation_facturation", "a_facturer"),
   ]);
 
   if (creationsRes.error) {
@@ -55,10 +91,29 @@ export async function loadSidebarBadges(): Promise<{
     // eslint-disable-next-line no-console
     console.error("[sidebar-badges] caa:", caaRes.error.message);
   }
+  // Facturation : on log les erreurs mais on continue avec count=0 sur les
+  // sources qui plantent (defensif si une table manque ou si RLS bloque)
+  const factSources = [
+    { name: "obligations", res: factObligationsRes },
+    { name: "caa", res: factCaaRes },
+    { name: "ir", res: factIrRes },
+    { name: "missions_exc", res: factMissionExcRes },
+    { name: "creations", res: factCreationsRes },
+  ];
+  let facturation = 0;
+  for (const { name, res } of factSources) {
+    if (res.error) {
+      // eslint-disable-next-line no-console
+      console.error(`[sidebar-badges] facturation/${name}:`, res.error.message);
+    } else {
+      facturation += res.count ?? 0;
+    }
+  }
 
   return {
     creations: creationsRes.error ? 0 : creationsRes.count ?? 0,
     ir: irRes.error ? 0 : irRes.count ?? 0,
     caa: caaRes.error ? 0 : caaRes.count ?? 0,
+    facturation,
   };
 }
