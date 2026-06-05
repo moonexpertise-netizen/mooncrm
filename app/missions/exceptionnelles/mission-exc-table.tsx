@@ -13,6 +13,8 @@ import {
   Settings,
   Check,
   ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
   ExternalLink,
   MessageSquare,
 } from "lucide-react";
@@ -289,6 +291,36 @@ export default function MissionExcTable({
     anchorRect: { left: number; top: number; bottom: number; right: number };
   } | null>(null);
 
+  // Tri par colonne : 1 clic = asc, 2 clics = desc, 3 clics = reset (= ordre
+  // initial du serveur, date_debut DESC). Persiste en localStorage pour
+  // garder la preference du user entre les sessions.
+  type SortKey = "client" | "type" | "mission" | "forfait" | "etat_mission" | "facturation" | "ldm";
+  type SortDir = "asc" | "desc";
+  type SortState = { key: SortKey; dir: SortDir } | null;
+  const [sort, setSort] = useLocalStoragePref<SortState>(
+    "moon.missionsExc.sort",
+    null,
+    (raw) => {
+      try {
+        const v = JSON.parse(raw);
+        if (!v || !v.key || !v.dir) return null;
+        const validKeys: SortKey[] = ["client", "type", "mission", "forfait", "etat_mission", "facturation", "ldm"];
+        if (!validKeys.includes(v.key)) return null;
+        if (v.dir !== "asc" && v.dir !== "desc") return null;
+        return v as SortState;
+      } catch {
+        return null;
+      }
+    },
+  );
+  function cycleSort(key: SortKey) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 3e clic = reset
+    });
+  }
+
   /** Une mission est "100% terminee" quand chaque axe est dans un etat
    *  terminal (= plus rien a faire dessus) :
    *    - mission   : livree ou annulee
@@ -351,10 +383,10 @@ export default function MissionExcTable({
   }, [localRows]);
 
   // ============================================================================
-  //  Filtrage
+  //  Filtrage + tri
   // ============================================================================
   const filteredRows = useMemo(() => {
-    return localRows.filter((r) => {
+    const filtered = localRows.filter((r) => {
       // Hideout par defaut des missions 100% terminees (rien a faire sur les 3
       // axes). Ne s'applique pas si l'utilisateur a explicitement filtre sur
       // un statut terminal (ex. veut voir uniquement les "Facturées").
@@ -368,7 +400,47 @@ export default function MissionExcTable({
       if (filterType !== "all" && filterType !== "none" && r.type_id !== filterType) return false;
       return true;
     });
-  }, [localRows, filterMission, filterFact, filterType, hideDone]);
+    // Si pas de tri actif, on garde l'ordre du serveur (date_debut DESC).
+    if (!sort) return filtered;
+    // Ordres semantiques pour les statuts (asc = avance, ce qui est plus
+    // utile en pratique : on voit d'abord ce qui est en cours / a faire).
+    const etatMissionOrder: Record<EtatMission, number> = {
+      a_demarrer: 1, en_cours: 2, livree: 3, annulee: 4,
+    };
+    const etatFactOrder: Record<EtatFacturation, number> = {
+      a_facturer: 1, facturee: 2, sans_facture: 3,
+    };
+    const ldmOrder: Record<LdmStatutMission, number> = {
+      a_faire: 1, envoyee: 2, signee: 3, na: 4,
+    };
+    function val(r: MissionExcRow): string | number {
+      switch (sort!.key) {
+        case "client":
+          return (r.client_denomination ?? r.client_libre ?? "").toLocaleLowerCase("fr");
+        case "type": {
+          const t = r.type_id ? typesById.get(r.type_id) : null;
+          return (t?.label ?? "").toLocaleLowerCase("fr");
+        }
+        case "mission":
+          return (r.mission ?? "").toLocaleLowerCase("fr");
+        case "forfait":
+          return r.forfait ?? 0;
+        case "etat_mission":
+          return etatMissionOrder[r.etat_mission] ?? 99;
+        case "facturation":
+          return r.etat_facturation ? etatFactOrder[r.etat_facturation] : 99;
+        case "ldm":
+          return ldmOrder[r.ldm_statut] ?? 99;
+      }
+    }
+    const sign = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const va = val(a);
+      const vb = val(b);
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * sign;
+      return String(va).localeCompare(String(vb), "fr") * sign;
+    });
+  }, [localRows, filterMission, filterFact, filterType, hideDone, sort, typesById]);
   // Nombre de missions masquees par le toggle hideDone (independant des autres
   // filtres) -> affiche en sous-info quand hideDone est actif.
   const hiddenDoneCount = useMemo(
@@ -733,13 +805,13 @@ export default function MissionExcTable({
           <table className="w-full text-sm min-w-[900px]" aria-label="Missions exceptionnelles">
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[180px]">Client</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[140px]">Type</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Mission</th>
-                <th scope="col" className="px-2 py-2 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires (HT)">Forfait HT</th>
-                <th scope="col" className="px-2 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]">État mission</th>
-                <th scope="col" className="px-2 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]">Facturation</th>
-                <th scope="col" className="px-2 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[140px]" title="Lettre de mission">LDM</th>
+                <SortableHeader sortKey="client" align="left" width="180px" sort={sort} onSort={cycleSort}>Client</SortableHeader>
+                <SortableHeader sortKey="type" align="left" width="140px" sort={sort} onSort={cycleSort}>Type</SortableHeader>
+                <SortableHeader sortKey="mission" align="left" sort={sort} onSort={cycleSort}>Mission</SortableHeader>
+                <SortableHeader sortKey="forfait" align="right" width="120px" sort={sort} onSort={cycleSort} title="Forfait d'honoraires (HT)">Forfait HT</SortableHeader>
+                <SortableHeader sortKey="etat_mission" align="center" width="120px" sort={sort} onSort={cycleSort}>État mission</SortableHeader>
+                <SortableHeader sortKey="facturation" align="center" width="120px" sort={sort} onSort={cycleSort}>Facturation</SortableHeader>
+                <SortableHeader sortKey="ldm" align="center" width="140px" sort={sort} onSort={cycleSort} title="Lettre de mission">LDM</SortableHeader>
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
             </thead>
@@ -873,6 +945,65 @@ function Kpi({
         {subtitle}
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+//  SortableHeader : <th> cliquable, cycle asc -> desc -> reset
+// ============================================================================
+
+type SortKeyExport = "client" | "type" | "mission" | "forfait" | "etat_mission" | "facturation" | "ldm";
+
+function SortableHeader({
+  sortKey,
+  align,
+  width,
+  title,
+  sort,
+  onSort,
+  children,
+}: {
+  sortKey: SortKeyExport;
+  align: "left" | "center" | "right";
+  width?: string;
+  title?: string;
+  sort: { key: SortKeyExport; dir: "asc" | "desc" } | null;
+  onSort: (key: SortKeyExport) => void;
+  children: React.ReactNode;
+}) {
+  const active = sort?.key === sortKey;
+  const dir = active ? sort!.dir : null;
+  const Icon = !active ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
+  // Padding identique a l'ancien <th> + cell content alignment via flex
+  const padCls = align === "left" ? "px-3 py-2" : "px-2 py-2";
+  const justify =
+    align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
+  return (
+    <th
+      scope="col"
+      className={cn(padCls, "font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 select-none")}
+      style={width ? { width } : undefined}
+      title={title}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "inline-flex items-center gap-1 w-full",
+          justify,
+          active
+            ? "text-zinc-900 dark:text-zinc-100"
+            : "hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors",
+        )}
+        aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      >
+        <span>{children}</span>
+        <Icon
+          className={cn("h-3 w-3 shrink-0", active ? "opacity-100" : "opacity-40")}
+          aria-hidden
+        />
+      </button>
+    </th>
   );
 }
 
