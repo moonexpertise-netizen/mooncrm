@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/app/_components/page-header";
+import { countMissionExcComments } from "./comments-actions";
 import MissionExcTable, {
   type MissionExcRow,
   type MissionExcType,
@@ -119,6 +120,12 @@ export default async function MissionsExcPage() {
     denomination: c.denomination,
   }));
 
+  // Compteurs commentaires + email user courant (pour le popover commentaires)
+  const [commentCounts, { data: { user } }] = await Promise.all([
+    countMissionExcComments(rows.map((r) => r.id)),
+    sb.auth.getUser(),
+  ]);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -129,6 +136,8 @@ export default async function MissionsExcPage() {
         rows={rows}
         types={typesList}
         clientOptions={clientOptions}
+        initialCommentCounts={commentCounts}
+        currentUserEmail={user?.email ?? null}
       />
     </div>
   );

@@ -14,6 +14,7 @@ import {
   Check,
   ChevronDown,
   ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
@@ -38,6 +39,7 @@ import {
   type EtatMission,
   type LdmStatutMission,
 } from "./actions";
+import MissionExcCommentsPopover from "./comments-popover";
 
 // ============================================================================
 //  Types
@@ -235,10 +237,16 @@ export default function MissionExcTable({
   rows,
   types,
   clientOptions,
+  initialCommentCounts,
+  currentUserEmail,
 }: {
   rows: MissionExcRow[];
   types: MissionExcType[];
   clientOptions: MissionExcClientOption[];
+  /** Compteur initial de commentaires par mission_id, charge en SSR. */
+  initialCommentCounts?: Record<string, number>;
+  /** Email du user courant (pour distinguer "Moi" dans les commentaires). */
+  currentUserEmail?: string | null;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -269,6 +277,17 @@ export default function MissionExcTable({
     (raw) => (raw === "true" ? true : raw === "false" ? false : null),
     (val) => String(val),
   );
+
+  // Commentaires : compteur par mission + state du popover ouvert. Pattern
+  // aligne sur le tracker obligations.
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    initialCommentCounts ?? {},
+  );
+  const [openCommentsFor, setOpenCommentsFor] = useState<{
+    missionId: string;
+    missionLabel: string;
+    anchorRect: { left: number; top: number; bottom: number; right: number };
+  } | null>(null);
 
   /** Une mission est "100% terminee" quand chaque axe est dans un etat
    *  terminal (= plus rien a faire dessus) :
@@ -732,12 +751,20 @@ export default function MissionExcTable({
                   type={r.type_id ? typesById.get(r.type_id) ?? null : null}
                   types={localTypes.filter((t) => t.actif)}
                   clientOptions={clientOptions}
+                  commentCount={commentCounts[r.id] ?? 0}
                   onSaveField={(field, value) => onSaveField(r.id, field, value)}
                   onChangeClient={(cid, libre) => onChangeClient(r.id, cid, libre)}
                   onSetEtatMission={(e) => onSetEtatMission(r.id, e)}
                   onSetEtatFacturation={(e) => onSetEtatFacturation(r.id, e)}
                   onSetLdmStatut={(s) => onSetLdmStatut(r.id, s)}
                   onSetType={(t) => onSetType(r.id, t)}
+                  onOpenComments={(anchorRect) =>
+                    setOpenCommentsFor({
+                      missionId: r.id,
+                      missionLabel: `${r.mission}${r.client_denomination ? ` · ${r.client_denomination}` : r.client_libre ? ` · ${r.client_libre}` : ""}`,
+                      anchorRect,
+                    })
+                  }
                   onDuplicate={() => onDuplicate(r)}
                   onDelete={() => onDelete(r)}
                 />
@@ -751,6 +778,20 @@ export default function MissionExcTable({
         {filteredRows.length} mission{filteredRows.length > 1 ? "s" : ""} affichée{filteredRows.length > 1 ? "s" : ""}
         {localRows.length !== filteredRows.length && ` sur ${localRows.length}`}
       </p>
+
+      {/* Popover commentaires : ancre flottante a cote du bouton 💬 cliqué */}
+      {openCommentsFor && (
+        <MissionExcCommentsPopover
+          missionId={openCommentsFor.missionId}
+          missionLabel={openCommentsFor.missionLabel}
+          currentUserEmail={currentUserEmail ?? null}
+          anchorRect={openCommentsFor.anchorRect}
+          onClose={() => setOpenCommentsFor(null)}
+          onCountChange={(count) => {
+            setCommentCounts((prev) => ({ ...prev, [openCommentsFor.missionId]: count }));
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -844,12 +885,14 @@ function MissionRow({
   type,
   types,
   clientOptions,
+  commentCount,
   onSaveField,
   onChangeClient,
   onSetEtatMission,
   onSetEtatFacturation,
   onSetLdmStatut,
   onSetType,
+  onOpenComments,
   onDuplicate,
   onDelete,
 }: {
@@ -857,12 +900,16 @@ function MissionRow({
   type: MissionExcType | null;
   types: MissionExcType[];
   clientOptions: MissionExcClientOption[];
+  /** Nombre de commentaires lies a cette mission (badge sur le bouton 💬). */
+  commentCount: number;
   onSaveField: (field: keyof MissionExcRow, value: string | number | null) => void;
   onChangeClient: (clientId: string | null, libre: string | null) => void;
   onSetEtatMission: (e: EtatMission) => void;
   onSetEtatFacturation: (e: EtatFacturation | null) => void;
   onSetLdmStatut: (s: LdmStatutMission) => void;
   onSetType: (typeId: string | null) => void;
+  /** Click sur 💬 : passe la position de l'ancre pour le popover. */
+  onOpenComments: (anchorRect: { left: number; top: number; bottom: number; right: number }) => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
@@ -972,9 +1019,32 @@ function MissionRow({
         />
       </td>
 
-      {/* Actions : dupliquer + supprimer */}
+      {/* Actions : commentaires + dupliquer + supprimer */}
       <td className="px-2 py-2.5 text-right">
         <div className="inline-flex items-center gap-0.5">
+        <button
+          onClick={(e) => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            onOpenComments({
+              left: rect.left, top: rect.top, bottom: rect.bottom, right: rect.right,
+            });
+          }}
+          className={cn(
+            "relative p-1 rounded transition-colors",
+            commentCount > 0
+              ? "text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] hover:bg-[hsl(var(--gold))]/15"
+              : "text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06]",
+          )}
+          aria-label={commentCount > 0 ? `${commentCount} commentaires` : "Ajouter un commentaire"}
+          title={commentCount > 0 ? `${commentCount} commentaire${commentCount > 1 ? "s" : ""}` : "Ajouter un commentaire"}
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          {commentCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-[hsl(var(--gold))] text-[9px] font-semibold text-white tabular-nums leading-none">
+              {commentCount}
+            </span>
+          )}
+        </button>
         <button
           onClick={onDuplicate}
           className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
