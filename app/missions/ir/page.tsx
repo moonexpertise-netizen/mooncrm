@@ -64,9 +64,13 @@ export default async function IrPage({
       .from("clients_ir")
       .select("id, slug, civilite, prenom, nom, email, telephone, ldm_statut")
       .order("nom", { ascending: true }),
+    // Vue 6 annees centree sur current (3 avant, current, 2 apres). On filtre
+    // cote DB pour eviter de tirer ~10 ans d'historique a chaque load.
     sb
       .from("ir_obligations")
-      .select("client_ir_id, annee, type, statut_logique, statut_detail, etat_facturation, forfait"),
+      .select("client_ir_id, annee, type, statut_logique, statut_detail, etat_facturation, forfait")
+      .gte("annee", new Date().getFullYear() - 3)
+      .lte("annee", new Date().getFullYear() + 2),
     sb
       .from("status_options")
       .select("type_code, libelle, statut_logique, color, ordre")

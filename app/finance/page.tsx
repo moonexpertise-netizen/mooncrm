@@ -124,20 +124,31 @@ export default async function FinancePage() {
     sb.from("clients").select(
       "id, slug, denomination, activite, pipeline_statut, pipeline_changed_at, mois_signature, honoraires_compta, forfait_bilan, honoraires_jur, honoraires_creation, honoraires_reprise, tdb_honos_periode, tdb_periode, type_honos_bilans, type_honos_jur, type_honos_creation, type_honos_reprise"
     ),
+    // Filtres annee : la page Finance affiche au max les ~12 derniers mois
+    // + cumul YTD courant. Une fenetre [currentYear-1, currentYear] suffit
+    // amplement et evite de tirer 5+ annees d'historique a chaque load.
     sb
       .from("ir_obligations")
-      .select("id, annee, client_ir_id, type, statut_logique, statut_detail, etat_facturation, forfait, updated_at, clients_ir!inner(id, slug, civilite, prenom, nom)"),
+      .select("id, annee, client_ir_id, type, statut_logique, statut_detail, etat_facturation, forfait, updated_at, clients_ir!inner(id, slug, civilite, prenom, nom)")
+      .gte("annee", currentYear - 1)
+      .lte("annee", currentYear),
     sb
       .from("caa_obligations")
-      .select("id, annee, client_caa_id, statut_logique, statut_detail, etat_facturation, forfait, updated_at, clients_caa!inner(id, slug, denomination)"),
+      .select("id, annee, client_caa_id, statut_logique, statut_detail, etat_facturation, forfait, updated_at, clients_caa!inner(id, slug, denomination)")
+      .gte("annee", currentYear - 1)
+      .lte("annee", currentYear),
     sb
       .from("obligations")
       .select("id, annee, type, statut_logique, statut_detail, etat_facturation, updated_at, clients!inner(id, slug, denomination, honoraires_jur)")
-      .eq("type", "AGO_DEPOT"),
+      .eq("type", "AGO_DEPOT")
+      .gte("annee", currentYear - 1)
+      .lte("annee", currentYear),
     sb
       .from("obligations")
       .select("id, annee, type, statut_logique, statut_detail, etat_facturation, updated_at, clients!inner(id, slug, denomination, forfait_bilan, type_honos_bilans)")
-      .eq("type", "LIASSE_PLAQUETTE"),
+      .eq("type", "LIASSE_PLAQUETTE")
+      .gte("annee", currentYear - 1)
+      .lte("annee", currentYear),
     sb
       .from("missions_exceptionnelles")
       .select("id, slug, mission, etat_mission, etat_facturation, forfait, date_debut, date_fin, updated_at, client_id, client_libre, clients(slug, denomination)"),

@@ -51,9 +51,13 @@ export default async function CaaPage({
         "id, slug, denomination, siren, forme, dirigeant_nom, dirigeant_email, dirigeant_telephone, ldm_statut"
       )
       .order("denomination", { ascending: true }),
+    // Vue 6 annees centree, fenetre [N-3, N+2]. Evite de charger tout
+    // l'historique a chaque load (gain proportionnel au nombre d'annees).
     sb
       .from("caa_obligations")
-      .select("client_caa_id, annee, statut_logique, statut_detail, etat_facturation, forfait"),
+      .select("client_caa_id, annee, statut_logique, statut_detail, etat_facturation, forfait")
+      .gte("annee", new Date().getFullYear() - 3)
+      .lte("annee", new Date().getFullYear() + 2),
     sb
       .from("status_options")
       .select("type_code, libelle, statut_logique, color, ordre")
