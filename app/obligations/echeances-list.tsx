@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -294,14 +294,34 @@ function EcheanceRow({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  // State local : reflete la derniere valeur "promise" par le user. Permet
-  // un feedback immediat avant que router.refresh() ne ramene la vraie
-  // valeur du serveur. obligationId peut etre cree au 1er pick (cas
-  // virtual), on le memorise pour les pick suivants.
-  const [localObligationId, setLocalObligationId] = useState(item.obligationId);
-  const [localStatutDetail, setLocalStatutDetail] = useState(item.statutDetail);
-  const [localStatut, setLocalStatut] = useState(item.statut);
+  // Override optimistic uniquement pendant l'action serveur. Une fois
+  // l'action terminee et router.refresh() acheve (= item prop change),
+  // on clear l'override pour suivre la verite serveur. Evite les
+  // "donnees bizarres" persistantes vues entre l'action et le refresh.
+  const [optimistic, setOptimistic] = useState<{
+    statutDetail: string | null;
+    statut: SerializedEcheanceItem["statut"];
+  } | null>(null);
+  // Memorise l'id si on vient de creer la ligne (cas virtual) pour pouvoir
+  // attacher les commentaires immediatement. Le router.refresh() ramenera
+  // l'item.obligationId reel, donc on clear ensuite.
+  const [createdObligationId, setCreatedObligationId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
+  pendingRef.current = pending;
+
+  // Quand l'item prop change (apres router.refresh), on clear l'override.
+  // C'est crucial pour que la ligne refleche la verite serveur apres une
+  // modif - sinon useState garderait l'optimistic indefiniment et on
+  // verrait des incoherences (anciennes valeurs persistantes).
+  useEffect(() => {
+    if (!pendingRef.current) {
+      setOptimistic(null);
+      setCreatedObligationId(null);
+    }
+  }, [item.obligationId, item.statutDetail, item.statut]);
+
+  const effectiveObligationId = item.obligationId ?? createdObligationId;
 
   const isOverdue = item.daysOffset < 0;
   const isToday = item.daysOffset === 0;
@@ -342,28 +362,34 @@ function EcheanceRow({
     [options]
   );
 
-  // Valeur effectivement affichee : statut reel s'il existe, sinon le
-  // default A_FAIRE pour que le chip ait toujours sa couleur metier.
-  const displayStatutDetail = localStatutDetail ?? defaultLibelle;
-  const displayStatut: SerializedEcheanceItem["statut"] = localStatut ?? "A_FAIRE";
+  // Valeur effectivement affichee. Priorite :
+  //   1. override optimistic (en cours d'action)
+  //   2. statut serveur (item.statutDetail / item.statut)
+  //   3. defaut A_FAIRE du type (pour les obligations virtuelles)
+  const displayStatutDetail =
+    optimistic?.statutDetail ?? item.statutDetail ?? defaultLibelle;
+  const displayStatut: SerializedEcheanceItem["statut"] =
+    optimistic?.statut ?? item.statut ?? "A_FAIRE";
 
-  const commentCount = localObligationId
-    ? commentCounts[localObligationId] ?? 0
+  const commentCount = effectiveObligationId
+    ? commentCounts[effectiveObligationId] ?? 0
     : 0;
 
   async function handlePick(libelle: string | null) {
     setPending(true);
-    // Optimistic : on update tout de suite l'affichage local. Le serveur
-    // confirmera derriere (le router.refresh() retirera la ligne si c'est
-    // un TERMINE/NA, ou ramene la valeur reelle si autre).
-    setLocalStatutDetail(libelle);
+    // Optimistic : on update tout de suite l'affichage. Sera clear quand
+    // l'item prop change (= apres que le router.refresh ait ramene la
+    // verite serveur).
     const opt = libelle ? options.find((o) => o.libelle === libelle) : null;
-    setLocalStatut(opt ? opt.statut_logique : "A_FAIRE");
+    setOptimistic({
+      statutDetail: libelle ?? defaultLibelle,
+      statut: opt ? opt.statut_logique : "A_FAIRE",
+    });
 
     try {
       const result = await setEcheanceStatus(
         {
-          obligationId: localObligationId,
+          obligationId: effectiveObligationId,
           clientId: item.clientId,
           type: item.type,
           periode: item.periode,
@@ -371,16 +397,18 @@ function EcheanceRow({
         },
         libelle
       );
-      // Memorise l'id si on vient de creer la ligne (cas virtual)
-      if (!localObligationId) setLocalObligationId(result.obligationId);
+      // Memorise l'id si on vient de creer la ligne (cas virtual). Sera
+      // remplace par item.obligationId au prochain refresh.
+      if (!effectiveObligationId) setCreatedObligationId(result.obligationId);
       // Refresh : si TERMINE/NA, la ligne sortira de la liste cote engine ;
-      // sinon le statut affiche sera reconfirme.
+      // sinon le statut affiche sera reconfirme. Le useEffect ci-dessus
+      // clear l'optimistic quand item.statutDetail/statut changent.
       startTransition(() => router.refresh());
     } catch (err) {
-      // Revert le state local en cas d'erreur serveur
+      // Revert l'optimistic en cas d'erreur serveur (ex. souscription
+      // disparue, validation, etc.)
       console.error("setEcheanceStatus failed", err);
-      setLocalStatutDetail(item.statutDetail);
-      setLocalStatut(item.statut);
+      setOptimistic(null);
     } finally {
       setPending(false);
     }
@@ -398,7 +426,7 @@ function EcheanceRow({
 
     // Cas obligation virtuelle : on materialise la ligne DB avant d'ouvrir
     // le popover, pour pouvoir y attacher des commentaires. Idempotent.
-    let oid = localObligationId;
+    let oid = effectiveObligationId;
     if (!oid) {
       try {
         const result = await ensureObligationRow({
@@ -408,7 +436,7 @@ function EcheanceRow({
           annee: item.annee,
         });
         oid = result.obligationId;
-        setLocalObligationId(oid);
+        setCreatedObligationId(oid);
       } catch (err) {
         console.error("ensureObligationRow failed", err);
         return;
@@ -504,8 +532,8 @@ function EcheanceRow({
           col-span-2 a droite. */}
       <div className="hidden md:flex md:col-span-2 items-center justify-end gap-1.5">
         <StatusPicker
-          value={localStatutDetail}
-          statut={localStatut}
+          value={displayStatutDetail}
+          statut={displayStatut}
           options={pickerOptions}
           onPick={handlePick}
           placeholder="À faire"

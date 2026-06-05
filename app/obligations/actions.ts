@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 
@@ -185,6 +186,7 @@ export async function setEcheanceStatus(
   // Existant : delegue a la fonction simple, qui gere reset + revalidate.
   if (payload.obligationId) {
     await updateObligationStatus(payload.obligationId, libelle);
+    revalidatePath("/obligations");
     return { obligationId: payload.obligationId };
   }
 
@@ -194,37 +196,20 @@ export async function setEcheanceStatus(
   // statut_detail=null et le chip resterait "blanc" cote tracker.
   if (libelle === null) {
     const ensured = await ensureObligationRow(payload);
+    revalidatePath("/obligations");
     revalidateFinanceViews();
     return ensured;
   }
 
-  // Virtuel + libelle defini : insertion avec le statut choisi.
-  const sb = await createClient();
-  const { data: opt } = await sb
-    .from("status_options")
-    .select("statut_logique")
-    .eq("scope", "obligation")
-    .eq("type_code", payload.type)
-    .eq("libelle", libelle)
-    .maybeSingle();
-  const statut_logique = opt?.statut_logique ?? "A_FAIRE";
-
-  const { data: inserted, error } = await sb
-    .from("obligations")
-    .insert({
-      client_id: payload.clientId,
-      type: payload.type,
-      periode: payload.periode,
-      annee: payload.annee,
-      statut_logique,
-      statut_detail: libelle,
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-
-  revalidateFinanceViews();
-  return { obligationId: inserted.id };
+  // Virtuel + libelle defini : on passe par ensureObligationRow d'abord
+  // (creation de la ligne avec subscription_id correct, NOT NULL en
+  // schema), puis updateObligationStatus pour appliquer le statut voulu.
+  // Plus robuste qu'un INSERT direct : reuse la logique de lookup +
+  // gestion du libelle par defaut.
+  const { obligationId } = await ensureObligationRow(payload);
+  await updateObligationStatus(obligationId, libelle);
+  revalidatePath("/obligations");
+  return { obligationId };
 }
 
 /**
@@ -261,7 +246,28 @@ export async function ensureObligationRow(payload: {
     .maybeSingle();
   if (existing) return { obligationId: existing.id };
 
-  // 2. Libelle A_FAIRE par defaut (pour rester coherent avec le tracker
+  // 2. Recupere subscription_id (NOT NULL en schema, sans ca l'INSERT
+  // echoue silencieusement cote serveur). Si pas de souscription active
+  // pour ce client/type/annee, c'est une incoherence metier - on remonte
+  // l'erreur au client.
+  const { data: sub, error: subErr } = await sb
+    .from("obligation_subscriptions")
+    .select("id")
+    .eq("client_id", payload.clientId)
+    .eq("type", payload.type)
+    .eq("annee", payload.annee)
+    .eq("actif", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (subErr) throw new Error(subErr.message);
+  if (!sub) {
+    throw new Error(
+      `Aucune souscription active pour ${payload.type} ${payload.annee}. Reactive la dans la matrice du client.`
+    );
+  }
+
+  // 3. Libelle A_FAIRE par defaut (pour rester coherent avec le tracker
   // qui affiche "Pas commence" / "A traiter" selon le type, pas un null).
   const { data: defaultOpt } = await sb
     .from("status_options")
@@ -274,10 +280,11 @@ export async function ensureObligationRow(payload: {
     .limit(1)
     .maybeSingle();
 
-  // 3. Insert
+  // 4. Insert
   const { data: inserted, error } = await sb
     .from("obligations")
     .insert({
+      subscription_id: sub.id,
       client_id: payload.clientId,
       type: payload.type,
       periode: payload.periode,
