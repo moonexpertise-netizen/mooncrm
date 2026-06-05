@@ -224,6 +224,70 @@ export async function setEcheanceStatus(
 }
 
 /**
+ * Materialise une obligation "virtuelle" (cellule attendue d'apres les
+ * subscriptions, mais sans ligne en DB). Necessaire pour pouvoir lui
+ * attacher un commentaire : obligation_comments.obligation_id reference
+ * une ligne reelle.
+ *
+ * Idempotent : si une ligne existe deja pour (client, type, periode),
+ * retourne son id sans creer de doublon. Sinon insere une ligne A_FAIRE
+ * avec le libelle par defaut du type (= ce que l'engine afficherait
+ * comme placeholder, ex. "Pas commence" / "A faire").
+ *
+ * On NE revalide PAS les vues finance ici : la cellule reste fonctionnellement
+ * a "A faire", donc rien ne change pour les agregats facturation/finance.
+ */
+export async function ensureObligationRow(payload: {
+  clientId: string;
+  type: string;
+  periode: string;
+  annee: number;
+}): Promise<{ obligationId: string }> {
+  const sb = await createClient();
+
+  // 1. Existe deja ?
+  const { data: existing } = await sb
+    .from("obligations")
+    .select("id")
+    .eq("client_id", payload.clientId)
+    .eq("type", payload.type)
+    .eq("periode", payload.periode)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (existing) return { obligationId: existing.id };
+
+  // 2. Libelle A_FAIRE par defaut (pour rester coherent avec le tracker
+  // qui affiche "Pas commence" / "A traiter" selon le type, pas un null).
+  const { data: defaultOpt } = await sb
+    .from("status_options")
+    .select("libelle")
+    .eq("scope", "obligation")
+    .eq("type_code", payload.type)
+    .eq("statut_logique", "A_FAIRE")
+    .eq("actif", true)
+    .order("ordre")
+    .limit(1)
+    .maybeSingle();
+
+  // 3. Insert
+  const { data: inserted, error } = await sb
+    .from("obligations")
+    .insert({
+      client_id: payload.clientId,
+      type: payload.type,
+      periode: payload.periode,
+      annee: payload.annee,
+      statut_logique: "A_FAIRE",
+      statut_detail: defaultOpt?.libelle ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return { obligationId: inserted.id };
+}
+
+/**
  * Met à jour la note libre sur une obligation. note = null ou "" -> efface.
  */
 export async function updateObligationNote(obligationId: string, note: string | null) {

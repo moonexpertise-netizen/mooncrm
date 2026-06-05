@@ -9,10 +9,12 @@ import {
   AlertTriangle,
   Calendar,
   ExternalLink,
+  MessageSquare,
 } from "lucide-react";
-import { cn, fmtDateFr } from "@/lib/utils";
+import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { Picker } from "@/app/_components/picker";
-import { setEcheanceStatus } from "./actions";
+import { setEcheanceStatus, ensureObligationRow } from "./actions";
+import CommentsPopover from "./[tracker]/comments-panel";
 import type { SerializedEcheanceItem, EcheanceStatusOption } from "./page";
 
 const MOIS_LABEL = [
@@ -48,6 +50,8 @@ export default function EcheancesList({
   duMois,
   enRetard,
   statusOptionsByType,
+  commentCounts,
+  currentUserEmail,
 }: {
   month: number;
   year: number;
@@ -56,6 +60,11 @@ export default function EcheancesList({
   /** Indexe par type_code -> liste des libelles disponibles (avec leur
    *  statut_logique pour determiner la couleur d'affichage). */
   statusOptionsByType: Record<string, EcheanceStatusOption[]>;
+  /** Indexe par obligationId -> nombre de commentaires. Vide pour les
+   *  obligations virtuelles (sans id DB). */
+  commentCounts: Record<string, number>;
+  /** Email utilisateur courant, transmis au popover commentaires. */
+  currentUserEmail: string | null;
 }) {
   const router = useRouter();
 
@@ -68,6 +77,22 @@ export default function EcheancesList({
     return { month: d.getUTCMonth() + 1, year: d.getUTCFullYear() };
   }, []);
   const isCurrentMonth = month === todayMonth.month && year === todayMonth.year;
+
+  // State : popover commentaires ouvert (un seul a la fois). Le obligationId
+  // est materialise au besoin (cas virtuel) avant d'ouvrir le popover.
+  const [openComments, setOpenComments] = useState<{
+    obligationId: string;
+    label: string;
+    anchor: { left: number; top: number; bottom: number; right: number };
+  } | null>(null);
+
+  // Counts locaux : on commence avec les counts serveur, on patche au fil
+  // des add/delete cote popover (via onCountChange) pour eviter un refresh.
+  const [localCommentCounts, setLocalCommentCounts] = useState(commentCounts);
+
+  function handleCountChange(obligationId: string, count: number) {
+    setLocalCommentCounts((prev) => ({ ...prev, [obligationId]: count }));
+  }
 
   return (
     <div className="space-y-5">
@@ -114,6 +139,8 @@ export default function EcheancesList({
           accent="rose"
           items={enRetard}
           statusOptionsByType={statusOptionsByType}
+          commentCounts={localCommentCounts}
+          onOpenComments={(payload) => setOpenComments(payload)}
         />
       )}
 
@@ -130,7 +157,22 @@ export default function EcheancesList({
         items={duMois}
         emptyState={duMois.length === 0 ? "Rien à traiter ce mois-ci." : null}
         statusOptionsByType={statusOptionsByType}
+        commentCounts={localCommentCounts}
+        onOpenComments={(payload) => setOpenComments(payload)}
       />
+
+      {/* Popover commentaires (style Notion). Memes commentaires que dans
+          le tracker car partagent obligation_id. */}
+      {openComments && (
+        <CommentsPopover
+          obligationId={openComments.obligationId}
+          obligationLabel={openComments.label}
+          currentUserEmail={currentUserEmail}
+          anchorRect={openComments.anchor}
+          onClose={() => setOpenComments(null)}
+          onCountChange={(count) => handleCountChange(openComments.obligationId, count)}
+        />
+      )}
     </div>
   );
 }
@@ -138,6 +180,12 @@ export default function EcheancesList({
 // ============================================================================
 //  Section : header + liste d'echeances
 // ============================================================================
+
+type OpenCommentsPayload = {
+  obligationId: string;
+  label: string;
+  anchor: { left: number; top: number; bottom: number; right: number };
+};
 
 function Section({
   title,
@@ -147,6 +195,8 @@ function Section({
   items,
   emptyState,
   statusOptionsByType,
+  commentCounts,
+  onOpenComments,
 }: {
   title: string;
   subtitle: string;
@@ -155,6 +205,8 @@ function Section({
   items: SerializedEcheanceItem[];
   emptyState?: string | null;
   statusOptionsByType: Record<string, EcheanceStatusOption[]>;
+  commentCounts: Record<string, number>;
+  onOpenComments: (payload: OpenCommentsPayload) => void;
 }) {
   // Decoupage par tracker pour lisibilite. On preserve l'ordre d'arrivee
   // des items (deja triees par dueDate) -> les groupes apparaissent dans
@@ -211,6 +263,8 @@ function Section({
                     key={`${it.clientId}|${it.type}|${it.annee}|${it.periode}`}
                     item={it}
                     options={statusOptionsByType[it.type] ?? []}
+                    commentCounts={commentCounts}
+                    onOpenComments={onOpenComments}
                   />
                 ))}
               </ul>
@@ -223,38 +277,19 @@ function Section({
 }
 
 // ============================================================================
-//  Ligne d'echeance avec picker statut interactif
+//  Ligne d'echeance avec picker statut interactif + bouton commentaires
 // ============================================================================
-
-/**
- * Determine la classe Tailwind du chip statut. Repris du style picker pour
- * coherence visuelle (texte + bg colores selon statut_logique). Si une
- * option custom a une color, on l'utilise ; sinon fallback par logique.
- */
-function statutChipColor(
-  statut: SerializedEcheanceItem["statut"],
-  optionColor?: string
-): string {
-  if (optionColor) return optionColor;
-  if (statut === "TERMINE") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
-  }
-  if (statut === "EN_COURS") {
-    return "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30";
-  }
-  if (statut === "NON_APPLICABLE") {
-    return "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-white/[0.05] dark:text-zinc-400 dark:border-white/[0.08]";
-  }
-  // A_FAIRE / null
-  return "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
-}
 
 function EcheanceRow({
   item,
   options,
+  commentCounts,
+  onOpenComments,
 }: {
   item: SerializedEcheanceItem;
   options: EcheanceStatusOption[];
+  commentCounts: Record<string, number>;
+  onOpenComments: (payload: OpenCommentsPayload) => void;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -280,6 +315,8 @@ function EcheanceRow({
 
   // Options pour le picker : on les groupe par statut_logique pour avoir
   // les headers "À faire / En cours / Terminé / N/A" comme dans le tracker.
+  // Chaque option est resolue en classe Tailwind via statutColorClass
+  // (la color DB est un keyword "amber"/"emerald"/... pas une classe).
   const pickerOptions = useMemo(() => {
     const GROUP_LABEL: Record<EcheanceStatusOption["statut_logique"], string> = {
       A_FAIRE: "À faire",
@@ -290,15 +327,14 @@ function EcheanceRow({
     return options.map((o) => ({
       key: o.libelle,
       label: o.libelle,
-      color: o.color,
+      color: statutColorClass(o.statut_logique, o.color),
       group: GROUP_LABEL[o.statut_logique],
     }));
   }, [options]);
 
-  // Couleur affichee : on cherche d'abord l'option qui matche le libelle
-  // courant pour avoir la couleur exacte, sinon fallback selon statut_logique.
-  const matchedOption = options.find((o) => o.libelle === localStatutDetail);
-  const colorClass = statutChipColor(localStatut, matchedOption?.color);
+  const commentCount = localObligationId
+    ? commentCounts[localObligationId] ?? 0
+    : 0;
 
   async function handlePick(libelle: string | null) {
     setPending(true);
@@ -335,6 +371,37 @@ function EcheanceRow({
     }
   }
 
+  async function handleOpenComments(e: React.MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const anchor = {
+      left: rect.left,
+      top: rect.top,
+      bottom: rect.bottom,
+      right: rect.right,
+    };
+    const label = `${item.clientName} · ${item.trackerTitle} · ${item.periodeLabel}`;
+
+    // Cas obligation virtuelle : on materialise la ligne DB avant d'ouvrir
+    // le popover, pour pouvoir y attacher des commentaires. Idempotent.
+    let oid = localObligationId;
+    if (!oid) {
+      try {
+        const result = await ensureObligationRow({
+          clientId: item.clientId,
+          type: item.type,
+          periode: item.periode,
+          annee: item.annee,
+        });
+        oid = result.obligationId;
+        setLocalObligationId(oid);
+      } catch (err) {
+        console.error("ensureObligationRow failed", err);
+        return;
+      }
+    }
+    onOpenComments({ obligationId: oid, label, anchor });
+  }
+
   return (
     <li
       className={cn(
@@ -357,16 +424,17 @@ function EcheanceRow({
             <div className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">{item.clientSiren}</div>
           )}
         </div>
-        {/* En mobile : statut picker + lien a droite */}
-        <div className="flex items-center gap-2 md:hidden shrink-0">
+        {/* En mobile : statut picker + bouton commentaires + lien tracker a droite */}
+        <div className="flex items-center gap-1 md:hidden shrink-0">
           <StatusPicker
             value={localStatutDetail}
-            colorClass={colorClass}
+            statut={localStatut}
             options={pickerOptions}
             onPick={handlePick}
             placeholder="À faire"
             disabled={pending || options.length === 0}
           />
+          <CommentsButton count={commentCount} onClick={handleOpenComments} large />
           <Link
             href={`/obligations/${item.trackerSlug}?year=${item.annee}&focus=${item.clientSlug}`}
             className="inline-flex items-center justify-center w-9 h-9 rounded-md text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -417,17 +485,18 @@ function EcheanceRow({
         </div>
       </div>
 
-      {/* Statut picker + lien tracker : visible UNIQUEMENT en desktop
-          (en mobile dans la 1ere ligne, a cote du client) */}
-      <div className="hidden md:flex md:col-span-2 items-center justify-end gap-2">
+      {/* Desktop : statut picker + commentaires + lien tracker.
+          col-span-2 a droite. */}
+      <div className="hidden md:flex md:col-span-2 items-center justify-end gap-1.5">
         <StatusPicker
           value={localStatutDetail}
-          colorClass={colorClass}
+          statut={localStatut}
           options={pickerOptions}
           onPick={handlePick}
           placeholder="À faire"
           disabled={pending || options.length === 0}
         />
+        <CommentsButton count={commentCount} onClick={handleOpenComments} />
         <Link
           href={`/obligations/${item.trackerSlug}?year=${item.annee}&focus=${item.clientSlug}`}
           className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -442,58 +511,54 @@ function EcheanceRow({
 }
 
 // ============================================================================
-//  StatusPicker : wrapper du Picker avec le bon styling
+//  StatusPicker : wrapper du Picker avec resolution couleurs
 // ============================================================================
-//
-// Petit adaptateur autour de Picker pour :
-//   1. Forcer la color du chip courant selon le statut_logique (pas juste
-//      celle de l'option matched) -> coherence visuelle si aucune option
-//      ne matche un libelle saisi ailleurs.
-//   2. Gerer le reset (-> A_FAIRE par defaut, libelle remis cote serveur).
-//   3. Fallback discret si aucune option n'est dispo (type sans config).
 
 function StatusPicker({
   value,
-  colorClass,
+  statut,
   options,
   onPick,
   placeholder,
   disabled,
 }: {
   value: string | null;
-  colorClass: string;
+  statut: SerializedEcheanceItem["statut"];
   options: Array<{ key: string; label: string; color: string; group?: string }>;
   onPick: (libelle: string | null) => void;
   placeholder: string;
   disabled: boolean;
 }) {
-  // Si pas d'options dispo (type orphan, ne devrait pas arriver mais
-  // garde-fou), on affiche un chip read-only.
+  // Fallback : aucune option active pour ce type (config orphan).
   if (options.length === 0) {
     return (
-      <span className={cn("px-2 py-0.5 rounded text-[11px] font-medium border", colorClass)}>
+      <span
+        className={cn(
+          "px-2 py-0.5 rounded text-[11px] font-medium border",
+          statutColorClass(statut, null)
+        )}
+      >
         {value ?? placeholder}
       </span>
     );
   }
 
-  // Surcharge la couleur de l'option courante pour que le chip refleche
-  // notre colorClass (ex. amber pour A_FAIRE) plutot que celle de l'option
-  // (souvent generique).
-  const pickerOptions = options.map((o) =>
-    o.key === value ? { ...o, color: colorClass } : o
-  );
-  // Ajoute une option synthetique pour la valeur courante quand elle ne
-  // matche aucune option active (libelle obsolete d'un ancien parametrage).
-  const hasMatch = options.some((o) => o.key === value);
-  if (value && !hasMatch) {
-    pickerOptions.unshift({ key: value, label: value, color: colorClass });
+  // Si la valeur courante n'est plus dans la liste d'options (libelle
+  // legacy desactive dans le parametrage), on l'injecte en tete pour
+  // que la pastille s'affiche quand meme correctement.
+  const augmented = [...options];
+  if (value && !options.some((o) => o.key === value)) {
+    augmented.unshift({
+      key: value,
+      label: value,
+      color: statutColorClass(statut, null),
+    });
   }
 
   return (
     <Picker
       value={value}
-      options={pickerOptions}
+      options={augmented}
       onChange={(libelle) => onPick(libelle)}
       onReset={() => onPick(null)}
       resetLabel="Réinitialiser"
@@ -505,5 +570,54 @@ function StatusPicker({
       minWidth={200}
       disabled={disabled}
     />
+  );
+}
+
+// ============================================================================
+//  CommentsButton : bouton 💬 + badge count
+// ============================================================================
+//
+// Memes commentaires que le tracker (la table obligation_comments est
+// indexee sur obligation_id). count = 0 -> icone discrete grise.
+// count > 0 -> icone + nombre avec accent jaune (style Notion).
+
+function CommentsButton({
+  count,
+  onClick,
+  large = false,
+}: {
+  count: number;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Mode mobile : touch-target plus large (w-9 h-9 au lieu de w-7 h-7). */
+  large?: boolean;
+}) {
+  const dim = large ? "w-9 h-9" : "w-7 h-7";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center justify-center gap-1 rounded-md transition-colors",
+        dim,
+        count > 0
+          ? "text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/15"
+          : "text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-700 dark:hover:text-zinc-200"
+      )}
+      title={
+        count > 0
+          ? `${count} commentaire${count > 1 ? "s" : ""}`
+          : "Ajouter un commentaire"
+      }
+      aria-label={
+        count > 0
+          ? `${count} commentaire${count > 1 ? "s" : ""}`
+          : "Ajouter un commentaire"
+      }
+    >
+      <MessageSquare className={large ? "h-4 w-4" : "h-3.5 w-3.5"} />
+      {count > 0 && (
+        <span className="text-[10px] font-medium tabular-nums leading-none">{count}</span>
+      )}
+    </button>
   );
 }

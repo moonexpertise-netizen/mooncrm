@@ -5,14 +5,17 @@ import {
   moisLabelCapitalized,
   type EcheanceItem,
 } from "@/lib/echeances-engine";
+import { countCommentsByObligation } from "./comments-actions";
 import EcheancesList from "./echeances-list";
 
 export const dynamic = "force-dynamic";
 
-/** Option de picker pour un type d'obligation (libelle + couleur + statut_logique). */
+/** Option de picker pour un type d'obligation (libelle + couleur + statut_logique).
+ *  color est le keyword DB (amber / red / blue / emerald / violet / zinc) ou
+ *  null ; le client le resout en classe Tailwind via statutColorClass(). */
 export type EcheanceStatusOption = {
   libelle: string;
-  color: string;
+  color: string | null;
   statut_logique: "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 };
 
@@ -48,16 +51,28 @@ export default async function EcheancesPage({
   for (const it of result.duMois) types.add(it.type);
   for (const it of result.enRetard) types.add(it.type);
 
+  // Counts de commentaires pour les obligations DEJA en DB (les virtuelles
+  // n'ont pas encore d'id donc pas de commentaires possibles). On les
+  // affiche en pastille a cote du picker statut.
+  const obligationIds: string[] = [];
+  for (const it of result.duMois) if (it.obligationId) obligationIds.push(it.obligationId);
+  for (const it of result.enRetard) if (it.obligationId) obligationIds.push(it.obligationId);
+
   const sb = await createClient();
-  const { data: optsRaw } = types.size
-    ? await sb
-        .from("status_options")
-        .select("type_code, libelle, color, statut_logique, ordre")
-        .eq("scope", "obligation")
-        .eq("actif", true)
-        .in("type_code", [...types])
-        .order("ordre")
-    : { data: null };
+  const [{ data: optsRaw }, commentCounts, { data: { user } }] = await Promise.all([
+    types.size
+      ? sb
+          .from("status_options")
+          .select("type_code, libelle, color, statut_logique, ordre")
+          .eq("scope", "obligation")
+          .eq("actif", true)
+          .in("type_code", [...types])
+          .order("ordre")
+      : Promise.resolve({ data: null }),
+    countCommentsByObligation(obligationIds),
+    sb.auth.getUser(),
+  ]);
+  const currentUserEmail = user?.email ?? null;
 
   const statusOptionsByType: Record<string, EcheanceStatusOption[]> = {};
   for (const o of optsRaw ?? []) {
@@ -65,7 +80,9 @@ export default async function EcheancesPage({
     if (!statusOptionsByType[t]) statusOptionsByType[t] = [];
     statusOptionsByType[t].push({
       libelle: o.libelle as string,
-      color: (o.color as string) ?? "bg-zinc-100 text-zinc-700 border-zinc-200",
+      // color est un keyword (ex. "amber") cote DB ; il est resolu en
+      // classe Tailwind cote client via statutColorClass(...).
+      color: (o.color as string | null) ?? null,
       statut_logique: o.statut_logique as EcheanceStatusOption["statut_logique"],
     });
   }
@@ -82,6 +99,8 @@ export default async function EcheancesPage({
         duMois={result.duMois.map(serializeItem)}
         enRetard={result.enRetard.map(serializeItem)}
         statusOptionsByType={statusOptionsByType}
+        commentCounts={commentCounts}
+        currentUserEmail={currentUserEmail}
       />
     </div>
   );
