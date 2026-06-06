@@ -453,25 +453,27 @@ export function Sidebar() {
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </span>
       </button>
-      {/* Logo : full moon-logo.svg en mode étendu, favicon (icon.svg) compact en mode replié */}
-      <div className={cn("h-14 flex items-center border-b border-white/[0.10] shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
+      {/* Logo : full moon-logo.svg en mode etendu, favicon (icon.svg) compact
+          en mode replie. Hauteur h-12 alignee sur le bandeau du main content
+          (app-shell) pour que les 2 borders bas s'alignent au pixel pres. */}
+      <div className={cn("h-12 flex items-center border-b border-white/[0.10] shrink-0", showCollapsed ? "justify-center px-2" : "px-4")}>
         <Link href="/" className="flex items-center gap-2 group min-w-0" title="Retour au dashboard">
           {showCollapsed ? (
             <Image
               src="/icon.svg"
               alt="MOON"
-              width={28}
-              height={28}
-              className="h-7 w-7 opacity-95 group-hover:opacity-100 transition-opacity"
+              width={24}
+              height={24}
+              className="h-6 w-6 opacity-95 group-hover:opacity-100 transition-opacity"
               priority
             />
           ) : (
             <Image
               src="/moon-logo.svg"
               alt="MOON Expertise"
-              width={188}
-              height={44}
-              className="h-11 w-auto opacity-95 group-hover:opacity-100 transition-opacity"
+              width={160}
+              height={36}
+              className="h-9 w-auto opacity-95 group-hover:opacity-100 transition-opacity"
               priority
             />
           )}
