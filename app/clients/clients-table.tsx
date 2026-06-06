@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
+import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 import { categorieActivite, type ActiviteCategorie } from "@/lib/activite-categorie";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
@@ -290,13 +291,29 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Buckets metier : Prospects / Clients / Internes & ST / Perdus */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* Buckets metier : Prospects / Clients / Internes & ST / Perdus
+          Desktop : chips inline. Mobile : select compact (5 chips qui
+          wrappent sur 2-3 lignes mangent l'ecran). */}
+      <div className="hidden md:flex flex-wrap items-center gap-1.5">
         <BucketBtn label="Tous" active={bucket === "all"} count={bucketCounts.all} onClick={() => setBucket("all")} />
         <BucketBtn label="Prospects" active={bucket === "prospects"} count={bucketCounts.prospects} tone="amber" onClick={() => setBucket("prospects")} />
         <BucketBtn label="Clients" active={bucket === "clients"} count={bucketCounts.clients} tone="emerald" onClick={() => setBucket("clients")} />
         <BucketBtn label="Internes & ST" active={bucket === "internes_st"} count={bucketCounts.internes_st} tone="sky" onClick={() => setBucket("internes_st")} />
         <BucketBtn label="Perdus & résiliés" active={bucket === "perdus"} count={bucketCounts.perdus} tone="rose" onClick={() => setBucket("perdus")} />
+      </div>
+      <div className="md:hidden">
+        <MobileFilterSelect
+          label="Bucket"
+          value={bucket}
+          onChange={(v) => setBucket(v as typeof bucket)}
+          options={[
+            { value: "all", label: `Tous (${bucketCounts.all})` },
+            { value: "prospects", label: `Prospects (${bucketCounts.prospects})` },
+            { value: "clients", label: `Clients (${bucketCounts.clients})` },
+            { value: "internes_st", label: `Internes & ST (${bucketCounts.internes_st})` },
+            { value: "perdus", label: `Perdus & résiliés (${bucketCounts.perdus})` },
+          ]}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">

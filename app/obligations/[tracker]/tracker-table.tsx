@@ -15,6 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import CommentsPopover from "./comments-panel";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
+import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { setClientTvaTag } from "@/app/parametrage/tva-tags/actions";
 import { computeEcheance, getUrgencyStatus, extractAnneeFromPeriode, type UrgencyStatus } from "@/lib/echeances";
@@ -1311,14 +1312,122 @@ export default function TrackerTable({
         </div>
       )}
 
-      {/* Barre d'outils unique, dense et ordonnée */}
-      <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-card px-3 py-2">
+      {/* Barre d'outils unique, dense et ordonnee.
+          Sur mobile : on remplace chips Statut/Cloture/Periode par 3 selects
+          natifs dans une grille 2-cols + ligne search dediee, sinon les
+          chips wrappaient sur 4-6 lignes et mangeaient tout l'ecran. */}
+
+      {/* === Mobile === */}
+      <div className="md:hidden rounded-lg border bg-card px-3 py-2.5 space-y-2">
         <input
           type="text"
           placeholder="Filtrer par client..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 transition"
+          className="w-full px-2.5 py-2 rounded-md border border-zinc-300 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-base focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 transition"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <MobileFilterSelect
+            label="Statut"
+            value={
+              statusFilter.size === 1
+                ? [...statusFilter][0]
+                : statusFilter.size === 0
+                ? "all"
+                : "multi"
+            }
+            onChange={(v) => {
+              if (v === "all") setStatusFilter(new Set());
+              else if (v !== "multi") setStatusFilter(new Set([v as StatutFilter]));
+            }}
+            options={[
+              { value: "all", label: "Tous" },
+              { value: "A_FAIRE", label: "À faire" },
+              { value: "EN_COURS", label: "En cours" },
+              { value: "TERMINE", label: "Terminé" },
+              { value: "NON_APPLICABLE", label: "N/A" },
+              ...(statusFilter.size > 1
+                ? [{ value: "multi", label: `Multi (${statusFilter.size})` }]
+                : []),
+            ]}
+          />
+          {hasClotureBasedCols && clotureMoisPresents.length > 1 && (
+            <MobileFilterSelect
+              label="Clôture"
+              value={
+                filterCloture.size === 1
+                  ? String([...filterCloture][0])
+                  : filterCloture.size === 0
+                  ? "all"
+                  : "multi"
+              }
+              onChange={(v) => {
+                if (v === "all") setFilterCloture(new Set());
+                else if (v !== "multi") setFilterCloture(new Set([parseInt(v, 10)]));
+              }}
+              options={[
+                { value: "all", label: "Toutes" },
+                ...clotureMoisPresents.map((m) => ({
+                  value: String(m),
+                  label: MOIS_FR[m - 1],
+                })),
+                ...(filterCloture.size > 1
+                  ? [{ value: "multi", label: `Multi (${filterCloture.size})` }]
+                  : []),
+              ]}
+            />
+          )}
+          {cols.length > 1 && (
+            <MobileFilterSelect
+              label="Période"
+              value={
+                periodFilter.size === 1
+                  ? [...periodFilter][0]
+                  : periodFilter.size === 0
+                  ? "all"
+                  : "multi"
+              }
+              onChange={(v) => {
+                if (v === "all") setPeriodFilter(new Set());
+                else if (v !== "multi") setPeriodFilter(new Set([v]));
+              }}
+              options={[
+                { value: "all", label: "Toutes" },
+                ...cols.map((c) => ({ value: c.key, label: c.label })),
+                ...(periodFilter.size > 1
+                  ? [{ value: "multi", label: `Multi (${periodFilter.size})` }]
+                  : []),
+              ]}
+            />
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {filtered.length} client{filtered.length > 1 ? "s" : ""}
+          </span>
+          <button
+            onClick={() => setAutoFit((v) => !v)}
+            className={cn(
+              "px-2 py-1 rounded-md text-[11px] border transition-all duration-150 active:scale-95",
+              autoFit
+                ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] border-[hsl(var(--gold))]/40"
+                : "bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900"
+            )}
+            title="Ajuster les colonnes au contenu"
+          >
+            ⇔ Auto
+          </button>
+        </div>
+      </div>
+
+      {/* === Desktop : barre d'outils dense, chips inline === */}
+      <div className="hidden md:flex items-center gap-2 flex-wrap rounded-lg border bg-card px-3 py-2">
+        <input
+          type="text"
+          placeholder="Filtrer par client..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="sm:w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 transition"
         />
         <div className="h-6 w-px bg-zinc-200 mx-1" />
         <div className="inline-flex gap-1 items-center">
@@ -1385,8 +1494,6 @@ export default function TrackerTable({
                   className={cn(
                     "px-1.5 py-0.5 rounded text-[11px] font-medium border transition-all duration-150 active:scale-95",
                     periodFilter.has(c.key)
-                      // Actif : style neutre du StatusFilterChip, lisible
-                      // light + dark (le dore blanc-sur-dore etait illisible).
                       ? "bg-zinc-100 dark:bg-white/[0.08] border-zinc-300 dark:border-white/[0.20] text-zinc-900 dark:text-zinc-50"
                       : "bg-white dark:bg-white/[0.02] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.06] hover:bg-zinc-50 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/[0.12]"
                   )}

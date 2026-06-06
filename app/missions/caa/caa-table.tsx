@@ -27,6 +27,7 @@ import { FormModal } from "@/app/_components/form-modal";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
+import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 
 export type CaaStatusOption = {
   libelle: string;
@@ -605,12 +606,34 @@ export default function CaaTable({
         </nav>
 
         {mode === "year" && (
-          <div className="flex items-center gap-1">
-            <StatusFilterChip label="Tous" count={yearRows.length} active={filter.size === 0} onClick={() => setFilter(new Set())} />
-            <StatusFilterChip label="À faire" count={yearCounts.a_faire} active={filter.has("a_faire")} onClick={(e) => setFilter(toggleFilterKey(filter, "a_faire", e))} accent="amber" />
-            <StatusFilterChip label="En cours" count={yearCounts.en_cours} active={filter.has("en_cours")} onClick={(e) => setFilter(toggleFilterKey(filter, "en_cours", e))} accent="sky" />
-            <StatusFilterChip label="Terminé" count={yearCounts.termine} active={filter.has("termine")} onClick={(e) => setFilter(toggleFilterKey(filter, "termine", e))} accent="emerald" />
-          </div>
+          <>
+            {/* Desktop chips / mobile select - cf. ir-table pour la motivation */}
+            <div className="hidden md:flex items-center gap-1">
+              <StatusFilterChip label="Tous" count={yearRows.length} active={filter.size === 0} onClick={() => setFilter(new Set())} />
+              <StatusFilterChip label="À faire" count={yearCounts.a_faire} active={filter.has("a_faire")} onClick={(e) => setFilter(toggleFilterKey(filter, "a_faire", e))} accent="amber" />
+              <StatusFilterChip label="En cours" count={yearCounts.en_cours} active={filter.has("en_cours")} onClick={(e) => setFilter(toggleFilterKey(filter, "en_cours", e))} accent="sky" />
+              <StatusFilterChip label="Terminé" count={yearCounts.termine} active={filter.has("termine")} onClick={(e) => setFilter(toggleFilterKey(filter, "termine", e))} accent="emerald" />
+            </div>
+            <div className="md:hidden w-full">
+              <MobileFilterSelect
+                label="Statut"
+                value={filter.size === 1 ? [...filter][0] : "all"}
+                onChange={(v) =>
+                  setFilter(
+                    v === "all"
+                      ? new Set()
+                      : new Set([v as "a_faire" | "en_cours" | "termine"])
+                  )
+                }
+                options={[
+                  { value: "all", label: `Tous (${yearRows.length})` },
+                  { value: "a_faire", label: `À faire (${yearCounts.a_faire})` },
+                  { value: "en_cours", label: `En cours (${yearCounts.en_cours})` },
+                  { value: "termine", label: `Terminé (${yearCounts.termine})` },
+                ]}
+              />
+            </div>
+          </>
         )}
 
         {!adding && (

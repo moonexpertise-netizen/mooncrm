@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
+import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
 import { Picker } from "@/app/_components/picker";
 import { useLocalStoragePref, useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
@@ -612,9 +613,114 @@ export default function MissionExcTable({
       <RecapCards recap={recap} />
 
       {/* Toolbar : filtres chips + actions
-          Cohérence visuelle avec IR/CAA/Créations : 3 bandeaux de chips au lieu
-          de selects natifs. Chaque chip affiche le compteur global par etat. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+          Coherence visuelle avec IR/CAA/Creations : 3 bandeaux de chips au lieu
+          de selects natifs. Chaque chip affiche le compteur global par etat.
+          Mobile : on remplace tous les chips par des selects compacts dans
+          une grille 2 colonnes pour eviter le wrap qui mangeait tout l'ecran. */}
+
+      {/* === Mobile : grille de selects compacte === */}
+      <div className="md:hidden space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <MobileFilterSelect
+            label="Mission"
+            value={filterMission.size === 1 ? [...filterMission][0] : "all"}
+            onChange={(v) =>
+              setFilterMission(v === "all" ? new Set() : new Set([v as FilterMission]))
+            }
+            options={[
+              { value: "all", label: `Toutes (${counts.total})` },
+              { value: "a_demarrer", label: `À démarrer (${counts.mission.a_demarrer})` },
+              { value: "en_cours", label: `En cours (${counts.mission.en_cours})` },
+              { value: "livree", label: `Livrée (${counts.mission.livree})` },
+              { value: "annulee", label: `Annulée (${counts.mission.annulee})` },
+            ]}
+          />
+          <MobileFilterSelect
+            label="Facturation"
+            value={filterFact.size === 1 ? [...filterFact][0] : "all"}
+            onChange={(v) =>
+              setFilterFact(v === "all" ? new Set() : new Set([v as FilterFact]))
+            }
+            options={[
+              { value: "all", label: `Toutes (${counts.total})` },
+              { value: "a_facturer", label: `À facturer (${counts.fact.a_facturer})` },
+              { value: "facturee", label: `Facturée (${counts.fact.facturee})` },
+              { value: "sans_facture", label: `Sans facture (${counts.fact.sans_facture})` },
+            ]}
+          />
+          {(localTypes.filter((t) => t.actif).length > 0 || counts.typeNone > 0) && (
+            <MobileFilterSelect
+              label="Type"
+              value={filterType}
+              onChange={(v) => setFilterType(v as FilterType)}
+              options={[
+                { value: "all", label: `Tous (${counts.total})` },
+                ...localTypes
+                  .filter((t) => t.actif)
+                  .map((t) => ({
+                    value: t.id,
+                    label: `${t.label} (${counts.type.get(t.id) ?? 0})`,
+                  })),
+                ...(counts.typeNone > 0
+                  ? [{ value: "none", label: `Sans type (${counts.typeNone})` }]
+                  : []),
+              ]}
+            />
+          )}
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none px-1 py-1">
+          <input
+            type="checkbox"
+            checked={hideDone}
+            onChange={(e) => setHideDone(e.target.checked)}
+            className="h-4 w-4 rounded border-zinc-300 dark:border-white/[0.15] accent-zinc-700 dark:accent-zinc-300"
+          />
+          <span className="text-[12px] text-zinc-600 dark:text-zinc-300">
+            Masquer les terminées
+            {hiddenDoneCount > 0 && (
+              <span className="text-zinc-400 dark:text-zinc-500 tabular-nums ml-1">
+                ({hiddenDoneCount})
+              </span>
+            )}
+          </span>
+        </label>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setEditingTypes(true)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md text-xs text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.10] hover:bg-zinc-50 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            Gérer les types
+          </button>
+          {!adding && (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Nouvelle mission
+            </button>
+          )}
+          {(filterMission.size > 0 || filterFact.size > 0 || filterType !== "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterMission(new Set());
+                setFilterFact(new Set());
+                setFilterType("all");
+              }}
+              className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* === Desktop : chips inline (cache mobile) === */}
+      <div className="hidden md:flex items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-2 min-w-0">
           {/* Mission : 4 etats fixes (a_demarrer / en_cours / livree / annulee) */}
           <div className="flex items-center gap-1.5 flex-wrap">

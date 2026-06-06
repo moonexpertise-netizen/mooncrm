@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
+import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 
 export type OnboardingRow = {
   id: string;
@@ -247,7 +248,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
         {/* Mobile : 4 selects natifs + count en dessous. 2 colonnes pour
             tenir sur 1 ecran et eviter le scroll horizontal vu sur les chips. */}
         <div className="md:hidden grid grid-cols-2 gap-2">
-          <MobileSelect
+          <MobileFilterSelect
             label="Type"
             value={typeFilter}
             onChange={(v) => setTypeFilter(v as TypeFilter)}
@@ -260,7 +261,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
               { value: "soustraitance", label: `ST (${typeCounts.soustraitance})` },
             ]}
           />
-          <MobileSelect
+          <MobileFilterSelect
             label="TNS"
             value={tnsFilter}
             onChange={(v) => setTnsFilter(v as TnsFilter)}
@@ -273,7 +274,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
                 : []),
             ]}
           />
-          <MobileSelect
+          <MobileFilterSelect
             label="Statut"
             value={statusFilter}
             onChange={(v) => setStatusFilter(v as StatusFilter)}
@@ -284,7 +285,7 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
               { value: "complete", label: `Terminé (${statusCounts.complete})` },
             ]}
           />
-          <MobileSelect
+          <MobileFilterSelect
             label="Tri"
             value={sort}
             onChange={(v) => setSort(v as SortMode)}
@@ -454,41 +455,6 @@ function ProgressRing({
         )}
       </div>
     </div>
-  );
-}
-
-// ============================================================================
-//  MobileSelect : select natif stylise pour la toolbar mobile
-// ============================================================================
-
-function MobileSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) {
-  return (
-    <label className="flex flex-col gap-0.5 min-w-0">
-      <span className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium px-0.5">
-        {label}
-      </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2 py-2 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-white/[0.30] focus:ring-2 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.04] transition-colors"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
 
