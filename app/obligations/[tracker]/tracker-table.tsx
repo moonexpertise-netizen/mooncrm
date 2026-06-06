@@ -1549,7 +1549,14 @@ export default function TrackerTable({
         <table className="w-full text-sm border-collapse min-w-[640px]">
           <thead className="bg-zinc-50 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-200 text-xs">
             <tr>
-              <th className="sticky left-0 z-10 bg-zinc-50 dark:bg-[hsl(var(--card))] text-left px-0 py-0 font-medium border-r border-zinc-200 dark:border-white/[0.06] min-w-[120px] md:min-w-[220px]">
+              <th
+                // Largeur fixe sur la sticky col (w-, pas min-w) : sinon le
+                // nom client + badges + chip TVA balonnaient la colonne et
+                // mangeaient toute la viewport mobile, laissant ~50px pour
+                // scroller les colonnes statuts.
+                style={{ width: 150, minWidth: 150, maxWidth: 150 }}
+                className="sticky left-0 z-10 bg-zinc-50 dark:bg-[hsl(var(--card))] text-left px-0 py-0 font-medium border-r border-zinc-200 dark:border-white/[0.06] md:!w-[220px] md:!min-w-[220px] md:!max-w-[220px]"
+              >
                 <button
                   onClick={selectAll}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[hsl(var(--gold))]/10 transition-colors group/all"
@@ -1602,7 +1609,13 @@ export default function TrackerTable({
           <tbody>
             {filtered.map((r, rowIndex) => (
               <tr key={r.clientId} className="border-t hover:bg-zinc-50/50">
-                <td className="sticky left-0 z-10 bg-white border-r group/row">
+                <td
+                  // Largeur fixe synchronisee avec le th : essentiel pour
+                  // que la colonne ne s'etire pas sur mobile (cf. th plus
+                  // haut). overflow-hidden coupe l'eventuel debordement.
+                  style={{ width: 150, minWidth: 150, maxWidth: 150 }}
+                  className="sticky left-0 z-10 bg-white border-r group/row overflow-hidden md:!w-[220px] md:!min-w-[220px] md:!max-w-[220px]"
+                >
                   <div className="flex items-stretch">
                     <button
                       onClick={(e) => selectRow(rowIndex, e)}
@@ -1613,32 +1626,38 @@ export default function TrackerTable({
                       <span className="text-xs">≡</span>
                     </button>
                     <div className="flex-1 px-2 py-2 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <Link
                           href={`/clients/${r.clientSlug}`}
-                          className="font-medium truncate hover:text-[hsl(var(--gold))] transition-colors"
+                          className="font-medium truncate hover:text-[hsl(var(--gold))] transition-colors min-w-0"
                         >
                           {r.denomination}
                         </Link>
-                        <PappersInpiBadges siren={r.siren} size="xs" />
-                        {/* Picker etiquette TVA inline : visible uniquement sur le
-                            tracker tva-mensuelle. Permet de catégoriser le dossier
-                            sans aller dans la fiche client. */}
-                        {isTvaMensuelle && tvaTags && (
+                        {/* Badges Pappers/INPI : caches mobile (place comptee,
+                            l'info est dans la fiche client). */}
+                        <div className="hidden md:flex items-center gap-1.5 shrink-0">
+                          <PappersInpiBadges siren={r.siren} size="xs" />
+                        </div>
+                      </div>
+                      {r.siren && (
+                        <Link
+                          href={`/clients/${r.clientSlug}`}
+                          className="block text-xs text-muted-foreground tabular-nums hover:text-[hsl(var(--gold))] transition-colors truncate"
+                        >
+                          {r.siren}
+                        </Link>
+                      )}
+                      {/* Picker etiquette TVA : sous le nom plutot qu'a cote
+                          pour ne pas etirer la sticky col mobile. Reste
+                          tappable directement depuis le tracker. */}
+                      {isTvaMensuelle && tvaTags && (
+                        <div className="mt-1">
                           <InlineTvaTagPicker
                             tags={tvaTags}
                             currentTagId={r.tva_tag_id}
                             onChange={(tagId) => onChangeTvaTag(r.clientId, tagId)}
                           />
-                        )}
-                      </div>
-                      {r.siren && (
-                        <Link
-                          href={`/clients/${r.clientSlug}`}
-                          className="block text-xs text-muted-foreground tabular-nums hover:text-[hsl(var(--gold))] transition-colors"
-                        >
-                          {r.siren}
-                        </Link>
+                        </div>
                       )}
                     </div>
                   </div>
