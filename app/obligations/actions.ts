@@ -234,22 +234,9 @@ export async function ensureObligationRow(payload: {
 }): Promise<{ obligationId: string }> {
   const sb = await createClient();
 
-  // 1. Existe deja ?
-  const { data: existing } = await sb
-    .from("obligations")
-    .select("id")
-    .eq("client_id", payload.clientId)
-    .eq("type", payload.type)
-    .eq("periode", payload.periode)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (existing) return { obligationId: existing.id };
-
-  // 2. Recupere subscription_id (NOT NULL en schema, sans ca l'INSERT
-  // echoue silencieusement cote serveur). Si pas de souscription active
-  // pour ce client/type/annee, c'est une incoherence metier - on remonte
-  // l'erreur au client.
+  // 1. Trouve la souscription active correspondante. subscription_id est
+  // la cle naturelle de l'obligation (UNIQUE (subscription_id, periode)
+  // en schema). Sans sub active : incoherence metier -> erreur explicite.
   const { data: sub, error: subErr } = await sb
     .from("obligation_subscriptions")
     .select("id")
@@ -266,6 +253,21 @@ export async function ensureObligationRow(payload: {
       `Aucune souscription active pour ${payload.type} ${payload.annee}. Reactive la dans la matrice du client.`
     );
   }
+
+  // 2. Existe-t-il deja une obligation pour ce (sub, periode) ?
+  // Lookup par subscription_id : matche exactement l'index UNIQUE de la
+  // table. Anciennement on cherchait par (client_id, type, periode) sans
+  // annee, ce qui pouvait remonter une ligne d'un autre exercice si
+  // periode collisionnait (cas des imports legacy avec annee differente
+  // de la periode). Resultat : on updatait la mauvaise ligne et l'engine
+  // affichait des echeances fantomes. Cf. bug rapporte 06/2026.
+  const { data: existing } = await sb
+    .from("obligations")
+    .select("id")
+    .eq("subscription_id", sub.id)
+    .eq("periode", payload.periode)
+    .maybeSingle();
+  if (existing) return { obligationId: existing.id };
 
   // 3. Libelle A_FAIRE par defaut (pour rester coherent avec le tracker
   // qui affiche "Pas commence" / "A traiter" selon le type, pas un null).
