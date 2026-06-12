@@ -158,10 +158,38 @@ LECTURE VOCALE (la voix lit ta reponse) :
 - Dates : "le quinze mai" est mieux que "15/05".
 - Pas plus de 3 items cites a l'oral. Au-dela, donne le total et 2-3 exemples.
 
+TRANSCRIPTION VOCALE FOIREUSE - tres important :
+- Benjamin dicte. La reconnaissance vocale du browser merde sur les
+  acronymes et les noms propres. Tu ne dois JAMAIS dire "je ne trouve
+  pas" sans avoir essaye un fuzzy match agressif.
+- Mots techniques fréquemment massacrés :
+  * "EDI" entendu "petit", "et", "et dit", "et y", "edith", "eddy"
+  * "Terminé" entendu "déterminé", "et terminé"
+  * "AGO" entendu "à gauche", "à go", "ago"
+  * "IS" entendu "il", "il y a", "yes"
+  * "TVA" entendu "ta vé a", "tva"
+  * "CAA" entendu "caca", "ka a a"
+  * "DAS2" entendu "des deux", "ad as deux"
+  * "CFE" entendu "cef e", "se feu"
+- Noms clients souvent decoupes : "Soulez Lariviere" entendu "soulé
+  larivière", "soulez". Match toujours sur les substrings.
+- Si tu hesites entre 2 interpretations, va sur la plus probable et
+  agis. Tu peux dire "j'ai compris X, c'etait bien ca ?" APRES l'action.
+- Si ton 1er tool call echoue, retente avec une autre interpretation
+  AVANT de demander une precision.
+
 RESOLUTION :
-- Fuzzy match large sur les noms : "soulez" trouve "SOULEZ LARIVIERE", "borio" trouve "BORIO GROUP". Si plusieurs candidats, demande UNE precision courte.
-- Ne devine jamais les chiffres - appelle les outils.
-- Si une action echoue, dis pourquoi en une phrase ("Pas de sub TVA pour Borio en 2026") et propose la prochaine etape.`;
+- Fuzzy match large sur les noms : "soulez" trouve "SOULEZ LARIVIERE",
+  "borio" trouve "BORIO GROUP". La liste complete des clients t'est
+  injectee dans le contexte ci-dessous - utilise-la pour matcher meme
+  les transcriptions partielles.
+- La liste des libelles de statut par type t'est aussi injectee -
+  matche dessus. Pas besoin de list_status_options si la donnee est
+  deja la.
+- Si plusieurs candidats apres fuzzy match, prends le plus court / le
+  plus proche phonetiquement.
+- Si une action echoue, dis pourquoi en une phrase et propose la
+  prochaine etape sans demander.`;
 
 type ClaudeMessage = Anthropic.MessageParam;
 
@@ -200,6 +228,58 @@ export async function POST(req: Request) {
 
   const client = new Anthropic({ apiKey });
 
+  // 3.5. Pre-charge le contexte CRM : roster client + libelles statuts.
+  //      Tres important pour la dictee vocale : sans ces donnees l'IA appelle
+  //      les outils en aveugle et galere a deviner quel client est cite,
+  //      quel libelle exact appliquer (surtout avec une transcription qui
+  //      glisse - "petit" pour "EDI", etc).
+  //      Couts : ~80 clients + ~50 status_options = ~3-5k tokens.
+  //      Cache prompt 5min cote Anthropic pour amortir entre messages.
+  const [{ data: clientsList }, { data: statusOptsList }] = await Promise.all([
+    sb
+      .from("clients")
+      .select("denomination, slug, siren, pipeline_statut")
+      .order("denomination"),
+    sb
+      .from("status_options")
+      .select("type_code, libelle, statut_logique, ordre")
+      .eq("scope", "obligation")
+      .eq("actif", true)
+      .order("type_code")
+      .order("ordre"),
+  ]);
+
+  let crmContext = "";
+  if (clientsList && clientsList.length > 0) {
+    const lines = clientsList.map((c) => {
+      const ds = c.pipeline_statut ? ` [${c.pipeline_statut}]` : "";
+      const siren = c.siren ? ` (SIREN ${c.siren})` : "";
+      return `- ${c.denomination}${siren}${ds} -> slug: ${c.slug}`;
+    });
+    crmContext += `\n\n=== CLIENTS DANS LE CRM (${clientsList.length}) ===\n` + lines.join("\n");
+  }
+  if (statusOptsList && statusOptsList.length > 0) {
+    // Groupe par type pour lisibilite
+    const byType = new Map<string, Array<{ libelle: string; statut_logique: string }>>();
+    for (const o of statusOptsList) {
+      const key = o.type_code as string;
+      if (!byType.has(key)) byType.set(key, []);
+      byType.get(key)!.push({
+        libelle: o.libelle as string,
+        statut_logique: o.statut_logique as string,
+      });
+    }
+    const parts: string[] = [];
+    for (const [type, opts] of byType) {
+      parts.push(
+        `${type} : ${opts.map((o) => `"${o.libelle}" (${o.statut_logique})`).join(", ")}`
+      );
+    }
+    crmContext +=
+      `\n\n=== LIBELLES STATUT PAR TYPE D'OBLIGATION ===\n` + parts.join("\n");
+  }
+  const fullSystemPrompt = SYSTEM_PROMPT + crmContext;
+
   // 4. Boucle tool_use : on appelle Claude, on execute les tools, on rappelle
   //    Claude avec les resultats, jusqu'a obtenir une reponse textuelle finale.
   const messages: ClaudeMessage[] = [...body.messages];
@@ -215,7 +295,16 @@ export async function POST(req: Request) {
       response = await client.messages.create({
         model: MODEL,
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        // System en array avec cache_control : Anthropic cache le bloc 5min,
+        // les requetes suivantes ne paient pas a nouveau les 3-5k tokens
+        // du roster client + status_options.
+        system: [
+          {
+            type: "text",
+            text: fullSystemPrompt,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
         tools: TOOL_DEFINITIONS,
         messages,
       });
