@@ -68,15 +68,22 @@ function toolResultToChange(
 
   if (toolName === "set_obligation_status") {
     const slug = String(r.client_slug ?? "");
+    const clientId = String(r.client_id ?? "");
     const type = String(r.type ?? "");
     const periode = String(r.periode ?? "");
     const libelle = String(r.libelle ?? "");
     const client = String(r.client ?? "");
     const annee = anneeFromPeriode(periode);
     const trackerSlug = slugForType(type);
+    // Format `focus` attendu par tracker-table : clientId_TYPE_periode
+    // -> resout la cellule exacte (scroll + highlight + open picker).
+    const focus =
+      clientId && type && periode
+        ? `${clientId}_${type}_${periode}`
+        : "";
     const href =
-      trackerSlug && annee
-        ? `/obligations/${trackerSlug}?year=${annee}&focus=${slug}`
+      trackerSlug && annee && focus
+        ? `/obligations/${trackerSlug}?year=${annee}&focus=${encodeURIComponent(focus)}`
         : `/clients/${slug}/obligations`;
     return {
       kind: "obligation_status",
@@ -111,6 +118,10 @@ const MAX_TURNS = 8; // garde-fou anti-boucle infinie tool_use
 
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth() + 1; // 1-12
+const MOIS_FR_NAMES = [
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+];
 
 const SYSTEM_PROMPT = `Tu es l'assistant vocal de Benjamin Perez, expert-comptable dirigeant de MOON Expertise (Paris). Benjamin te parle a la voix - tes reponses sont lues a haute voix par une voix de synthese.
 
@@ -142,10 +153,20 @@ ACTIONS - tu agis directement, sans demander confirmation :
 
 PERIODES :
 - Annee courante = ${CURRENT_YEAR}, mois courant = ${CURRENT_MONTH}.
-- "mai" sans annee -> "${CURRENT_YEAR}-05" (annee courante).
-- TVA mensuelle "mai 2025" -> "2025-05". TVA trimestrielle "T1 2026" -> "T1-2026".
-- Annuel (AGO, IS_SOLDE, LIASSE, DAS2, TVS, IFU, 2777) : juste "${CURRENT_YEAR}" ou l'annee precisee.
+- "mai 2025" -> "2025-05". "mai" (avec annee precisee oralement) -> annee
+  precisee. SANS aucune annee mentionnee -> annee courante = ${CURRENT_YEAR}.
+- TVA mensuelle/trimestrielle - REGLE IMPORTANTE : si Benjamin ne precise
+  PAS de mois, le mois implicite est le PRECEDENT (M-1 = ${CURRENT_MONTH > 1 ? CURRENT_MONTH - 1 : 12}), PAS le mois
+  courant. Raison : la TVA d'un mois M se fait au mois M+1 (echeance le 24).
+  Donc en ${MOIS_FR_NAMES[CURRENT_MONTH - 1]}, "passe la TVA de X en EDI" = TVA de
+  ${MOIS_FR_NAMES[CURRENT_MONTH > 1 ? CURRENT_MONTH - 2 : 11]} ${CURRENT_MONTH > 1 ? CURRENT_YEAR : CURRENT_YEAR - 1} = "${CURRENT_MONTH > 1 ? CURRENT_YEAR : CURRENT_YEAR - 1}-${String(CURRENT_MONTH > 1 ? CURRENT_MONTH - 1 : 12).padStart(2, "0")}".
+- Annuel (AGO, IS_SOLDE, LIASSE, DAS2, TVS, IFU, 2777) : si pas d'annee
+  precisee, prend l'annee precedente (${CURRENT_YEAR - 1}) car ce sont des declarations
+  N-1 qui se font en N.
 - Acompte IS/CVAE/CA12 "acompte juin 2026" -> "A-06-2026". Solde CA12 -> "S-2026".
+- SI TU HESITES entre 2 periodes plausibles (ex. user dit "mai" mais on
+  est en mai donc ca pourrait etre mai ${CURRENT_YEAR - 1} OR mai ${CURRENT_YEAR}), demande UNE
+  question courte AVANT d'agir : "Tu parles de mai ${CURRENT_YEAR - 1} ou mai ${CURRENT_YEAR} ?"
 
 VOCABULAIRE METIER (deduis vite le bon libelle) :
 - "declaree", "envoyee", "deposee", "passee" sur TVA -> "EDI" (le libelle TERMINE TVA).

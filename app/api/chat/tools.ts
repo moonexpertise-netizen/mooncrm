@@ -468,6 +468,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
       ok: true,
       client: cli.denomination,
       client_slug: cli.slug,
+      client_id: cli.id,
       type,
       periode,
       libelle: matched.libelle,
