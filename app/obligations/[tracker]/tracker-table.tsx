@@ -300,8 +300,10 @@ export default function TrackerTable({
         el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       }
     });
-    // Retire le highlight après quelques secondes
-    const t = setTimeout(() => setHighlightedCellId(null), 3500);
+    // Retire le highlight apres 6s. Plus long que 3.5s (la cellule
+    // doit rester reperable le temps que l'utilisateur la voie -
+    // surtout quand on vient d'un toast Jarvis).
+    const t = setTimeout(() => setHighlightedCellId(null), 6000);
     return () => clearTimeout(t);
   }, [focus, cols]);
 
@@ -1756,7 +1758,11 @@ export default function TrackerTable({
                         // jaune est sur la pastille statut (cf. StatusCell).
                         isSelected && "bg-[hsl(var(--gold))]/10",
                         isAnchor && "bg-[hsl(var(--gold))]/20",
-                        isHighlighted && "ring-2 ring-[hsl(var(--gold))] ring-offset-1 rounded animate-pulse"
+                        // Highlight Jarvis : equivalent visuel d'une cellule
+                        // selectionnee + ancree (gold/20 background) + ring
+                        // dore plus epais + ombre dore + animation pulse, pour
+                        // bien attirer l'oeil quand on arrive via deep link.
+                        isHighlighted && "relative z-30 bg-[hsl(var(--gold))]/20 ring-2 ring-[hsl(var(--gold))] ring-offset-2 ring-offset-white dark:ring-offset-[hsl(var(--card))] rounded-md shadow-[0_0_0_4px_hsl(var(--gold)/0.15)] animate-pulse"
                       )}
                       onMouseDown={(e) => onCellMouseDown(e, c.obligationId, rowIndex, colIndex)}
                     >
