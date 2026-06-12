@@ -5,8 +5,9 @@
  *   - declare son schema JSON (input)
  *   - implemente execute() qui interroge Supabase
  *
- * Etape 1 : 5 outils de LECTURE uniquement. Etape 2 ajoutera les actions
- * d'ecriture avec confirmation prealable.
+ * Outils de lecture + ecriture. L'utilisateur peut maintenant demander
+ * a l'IA "TVA Soulez Lariviere de mai, declaree" -> appelle
+ * set_obligation_status qui resout client + type + periode + libelle.
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
@@ -106,7 +107,120 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       },
     },
   },
+  {
+    name: "list_status_options",
+    description:
+      "Liste les libelles de statut disponibles pour un type d'obligation. Utilise AVANT set_obligation_status pour trouver le libelle exact (ex. 'EDI' / 'Pas commence' / 'Declaree') correspondant a la demande utilisateur. Retourne libelle + statut_logique (A_FAIRE / EN_COURS / TERMINE / NON_APPLICABLE).",
+    input_schema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          description: "Type d'obligation (TVA_MENSUELLE, IS_ACOMPTE, AGO_DEPOT, LIASSE_PLAQUETTE, etc.).",
+        },
+      },
+      required: ["type"],
+    },
+  },
+  {
+    name: "set_obligation_status",
+    description:
+      "Passe une obligation au statut donne (ex. TVA Soulez Lariviere de mai en 'EDI'). Resout le client par nom (fuzzy), trouve la sub active pour (client, type, annee), cree la ligne obligation si elle n'existe pas encore (statut A_FAIRE par defaut), puis applique le libelle voulu. Pour TVA mensuelle, periode = 'YYYY-MM' (ex. '2026-05'). Pour les annuels (AGO, IS_SOLDE, LIASSE, DAS2, TVS, IFU), periode = 'YYYY'. Pour les trimestriels TVA/CVAE, periode = 'TQ-YYYY'. Pour acomptes IS/CVAE/CA12, periode = 'A-MM-YYYY' ou 'S-YYYY' (solde CA12).",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_search: {
+          type: "string",
+          description:
+            "Nom ou debut de nom du client (ex. 'soulez', 'studi'or'). Fuzzy match insensible a la casse. Si plusieurs matchs, l'outil renvoie une erreur avec la liste des candidats.",
+        },
+        type: {
+          type: "string",
+          description: "Type d'obligation (TVA_MENSUELLE, IS_ACOMPTE, AGO_DEPOT, LIASSE_PLAQUETTE, etc.).",
+        },
+        periode: {
+          type: "string",
+          description:
+            "Periode exacte au format attendu par le type (cf. description outil). Si l'utilisateur a dit 'mai' sans annee, choisis l'annee la plus probable (souvent l'annee courante ou la sub la plus recente).",
+        },
+        libelle: {
+          type: "string",
+          description:
+            "Libelle de statut a appliquer (doit exister dans status_options pour ce type). Verifie avec list_status_options si tu n'es pas sur.",
+        },
+      },
+      required: ["client_search", "type", "periode", "libelle"],
+    },
+  },
+  {
+    name: "set_client_pipeline_statut",
+    description:
+      "Change le statut pipeline commercial d'un client (ex. 'passe Soulez en LDM signee'). Resout le client par nom (fuzzy) puis applique le pipeline_statut.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_search: {
+          type: "string",
+          description: "Nom ou debut de nom du client (fuzzy match insensible casse).",
+        },
+        pipeline_statut: {
+          type: "string",
+          description:
+            "Valeur cible exacte parmi : '1 - Tally à envoyer', '2 - Tally à compléter', '3 - PC à préparer', '4 - PC envoyée', '5 - PC acceptée', '6 - LDM envoyée', '7 - LDM signée', 'Z - Interne', 'Z - Sous-traitance', 'Z - Prospect perdu', 'Z - Résiliée'.",
+        },
+      },
+      required: ["client_search", "pipeline_statut"],
+    },
+  },
 ];
+
+// ============================================================================
+//  Helpers internes
+// ============================================================================
+
+/** Resout un client par fuzzy match sur denomination. Renvoie ambiguity si plusieurs. */
+async function resolveClient(
+  sb: SupabaseClient,
+  search: string
+): Promise<
+  | { ok: true; id: string; slug: string; denomination: string }
+  | { ok: false; reason: string }
+> {
+  const s = search.trim();
+  if (!s) return { ok: false, reason: "Recherche client vide." };
+  // Match large : ILIKE %s% sur denomination + slug
+  const { data, error } = await sb
+    .from("clients")
+    .select("id, slug, denomination")
+    .or(`denomination.ilike.%${s}%,slug.ilike.%${s}%`)
+    .order("denomination")
+    .limit(10);
+  if (error) return { ok: false, reason: error.message };
+  const rows = data ?? [];
+  if (rows.length === 0) {
+    return { ok: false, reason: `Aucun client trouve pour "${search}".` };
+  }
+  if (rows.length === 1) {
+    return { ok: true, id: rows[0].id, slug: rows[0].slug, denomination: rows[0].denomination };
+  }
+  // Si match exact (case-insensitive) ou prefix, prefere-le
+  const lower = s.toLowerCase();
+  const exact = rows.find((r) => r.denomination.toLowerCase() === lower);
+  if (exact) return { ok: true, ...exact };
+  const prefix = rows.find((r) => r.denomination.toLowerCase().startsWith(lower));
+  if (prefix) return { ok: true, ...prefix };
+  return {
+    ok: false,
+    reason: `Plusieurs clients matchent "${search}" : ${rows.map((r) => r.denomination).join(", ")}. Sois plus precis.`,
+  };
+}
+
+/** Extrait l'annee d'une periode au format attendu par les trackers. */
+function anneeFromPeriode(periode: string): number | null {
+  // "2026-05" / "T1-2026" / "A-06-2026" / "S-2026" / "2026"
+  const m = periode.match(/(\d{4})/);
+  return m ? parseInt(m[1], 10) : null;
+}
 
 /** Implementations cote serveur des outils. */
 export const TOOL_HANDLERS: Record<string, ToolHandler> = {
@@ -244,6 +358,142 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
         statut: o.statut_logique,
         statut_detail: o.statut_detail,
       })),
+    };
+  },
+
+  list_status_options: async (input, sb) => {
+    const type = String(input.type ?? "").trim();
+    if (!type) return { error: "Parametre 'type' manquant." };
+    const { data, error } = await sb
+      .from("status_options")
+      .select("libelle, statut_logique, ordre, color")
+      .eq("scope", "obligation")
+      .eq("type_code", type)
+      .eq("actif", true)
+      .order("ordre");
+    if (error) return { error: error.message };
+    return { type, options: data ?? [] };
+  },
+
+  set_obligation_status: async (input, sb) => {
+    const clientSearch = String(input.client_search ?? "").trim();
+    const type = String(input.type ?? "").trim();
+    const periode = String(input.periode ?? "").trim();
+    const libelle = String(input.libelle ?? "").trim();
+    if (!clientSearch || !type || !periode || !libelle) {
+      return { error: "Parametres manquants : client_search, type, periode et libelle requis." };
+    }
+
+    // 1. Resoudre le client
+    const cli = await resolveClient(sb, clientSearch);
+    if (!cli.ok) return { error: cli.reason };
+
+    // 2. Annee implicite a partir de la periode
+    const annee = anneeFromPeriode(periode);
+    if (!annee) {
+      return { error: `Impossible de deduire l'annee depuis periode "${periode}". Format attendu : "YYYY-MM" ou "YYYY" ou "TQ-YYYY".` };
+    }
+
+    // 3. Verifier le libelle existe pour ce type (lookup tolerant -
+    // accent / casse / "EDI / OK" vs "EDI") + recupere statut_logique
+    const { data: opts } = await sb
+      .from("status_options")
+      .select("libelle, statut_logique")
+      .eq("scope", "obligation")
+      .eq("type_code", type)
+      .eq("actif", true);
+    const norm = (s: string) =>
+      s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+    const wanted = norm(libelle);
+    const matched =
+      opts?.find((o) => norm(o.libelle) === wanted) ??
+      opts?.find((o) => norm(o.libelle).startsWith(wanted)) ??
+      opts?.find((o) => norm(o.libelle).includes(wanted));
+    if (!matched) {
+      return {
+        error: `Libelle "${libelle}" inconnu pour ${type}. Libelles dispo : ${opts?.map((o) => o.libelle).join(", ") ?? "(aucun)"}.`,
+      };
+    }
+
+    // 4. Trouver la sub active
+    const { data: sub } = await sb
+      .from("obligation_subscriptions")
+      .select("id")
+      .eq("client_id", cli.id)
+      .eq("type", type)
+      .eq("annee", annee)
+      .eq("actif", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!sub) {
+      return {
+        error: `Aucune souscription active ${type} ${annee} pour ${cli.denomination}. Active-la dans la matrice du client.`,
+      };
+    }
+
+    // 5. Upsert : lookup existant par (sub_id, periode) (= UNIQUE en schema)
+    const { data: existing } = await sb
+      .from("obligations")
+      .select("id")
+      .eq("subscription_id", sub.id)
+      .eq("periode", periode)
+      .maybeSingle();
+    let obligationId = existing?.id ?? null;
+    if (!obligationId) {
+      const { data: inserted, error: insErr } = await sb
+        .from("obligations")
+        .insert({
+          subscription_id: sub.id,
+          client_id: cli.id,
+          type,
+          periode,
+          annee,
+          statut_logique: matched.statut_logique,
+          statut_detail: matched.libelle,
+        })
+        .select("id")
+        .single();
+      if (insErr) return { error: insErr.message };
+      obligationId = inserted.id;
+    } else {
+      const { error: updErr } = await sb
+        .from("obligations")
+        .update({ statut_logique: matched.statut_logique, statut_detail: matched.libelle })
+        .eq("id", obligationId);
+      if (updErr) return { error: updErr.message };
+    }
+
+    return {
+      ok: true,
+      client: cli.denomination,
+      client_slug: cli.slug,
+      type,
+      periode,
+      libelle: matched.libelle,
+      statut_logique: matched.statut_logique,
+      obligation_id: obligationId,
+    };
+  },
+
+  set_client_pipeline_statut: async (input, sb) => {
+    const clientSearch = String(input.client_search ?? "").trim();
+    const pipelineStatut = String(input.pipeline_statut ?? "").trim();
+    if (!clientSearch || !pipelineStatut) {
+      return { error: "Parametres manquants." };
+    }
+    const cli = await resolveClient(sb, clientSearch);
+    if (!cli.ok) return { error: cli.reason };
+    const { error } = await sb
+      .from("clients")
+      .update({ pipeline_statut: pipelineStatut })
+      .eq("id", cli.id);
+    if (error) return { error: error.message };
+    return {
+      ok: true,
+      client: cli.denomination,
+      client_slug: cli.slug,
+      pipeline_statut: pipelineStatut,
     };
   },
 
