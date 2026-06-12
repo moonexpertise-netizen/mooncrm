@@ -16,6 +16,92 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { TOOL_DEFINITIONS, TOOL_HANDLERS } from "./tools";
+import { slugForType } from "@/app/obligations/trackers";
+
+/** Format universel d'une mutation faite par l'IA (renvoye au client pour
+ *  afficher un toast + deep link). */
+type JarvisChange = {
+  kind: "obligation_status" | "client_pipeline";
+  /** Titre court : "Obligation mise a jour" / "Pipeline change" */
+  title: string;
+  /** Description courte : "Soulez Lariviere TVA mai -> EDI" */
+  description: string;
+  /** URL deep-link vers la cellule modifiee (focus client + annee) */
+  href: string;
+  /** Donnees brutes pour debug / tests */
+  raw: Record<string, unknown>;
+};
+
+/** Extrait annee depuis periode (TVA "2026-05" -> 2026, AGO "2025" -> 2025). */
+function anneeFromPeriode(periode: string): number | null {
+  const m = String(periode).match(/(\d{4})/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Mois FR pour formater la description (TVA mai 2026, etc). */
+const MOIS_FR = ["jan", "fev", "mar", "avr", "mai", "juin", "jui", "aou", "sep", "oct", "nov", "dec"];
+function formatPeriodeShort(periode: string): string {
+  // "2026-05" -> "mai 2026"
+  const m1 = periode.match(/^(\d{4})-(\d{2})$/);
+  if (m1) return `${MOIS_FR[parseInt(m1[2], 10) - 1]} ${m1[1]}`;
+  // "T1-2026" -> "T1 2026"
+  const m2 = periode.match(/^T(\d)-(\d{4})$/);
+  if (m2) return `T${m2[1]} ${m2[2]}`;
+  // "A-06-2026" -> "acpt juin 2026"
+  const m3 = periode.match(/^A-(\d{2})-(\d{4})$/);
+  if (m3) return `acpt ${MOIS_FR[parseInt(m3[1], 10) - 1]} ${m3[2]}`;
+  // "S-2026" -> "solde 2026"
+  const m4 = periode.match(/^S-(\d{4})$/);
+  if (m4) return `solde ${m4[1]}`;
+  // "2026" -> "2026"
+  return periode;
+}
+
+/** Transforme un tool_result success en JarvisChange si c'est une mutation. */
+function toolResultToChange(
+  toolName: string,
+  result: unknown
+): JarvisChange | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  if (!r.ok) return null;
+
+  if (toolName === "set_obligation_status") {
+    const slug = String(r.client_slug ?? "");
+    const type = String(r.type ?? "");
+    const periode = String(r.periode ?? "");
+    const libelle = String(r.libelle ?? "");
+    const client = String(r.client ?? "");
+    const annee = anneeFromPeriode(periode);
+    const trackerSlug = slugForType(type);
+    const href =
+      trackerSlug && annee
+        ? `/obligations/${trackerSlug}?year=${annee}&focus=${slug}`
+        : `/clients/${slug}/obligations`;
+    return {
+      kind: "obligation_status",
+      title: "Statut mis a jour",
+      description: `${client} · ${type.replace(/_/g, " ").toLowerCase()} ${formatPeriodeShort(periode)} → ${libelle}`,
+      href,
+      raw: r,
+    };
+  }
+
+  if (toolName === "set_client_pipeline_statut") {
+    const slug = String(r.client_slug ?? "");
+    const client = String(r.client ?? "");
+    const pipeline = String(r.pipeline_statut ?? "");
+    return {
+      kind: "client_pipeline",
+      title: "Pipeline mis a jour",
+      description: `${client} → ${pipeline}`,
+      href: `/clients/${slug}`,
+      raw: r,
+    };
+  }
+
+  return null;
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -118,6 +204,9 @@ export async function POST(req: Request) {
   //    Claude avec les resultats, jusqu'a obtenir une reponse textuelle finale.
   const messages: ClaudeMessage[] = [...body.messages];
   let turns = 0;
+  // Accumule les mutations (writes) effectuees dans cette conversation
+  // pour les renvoyer au client (toast + deep link).
+  const changes: JarvisChange[] = [];
 
   while (turns < MAX_TURNS) {
     turns++;
@@ -147,6 +236,7 @@ export async function POST(req: Request) {
         text,
         messages: [...messages, { role: "assistant", content: response.content }],
         turns,
+        changes,
       });
     }
 
@@ -169,6 +259,9 @@ export async function POST(req: Request) {
         }
         try {
           const result = await handler(tu.input as Record<string, unknown>, sb);
+          // Capture les mutations reussies pour les renvoyer au client
+          const change = toolResultToChange(tu.name, result);
+          if (change) changes.push(change);
           return {
             type: "tool_result",
             tool_use_id: tu.id,

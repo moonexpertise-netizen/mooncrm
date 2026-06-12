@@ -1,8 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Check, Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** Mutation faite par Jarvis et renvoyee par /api/chat. */
+type JarvisChange = {
+  kind: "obligation_status" | "client_pipeline";
+  title: string;
+  description: string;
+  href: string;
+};
+
+/** Toast affiche en haut a droite apres une action Jarvis. */
+type Toast = JarvisChange & { id: number; expiresAt: number };
+
+const TOAST_DURATION_MS = 12000;
 
 /**
  * Assistant CRM "Jarvis" flottant.
@@ -135,6 +149,9 @@ export default function ChatBubble() {
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [interimText, setInterimText] = useState("");
 
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const router = useRouter();
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recogRef = useRef<SpeechRecognitionInstance | null>(null);
@@ -228,6 +245,26 @@ export default function ChatBubble() {
         }
         const reply = data.text ?? "(reponse vide)";
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+
+        // Mutations effectuees -> toast en haut a droite + refresh des
+        // server components de la page courante pour voir le changement
+        // en live sans avoir a F5.
+        const changes: JarvisChange[] = Array.isArray(data.changes) ? data.changes : [];
+        if (changes.length > 0) {
+          const now = Date.now();
+          setToasts((prev) => [
+            ...prev,
+            ...changes.map((c, i) => ({
+              ...c,
+              id: now + i,
+              expiresAt: now + TOAST_DURATION_MS,
+            })),
+          ]);
+          // router.refresh() re-fetch les server components -> /obligations,
+          // tracker pages, /pipeline, etc. La maj est visible en moins d'1s.
+          router.refresh();
+        }
+
         // Voice out : lecture si toggle actif. Selection d'une voix
         // masculine FR (cf. pickFrenchMaleVoice) - sinon le browser prend
         // sa voix par defaut qui est souvent feminine et robotique.
@@ -251,8 +288,26 @@ export default function ChatBubble() {
         setLoading(false);
       }
     },
-    [draft, loading, messages, ttsEnabled]
+    [draft, loading, messages, ttsEnabled, router]
   );
+
+  // Auto-cleanup des toasts expires
+  useEffect(() => {
+    if (toasts.length === 0) return;
+    const t = setInterval(() => {
+      const now = Date.now();
+      setToasts((prev) => prev.filter((t) => t.expiresAt > now));
+    }, 500);
+    return () => clearInterval(t);
+  }, [toasts.length]);
+
+  function dismissToast(id: number) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+  function onToastClick(t: Toast) {
+    router.push(t.href);
+    dismissToast(t.id);
+  }
 
   // ----- Voice in : init recognition + start/stop
   const ensureRecognition = useCallback((): SpeechRecognitionInstance | null => {
@@ -393,6 +448,47 @@ export default function ChatBubble() {
 
   return (
     <>
+      {/* Stack de toasts en haut a droite. Apparait apres chaque mutation
+          Jarvis (set_obligation_status, set_client_pipeline_statut...).
+          Cliquer = navigation deep-link vers la cellule modifiee. */}
+      <div className="fixed top-16 right-4 z-[950] flex flex-col gap-2 max-w-[360px] pointer-events-none">
+        {toasts.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onToastClick(t)}
+            className="pointer-events-auto text-left animate-slide-up-fade group/toast rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-[0_12px_40px_-10px_rgba(0,0,0,0.25)] dark:shadow-[0_12px_40px_-10px_rgba(0,0,0,0.7)] hover:border-[hsl(var(--gold))]/40 hover:shadow-[0_16px_50px_-10px_rgba(0,0,0,0.3)] transition-all px-3.5 py-3 flex items-start gap-3"
+          >
+            <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 mt-0.5">
+              <Check className="h-3.5 w-3.5" strokeWidth={3} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] uppercase tracking-wide font-semibold text-emerald-700 dark:text-emerald-400 leading-tight">
+                {t.title}
+              </div>
+              <div className="text-[13px] text-zinc-800 dark:text-zinc-100 leading-snug mt-0.5">
+                {t.description}
+              </div>
+              <div className="text-[10px] text-[hsl(var(--gold))] dark:text-[hsl(var(--gold))] flex items-center gap-1 mt-1.5 group-hover/toast:translate-x-0.5 transition-transform">
+                Voir <ArrowRight className="h-3 w-3" strokeWidth={2.5} />
+              </div>
+            </div>
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                dismissToast(t.id);
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Fermer"
+              className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Bouton flottant : disque sombre + etoile doree avec halo */}
       {!open && (
         <button
