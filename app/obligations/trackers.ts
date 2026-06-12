@@ -198,7 +198,7 @@ export const TRACKERS: Tracker[] = [
       { highlight: "Acompte si CVAE N-1 supérieure à 1 500 €", text: "" },
       { text: "Acompte 1 · 15/06 · 50% du montant" },
       { text: "Acompte 2 · 15/09 · 50% du montant" },
-      { text: "Auto-activé pour tout dossier régime IS, comme IS Acompte." },
+      { text: "Auto-activé pour TOUS les dossiers (clients + internes + sous-traitance), quelle que soit la régime." },
     ],
     types: ["CVAE_ACOMPTE"],
     cols: (y) => [
@@ -215,7 +215,7 @@ export const TRACKERS: Tracker[] = [
     accent: "amber",
     notes: [
       { text: "Solde 1329-DEF, échéance 18/05 N+1." },
-      { text: "Auto-activé pour tout dossier régime IS, comme IS Solde." },
+      { text: "Auto-activé pour TOUS les dossiers (clients + internes + sous-traitance), quelle que soit la régime." },
     ],
     types: ["CVAE"],
     cols: (y) => [

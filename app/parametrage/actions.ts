@@ -166,35 +166,44 @@ export async function setRegimeAction(
     .from("client_year_config")
     .upsert({ client_id: clientId, annee, regime }, { onConflict: "client_id,annee" });
 
+  // Helper local : ensure sub active pour (client, type, annee) - insert
+  // ou update + regenere les instances obligations.
+  async function ensureSubActive(t: TypeObligation) {
+    const { data: ex } = await sb
+      .from("obligation_subscriptions")
+      .select("id")
+      .eq("client_id", clientId)
+      .eq("type", t)
+      .eq("annee", annee)
+      .maybeSingle();
+    if (ex) {
+      await sb.from("obligation_subscriptions").update({ actif: true }).eq("id", ex.id);
+    } else {
+      await sb
+        .from("obligation_subscriptions")
+        .insert({ client_id: clientId, type: t, annee, actif: true });
+    }
+    await regenForSub(sb, clientId, t, annee);
+  }
+
+  // CVAE active POUR TOUS LES DOSSIERS (clients + internes + sous-traitance),
+  // independamment du regime. Si CVAE non concerne (CA < seuil ou N-1 <
+  // 1 500 EUR), Benjamin pose "N/A" directement dans le tracker.
+  await ensureSubActive("CVAE");
+  await ensureSubActive("CVAE_ACOMPTE");
+
   if (regime === "IR") {
+    // IR : pas d'IS, mais CVAE reste active (cf. ci-dessus).
     await sb
       .from("obligation_subscriptions")
       .update({ actif: false })
       .eq("client_id", clientId)
       .eq("annee", annee)
-      .in("type", ["IS_ACOMPTE", "IS_SOLDE", "CVAE", "CVAE_ACOMPTE"]);
+      .in("type", ["IS_ACOMPTE", "IS_SOLDE"]);
   } else if (regime === "IS") {
-    // Auto-active IS_SOLDE, IS_ACOMPTE, CVAE et CVAE_ACOMPTE : toujours
-    // obligatoires en régime IS. Si l'entreprise n'est pas concernée par
-    // la CVAE (CA < seuil ou CVAE N-1 < 1 500 €), elle pose un libellé
-    // "N/A" sur la ligne CVAE directement dans le tracker.
-    for (const t of ["IS_SOLDE", "IS_ACOMPTE", "CVAE", "CVAE_ACOMPTE"] as const) {
-      const { data: ex } = await sb
-        .from("obligation_subscriptions")
-        .select("id")
-        .eq("client_id", clientId)
-        .eq("type", t)
-        .eq("annee", annee)
-        .maybeSingle();
-      if (ex) {
-        await sb.from("obligation_subscriptions").update({ actif: true }).eq("id", ex.id);
-      } else {
-        await sb
-          .from("obligation_subscriptions")
-          .insert({ client_id: clientId, type: t, annee, actif: true });
-      }
-      await regenForSub(sb, clientId, t, annee);
-    }
+    // IS : active aussi IS_SOLDE et IS_ACOMPTE.
+    await ensureSubActive("IS_SOLDE");
+    await ensureSubActive("IS_ACOMPTE");
   }
   // Perf : optimistic update côté grid. Pas de revalidatePath.
 }
