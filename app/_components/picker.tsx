@@ -44,6 +44,7 @@ export function Picker<T extends string>({
   disabled = false,
   placeholder = "—",
   placeholderTitle,
+  placeholderColor,
   align = "right",
   size = "sm",
   minWidth = 180,
@@ -64,6 +65,10 @@ export function Picker<T extends string>({
   placeholder?: string;
   /** Tooltip sur le bouton quand value=null. Ex. "Facturation non encore définie". */
   placeholderTitle?: string;
+  /** Classe Tailwind pour styliser le chip quand value=null (au lieu du
+   *  fallback transparent). Ex. "bg-amber-100 text-amber-800 border-amber-200"
+   *  pour un placeholder A_FAIRE visible. */
+  placeholderColor?: string;
   /** Aligne le bord droit du popover sur le bord droit du bouton (defaut),
    *  ou le bord gauche, ou centre. */
   align?: "left" | "right" | "center";
@@ -243,6 +248,7 @@ export function Picker<T extends string>({
             ? "opacity-50 cursor-not-allowed"
             : "hover:opacity-80 cursor-pointer",
           current?.color ??
+            placeholderColor ??
             "bg-transparent dark:bg-transparent text-zinc-400 dark:text-zinc-500 border-transparent hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
         )}
         title={isEmpty ? placeholderTitle : undefined}

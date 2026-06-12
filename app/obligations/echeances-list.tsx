@@ -352,22 +352,17 @@ function EcheanceRow({
     }));
   }, [options]);
 
-  // Libelle A_FAIRE par defaut de ce type (ex. "0 - A traiter" pour AGO,
-  // "Pas commence" pour TVA). On l'utilise comme valeur affichee quand
-  // l'obligation est virtuelle (pas encore en DB) : le chip prend la
-  // couleur amber via le matching dans pickerOptions au lieu de tomber
-  // sur le placeholder transparent "À faire".
-  const defaultLibelle = useMemo(
-    () => options.find((o) => o.statut_logique === "A_FAIRE")?.libelle ?? null,
-    [options]
-  );
-
   // Valeur effectivement affichee. Priorite :
   //   1. override optimistic (en cours d'action)
   //   2. statut serveur (item.statutDetail / item.statut)
-  //   3. defaut A_FAIRE du type (pour les obligations virtuelles)
-  const displayStatutDetail =
-    optimistic?.statutDetail ?? item.statutDetail ?? defaultLibelle;
+  //   3. null -> rendu via placeholderColor (chip "À faire" amber)
+  //
+  // Ne PAS deviner un libelle "par defaut" du type : ca tombait sur
+  // n'importe quel libelle A_FAIRE custom selon l'ordre DB (ex. user
+  // avait ajoute "Rejetee - a renvoyer" en ordre 0 -> toutes les TVA
+  // virtuelles affichaient "Rejetee" alors que le seed defaut est
+  // "Pas commence" en ordre 10). Cf. bug rapporte 06/2026.
+  const displayStatutDetail = optimistic?.statutDetail ?? item.statutDetail;
   const displayStatut: SerializedEcheanceItem["statut"] =
     optimistic?.statut ?? item.statut ?? "A_FAIRE";
 
@@ -382,7 +377,7 @@ function EcheanceRow({
     // verite serveur).
     const opt = libelle ? options.find((o) => o.libelle === libelle) : null;
     setOptimistic({
-      statutDetail: libelle ?? defaultLibelle,
+      statutDetail: libelle,
       statut: opt ? opt.statut_logique : "A_FAIRE",
     });
 
@@ -566,6 +561,9 @@ function StatusPicker({
   disabled,
 }: {
   value: string | null;
+  /** Statut logique pour la couleur du chip - quand value=null ce sera
+   *  toujours "A_FAIRE" (amber) puisque les obligations virtuelles sont
+   *  par defaut a faire. */
   statut: SerializedEcheanceItem["statut"];
   options: Array<{ key: string; label: string; color: string; group?: string }>;
   onPick: (libelle: string | null) => void;
@@ -598,6 +596,12 @@ function StatusPicker({
     });
   }
 
+  // Couleur du chip quand value=null : on prend la couleur du statut
+  // logique courant (A_FAIRE -> amber) au lieu du fallback transparent
+  // du Picker. Comme ca le chip "À faire" reste lisible meme quand
+  // l'obligation est virtuelle.
+  const placeholderColor = statutColorClass(statut, null);
+
   return (
     <Picker
       value={value}
@@ -608,6 +612,7 @@ function StatusPicker({
       allowEmpty
       placeholder={placeholder}
       placeholderTitle="Cliquer pour choisir un statut"
+      placeholderColor={placeholderColor}
       align="right"
       size="sm"
       minWidth={200}
