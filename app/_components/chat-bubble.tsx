@@ -150,6 +150,7 @@ export default function ChatBubble() {
   const [interimText, setInterimText] = useState("");
 
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [suggestions, setSuggestions] = useState<Array<{ label: string; command: string }>>([]);
   const router = useRouter();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -219,6 +220,26 @@ export default function ChatBubble() {
       return () => clearTimeout(t);
     }
   }, [open]);
+
+  // Suggestions dynamiques basees sur les echeances reelles a traiter ce
+  // mois (en retard + a venir). Fetch a l'ouverture du chat, uniquement
+  // si pas de conversation en cours (sinon ca pollue l'empty state).
+  useEffect(() => {
+    if (!open || messages.length > 0) return;
+    let cancelled = false;
+    fetch("/api/chat/suggestions")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
+      })
+      .catch(() => {
+        // Silencieux : pas de suggestion -> empty state minimal sans boutons
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, messages.length]);
 
   // ----- Envoi conversation (memoize : utilise dans plusieurs callbacks)
   const send = useCallback(
@@ -614,30 +635,31 @@ export default function ChatBubble() {
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-[280px] mx-auto">
                   Tape, ou maintiens <kbd className="px-1 py-0.5 rounded bg-zinc-200 dark:bg-white/[0.06] text-[10px] font-mono">⌃⇧V</kbd> pour dicter.
                 </p>
-                <div className="mt-4 grid gap-1.5 text-left">
-                  {[
-                    "TVA Soulez Lariviere de mai déclarée",
-                    "Passe Borio en LDM signée",
-                    "Quelles obligations en retard ?",
-                    "Mon MRR",
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => {
-                        setDraft(q);
-                        inputRef.current?.focus();
-                      }}
-                      className="group/sugg flex items-center gap-2 text-[13px] text-left px-3 py-2 rounded-lg bg-white dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/[0.06] hover:border-[hsl(var(--gold))]/40 hover:bg-zinc-50 dark:hover:bg-white/[0.06] text-zinc-700 dark:text-zinc-200 transition-all"
-                    >
-                      <Sparkles
-                        className="h-3 w-3 text-[hsl(var(--gold))]/70 group-hover/sugg:text-[hsl(var(--gold))] shrink-0 transition-colors"
-                        aria-hidden="true"
-                      />
-                      <span className="flex-1 truncate">{q}</span>
-                    </button>
-                  ))}
-                </div>
+                {suggestions.length > 0 && (
+                  <div className="mt-4 grid gap-1.5 text-left">
+                    <div className="text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-1 mb-0.5">
+                      À traiter
+                    </div>
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.command}
+                        type="button"
+                        onClick={() => {
+                          setDraft(s.command);
+                          inputRef.current?.focus();
+                        }}
+                        title={s.command}
+                        className="group/sugg flex items-center gap-2 text-[13px] text-left px-3 py-2 rounded-lg bg-white dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/[0.06] hover:border-[hsl(var(--gold))]/40 hover:bg-zinc-50 dark:hover:bg-white/[0.06] text-zinc-700 dark:text-zinc-200 transition-all"
+                      >
+                        <Sparkles
+                          className="h-3 w-3 text-[hsl(var(--gold))]/70 group-hover/sugg:text-[hsl(var(--gold))] shrink-0 transition-colors"
+                          aria-hidden="true"
+                        />
+                        <span className="flex-1 truncate">{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
