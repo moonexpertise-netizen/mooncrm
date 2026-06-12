@@ -37,15 +37,17 @@ export type Row = {
 
 // Liste des colonnes à afficher (ordre métier MOON Expertise).
 // Bilan annuel d'abord, puis IS, puis autres taxes, puis déclarations.
-// CVAE solde retiré : toujours vérifié manuellement. CFE jamais exposée.
-// IS Acomptes retiré : auto-activé pour tout dossier en régime IS.
+// CFE jamais exposée.
+// IS Acomptes / IS Solde retirés : auto-activés pour tout dossier en régime IS.
+// CVAE Acomptes / CVAE Solde retirés : auto-activés pour tout dossier en
+// régime IS (cf. migration 0068). Acompte si CVAE N-1 > 1 500 € : le
+// suivi se fait directement dans le tracker, libellé "N/A" si pas dû.
 const COLS: { key: SubKey; label: string; short: string }[] = [
   { key: "LIASSE_PLAQUETTE", label: "Liasse / Plaquette", short: "Liasse" },
   { key: "DAS2", label: "DAS2", short: "DAS2" },
   { key: "AGO_DEPOT", label: "AGO / dépôt", short: "AGO" },
   { key: "IS_SOLDE", label: "IS - Solde", short: "IS Sld" },
   { key: "TVS", label: "TVS", short: "TVS" },
-  { key: "CVAE_ACOMPTE", label: "CVAE - Acomptes", short: "CV Acpt" },
   { key: "DECL_2777", label: "Flat-tax 2777", short: "2777" },
   { key: "DECL_2561", label: "IFU 2561", short: "2561" },
   { key: "OSS", label: "OSS (Guichet unique)", short: "OSS" },

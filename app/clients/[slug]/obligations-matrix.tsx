@@ -23,16 +23,15 @@ type SubKey =
 type TvaMode = "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS";
 
 // Ordre métier MOON : bilan annuel → IS → autres taxes → déclarations.
-// CVAE solde retirée : toujours vérifiée manuellement. Seuls les acomptes
-// CVAE restent paramétrables (déclenchés si CVAE N-1 > 1 500 €).
-// IS Acomptes retirés : auto-activés pour tout dossier en régime IS.
+// IS Acomptes / IS Solde retirés : auto-activés pour tout dossier en régime IS.
+// CVAE Acomptes / CVAE Solde retirés idem (cf. migration 0068). Le tracker
+// CVAE accepte le libellé "N/A" si pas concerné (CVAE N-1 < 1 500 €).
 const SUB_ROWS: { key: SubKey; label: string }[] = [
   { key: "LIASSE_PLAQUETTE", label: "Liasse / Plaquette" },
   { key: "DAS2", label: "DAS2" },
   { key: "AGO_DEPOT", label: "AGO / dépôt" },
   { key: "IS_SOLDE", label: "IS - Solde" },
   { key: "TVS", label: "TVS" },
-  { key: "CVAE_ACOMPTE", label: "CVAE - Acomptes" },
   { key: "DECL_2777", label: "Flat-tax 2777" },
   { key: "DECL_2561", label: "IFU 2561" },
   { key: "OSS", label: "OSS (Guichet unique)" },

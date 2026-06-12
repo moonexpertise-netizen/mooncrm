@@ -172,10 +172,13 @@ export async function setRegimeAction(
       .update({ actif: false })
       .eq("client_id", clientId)
       .eq("annee", annee)
-      .in("type", ["IS_ACOMPTE", "IS_SOLDE"]);
+      .in("type", ["IS_ACOMPTE", "IS_SOLDE", "CVAE", "CVAE_ACOMPTE"]);
   } else if (regime === "IS") {
-    // Auto-active IS_SOLDE et IS_ACOMPTE (toujours obligatoires en régime IS)
-    for (const t of ["IS_SOLDE", "IS_ACOMPTE"] as const) {
+    // Auto-active IS_SOLDE, IS_ACOMPTE, CVAE et CVAE_ACOMPTE : toujours
+    // obligatoires en régime IS. Si l'entreprise n'est pas concernée par
+    // la CVAE (CA < seuil ou CVAE N-1 < 1 500 €), elle pose un libellé
+    // "N/A" sur la ligne CVAE directement dans le tracker.
+    for (const t of ["IS_SOLDE", "IS_ACOMPTE", "CVAE", "CVAE_ACOMPTE"] as const) {
       const { data: ex } = await sb
         .from("obligation_subscriptions")
         .select("id")
