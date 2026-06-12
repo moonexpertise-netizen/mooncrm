@@ -57,11 +57,21 @@ FocusOrOpenCRM() {
 }
 
 ; ----- Hotkeys
-^!j::  ; Ctrl+Alt+J : ouvre CRM + dictee
+;
+;  ^!j (Ctrl+Alt+J) = push-to-talk :
+;    - HOLD -> envoie Ctrl+Shift+V (START enregistrement vocal cote app)
+;    - RELEASE -> envoie Ctrl+Shift+B (STOP + envoie la requete)
+;
+;  KeyWait "j" bloque le script jusqu'au release physique de la touche J.
+;  Pendant ce temps Windows continue normalement et le browser enregistre
+;  ta voix. Quand tu laches, on envoie le signal de stop+send.
+^!j::
 {
     FocusOrOpenCRM()
     Sleep 100
-    SendInput "^+v"   ; declenche le push-to-talk Jarvis cote app
+    SendInput "^+v"   ; START : declenche l'ecoute vocale Jarvis
+    KeyWait "j"        ; bloque tant que J n'est pas relachee
+    SendInput "^+b"   ; STOP + SEND : envoie la requete vocale a l'IA
 }
 
 ^!m::  ; Ctrl+Alt+M : ouvre CRM sans dictee

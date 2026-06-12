@@ -389,18 +389,38 @@ export default function ChatBubble() {
   }, []);
 
   // ----- Raccourcis clavier globaux
-  //  Ctrl+Shift+V (ou Cmd+Shift+V) : push-to-talk - hold pour parler, release
-  //  pour envoyer. Marche meme si le chat est ferme (ouvre automatiquement).
-  //  Esc : ferme le chat (ou arrete l'enregistrement en cours).
+  //  Ctrl+Shift+V : START recording. Ouvre le chat si ferme.
+  //  Ctrl+Shift+B : STOP + envoie la requete (utilise par AHK comme signal
+  //  de release de la touche Ctrl+Alt+J physique).
+  //  Esc : abort l'enregistrement ou ferme le chat.
+  //
+  //  Pourquoi 2 raccourcis distincts ? Quand AHK detecte Ctrl+Alt+J et le
+  //  re-envoie comme Ctrl+Shift+V, c'est une frappe instantanee (down+up
+  //  immediats) - le browser ne voit JAMAIS un vrai "key held" pour
+  //  pouvoir trigger sur keyup. Du coup AHK envoie un 2eme raccourci
+  //  (Ctrl+Shift+B) au release physique de Ctrl+Alt+J.
+  //  Pour l'utilisateur clavier direct dans le browser : Ctrl+Shift+V
+  //  toggle (1er = start, 2eme = stop+send).
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const ctrlish = e.ctrlKey || e.metaKey;
+      // START / TOGGLE
       if (ctrlish && e.shiftKey && (e.key === "V" || e.key === "v")) {
         e.preventDefault();
         if (!open) setOpen(true);
-        // Hold to talk : on demarre si pas deja en cours. onend (release de
-        // touche) declenchera l'arret.
-        if (!recordingRef.current) startRecording();
+        if (recordingRef.current) {
+          // 2eme press -> stop + send (auto via onend)
+          stopRecording();
+        } else {
+          startRecording();
+        }
+        return;
+      }
+      // STOP+SEND (envoye par AHK au release de Ctrl+Alt+J)
+      if (ctrlish && e.shiftKey && (e.key === "B" || e.key === "b")) {
+        e.preventDefault();
+        if (recordingRef.current) stopRecording();
+        return;
       }
       if (e.key === "Escape") {
         if (recordingRef.current) {
@@ -416,18 +436,9 @@ export default function ChatBubble() {
         if (open) setOpen(false);
       }
     }
-    function onKeyUp(e: KeyboardEvent) {
-      const ctrlish = e.ctrlKey || e.metaKey;
-      // Quand on release Ctrl OU Shift OU V pendant le push-to-talk, on stop
-      if (recordingRef.current && (!ctrlish || !e.shiftKey || e.key === "V" || e.key === "v")) {
-        stopRecording();
-      }
-    }
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
     };
   }, [open, startRecording, stopRecording]);
 
