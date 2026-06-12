@@ -68,6 +68,19 @@ export default function EcheancesList({
 }) {
   const router = useRouter();
 
+  // Anti cache stale : Next.js Router Cache garde une version cachee de la
+  // page 30s (cf. experimental.staleTimes.dynamic dans next.config.mjs).
+  // Sur /obligations c'est embetant : si on a marque des trucs en Terminé
+  // depuis une autre page (Jarvis, tracker, etc.), on revoit a tort des
+  // echeances rouges qui n'existent plus jusqu'a F5. router.refresh() au
+  // mount force une re-fetch RSC -> les bonnes donnees arrivent en <1s.
+  useEffect(() => {
+    router.refresh();
+    // exhaustive-deps : on veut un refresh une seule fois au mount, pas
+    // sur chaque re-render apres une action utilisateur.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const prev = useMemo(() => addMonth(month, year, -1), [month, year]);
   const next = useMemo(() => addMonth(month, year, 1), [month, year]);
 
