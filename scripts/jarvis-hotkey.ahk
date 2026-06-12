@@ -28,9 +28,9 @@
 ;      Run '"C:\Program Files\Google\Chrome\Application\chrome.exe" ' CRM_URL
 ; ============================================================================
 
-; ----- Config a editer
-CRM_URL := "https://mooncrm.vercel.app/"   ; <-- REMPLACE PAR TON URL PROD
-WINDOW_HINT := "MoonCRM"                    ; mot-cle dans le titre de la fenetre
+; ----- Config (pre-rempli pour Benjamin / MOON Expertise)
+CRM_URL := "https://crm.moonexpertise.fr/"   ; URL prod (domaine custom)
+WINDOW_HINT := "MOON Expertise"               ; le title des onglets est "CRM | MOON Expertise"
 
 ; ----- Match partiel sur les titres de fenetre (sinon il faudrait le titre exact)
 SetTitleMatchMode 2
