@@ -63,6 +63,68 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   return ctor ?? null;
 }
 
+// ============================================================================
+//  Voice picker - choisit la meilleure voix FR masculine dispo
+// ============================================================================
+//
+// La voix par defaut du navigateur est souvent un truc robotique random.
+// On filtre les voix dispo et on prend la meilleure homme FR :
+//   1. Voix "premium" / "neural" / "online" (qualite Microsoft Edge / Apple)
+//   2. Noms masculins connus : Thomas, Henri, Daniel, Aaron, Paul, Jacques...
+//   3. Defaut : 1ere voix FR
+
+// Voix homme FR connues sur les principales plateformes
+const FR_MALE_VOICE_HINTS = [
+  // macOS / iOS - Apple Voices
+  "thomas",      // fr-FR premium male
+  "aaron",       // fr-CA male
+  // Windows / Edge - Microsoft Neural
+  "henri",       // Microsoft Henri (fr-FR)
+  "paul",        // fr-CA
+  "claude",      // Microsoft Claude (fr-FR neural)
+  // Chrome / Google
+  "français",    // souvent suivi de "Homme" sur Chrome
+  // Generiques
+  "male",
+  "homme",
+];
+
+const PREMIUM_KEYWORDS = [
+  "premium",
+  "enhanced",
+  "neural",
+  "online",
+  "natural",
+  "high quality",
+];
+
+function pickFrenchMaleVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+
+  // 1. Filtre FR
+  const fr = voices.filter((v) => v.lang.toLowerCase().startsWith("fr"));
+  if (!fr.length) return null;
+
+  function score(v: SpeechSynthesisVoice): number {
+    const name = v.name.toLowerCase();
+    let s = 0;
+    // Match nom masculin connu : +100
+    if (FR_MALE_VOICE_HINTS.some((h) => name.includes(h))) s += 100;
+    // Pas de marqueur feminin : +10
+    const female = ["female", "femme", "amelie", "audrey", "marie", "celine", "julie"];
+    if (!female.some((f) => name.includes(f))) s += 10;
+    // Premium / neural : +50
+    if (PREMIUM_KEYWORDS.some((k) => name.includes(k))) s += 50;
+    // fr-FR > fr-CA > fr-BE : +5
+    if (v.lang.toLowerCase() === "fr-fr") s += 5;
+    return s;
+  }
+
+  return [...fr].sort((a, b) => score(b) - score(a))[0] ?? fr[0];
+}
+
 export default function ChatBubble() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -83,7 +145,7 @@ export default function ChatBubble() {
   // (raccourci clavier ou bouton). Empeche les onend phantom.
   const recordingRef = useRef(false);
 
-  // ----- Restore + persistance localStorage
+  // ----- Restore + persistance localStorage + warmup voix TTS
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -94,6 +156,17 @@ export default function ChatBubble() {
       setTtsEnabled(localStorage.getItem(TTS_PREF_KEY) === "1");
     } catch {
       // ignore
+    }
+    // Les voix TTS se chargent async. On force un getVoices() initial + on
+    // ecoute voiceschanged pour s'assurer que pickFrenchMaleVoice trouve
+    // bien la voix masculine FR au 1er appel.
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      const onVoices = () => window.speechSynthesis.getVoices();
+      window.speechSynthesis.addEventListener("voiceschanged", onVoices);
+      return () => {
+        window.speechSynthesis.removeEventListener("voiceschanged", onVoices);
+      };
     }
   }, []);
 
@@ -155,13 +228,18 @@ export default function ChatBubble() {
         }
         const reply = data.text ?? "(reponse vide)";
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-        // Voice out : lecture si toggle actif
+        // Voice out : lecture si toggle actif. Selection d'une voix
+        // masculine FR (cf. pickFrenchMaleVoice) - sinon le browser prend
+        // sa voix par defaut qui est souvent feminine et robotique.
         if (ttsEnabled && reply && typeof window !== "undefined" && window.speechSynthesis) {
           try {
             window.speechSynthesis.cancel();
             const utt = new SpeechSynthesisUtterance(reply);
-            utt.lang = "fr-FR";
-            utt.rate = 1.05;
+            const voice = pickFrenchMaleVoice();
+            if (voice) utt.voice = voice;
+            utt.lang = voice?.lang ?? "fr-FR";
+            utt.rate = 1.0;
+            utt.pitch = 0.95;
             window.speechSynthesis.speak(utt);
           } catch {
             // ignore TTS failures
