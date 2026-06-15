@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Fraunces, Funnel_Display, Funnel_Sans } from "next/font/google";
-import { Toaster } from "sonner";
+import { Funnel_Display, Funnel_Sans } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "./_components/app-shell";
+import { ThemedToaster } from "./_components/themed-toaster";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "./_components/theme-provider";
 
 const funnelDisplay = Funnel_Display({
@@ -15,15 +15,6 @@ const funnelSans = Funnel_Sans({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-sans",
-});
-
-// Fraunces (serif chic) - utilisée pour les titres d'accent quand pertinent
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-fraunces",
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -43,7 +34,7 @@ export default function RootLayout({
       // hydratation via le script inline (anti-FOUC). Sans cette prop,
       // React warn d'un mismatch attendu.
       suppressHydrationWarning
-      className={`${funnelDisplay.variable} ${funnelSans.variable} ${fraunces.variable}`}
+      className={`${funnelDisplay.variable} ${funnelSans.variable}`}
     >
       <head>
         {/* Script anti-FOUC : applique la classe `dark` sur <html> AVANT
@@ -60,21 +51,10 @@ export default function RootLayout({
         </a>
         <ThemeProvider>
           <AppShell>{children}</AppShell>
-          {/* Toasts globaux (succes / erreur / info) - style minimaliste, top-right.
-              Le theme suit automatiquement html.dark grace a theme="system". */}
-          <Toaster
-            position="top-right"
-            theme="system"
-            richColors
-            closeButton
-            duration={3500}
-            toastOptions={{
-              className: "text-sm",
-              style: {
-                fontFamily: "var(--font-sans), system-ui, sans-serif",
-              },
-            }}
-          />
+          {/* Toasts globaux (succes / erreur / info) - top-right. Le theme
+              suit le theme RESOLU de l'app (navy -> dark) via ThemedToaster,
+              et non l'OS, sinon les toasts detonnent en navy/clair OS. */}
+          <ThemedToaster />
         </ThemeProvider>
       </body>
     </html>

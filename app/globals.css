@@ -65,6 +65,21 @@
     --shadow-md: 0 1px 3px 0 rgba(15, 17, 34, 0.04), 0 1px 2px -1px rgba(15, 17, 34, 0.03);
     --shadow-lg: 0 8px 20px -8px rgba(15, 17, 34, 0.08), 0 3px 6px -3px rgba(15, 17, 34, 0.04);
     --shadow-xl: 0 20px 50px -10px rgba(15, 17, 34, 0.18);
+
+    /* Mouvement : durees + courbes standard, a reutiliser PARTOUT (plus de
+       valeurs magiques dispersees). cf. tailwind.config (transitionDuration /
+       transitionTimingFunction) qui exposent les memes en classes. */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --dur-fast: 120ms;
+    --dur-base: 160ms;
+    --dur-slow: 240ms;
+
+    /* Focus ring : token unique par theme (consomme par :focus-visible et la
+       classe `ring-ring`). En clair on prend l'encre a 55% (contraste AA sur
+       fond clair, neutre premium). */
+    --ring: 226 45% 10% / 0.55;
   }
 
   /* ============ THEME SOMBRE ============
@@ -153,6 +168,9 @@
     --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.40), 0 1px 2px -1px rgba(0, 0, 0, 0.30);
     --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.55), 0 3px 6px -3px rgba(0, 0, 0, 0.35);
     --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.70);
+
+    /* Focus ring dark : gris clair lisible sur fond sombre */
+    --ring: 0 0% 75%;
   }
 
   /* ============ THEME NAVY MOON ============
@@ -223,6 +241,9 @@
     --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.45), 0 1px 2px -1px rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.60), 0 3px 6px -3px rgba(0, 0, 0, 0.40);
     --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.75);
+
+    /* Focus ring navy : bleu clair MOON, visible sur fond marine */
+    --ring: 226 60% 70%;
   }
 
   /* ---- Override gradients body / hero pour navy ------------------- */
@@ -575,6 +596,8 @@ h3 { font-weight: 600; }
   .dark .bg-violet-50 { background-color: hsl(266 28% 22%); }
   .dark .bg-fuchsia-50 { background-color: hsl(300 28% 22%); }
   .dark .bg-blue-50 { background-color: hsl(218 40% 20%); }
+  .dark .bg-indigo-50 { background-color: hsl(232 30% 20%); }
+  .dark .bg-indigo-50\/60 { background-color: hsl(232 30% 20% / 0.6); }
 
   /* Famille -100 (badges principaux PIPELINE_COLORS, statut cells)
      â€” tons Notion exacts : satures sombres avec saturation modÃ©rÃ©e */
@@ -585,6 +608,7 @@ h3 { font-weight: 600; }
   .dark .bg-violet-100 { background-color: hsl(266 28% 24%); }
   .dark .bg-fuchsia-100 { background-color: hsl(300 32% 24%); }
   .dark .bg-blue-100 { background-color: hsl(218 45% 22%); }
+  .dark .bg-indigo-100 { background-color: hsl(232 32% 24%); }
   .dark .bg-red-100 { background-color: hsl(6 38% 25%); }
   .dark .bg-pink-100 { background-color: hsl(343 36% 24%); }
   .dark .bg-pink-200 { background-color: hsl(343 40% 30%); }
@@ -599,6 +623,7 @@ h3 { font-weight: 600; }
   .dark .bg-rose-200 { background-color: hsl(348 36% 28%); }
   .dark .bg-sky-200 { background-color: hsl(202 48% 26%); }
   .dark .bg-violet-200 { background-color: hsl(266 32% 30%); }
+  .dark .bg-indigo-200 { background-color: hsl(232 36% 30%); }
 
   /* Hovers rows colores : TRES SUBTILS, restent dans la teinte.
      Notion ne fait jamais de hover dramatique sur du colore.
@@ -663,6 +688,8 @@ h3 { font-weight: 600; }
   .dark .text-sky-800 { color: hsl(202 50% 72%); }
   .dark .text-violet-700 { color: hsl(266 48% 72%); }
   .dark .text-violet-800 { color: hsl(266 45% 76%); }
+  .dark .text-indigo-700 { color: hsl(232 50% 74%); }
+  .dark .text-indigo-800 { color: hsl(232 48% 78%); }
   .dark .text-fuchsia-700 { color: hsl(300 48% 72%); }
   .dark .text-fuchsia-800 { color: hsl(300 45% 76%); }
   .dark .text-blue-700 { color: hsl(218 60% 68%); }
@@ -698,6 +725,8 @@ h3 { font-weight: 600; }
   .dark .border-sky-300 { border-color: hsl(202 42% 38%); }
   .dark .border-violet-200 { border-color: hsl(266 28% 32% / 0.6); }
   .dark .border-violet-300 { border-color: hsl(266 32% 38%); }
+  .dark .border-indigo-200 { border-color: hsl(232 30% 32% / 0.6); }
+  .dark .border-indigo-300 { border-color: hsl(232 34% 40%); }
   .dark .border-fuchsia-300 { border-color: hsl(300 36% 38%); }
   .dark .border-blue-200 { border-color: hsl(218 36% 32% / 0.6); }
   .dark .border-pink-200 { border-color: hsl(343 30% 32% / 0.6); }
@@ -896,15 +925,13 @@ h3 { font-weight: 600; }
   color: hsl(0 0% 94.5%);
 }
 
-/* Focus standard zinc (le gold est rÃ©servÃ© aux Ã©tats actifs significatifs).
-   En dark, le focus passe en clair pour rester visible sur fond fonce. */
+/* Focus : token unique --ring, defini par theme (clair = encre 55%, dark =
+   gris clair, navy = bleu MOON clair). Contraste AA garanti dans les 3
+   themes. Toujours via :focus-visible (jamais focus seul). */
 :focus-visible {
-  outline: 2px solid hsl(240 5% 65%);
+  outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
   border-radius: 6px;
-}
-.dark :focus-visible {
-  outline-color: hsl(240 5% 75%);
 }
 button:focus-visible, [role="button"]:focus-visible { outline-offset: 1px; }
 
@@ -968,5 +995,31 @@ button, a, select, input[type="checkbox"], input[type="radio"] {
   textarea,
   select {
     font-size: 16px !important;
+  }
+}
+
+/* ============================================================================
+ *  prefers-reduced-motion (WCAG 2.3.3)
+ *  ============================================================================
+ *
+ *  L'utilisateur a demande a son OS de reduire les animations (troubles
+ *  vestibulaires, preference). On neutralise toutes les animations/transitions
+ *  CSS (achievement-pop overshoot, row-highlight 2.4s, slides, compteur MRR,
+ *  transitions globales boutons/liens) sans casser l'apparition : duree
+ *  quasi nulle = l'etat final est applique instantanement.
+ *
+ *  Les effets pilotes en JS (confettis canvas, scrollIntoView smooth, tween
+ *  du compteur MRR) ne sont PAS captes par cette media query CSS : ils ont
+ *  des garde-fous cote composant (cf. use-ldm-celebration, achievement-card,
+ *  use-highlight-row) qui lisent window.matchMedia.
+ *  ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
