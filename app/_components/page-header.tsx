@@ -35,11 +35,11 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-lg md:text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
+        <h1 className="font-display text-xl md:text-[26px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
           {title}
         </h1>
         {description && (
-          <p className="text-[12px] md:text-[13px] text-muted-foreground mt-0.5 leading-snug">{description}</p>
+          <p className="text-[12px] md:text-[13px] text-muted-foreground mt-1 leading-snug">{description}</p>
         )}
       </div>
       {actions && (
