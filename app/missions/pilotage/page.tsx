@@ -51,8 +51,8 @@ export default async function PilotagePage({
     return (
       <div className="space-y-5">
         <PageHeader
-          title="Pilotage · Dashboard"
-          description="Suivi de la mise à disposition du tableau de bord et des rendez-vous expert · cadence configurable par client."
+          title="Pilotage du dashboard"
+          description="Suivi de la mise à disposition du tableau de bord et des rendez-vous expert, cadence configurable par client."
         />
         <PilotageTable rows={[]} year={year} type={type} />
       </div>
@@ -123,8 +123,8 @@ export default async function PilotagePage({
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Pilotage · Dashboard"
-        description="Suivi de la mise à disposition du tableau de bord et des rendez-vous expert · cadence configurable par client."
+        title="Pilotage du dashboard"
+        description="Suivi de la mise à disposition du tableau de bord et des rendez-vous expert, cadence configurable par client."
       />
       <PilotageTable rows={rows} year={year} type={type} />
     </div>

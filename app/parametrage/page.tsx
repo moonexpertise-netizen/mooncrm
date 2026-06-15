@@ -95,7 +95,7 @@ export default async function ParametragePage({
     <div className="space-y-6">
       <PageHeader
         title="Paramétrage"
-        description="Matrice clients × obligations · édition rapide"
+        description="Matrice clients × obligations, édition rapide"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Link

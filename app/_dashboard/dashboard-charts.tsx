@@ -322,10 +322,10 @@ function SignaturesParMois({
       <header className="flex items-center justify-between gap-3 mb-4">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Signatures · 12 derniers mois
+            Signatures sur 12 mois
           </h2>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Barres = mois · ligne = cumul YTD (reset au 1er janvier)
+            Barres = mois, ligne = cumul YTD (reset au 1er janvier)
           </p>
         </div>
         <SegToggle
@@ -433,7 +433,7 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
     <section className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-4 md:p-5">
       <header className="mb-4">
         <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Top 10 clients · ARR
+          Top 10 clients par ARR
         </h2>
         <p className="text-[11px] text-muted-foreground mt-0.5">Clic = ouvre la fiche</p>
       </header>
@@ -515,7 +515,7 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
           Mix activité
         </h2>
         <p className="text-[11px] text-muted-foreground mt-0.5">
-          Répartition par secteur métier · clic pour voir les dossiers
+          Répartition par secteur métier, clic pour voir les dossiers
         </p>
       </header>
       {mixActivite.length === 0 ? (

@@ -568,7 +568,7 @@ export default function ChatBubble() {
                   Jarvis
                 </div>
                 <div className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mt-0.5">
-                  Vocal · ⌃⇧V parler
+                  Vocal, ⌃⇧V pour parler
                 </div>
               </div>
             </div>
@@ -695,7 +695,7 @@ export default function ChatBubble() {
             {recording && (
               <div className="mb-2 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-[11px] text-rose-700 dark:text-rose-300 flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                Écoute… <span className="text-rose-400 dark:text-rose-300/70">(release pour envoyer · Esc pour annuler)</span>
+                Écoute… <span className="text-rose-400 dark:text-rose-300/70">(release pour envoyer, Esc pour annuler)</span>
               </div>
             )}
             <div className="flex items-end gap-2">
@@ -747,9 +747,9 @@ export default function ChatBubble() {
             </div>
             <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-2 px-1 flex items-center gap-2 flex-wrap">
               <span><kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.05] text-[9px] font-mono">↵</kbd> envoyer</span>
-              <span className="text-zinc-300 dark:text-zinc-700">·</span>
+              <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
               <span><kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.05] text-[9px] font-mono">⌃⇧V</kbd> dicter</span>
-              <span className="text-zinc-300 dark:text-zinc-700">·</span>
+              <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
               <span><kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.05] text-[9px] font-mono">Esc</kbd> fermer</span>
             </div>
           </div>

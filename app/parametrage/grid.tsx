@@ -467,7 +467,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                   {colMenu === c.key && (
                     <div className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-xl py-1 min-w-[180px] text-left animate-slide-up-fade">
                       <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-zinc-500 border-b">
-                        {c.label} · {filtered.length} client{filtered.length > 1 ? "s" : ""}
+                        {c.label}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{filtered.length} client{filtered.length > 1 ? "s" : ""}
                       </div>
                       <button
                         onClick={() => bulkColumn(c.key, true)}
@@ -544,7 +544,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                             className="block text-xs text-muted-foreground truncate no-underline hover:text-[hsl(var(--gold))] transition-colors"
                           >
                             {r.siren && <span className="tabular-nums">{r.siren}</span>}
-                            {r.siren && r.groupe && <span> · </span>}
+                            {r.siren && r.groupe && <span>{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}</span>}
                             {r.groupe}
                           </Link>
                         )}

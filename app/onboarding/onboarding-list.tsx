@@ -374,7 +374,7 @@ function OnboardingRowComp({
             ? "Pas de tâches"
             : isComplete
             ? "Tout est fait"
-            : `${row.done}/${row.total} étape${row.total > 1 ? "s" : ""} · ${row.pct}%`}
+            : `${row.done}/${row.total} étape${row.total > 1 ? "s" : ""}, ${row.pct}%`}
         </div>
       </div>
       <ArrowRight className="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600 group-hover/row:text-[hsl(var(--gold))] group-hover/row:translate-x-0.5 transition-all shrink-0" />

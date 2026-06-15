@@ -45,7 +45,7 @@ export default function TallyButton({
   }
 
   function onClick() {
-    const subject = `Présentation MOON Expertise · ${denomination}`;
+    const subject = `Présentation MOON Expertise : ${denomination}`;
     const body = [
       "Bonjour,",
       "",
@@ -56,7 +56,7 @@ export default function TallyButton({
       "À votre disposition pour toute question.",
       "",
       "Cordialement,",
-      "Benjamin Perez · MOON Expertise",
+      "Benjamin Perez, MOON Expertise",
     ].join("\n");
 
     const mailto = `mailto:${encodeURIComponent(email ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

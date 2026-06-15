@@ -146,7 +146,7 @@ export function BulkActionBar({
         </span>
         {columnLabel && (
           <>
-            <span className="text-white/40 dark:text-zinc-400">·</span>
+            <span className="text-white/30 dark:text-zinc-400" aria-hidden>|</span>
             <span className="text-[12px] font-medium text-white/80 dark:text-zinc-700">{columnLabel}</span>
           </>
         )}

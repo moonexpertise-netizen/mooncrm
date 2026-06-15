@@ -722,7 +722,7 @@ export default function CaaTable({
                 {mode === "base" ? (
                   <>
                     <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Statut LDM</th>
-                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">CAA · années</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">CAA, années</th>
                   </>
                 ) : (
                   <>
@@ -771,7 +771,7 @@ export default function CaaTable({
                         <span className="font-medium text-zinc-900 dark:text-zinc-100">{r.denomination}</span>
                         {(r.siren || r.forme) && (
                           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                            {[r.siren, r.forme].filter(Boolean).join(" · ")}
+                            {[r.siren, r.forme].filter(Boolean).join(", ")}
                           </span>
                         )}
                       </div>
@@ -960,11 +960,11 @@ function CaaRecapLine({
           <span className={cn(stats.a_faire > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
             {stats.a_faire} à faire
           </span>
-          <span className="text-zinc-300 dark:text-zinc-600">·</span>
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
           <span className={cn(stats.en_cours > 0 ? "text-sky-600 dark:text-sky-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
             {stats.en_cours} en cours
           </span>
-          <span className="text-zinc-300 dark:text-zinc-600">·</span>
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
           <span className={cn(stats.termine > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
             {stats.termine} fait
           </span>
@@ -1001,7 +1001,7 @@ function YearPills({
             type="button"
             onClick={() => onToggle(y)}
             aria-pressed={subscribed}
-            title={subscribed ? `Souscrit ${y} · clic pour retirer` : `Non souscrit ${y} · clic pour ajouter`}
+            title={subscribed ? `Souscrit ${y}, clic pour retirer` : `Non souscrit ${y}, clic pour ajouter`}
             className={cn(
               "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
               subscribed

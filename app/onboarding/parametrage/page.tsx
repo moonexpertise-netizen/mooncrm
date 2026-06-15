@@ -59,7 +59,7 @@ export default async function OnboardingParametragePage() {
             )}
           </div>
           <div className="text-[11px] text-zinc-500">
-            Parcours par défaut · appliqué à tout nouveau dossier signé
+            Parcours par défaut, appliqué à tout nouveau dossier signé
           </div>
         </div>
       </div>

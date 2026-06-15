@@ -88,7 +88,7 @@ function toolResultToChange(
     return {
       kind: "obligation_status",
       title: "Statut mis a jour",
-      description: `${client} · ${type.replace(/_/g, " ").toLowerCase()} ${formatPeriodeShort(periode)} → ${libelle}`,
+      description: `${client}, ${type.replace(/_/g, " ").toLowerCase()} ${formatPeriodeShort(periode)} → ${libelle}`,
       href,
       raw: r,
     };

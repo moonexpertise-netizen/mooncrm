@@ -74,7 +74,7 @@ export default async function IdentiteTab({
       <SectionTitle
         n={1}
         title="Infos de base"
-        sub="Identité du dossier et coordonnées · alimentent la lettre de mission"
+        sub="Identité du dossier et coordonnées, alimentent la lettre de mission"
       />
       <Card title="Identité du dossier">
         {dirigeantContact ? (
@@ -102,7 +102,7 @@ export default async function IdentiteTab({
           <div className="grid grid-cols-[140px_1fr] gap-2 py-1 text-sm items-center">
             <div className="text-muted-foreground">Dirigeant</div>
             <div className="px-2 py-1 -mx-2 rounded bg-amber-50 text-amber-700 text-xs">
-              Aucun contact rattaché · ajouter un contact dans la carte Contacts ↓
+              Aucun contact rattaché, ajouter un contact dans la carte Contacts ↓
             </div>
           </div>
         )}
@@ -180,7 +180,7 @@ export default async function IdentiteTab({
       <SectionTitle
         n={3}
         title="Détails CRM"
-        sub="Suivi interne · n'apparaît pas dans la lettre de mission"
+        sub="Suivi interne, n'apparaît pas dans la lettre de mission"
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="Identité légale">

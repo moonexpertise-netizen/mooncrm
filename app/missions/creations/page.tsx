@@ -100,12 +100,12 @@ export default async function CreationsPage({
   }));
 
   const description = isBaseView
-    ? "Pilotage des créations de sociétés · Vue d'ensemble"
-    : `Pilotage des créations de sociétés · Exercice ${selectedYear}`;
+    ? "Pilotage des créations de sociétés, vue d'ensemble"
+    : `Pilotage des créations de sociétés, exercice ${selectedYear}`;
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Créations · Suivi des dossiers" description={description} />
+      <PageHeader title="Créations, suivi des dossiers" description={description} />
       <CreationsTable
         rows={rows}
         mode={isBaseView ? "base" : "year"}

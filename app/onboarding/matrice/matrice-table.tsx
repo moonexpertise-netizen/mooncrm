@@ -548,7 +548,8 @@ export default function MatriceTable({
                     </div>
                     <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5">
                       {r.siren && <span className="tabular-nums">{r.siren}</span>}
-                      {r.forme && <span>· {r.forme}</span>}
+                      {r.siren && r.forme && <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>}
+                      {r.forme && <span>{r.forme}</span>}
                     </div>
                   </td>
                   {/* 13 cellules pastilles cliquables */}
@@ -732,7 +733,7 @@ function MatrixCell({
         aria-expanded={isOpen}
         aria-label={`Statut : ${currentLabel}. Cliquer pour modifier.`}
         className="p-0.5 rounded cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))]"
-        title={`${currentLabel} · clic pour modifier`}
+        title={`${currentLabel}, clic pour modifier`}
       >
         <StatusDot statut={cell.statut_logique} />
       </button>
@@ -907,7 +908,7 @@ function OrigineChip({
           "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
           TYPE_PILL[type]
         )}
-        title={origine ? `Origine : ${origine} · clic pour modifier` : "Origine non renseignée · clic pour modifier"}
+        title={origine ? `Origine : ${origine}, clic pour modifier` : "Origine non renseignée, clic pour modifier"}
       >
         {TYPE_LABEL[type]}
       </button>
@@ -1049,7 +1050,7 @@ function TnsChip({
           "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
           cls
         )}
-        title="Caractéristique TNS · clic pour modifier"
+        title="Caractéristique TNS, clic pour modifier"
       >
         {label}
       </button>

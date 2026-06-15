@@ -1,17 +1,15 @@
 import type { Metadata } from "next";
-import { Funnel_Display, Funnel_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "./_components/app-shell";
 import { ThemedToaster } from "./_components/themed-toaster";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "./_components/theme-provider";
 
-const funnelDisplay = Funnel_Display({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-display",
-});
-
-const funnelSans = Funnel_Sans({
+// Inter : la police de référence des SaaS premium (Linear, Attio, dashboard
+// Stripe). Une seule famille pour le texte ET les titres (look app cohérent).
+// `--font-display` est aliasé sur `--font-sans` dans globals.css, donc les
+// h1-h4 et .font-display rendent aussi en Inter.
+const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-sans",
@@ -34,7 +32,7 @@ export default function RootLayout({
       // hydratation via le script inline (anti-FOUC). Sans cette prop,
       // React warn d'un mismatch attendu.
       suppressHydrationWarning
-      className={`${funnelDisplay.variable} ${funnelSans.variable}`}
+      className={inter.variable}
     >
       <head>
         {/* Script anti-FOUC : applique la classe `dark` sur <html> AVANT

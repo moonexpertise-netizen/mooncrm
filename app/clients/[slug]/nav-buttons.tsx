@@ -74,7 +74,7 @@ export default function NavButtons({
       )}
       <span className="text-[11px] text-muted-foreground tabular-nums px-1">
         {idx >= 0 ? idx + 1 : "?"} / {total}
-        {filtered && <span className="ml-1 text-[hsl(var(--gold))]">·filtré</span>}
+        {filtered && <span className="ml-1 text-[hsl(var(--gold))]">(filtré)</span>}
       </span>
       {next ? (
         <Link

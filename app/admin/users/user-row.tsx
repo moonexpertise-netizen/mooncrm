@@ -42,7 +42,7 @@ export default function UserRow({ profile }: { profile: Profile }) {
           Créé le {createdFr}
           {profile.approved_at && (
             <>
-              {" · Approuvé le "}
+              {", approuvé le "}
               {new Date(profile.approved_at).toLocaleDateString("fr-FR")}
             </>
           )}

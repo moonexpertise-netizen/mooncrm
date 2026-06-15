@@ -202,7 +202,7 @@ export default async function FinancePage() {
       key: `ir-${key}`,
       monthKey: r.updated_at.substring(0, 7),
       source: "IR + IFI",
-      label: `${name} · ${r.annee}`,
+      label: `${name}, ${r.annee}`,
       montant: r.forfait,
       href: `/missions/ir?year=${r.annee}`,
     });
@@ -228,7 +228,7 @@ export default async function FinancePage() {
       key: `caa-${r.id}`,
       monthKey: r.updated_at.substring(0, 7),
       source: "CAA",
-      label: `${c.denomination} · ${r.annee}`,
+      label: `${c.denomination}, ${r.annee}`,
       montant: r.forfait,
       href: `/missions/caa?year=${r.annee}`,
     });
@@ -251,7 +251,7 @@ export default async function FinancePage() {
       key: `ago-${r.id}`,
       monthKey: r.updated_at.substring(0, 7),
       source: "AGO",
-      label: `${c?.denomination ?? "?"} · ${r.annee}`,
+      label: `${c?.denomination ?? "?"}, ${r.annee}`,
       montant: f,
       href: `/obligations/ago-depot?year=${r.annee}`,
     });
@@ -275,7 +275,7 @@ export default async function FinancePage() {
       key: `bil-${r.id}`,
       monthKey: r.updated_at.substring(0, 7),
       source: "Bilan",
-      label: `${c?.denomination ?? "?"} · ${r.annee}`,
+      label: `${c?.denomination ?? "?"}, ${r.annee}`,
       montant: f,
       href: `/obligations/liasses-plaquettes?year=${r.annee}`,
     });
@@ -304,7 +304,7 @@ export default async function FinancePage() {
       key: `mex-${m.id}`,
       monthKey: m.updated_at.substring(0, 7),
       source: "Mission exc.",
-      label: `${name} · ${m.mission}`,
+      label: `${name}, ${m.mission}`,
       montant: f,
       href: "/missions/exceptionnelles",
     });
@@ -410,7 +410,7 @@ export default async function FinancePage() {
     if (irToFactureKey.has(k)) continue;
     irToFactureKey.add(k);
     const name = [c.civilite, c.prenom, c.nom].filter(Boolean).join(" ");
-    addContrib(tm0Idx, "facturable", "IR + IFI", `${name} · ${r.annee}`, r.forfait, `/missions/ir?year=${r.annee}`);
+    addContrib(tm0Idx, "facturable", "IR + IFI", `${name}, ${r.annee}`, r.forfait, `/missions/ir?year=${r.annee}`);
   }
   // CAA à facturer
   for (const r of (caaRowsRes.data ?? []) as CaaRow[]) {
@@ -419,7 +419,7 @@ export default async function FinancePage() {
     if (!r.forfait || r.forfait <= 0) continue;
     const c = Array.isArray(r.clients_caa) ? r.clients_caa[0] : r.clients_caa;
     if (!c) continue;
-    addContrib(tm0Idx, "facturable", "CAA", `${c.denomination} · ${r.annee}`, r.forfait, `/missions/caa?year=${r.annee}`);
+    addContrib(tm0Idx, "facturable", "CAA", `${c.denomination}, ${r.annee}`, r.forfait, `/missions/caa?year=${r.annee}`);
   }
   // AGO billable
   function isAgoBillable(detail: string | null, logique: string | null): boolean {
@@ -435,7 +435,7 @@ export default async function FinancePage() {
     const c = Array.isArray(r.clients) ? r.clients[0] : r.clients;
     const f = c?.honoraires_jur ?? 0;
     if (f <= 0) continue;
-    addContrib(tm0Idx, "facturable", "AGO", `${c?.denomination ?? "?"} · ${r.annee}`, f, `/obligations/ago-depot?year=${r.annee}`);
+    addContrib(tm0Idx, "facturable", "AGO", `${c?.denomination ?? "?"}, ${r.annee}`, f, `/obligations/ago-depot?year=${r.annee}`);
   }
   // Bilan billable
   function isBilanBillable(detail: string | null, logique: string | null): boolean {
@@ -452,7 +452,7 @@ export default async function FinancePage() {
     if (r.etat_facturation === "facturee" || r.etat_facturation === "sans_facture") continue;
     const f = c?.forfait_bilan ?? 0;
     if (f <= 0) continue;
-    addContrib(tm0Idx, "facturable", "Bilan", `${c?.denomination ?? "?"} · ${r.annee}`, f, `/obligations/liasses-plaquettes?year=${r.annee}`);
+    addContrib(tm0Idx, "facturable", "Bilan", `${c?.denomination ?? "?"}, ${r.annee}`, f, `/obligations/liasses-plaquettes?year=${r.annee}`);
   }
   // Missions exc à facturer
   for (const m of missions) {
@@ -462,7 +462,7 @@ export default async function FinancePage() {
     if (f <= 0) continue;
     const cc = Array.isArray(m.clients) ? m.clients[0] : m.clients;
     const name = cc?.denomination ?? m.client_libre ?? "?";
-    addContrib(tm0Idx, "facturable", "Mission exc.", `${name} · ${m.mission}`, f, "/missions/exceptionnelles");
+    addContrib(tm0Idx, "facturable", "Mission exc.", `${name}, ${m.mission}`, f, "/missions/exceptionnelles");
   }
   tm0.total = Math.round(tm0.realise + tm0.facturable + tm0.recurrent + tm0.ponctuel + tm0.pondere);
 
@@ -497,7 +497,7 @@ export default async function FinancePage() {
       if (!added) {
         tt.contribs.push({
           source: `Pipeline ${def.label}`,
-          label: `${c.denomination} · ${(def.ponderation * 100).toFixed(0)} %`,
+          label: `${c.denomination}, ${(def.ponderation * 100).toFixed(0)} %`,
           montant: amount,
           href: `/clients/${c.slug}`,
           bucket: "pondere",
@@ -679,7 +679,7 @@ export default async function FinancePage() {
     const arr = clientMrr(c) * 12 + clientOneShot(c);
     dealsItems.push({
       title: c.denomination,
-      subtitle: `${STADE_DEF[s].label} · depuis ${ageDays} j`,
+      subtitle: `${STADE_DEF[s].label}, depuis ${ageDays} j`,
       montant: Math.round(arr * STADE_DEF[s].ponderation),
       href: `/clients/${c.slug}`,
     });
@@ -695,7 +695,7 @@ export default async function FinancePage() {
   const top3Pct = arrSigne > 0 ? (top3.reduce((s, c) => s + c.arr, 0) / arrSigne) * 100 : 0;
   const risquesItems = top3.map((c) => ({
     title: c.denomination,
-    subtitle: `${formatPct((c.arr / arrSigne) * 100, 1)} de l'ARR · ${formatEUR(c.arr)}`,
+    subtitle: `${formatPct((c.arr / arrSigne) * 100, 1)} de l'ARR, soit ${formatEUR(c.arr)}`,
     montant: c.arr,
     href: `/clients/${c.slug}`,
   }));
@@ -709,7 +709,7 @@ export default async function FinancePage() {
     // On essaie de matcher le client par denom pour récupérer son activité
     // (approximation)
     const matchClient = clients.find((c) =>
-      r.label.startsWith(c.denomination) || r.label.includes(`· ${c.denomination}`)
+      r.label.startsWith(c.denomination) || r.label.includes(`, ${c.denomination}`)
     );
     const cat = matchClient ? categorieActivite(matchClient.activite) : "Autre";
     ytdCaByCat.set(cat, (ytdCaByCat.get(cat) ?? 0) + r.montant);
@@ -785,8 +785,8 @@ export default async function FinancePage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Finance · Cockpit"
-        description={`Réalisé · projection 12 mois · atterrissage ${currentYear} · scénarios & leviers`}
+        title="Cockpit finance"
+        description={`Réalisé, projection sur 12 mois, atterrissage ${currentYear} et scénarios & leviers`}
       />
       <FinanceDashboardLoader data={data} />
     </div>

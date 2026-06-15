@@ -293,10 +293,10 @@ export default function AnnuaireButton({
             <div className="flex items-center justify-between px-5 py-3 border-b">
               <div>
                 <h3 className="text-base font-semibold tracking-tight">
-                  Récupérer les infos · annuaire-entreprises
+                  Récupérer les infos depuis l&apos;annuaire-entreprises
                 </h3>
                 <p className="text-[11px] text-zinc-500 mt-0.5">
-                  SIREN {siren} · données publiques data.gouv.fr
+                  SIREN {siren}, données publiques data.gouv.fr
                 </p>
               </div>
               <button
@@ -326,7 +326,8 @@ export default function AnnuaireButton({
                 <>
                   <div className="mb-3 px-3 py-2 rounded-md bg-zinc-50 border text-xs text-zinc-600">
                     <span className="font-medium text-zinc-800">{data.denomination}</span>
-                    <span className="text-zinc-400"> · SIREN </span>
+                    {" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}
+                    <span className="text-zinc-400">SIREN </span>
                     <span className="tabular-nums">{data.siren}</span>
                   </div>
 
@@ -485,7 +486,7 @@ function Row({
         {empty ? (
           <span className="italic text-zinc-400">non renseigné</span>
         ) : identical ? (
-          <span className="text-zinc-500">{nouveau} <span className="text-[10px] text-emerald-600">·  identique</span></span>
+          <span className="text-zinc-500">{nouveau} <span className="text-[10px] text-emerald-600">identique</span></span>
         ) : (
           <span className="text-zinc-900 font-medium">{nouveau}</span>
         )}

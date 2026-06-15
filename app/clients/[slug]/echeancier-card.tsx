@@ -165,7 +165,7 @@ export default function EcheancierCard({
         <div>
           <h2 className="text-sm font-medium">Échéancier {annee}</h2>
           <div className="text-xs text-muted-foreground mt-0.5">
-            {total} échéance{total > 1 ? "s" : ""} · {done} terminé{done > 1 ? "s" : ""} · {wip} en cours · {todo} à faire
+            {total} échéance{total > 1 ? "s" : ""}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{done} terminé{done > 1 ? "s" : ""}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{wip} en cours{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{todo} à faire
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ export default function EcheancierCard({
                               {o.note && (
                                 <MessageSquare
                                   className="h-3 w-3 text-amber-500 shrink-0"
-                                  aria-label={`Note · ${o.note}`}
+                                  aria-label={`Note : ${o.note}`}
                                 />
                               )}
                             </div>

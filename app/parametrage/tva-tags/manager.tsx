@@ -124,7 +124,7 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
         const { detached } = await deleteTvaTag(row.id);
         toastSuccess(
           detached > 0
-            ? `Étiquette supprimée · ${detached} dossier${detached > 1 ? "s" : ""} détaché${detached > 1 ? "s" : ""}`
+            ? `Étiquette supprimée, ${detached} dossier${detached > 1 ? "s" : ""} détaché${detached > 1 ? "s" : ""}`
             : "Étiquette supprimée"
         );
       } catch (e) {

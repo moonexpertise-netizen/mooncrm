@@ -395,14 +395,14 @@ export default function NouveauClientForm() {
       {/* Recherche entreprise */}
       <div ref={ref} className="relative">
         <label className="text-xs font-medium text-zinc-700 mb-1 block">
-          Rechercher une entreprise <span className="text-zinc-400 font-normal">· nom ou SIREN</span>
+          Rechercher une entreprise <span className="text-zinc-400 font-normal">(nom ou SIREN)</span>
         </label>
         <div className="relative">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="ex. MOON Expertise · 937837193"
+            placeholder="ex. MOON Expertise, 937837193"
             className="w-full px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60 pr-9"
           />
           {loading && (
@@ -415,13 +415,13 @@ export default function NouveauClientForm() {
           <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border rounded-lg shadow-xl max-h-80 overflow-auto py-1 animate-slide-up-fade">
             {searchError && (
               <div className="px-3 py-2 text-xs text-rose-700 bg-rose-50">
-                Erreur recherche · {searchError}
+                Erreur recherche : {searchError}
               </div>
             )}
             {usedFallback && (
               <div className="px-3 py-1.5 text-[11px] text-zinc-600 bg-amber-50 border-b border-amber-100">
                 Résultats élargis sur <span className="font-medium">«&nbsp;{usedFallback}&nbsp;»</span>
-                <span className="text-zinc-400"> · l'API exige des mots complets</span>
+                <span className="text-zinc-400"> (l&apos;API exige des mots complets)</span>
               </div>
             )}
             {!searchError && suggestions.length === 0 && !loading && (
@@ -446,9 +446,9 @@ export default function NouveauClientForm() {
                     <div className="text-xs text-muted-foreground flex flex-wrap gap-x-1.5">
                       <span className="tabular-nums">SIREN {s.siren}</span>
                       {s.nature_juridique && (
-                        <span>· {formeFromNatureJuridique(s.nature_juridique) ?? `Cat. ${s.nature_juridique}`}</span>
+                        <span><span className="text-zinc-300 dark:text-zinc-600 mr-1.5" aria-hidden>|</span>{formeFromNatureJuridique(s.nature_juridique) ?? `Cat. ${s.nature_juridique}`}</span>
                       )}
-                      {lieu && <span className="text-zinc-500">· {lieu}</span>}
+                      {lieu && <span className="text-zinc-500"><span className="text-zinc-300 dark:text-zinc-600 mr-1.5" aria-hidden>|</span>{lieu}</span>}
                     </div>
                   </div>
                   <span className="text-[hsl(var(--gold))] opacity-60 shrink-0">↵</span>
@@ -458,7 +458,7 @@ export default function NouveauClientForm() {
           </div>
         )}
         <div className="text-[11px] text-zinc-500 mt-1.5">
-          Données publiques · annuaire-entreprises.data.gouv.fr · les champs ci-dessous sont pré-remplis sur sélection.
+          Données publiques annuaire-entreprises.data.gouv.fr, les champs ci-dessous sont pré-remplis sur sélection.
         </div>
       </div>
 
@@ -468,7 +468,7 @@ export default function NouveauClientForm() {
       <SectionTitle
         n={1}
         title="Infos de base"
-        sub="Identité du dossier et du dirigeant · alimentent la lettre de mission"
+        sub="Identité du dossier et du dirigeant, alimentent la lettre de mission"
       />
 
       <Field label="Nom du dossier" required hint="Scrapé depuis l'annuaire">
@@ -492,7 +492,7 @@ export default function NouveauClientForm() {
           />
           <span className="text-xs font-medium text-zinc-700">
             Dirigeant (contact rattaché)
-            <span className="text-zinc-400 font-normal"> · pour la lettre de mission</span>
+            <span className="text-zinc-400 font-normal">, pour la lettre de mission</span>
           </span>
         </label>
 
@@ -570,7 +570,7 @@ export default function NouveauClientForm() {
 
             {dirigeantQualite && (
               <div className="text-[11px] text-zinc-500">
-                Qualité détectée · {dirigeantQualite}
+                Qualité détectée : {dirigeantQualite}
               </div>
             )}
           </div>
@@ -582,7 +582,7 @@ export default function NouveauClientForm() {
           type="text"
           value={activite}
           onChange={(e) => setActivite(e.target.value)}
-          placeholder="Texte libre · auto-rempli depuis l'annuaire si dossier existant"
+          placeholder="Texte libre, auto-rempli depuis l'annuaire si dossier existant"
           className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30", inputFill(activite))}
         />
       </Field>
@@ -643,7 +643,7 @@ export default function NouveauClientForm() {
         >
           <span className="text-base leading-none">+</span>
           Renseigner les honoraires
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">· optionnel</span>
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">(optionnel)</span>
         </button>
       ) : (
         <>
@@ -651,7 +651,7 @@ export default function NouveauClientForm() {
         <SectionTitle
           n={2}
           title="Honoraires"
-          sub="Forfaits qui apparaîtront dans la lettre de mission · HT"
+          sub="Forfaits qui apparaîtront dans la lettre de mission (HT)"
         />
         <button
           type="button"
@@ -745,7 +745,7 @@ export default function NouveauClientForm() {
       </div>
 
       <div>
-        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait création <span className="text-zinc-400 font-normal">· one-shot</span></span>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait création <span className="text-zinc-400 font-normal">(one-shot)</span></span>
         <RadioChips
           options={["Facturés", "Non souscrit"]}
           value={typeHonosCreation}
@@ -767,7 +767,7 @@ export default function NouveauClientForm() {
       </div>
 
       <div>
-        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait reprise <span className="text-zinc-400 font-normal">· one-shot</span></span>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait reprise <span className="text-zinc-400 font-normal">(one-shot)</span></span>
         <RadioChips
           options={["Facturés", "Non souscrit"]}
           value={typeHonosReprise}
@@ -797,7 +797,7 @@ export default function NouveauClientForm() {
       <SectionTitle
         n={3}
         title="Détails CRM"
-        sub="Suivi interne · n'apparaît pas dans la lettre de mission"
+        sub="Suivi interne, n'apparaît pas dans la lettre de mission"
       />
 
       <div className="grid grid-cols-2 gap-3">
@@ -825,7 +825,7 @@ export default function NouveauClientForm() {
             )}
           >
             {siren.length === 0
-              ? "Optionnel · 9 chiffres si renseigne"
+              ? "Optionnel, 9 chiffres si renseigne"
               : siren.length < 9
               ? `Il manque ${9 - siren.length} chiffre${9 - siren.length > 1 ? "s" : ""}`
               : "OK"}

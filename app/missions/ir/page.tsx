@@ -152,12 +152,12 @@ export default async function IrPage({
   }
 
   const description = isBaseView
-    ? "Suivi des declarations IR et IFI · Vue d'ensemble"
-    : `Suivi des declarations IR et IFI · Exercice ${selectedYear}`;
+    ? "Suivi des declarations IR et IFI, vue d'ensemble"
+    : `Suivi des declarations IR et IFI, exercice ${selectedYear}`;
 
   return (
     <div className="space-y-5">
-      <PageHeader title="IR + IFI · Impôts sur le Revenu / Fortune" description={description} />
+      <PageHeader title="IR + IFI, impôts sur le revenu et la fortune" description={description} />
       <IrTable
         rows={rows}
         mode={isBaseView ? "base" : "year"}

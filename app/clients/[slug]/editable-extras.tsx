@@ -80,7 +80,7 @@ export function ClotureSplit({
           }}
           className={selectClass(localJour != null)}
         >
-          <option value="">jour ·</option>
+          <option value="">jour</option>
           {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
             <option key={d} value={d}>
               {String(d).padStart(2, "0")}
@@ -95,7 +95,7 @@ export function ClotureSplit({
           }}
           className={selectClass(localMois != null, "flex-1")}
         >
-          <option value="">mois ·</option>
+          <option value="">mois</option>
           {months.map((m, i) => (
             <option key={m} value={i + 1}>
               {m}

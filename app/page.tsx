@@ -11,7 +11,7 @@ export default async function DashboardPage() {
     <div className="space-y-5">
       <PageHeader
         title="Dashboard"
-        description="Vue d'ensemble du portefeuille · pipeline, signatures, production"
+        description="Vue d'ensemble du portefeuille : pipeline, signatures et production"
       />
       <DashboardChartsLoader data={data} />
     </div>

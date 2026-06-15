@@ -396,7 +396,7 @@ function NewContactForm({
       {/* Identité - obligatoire pour la lettre de mission */}
       <div className="space-y-2">
         <div className="text-[11px] uppercase tracking-wide font-medium text-zinc-600">
-          Identité <span className="text-rose-500 normal-case font-normal">· obligatoire pour la LDM</span>
+          Identité <span className="text-rose-500 normal-case font-normal">(obligatoire pour la LDM)</span>
         </div>
         <div>
           <label className="text-[11px] text-zinc-600 mb-1 block">
@@ -460,7 +460,7 @@ function NewContactForm({
       {/* Coordonnées - requises pour la signature électronique JeSignExpert */}
       <div className="space-y-2 pt-2 border-t border-[hsl(var(--gold))]/20">
         <div className="text-[11px] uppercase tracking-wide font-medium text-zinc-600">
-          Coordonnées <span className="text-zinc-400 normal-case font-normal">· pour la signature électronique</span>
+          Coordonnées <span className="text-zinc-400 normal-case font-normal">(pour la signature électronique)</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
@@ -490,7 +490,7 @@ function NewContactForm({
       <div className="space-y-2 pt-2 border-t border-[hsl(var(--gold))]/20">
         <label className="block">
           <span className="text-[11px] text-zinc-600 mb-1 block">
-            Rôle <span className="text-zinc-400">· facultatif</span>
+            Rôle <span className="text-zinc-400">(facultatif)</span>
           </span>
           <input
             type="text"

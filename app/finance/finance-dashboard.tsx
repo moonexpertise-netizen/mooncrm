@@ -173,7 +173,7 @@ export default function FinanceDashboard({ data }: { data: FinanceData }) {
         objectif={data.scenarios.objectif}
         year={data.currentYear}
         onMonthClick={(m) => setDrawer({
-          title: `${m.label} · ${formatEUR(m.total)}`,
+          title: `${m.label}, ${formatEUR(m.total)}`,
           subtitle: m.isFuture ? "Projection" : "Réalisé",
           node: <MonthDetail month={m} />,
         })}
@@ -181,8 +181,8 @@ export default function FinanceDashboard({ data }: { data: FinanceData }) {
 
       {/* 3. MRR Evolution */}
       <MrrEvolutionBlock evolution={data.mrrEvolution} onMonthClick={(m) => setDrawer({
-        title: `${m.label} · MRR ${m.net >= 0 ? "+" : ""}${formatEUR(m.net)}`,
-        subtitle: `Gain ${formatEUR(m.gain)} · Churn ${formatEUR(m.loss)} · Cumul ${formatEUR(m.cumul)}`,
+        title: `${m.label}, MRR ${m.net >= 0 ? "+" : ""}${formatEUR(m.net)}`,
+        subtitle: `Gain ${formatEUR(m.gain)}, churn ${formatEUR(m.loss)}, cumul ${formatEUR(m.cumul)}`,
         node: <MrrMonthDetail month={m} />,
       })} />
 
@@ -192,7 +192,7 @@ export default function FinanceDashboard({ data }: { data: FinanceData }) {
           <EncaissementsBlock
             timeline={data.timeline.filter((t) => t.isCurrent || t.isFuture).slice(0, 6)}
             onMonthClick={(m) => setDrawer({
-              title: `${m.label} · ${formatEUR(m.total)}`,
+              title: `${m.label}, ${formatEUR(m.total)}`,
               subtitle: "Projection détaillée",
               node: <MonthDetail month={m} />,
             })}
@@ -206,7 +206,7 @@ export default function FinanceDashboard({ data }: { data: FinanceData }) {
         funnel={data.funnel}
         onStageClick={(s) => setDrawer({
           title: s.stade,
-          subtitle: `${s.count} dossier${s.count > 1 ? "s" : ""} · brut ${formatEUR(s.arrBrut)} · pondéré ${formatEUR(s.arrPondere)} · temps moyen ${s.avgAgeDays} j`,
+          subtitle: `${s.count} dossier${s.count > 1 ? "s" : ""}, brut ${formatEUR(s.arrBrut)}, pondéré ${formatEUR(s.arrPondere)}, temps moyen ${s.avgAgeDays} j`,
           node: <ClientList clients={s.clients} />,
         })}
       />
@@ -247,8 +247,8 @@ function HeroBlock({ hero, year, monthsRemaining }: { hero: FinanceData["hero"];
         accent="zinc"
         sub={
           hero.caYtdLastYear > 0
-            ? `vs ${formatEUR(hero.caYtdLastYear)} en ${year - 1} · ${caDelta >= 0 ? "+" : ""}${formatPct(caDeltaPct)}`
-            : "vs " + formatEUR(0) + " · 1ère année"
+            ? `vs ${formatEUR(hero.caYtdLastYear)} en ${year - 1}, ${caDelta >= 0 ? "+" : ""}${formatPct(caDeltaPct)}`
+            : "vs " + formatEUR(0) + ", 1ère année"
         }
         subAccent={caDelta >= 0 ? "emerald" : "rose"}
         icon={<TrendingUp className="h-4 w-4" />}
@@ -259,7 +259,7 @@ function HeroBlock({ hero, year, monthsRemaining }: { hero: FinanceData["hero"];
         sparkData={hero.sparkAtterrissage}
         sparkColor={COLORS.cumul}
         accent="sky"
-        sub={`${monthsRemaining} mois restants · ${formatPct(hero.atterrissagePct)} de l'objectif (${formatEUR(hero.objectifAnnuel)})`}
+        sub={`${monthsRemaining} mois restants, ${formatPct(hero.atterrissagePct)} de l'objectif (${formatEUR(hero.objectifAnnuel)})`}
         subAccent={hero.atterrissagePct >= 100 ? "emerald" : "amber"}
         icon={<Target className="h-4 w-4" />}
       />
@@ -284,7 +284,7 @@ function HeroBlock({ hero, year, monthsRemaining }: { hero: FinanceData["hero"];
         sparkData={hero.sparkMrr.map((s) => ({ ...s, value: s.value * 12 }))}
         sparkColor={COLORS.pondere}
         accent="indigo"
-        sub={`MRR × 12 · si maintenu`}
+        sub={`MRR × 12, si maintenu`}
         subAccent="neutral"
         icon={<BarChart3 className="h-4 w-4" />}
       />
@@ -411,10 +411,10 @@ function TimelineBlock({
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-zinc-400" />
-            Réalisé · projeté · cumul YTD
+            Réalisé, projeté et cumul YTD
           </h3>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-            12 mois passés (gris foncé · facturé) + 12 mois futurs (4 buckets empilés) · cliquez un mois pour le détail
+            12 mois passés (gris foncé = facturé) + 12 mois futurs (4 buckets empilés), cliquez un mois pour le détail
           </p>
         </div>
         <div className="flex items-center gap-4 text-right">
@@ -582,10 +582,10 @@ function MrrEvolutionBlock({
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-zinc-400" />
-            MRR · gains & churn · 24 mois
+            MRR, gains & churn sur 24 mois
           </h3>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Vert = nouvelles signatures · rouge = résiliations · ligne = MRR cumulé net (Δ depuis 24 mois)
+            Vert = nouvelles signatures, rouge = résiliations, ligne = MRR cumulé net (Δ depuis 24 mois)
           </p>
         </div>
         <div className="flex items-center gap-4 text-right">
@@ -654,7 +654,7 @@ function MrrMonthDetail({ month }: { month: FinanceData["mrrEvolution"][number] 
       {month.gainItems.length > 0 && (
         <div>
           <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-wide">
-            ▲ Gains · {formatEUR(month.gain)}
+            ▲ Gains, {formatEUR(month.gain)}
           </div>
           <ul className="space-y-1">
             {month.gainItems.map((it, i) => (
@@ -671,7 +671,7 @@ function MrrMonthDetail({ month }: { month: FinanceData["mrrEvolution"][number] 
       {month.lossItems.length > 0 && (
         <div>
           <div className="text-xs font-semibold text-rose-700 dark:text-rose-400 mb-2 uppercase tracking-wide">
-            ▼ Churn · −{formatEUR(month.loss)}
+            ▼ Churn, −{formatEUR(month.loss)}
           </div>
           <ul className="space-y-1">
             {month.lossItems.map((it, i) => (
@@ -706,10 +706,10 @@ function EncaissementsBlock({
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <Wallet className="h-4 w-4 text-zinc-400" />
-            Encaissements · 6 prochains mois
+            Encaissements, 6 prochains mois
           </h3>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Cliquez un mois pour le détail · breakdown par source
+            Cliquez un mois pour le détail, breakdown par source
           </p>
         </div>
         <div className="text-right">
@@ -748,7 +748,7 @@ function EncaissementsBlock({
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] uppercase tracking-wide font-medium text-zinc-500 dark:text-zinc-400">
                   {m.label}
-                  {m.isCurrent && <span className="ml-1 text-sky-600 dark:text-sky-400">·</span>}
+                  {m.isCurrent && <span className="ml-1 text-sky-600 dark:text-sky-400">•</span>}
                 </span>
               </div>
               <div className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
@@ -789,7 +789,7 @@ function MonthDetail({ month }: { month: FinanceData["timeline"][number] }) {
   }
   const order: Contrib["bucket"][] = ["realise", "facturable", "recurrent", "ponctuel", "pondere"];
   const labels: Record<Contrib["bucket"], { label: string; color: string }> = {
-    realise: { label: "Réalisé · facturé", color: COLORS.realise },
+    realise: { label: "Réalisé, facturé", color: COLORS.realise },
     facturable: { label: "Facturable maintenant", color: COLORS.facturable },
     recurrent: { label: "Récurrent signé", color: COLORS.recurrent },
     ponctuel: { label: "Ponctuel signé", color: COLORS.ponctuel },
@@ -807,7 +807,8 @@ function MonthDetail({ month }: { month: FinanceData["timeline"][number] }) {
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: labels[b].color }} />
                 <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">{labels[b].label}</span>
-                <span className="text-[10px] text-zinc-400">· {items.length}</span>
+                <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
+                <span className="text-[10px] text-zinc-400">{items.length}</span>
               </div>
               <span className="text-sm font-semibold tabular-nums" style={{ color: labels[b].color }}>{formatEUR(total)}</span>
             </div>
@@ -849,7 +850,7 @@ function ScenariosBlock({ scenarios, caYtd, year }: { scenarios: FinanceData["sc
           Atterrissage {year}
         </h3>
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-          3 trajectoires · YTD {formatEUR(caYtd)} + projection
+          3 trajectoires, YTD {formatEUR(caYtd)} + projection
         </p>
       </div>
       <div className="space-y-3">
@@ -879,7 +880,7 @@ function ScenariosBlock({ scenarios, caYtd, year }: { scenarios: FinanceData["sc
         })}
       </div>
       <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-white/[0.06] text-[10px] text-zinc-500 dark:text-zinc-400">
-        Objectif annuel : {formatEUR(scenarios.objectif)} · maintien ARR signé actuel
+        Objectif annuel : {formatEUR(scenarios.objectif)}, maintien ARR signé actuel
       </div>
     </div>
   );
@@ -908,10 +909,10 @@ function FunnelBlock({
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-zinc-400" />
-            Funnel signatures · {totalCount} dossier{totalCount > 1 ? "s" : ""} en cours
+            Funnel signatures, {totalCount} dossier{totalCount > 1 ? "s" : ""} en cours
           </h3>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-            ARR brut → pondéré · âge moyen dans le stade · cliquez pour le détail
+            ARR brut → pondéré, âge moyen dans le stade, cliquez pour le détail
           </p>
         </div>
         <div className="flex items-center gap-4 text-right">
@@ -963,7 +964,7 @@ function FunnelBlock({
                   <div className="absolute inset-y-0 left-0 bg-indigo-500 dark:bg-indigo-400" style={{ width: `${pctBrut * (pctConserve / 100)}%` }} />
                 </div>
                 <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">
-                  Pondération {formatPct(s.ponderation * 100)} · {formatPct(pctConserve)} conservé après pondération
+                  Pondération {formatPct(s.ponderation * 100)}, {formatPct(pctConserve)} conservé après pondération
                 </div>
               </button>
             );
@@ -1105,7 +1106,7 @@ function TendancesBlock({ tendances }: { tendances: FinanceData["tendances"] }) 
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
           <PieIcon className="h-4 w-4 text-zinc-400" />
-          CA YTD · par activité
+          CA YTD par activité
         </h3>
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">D'où vient l'argent</p>
       </div>
@@ -1129,7 +1130,7 @@ function TendancesBlock({ tendances }: { tendances: FinanceData["tendances"] }) 
                     return (
                       <div className="rounded-lg bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] shadow-lg px-3 py-2 text-xs">
                         <div className="font-medium text-zinc-900 dark:text-zinc-100">{p.name}</div>
-                        <div className="tabular-nums text-zinc-700 dark:text-zinc-300">{formatEUR(p.value)} · {formatPct((p.value / total) * 100)}</div>
+                        <div className="tabular-nums text-zinc-700 dark:text-zinc-300">{formatEUR(p.value)}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{formatPct((p.value / total) * 100)}</div>
                       </div>
                     );
                   }}

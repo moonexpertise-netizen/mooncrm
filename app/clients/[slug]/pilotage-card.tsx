@@ -115,7 +115,7 @@ export default function PilotageCard({
         <div>
           <h3 className="text-sm font-medium">Pilotage / Dashboard</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Suivi Tableau de bord + RDV Expert · cadence par exercice · sans impact sur la lettre de mission.
+            Suivi Tableau de bord + RDV Expert, cadence par exercice, sans impact sur la lettre de mission.
           </p>
         </div>
         <Link

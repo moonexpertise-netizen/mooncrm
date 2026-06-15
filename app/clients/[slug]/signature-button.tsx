@@ -201,7 +201,7 @@ export default function SignatureButton({
                   Envoyer la LDM en signature électronique
                 </h3>
                 <p className="text-[11px] text-zinc-500 mt-0.5">
-                  via JeSignExpert · workflow client → MOON
+                  via JeSignExpert, workflow client → MOON
                 </p>
               </div>
               <button
@@ -317,7 +317,7 @@ export default function SignatureButton({
                           {uploadedPdf.name}
                         </div>
                         <div className="text-[11px] text-emerald-700 mt-0.5">
-                          {Math.round(uploadedPdf.size / 1024)} Ko · cliquer pour changer
+                          {Math.round(uploadedPdf.size / 1024)} Ko, cliquer pour changer
                         </div>
                       </>
                     ) : (
@@ -350,7 +350,7 @@ export default function SignatureButton({
                         {dirigeant.civilite} {dirigeantFullName}
                       </div>
                       <div className="text-[11px] text-zinc-500">
-                        {dirigeant.email} · {dirigeant.telephone}
+                        {dirigeant.email}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{dirigeant.telephone}
                       </div>
                     </div>
                     <span className="text-[10px] text-zinc-500 px-2 py-0.5 rounded bg-white border">

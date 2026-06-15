@@ -124,7 +124,7 @@ export function ClientSwitcher() {
         />
         {/* Indicateur de raccourci - caché sur touch */}
         <kbd className="hidden md:inline-block absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 rounded px-1.5 py-0.5 font-mono pointer-events-none">
-          Ctrl·F
+          Ctrl F
         </kbd>
       </div>
       {open && (

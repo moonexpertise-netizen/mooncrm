@@ -48,7 +48,7 @@ export async function createClientIr(input: {
     // eslint-disable-next-line no-console
     console.error("[createClientIr] Supabase error:", JSON.stringify(error));
     throw new Error(
-      `Supabase ${error.code ?? ""} : ${error.message}${error.hint ? ` · ${error.hint}` : ""}`
+      `Supabase ${error.code ?? ""} : ${error.message}${error.hint ? ` (${error.hint})` : ""}`
     );
   }
   return data;

@@ -91,7 +91,7 @@ export default async function EcheancesPage({
     <div className="space-y-5">
       <PageHeader
         title="Échéances"
-        description={`${moisLabelCapitalized(month, year)} · ${result.duMois.length} à traiter · ${result.enRetard.length} en retard`}
+        description={`${moisLabelCapitalized(month, year)}, ${result.duMois.length} à traiter, ${result.enRetard.length} en retard`}
       />
       <EcheancesList
         month={month}

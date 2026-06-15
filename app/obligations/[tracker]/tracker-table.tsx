@@ -1707,14 +1707,17 @@ export default function TrackerTable({
                       className={cn("px-3 py-2 border-r tabular-nums", color)}
                       title={
                         days < 0
-                          ? `En retard de ${Math.abs(Math.round(days))} jour(s) · ${fmtDateFr(dueIso)}`
-                          : `Échéance dans ${Math.round(days)} jour(s) · ${fmtDateFr(dueIso)}`
+                          ? `En retard de ${Math.abs(Math.round(days))} jour(s), échéance le ${fmtDateFr(dueIso)}`
+                          : `Échéance dans ${Math.round(days)} jour(s), le ${fmtDateFr(dueIso)}`
                       }
                     >
                       <div className="text-sm">{fmtDateFr(dueIso)}</div>
                       <div className="text-[10px] opacity-70 mt-0.5">
                         {r.mois_cloture && (
-                          <span>clôture {MOIS_FR[r.mois_cloture - 1]} · </span>
+                          <span>
+                            clôture {MOIS_FR[r.mois_cloture - 1]}{" "}
+                            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}
+                          </span>
                         )}
                         <span>{ago}</span>
                       </div>
@@ -1800,7 +1803,7 @@ export default function TrackerTable({
                           urgency={urgency}
                           options={statusOptions[c.type] ?? EMPTY_OPTIONS}
                           commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
-                          rowLabel={`${r.denomination} · ${col?.label ?? c.type}`}
+                          rowLabel={`${r.denomination}, ${col?.label ?? c.type}`}
                           typeHonosBilans={r.type_honos_bilans}
                           onOpen={handleOpen}
                           onClose={handleClose}
@@ -2254,8 +2257,8 @@ const StatusCell = memo(function StatusCell({
           aria-label={urgency === "overdue" ? "En retard" : "Échéance proche"}
           title={
             urgency === "overdue"
-              ? `En retard${cell.echeance ? ` · échéance ${fmtDateFr(cell.echeance)}` : ""}`
-              : `Échéance proche${cell.echeance ? ` · ${fmtDateFr(cell.echeance)}` : ""}`
+              ? `En retard${cell.echeance ? `, échéance le ${fmtDateFr(cell.echeance)}` : ""}`
+              : `Échéance proche${cell.echeance ? `, le ${fmtDateFr(cell.echeance)}` : ""}`
           }
           className={cn(
             "absolute -top-0.5 -right-0.5 z-10 w-1.5 h-1.5 rounded-full ring-2 ring-white dark:ring-[hsl(var(--card))] pointer-events-none",

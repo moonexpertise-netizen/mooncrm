@@ -38,9 +38,9 @@ function pageLabel(pathname: string): string {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
     const sub = segments[3]; // exercice / obligations / onboarding
-    if (sub === "exercice") return `${denomination} · Échéances`;
-    if (sub === "obligations") return `${denomination} · Obligations`;
-    if (sub === "onboarding") return `${denomination} · Onboarding`;
+    if (sub === "exercice") return `${denomination}, Échéances`;
+    if (sub === "obligations") return `${denomination}, Obligations`;
+    if (sub === "onboarding") return `${denomination}, Onboarding`;
     return denomination;
   }
   // Pages statiques

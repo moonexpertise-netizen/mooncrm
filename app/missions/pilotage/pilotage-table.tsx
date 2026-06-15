@@ -47,10 +47,10 @@ const MENSUEL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 // suivant (Avr/Juil/Oct/Janv+1) - donnees dans le tooltip.
 const TRIMESTRIEL_MONTHS = [3, 6, 9, 12];
 const TRIMESTRE_LABEL: Record<number, string> = {
-  3: "T1 · Janv-Fév-Mars (livraison avril)",
-  6: "T2 · Avr-Mai-Juin (livraison juillet)",
-  9: "T3 · Juil-Août-Sept (livraison octobre)",
-  12: "T4 · Oct-Nov-Déc (livraison janvier N+1)",
+  3: "T1, Janv-Fév-Mars (livraison avril)",
+  6: "T2, Avr-Mai-Juin (livraison juillet)",
+  9: "T3, Juil-Août-Sept (livraison octobre)",
+  12: "T4, Oct-Nov-Déc (livraison janvier N+1)",
 };
 
 // Statuts (et leurs couleurs) par type

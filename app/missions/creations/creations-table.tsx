@@ -86,7 +86,7 @@ const STATUT_DEF: Array<{
   },
   {
     key: "actee_kbis_recu",
-    label: "Actée · KBIS reçu",
+    label: "Actée, KBIS reçu",
     group: "termine",
     color: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/30",
   },
@@ -580,11 +580,11 @@ export default function CreationsTable({
                     <span className={cn(stats.a_faire > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
                       {stats.a_faire} à faire
                     </span>
-                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                    <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
                     <span className={cn(stats.en_cours > 0 ? "text-sky-600 dark:text-sky-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
                       {stats.en_cours} en cours
                     </span>
-                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                    <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
                     <span className={cn(stats.termine > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
                       {stats.termine} fait
                     </span>
@@ -624,7 +624,7 @@ export default function CreationsTable({
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[100px]">Forme</th>
                 <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[180px]">Pipeline</th>
                 {mode === "base" ? (
-                  <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[260px]">Année · clic pour souscrire</th>
+                  <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[260px]">Année (clic pour souscrire)</th>
                 ) : (
                   <>
                     <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[220px]">Création {selectedYear}</th>

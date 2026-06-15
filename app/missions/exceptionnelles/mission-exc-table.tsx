@@ -945,7 +945,7 @@ export default function MissionExcTable({
                   onOpenComments={(anchorRect) =>
                     setOpenCommentsFor({
                       missionId: r.id,
-                      missionLabel: `${r.mission}${r.client_denomination ? ` · ${r.client_denomination}` : r.client_libre ? ` · ${r.client_libre}` : ""}`,
+                      missionLabel: `${r.mission}${r.client_denomination ? `, ${r.client_denomination}` : r.client_libre ? `, ${r.client_libre}` : ""}`,
                       anchorRect,
                     })
                   }
@@ -1966,7 +1966,7 @@ function NewMissionForm({
           {types.map((t) => (
             <option key={t.id} value={t.id}>
               {t.label}
-              {t.tarif > 0 ? ` · ${t.tarif} €` : ""}
+              {t.tarif > 0 ? ` (${t.tarif} €)` : ""}
             </option>
           ))}
         </select>

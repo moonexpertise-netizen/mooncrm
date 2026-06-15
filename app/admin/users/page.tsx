@@ -33,7 +33,7 @@ export default async function AdminUsersPage() {
         title="Utilisateurs"
         description={
           <>
-            Gestion des comptes MoonCRM · approbation des nouvelles inscriptions.
+            Gestion des comptes MoonCRM, approbation des nouvelles inscriptions.
             Seuls les emails <code className="text-xs bg-zinc-100 px-1.5 py-0.5 rounded-md border border-zinc-200/60">@moonexpertise.fr</code> peuvent s&apos;inscrire.
           </>
         }

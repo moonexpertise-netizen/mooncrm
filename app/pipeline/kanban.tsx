@@ -419,7 +419,7 @@ function MobilePipelineList({
               {label}
             </span>
             <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
-              {subset.length} · {fmtEuro(totalArr(subset))}
+              {subset.length}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{fmtEuro(totalArr(subset))}
             </span>
           </div>
           <ChevronDown
@@ -517,7 +517,7 @@ function MobilePipelineList({
                   Perdu dans l&apos;espace
                 </span>
                 <span className="text-[10px] tabular-nums text-indigo-200/60 font-medium whitespace-nowrap">
-                  {subset.length} · {fmtEuro(totalArr)}
+                  {subset.length}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{fmtEuro(totalArr)}
                 </span>
               </div>
               {subset.length === 0 ? (
@@ -779,11 +779,11 @@ const SpaceDropZone = memo(function SpaceDropZone({
               Perdu dans l&apos;espace
             </span>
             <span className="text-[10px] text-indigo-200/40 italic hidden sm:inline">
-              · zone de derive
+              zone de dérive
             </span>
           </div>
           <div className="text-[11px] tabular-nums whitespace-nowrap text-indigo-200/60 font-medium">
-            {cards.length} {cards.length > 1 ? "dossiers" : "dossier"} · {fmtEuro(totalArr)}
+            {cards.length} {cards.length > 1 ? "dossiers" : "dossier"}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{fmtEuro(totalArr)}
           </div>
         </div>
 
@@ -926,7 +926,7 @@ const Column = memo(function Column({
           </span>
         </div>
         <div className="text-[11px] text-zinc-500 tabular-nums whitespace-nowrap font-medium">
-          {cards.length} · {fmtEuro(totalArr)}
+          {cards.length}{" "}<span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}{fmtEuro(totalArr)}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2">

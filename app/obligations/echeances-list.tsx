@@ -437,7 +437,7 @@ function EcheanceRow({
       bottom: rect.bottom,
       right: rect.right,
     };
-    const label = `${item.clientName} · ${item.trackerTitle} · ${item.periodeLabel}`;
+    const label = `${item.clientName}, ${item.trackerTitle}, ${item.periodeLabel}`;
 
     // Cas obligation virtuelle : on materialise la ligne DB avant d'ouvrir
     // le popover, pour pouvoir y attacher des commentaires. Idempotent.
@@ -517,7 +517,7 @@ function EcheanceRow({
           {item.periodeLabel}
           {item.clotureLabel && (
             <span className="ml-2 text-zinc-400 dark:text-zinc-500">
-              · clôture {item.clotureLabel}
+              <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>{" "}clôture {item.clotureLabel}
             </span>
           )}
         </div>

@@ -162,7 +162,7 @@ export default function MissionExcCommentsPopover({
       <header className="px-3 py-2 border-b border-zinc-100 dark:border-white/[0.06] flex items-start justify-between gap-2 shrink-0">
         <div className="min-w-0 flex-1">
           <div className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-semibold">
-            Commentaires · {comments?.length ?? 0}
+            Commentaires ({comments?.length ?? 0})
           </div>
           <div
             className="text-xs font-medium text-zinc-700 dark:text-zinc-200 truncate"

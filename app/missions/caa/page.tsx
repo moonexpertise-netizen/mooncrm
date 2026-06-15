@@ -115,12 +115,12 @@ export default async function CaaPage({
   }));
 
   const description = isBaseView
-    ? "Missions de commissariat aux apports · Vue d'ensemble"
-    : `Missions de commissariat aux apports · Exercice ${selectedYear}`;
+    ? "Missions de commissariat aux apports, vue d'ensemble"
+    : `Missions de commissariat aux apports, exercice ${selectedYear}`;
 
   return (
     <div className="space-y-5">
-      <PageHeader title="CAA · Commissariat aux apports" description={description} />
+      <PageHeader title="CAA, commissariat aux apports" description={description} />
       <CaaTable
         rows={rows}
         mode={isBaseView ? "base" : "year"}

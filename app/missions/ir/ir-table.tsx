@@ -748,7 +748,7 @@ export default function IrTable({
         <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] py-10 px-6 text-center shadow-card">
           <FileText className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
-            {localRows.length === 0 ? "Aucun dossier IR" : `Aucun dossier · exercice ${selectedYear}`}
+            {localRows.length === 0 ? "Aucun dossier IR" : `Aucun dossier, exercice ${selectedYear}`}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {localRows.length === 0
@@ -771,8 +771,8 @@ export default function IrTable({
                 {mode === "base" ? (
                   <>
                     <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Statut LDM</th>
-                    <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR · années</th>
-                    <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI · années</th>
+                    <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR, années</th>
+                    <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI, années</th>
                   </>
                 ) : (
                   <>
@@ -840,7 +840,7 @@ export default function IrTable({
                         </span>
                         {(r.email || r.telephone) && (
                           <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[280px]">
-                            {[r.email, r.telephone].filter(Boolean).join(" · ")}
+                            {[r.email, r.telephone].filter(Boolean).join(", ")}
                           </span>
                         )}
                       </div>
@@ -1087,11 +1087,11 @@ function RecapLine({
             <span className={cn(stats.a_faire > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
               {stats.a_faire} à faire
             </span>
-            <span className="text-zinc-300 dark:text-zinc-600">·</span>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
             <span className={cn(stats.en_cours > 0 ? "text-sky-600 dark:text-sky-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
               {stats.en_cours} en cours
             </span>
-            <span className="text-zinc-300 dark:text-zinc-600">·</span>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>|</span>
             <span className={cn(stats.termine > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-zinc-400 dark:text-zinc-500")}>
               {stats.termine} fait
             </span>
@@ -1130,7 +1130,7 @@ function YearPills({
             type="button"
             onClick={() => onToggle(y)}
             aria-pressed={subscribed}
-            title={subscribed ? `Souscrit ${y} · clic pour retirer` : `Non souscrit ${y} · clic pour ajouter`}
+            title={subscribed ? `Souscrit ${y}, clic pour retirer` : `Non souscrit ${y}, clic pour ajouter`}
             className={cn(
               "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
               subscribed

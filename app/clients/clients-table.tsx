@@ -565,8 +565,8 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
                       {r.siren && <span className="tabular-nums">{r.siren}</span>}
-                      {r.forme && <span>· {r.forme}</span>}
-                      {r.groupe_nom && <span>· {r.groupe_nom}</span>}
+                      {r.forme && <span><span className="text-zinc-300 dark:text-zinc-600 mr-2" aria-hidden>|</span>{r.forme}</span>}
+                      {r.groupe_nom && <span><span className="text-zinc-300 dark:text-zinc-600 mr-2" aria-hidden>|</span>{r.groupe_nom}</span>}
                     </div>
                   </div>
                   <div className="text-sm font-medium tabular-nums shrink-0">
@@ -678,7 +678,7 @@ function Th({
           onMouseDown={startResize}
           onDoubleClick={() => onResetWidth?.(sortKey)}
           className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-[hsl(var(--gold))]/40 active:bg-[hsl(var(--gold))] transition-colors group-hover/th:bg-zinc-200"
-          title="Drag = redimensionner · Double-clic = auto-fit"
+          title="Glisser pour redimensionner, double-clic pour ajuster"
           aria-hidden
         />
       )}

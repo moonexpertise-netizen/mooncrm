@@ -78,7 +78,7 @@ export default async function PipelinePage() {
     <div className="space-y-5">
       <PageHeader
         title="Pipeline"
-        description={`${cards.length} dossier${cards.length > 1 ? "s" : ""} · glisse une carte pour changer le statut`}
+        description={`${cards.length} dossier${cards.length > 1 ? "s" : ""}, glisse une carte pour changer le statut`}
       />
       <PipelineKanban cards={cards} />
     </div>

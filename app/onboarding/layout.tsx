@@ -10,7 +10,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
     <div className="space-y-5">
       <PageHeader
         title="Onboarding"
-        description="Suivi de l'intégration des nouveaux dossiers · signés / internes / sous-traitance"
+        description="Suivi de l'intégration des nouveaux dossiers, signés, internes ou en sous-traitance"
       />
       <OnboardingTabs />
       {children}
