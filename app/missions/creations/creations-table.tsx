@@ -833,7 +833,7 @@ function YearPills({
             className={cn(
               "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all tabular-nums",
               isActive
-                ? "bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40"
+                ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))] font-semibold"
                 : "bg-white dark:bg-white/[0.02] text-zinc-600 dark:text-zinc-400 border-dashed border-zinc-300 dark:border-white/[0.10] hover:border-zinc-400 dark:hover:border-white/[0.20] hover:text-zinc-900 dark:hover:text-zinc-100"
             )}
           >
@@ -842,7 +842,7 @@ function YearPills({
         );
       })}
       {activeYear !== null && !years.includes(activeYear) && (
-        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium border tabular-nums bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40">
+        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-semibold border tabular-nums bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))]">
           {activeYear}
         </span>
       )}
