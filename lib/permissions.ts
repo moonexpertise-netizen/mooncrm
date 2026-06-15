@@ -32,6 +32,37 @@ export type Permission =
 
 export const ROLES: Role[] = ["admin", "collaborateur", "lecture", "externe"];
 
+/** Toutes les permissions, dans l'ordre d'affichage de la matrice admin. */
+export const ALL_PERMISSIONS: Permission[] = [
+  "edit_clients",
+  "edit_production",
+  "view_facturation",
+  "edit_facturation",
+  "view_honoraires",
+  "edit_honoraires",
+  "use_jarvis",
+  "view_finance",
+  "edit_parametrage",
+  "manage_users",
+];
+
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  edit_clients: "Éditer clients & pipeline",
+  edit_production: "Éditer la production",
+  view_facturation: "Voir la facturation",
+  edit_facturation: "Modifier la facturation",
+  view_honoraires: "Voir les honoraires",
+  edit_honoraires: "Éditer les honoraires",
+  use_jarvis: "Utiliser Jarvis",
+  view_finance: "Voir la Finance",
+  edit_parametrage: "Gérer le paramétrage",
+  manage_users: "Gérer les utilisateurs",
+};
+
+export function isPermission(v: unknown): v is Permission {
+  return typeof v === "string" && (ALL_PERMISSIONS as string[]).includes(v);
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
   collaborateur: "Collaborateur",
@@ -87,10 +118,34 @@ export function resolveRole(input: { role?: string | null; is_admin?: boolean | 
   return "collaborateur";
 }
 
+/** Permissions par défaut (code) — fallback si la table role_permissions est
+ *  vide / absente (migration 0079 pas encore appliquée). */
 export function hasPermission(role: Role, perm: Permission): boolean {
+  if (role === "admin") return true;
   return ROLE_PERMISSIONS[role].includes(perm);
 }
 
 export function permissionsFor(role: Role): Set<Permission> {
+  if (role === "admin") return new Set(ALL_PERMISSIONS);
   return new Set(ROLE_PERMISSIONS[role]);
+}
+
+export type PermissionRow = { role: string; permission: string };
+
+/**
+ * Droits EFFECTIFS d'un rôle = ce que dit la base (role_permissions), avec
+ * fallback sur les défauts code. Le rôle admin a TOUJOURS tout (superadmin,
+ * non éditable → impossible de se verrouiller).
+ *
+ * @param rows lignes role_permissions (toutes), ou null si la requête a
+ *             échoué/la table n'existe pas encore → on retombe sur les défauts.
+ */
+export function effectivePermissions(role: Role, rows: PermissionRow[] | null): Set<Permission> {
+  if (role === "admin") return new Set(ALL_PERMISSIONS);
+  if (!rows) return permissionsFor(role); // fallback défauts code
+  const set = new Set<Permission>();
+  for (const r of rows) {
+    if (r.role === role && isPermission(r.permission)) set.add(r.permission);
+  }
+  return set;
 }

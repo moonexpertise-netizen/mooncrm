@@ -47,7 +47,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { TRACKERS, TRACKER_GROUPS } from "@/app/obligations/trackers";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { resolveRole, hasPermission, ROLE_LABELS, type Permission, type Role } from "@/lib/permissions";
+import { resolveRole, effectivePermissions, ROLE_LABELS, type Permission, type Role } from "@/lib/permissions";
 import { loadSidebarBadges } from "./sidebar-badges-loader";
 
 /** Rubriques de nav réservées à une permission (masquées sinon). */
@@ -188,6 +188,9 @@ export function Sidebar() {
   // Profile du user logué : sert à afficher email dans le footer + lien
   // Admin → Utilisateurs si is_admin. Fetch une seule fois au mount.
   const [me, setMe] = useState<{ email: string; isAdmin: boolean; role: Role } | null>(null);
+  // Droits effectifs (base role_permissions, fallback code) pour masquer les
+  // rubriques. Vide tant que pas chargé → on cache les rubriques gatées.
+  const [perms, setPerms] = useState<Set<Permission>>(new Set());
   // Badges "A faire" sur Creations / IR / CAA + factures a etablir sur
   // Facturation. Charges au mount + a chaque changement de route (cf. effet
   // plus bas) pour rester a jour.
@@ -225,11 +228,20 @@ export function Sidebar() {
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
+      const r = resolveRole(prof ?? {});
       setMe({
         email: user.email ?? "",
         isAdmin: prof?.is_admin === true,
-        role: resolveRole(prof ?? {}),
+        role: r,
       });
+      // Droits effectifs (base role_permissions, éditable via /admin/roles ;
+      // fallback code). Sert à masquer les rubriques non autorisées.
+      if (r === "admin") {
+        setPerms(effectivePermissions("admin", null));
+      } else {
+        const { data: rows } = await sb.from("role_permissions").select("role, permission");
+        setPerms(effectivePermissions(r, rows ?? null));
+      }
     })();
   }, []);
 
@@ -403,7 +415,7 @@ export function Sidebar() {
       if (item.href === "/" && role === "externe") return false;
       const perm = NAV_PERMISSION[item.href];
       if (!perm) return true;
-      return role ? hasPermission(role, perm) : false;
+      return perms.has(perm);
     });
 
   // Année Production active : URL si on est sur /obligations*, sinon la

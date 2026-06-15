@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/app/_components/page-header";
 import UserRow from "./user-row";
@@ -36,8 +38,17 @@ export default async function AdminUsersPage() {
         description={
           <>
             Gestion des comptes MoonCRM, approbation des nouvelles inscriptions.
-            Seuls les emails <code className="text-xs bg-zinc-100 px-1.5 py-0.5 rounded-md border border-zinc-200/60">@moonexpertise.fr</code> peuvent s&apos;inscrire.
+            Seuls les emails <code className="text-xs bg-zinc-100 dark:bg-white/[0.06] px-1.5 py-0.5 rounded-md border border-zinc-200/60 dark:border-white/[0.08]">@moonexpertise.fr</code> peuvent s&apos;inscrire.
           </>
+        }
+        actions={
+          <Link
+            href="/admin/roles"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/[0.08] text-sm transition-colors"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Rôles & permissions
+          </Link>
         }
       />
 

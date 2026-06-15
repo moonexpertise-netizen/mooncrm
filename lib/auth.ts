@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { resolveRole, hasPermission, type Permission, type Role } from "@/lib/permissions";
+import { resolveRole, effectivePermissions, type Permission, type Role } from "@/lib/permissions";
 
 /**
  * Helpers d'autorisation côté SERVER (server components + server actions).
@@ -29,9 +29,19 @@ export async function getMyRole(): Promise<Role | null> {
   return resolveRole(data as { role?: string | null; is_admin?: boolean | null });
 }
 
-export async function can(perm: Permission): Promise<boolean> {
+/** Droits EFFECTIFS de l'utilisateur courant (base role_permissions + fallback
+ *  code). Set vide si non authentifié / non approuvé. */
+export async function getMyPermissions(): Promise<Set<Permission>> {
   const role = await getMyRole();
-  return role ? hasPermission(role, perm) : false;
+  if (!role) return new Set();
+  if (role === "admin") return effectivePermissions("admin", null); // tout
+  const sb = await createClient();
+  const { data: rows } = await sb.from("role_permissions").select("role, permission");
+  return effectivePermissions(role, rows ?? null);
+}
+
+export async function can(perm: Permission): Promise<boolean> {
+  return (await getMyPermissions()).has(perm);
 }
 
 /** Lève une erreur si l'utilisateur courant n'a pas la permission. */

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { resolveRole, hasPermission } from "@/lib/permissions";
+import { resolveRole, effectivePermissions } from "@/lib/permissions";
 
 /** Mutation faite par Jarvis et renvoyee par /api/chat. */
 type JarvisChange = {
@@ -156,7 +156,13 @@ export default function ChatBubble() {
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
-      setCanUse(hasPermission(resolveRole(prof ?? {}), "use_jarvis"));
+      const r = resolveRole(prof ?? {});
+      if (r === "admin") {
+        setCanUse(true);
+        return;
+      }
+      const { data: rows } = await sb.from("role_permissions").select("role, permission");
+      setCanUse(effectivePermissions(r, rows ?? null).has("use_jarvis"));
     })();
   }, []);
 

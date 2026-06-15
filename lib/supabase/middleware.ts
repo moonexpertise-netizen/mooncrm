@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { resolveRole, hasPermission } from "@/lib/permissions";
+import { resolveRole, effectivePermissions } from "@/lib/permissions";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -80,28 +80,27 @@ export async function updateSession(request: NextRequest) {
     }
 
     // ===== Gardes de routes par permission (couche 1) =====
-    // On ne contrôle que les utilisateurs approuvés (les non-approuvés sont
-    // déjà bloqués au-dessus).
-    if (isApproved) {
+    // Droits EFFECTIFS lus en base (role_permissions, éditable via /admin/roles),
+    // fallback code. L'admin a tout → on ne requête même pas. On ne charge la
+    // matrice que sur les routes sensibles (perf).
+    const GATED = ["/admin", "/finance", "/facturation", "/parametrage"];
+    const onGated = GATED.some((p) => path.startsWith(p));
+    if (isApproved && role !== "admin" && (onGated || path === "/")) {
+      const { data: rows } = await supabase
+        .from("role_permissions")
+        .select("role, permission");
+      const perms = effectivePermissions(role, rows ?? null);
+
       const denied =
-        (path.startsWith("/admin") && !hasPermission(role, "manage_users")) ||
-        (path.startsWith("/finance") && !hasPermission(role, "view_finance")) ||
-        (path.startsWith("/facturation") && !hasPermission(role, "view_facturation")) ||
-        (path.startsWith("/parametrage") && !hasPermission(role, "edit_parametrage"));
+        (path.startsWith("/admin") && !perms.has("manage_users")) ||
+        (path.startsWith("/finance") && !perms.has("view_finance")) ||
+        (path.startsWith("/facturation") && !perms.has("view_facturation")) ||
+        (path.startsWith("/parametrage") && !perms.has("edit_parametrage"));
 
-      if (denied) {
+      // Externe : pas de dashboard financier d'accueil.
+      if (denied || (role === "externe" && path === "/")) {
         const url = request.nextUrl.clone();
-        // Externe n'a pas de dashboard financier d'accueil → on l'envoie vers
-        // la liste clients ; les autres reviennent à l'accueil.
         url.pathname = role === "externe" ? "/clients" : "/";
-        return NextResponse.redirect(url);
-      }
-
-      // Externe : pas de page d'accueil financière (ARR/MRR). Redirige vers
-      // la liste clients.
-      if (role === "externe" && path === "/") {
-        const url = request.nextUrl.clone();
-        url.pathname = "/clients";
         return NextResponse.redirect(url);
       }
     }
