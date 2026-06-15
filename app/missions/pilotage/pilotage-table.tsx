@@ -388,9 +388,20 @@ export default function PilotageTable({
   // ============================================================================
 
   return (
-    <div className="space-y-5">
-      {/* Sélecteur année (le toggle TDB/RDV a disparu : les 2 sont fusionnés) */}
-      <div className="flex items-center justify-end gap-3 flex-wrap">
+    <div className="space-y-4">
+      {/* Filtres (gauche) + sélecteur année (droite) sur la MÊME ligne, pour
+          éviter une bande vide. Le toggle TDB/RDV a disparu (fusion). */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap">
+          <StatusFilterChip label="Tous" count={counts.total} active={filter.size === 0} onClick={() => setFilter(new Set())} />
+          <StatusFilterChip label="À faire" count={counts.A_FAIRE} active={filter.has("A_FAIRE")} onClick={(e) => setFilter(toggleFilterKey(filter, "A_FAIRE", e))} accent="amber" />
+          <StatusFilterChip label="En cours" count={counts.EN_COURS} active={filter.has("EN_COURS")} onClick={(e) => setFilter(toggleFilterKey(filter, "EN_COURS", e))} accent="sky" />
+          <StatusFilterChip label="Terminé" count={counts.TERMINE} active={filter.has("TERMINE")} onClick={(e) => setFilter(toggleFilterKey(filter, "TERMINE", e))} accent="emerald" />
+          {counts.NON_APPLICABLE > 0 && (
+            <StatusFilterChip label="N/A" count={counts.NON_APPLICABLE} active={filter.has("NON_APPLICABLE")} onClick={(e) => setFilter(toggleFilterKey(filter, "NON_APPLICABLE", e))} />
+          )}
+        </div>
+
         <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
           {years.map((y) => (
             <Link
@@ -408,17 +419,6 @@ export default function PilotageTable({
             </Link>
           ))}
         </div>
-      </div>
-
-      {/* Filtres chips */}
-      <div className="flex items-center gap-1 flex-wrap">
-        <StatusFilterChip label="Tous" count={counts.total} active={filter.size === 0} onClick={() => setFilter(new Set())} />
-        <StatusFilterChip label="À faire" count={counts.A_FAIRE} active={filter.has("A_FAIRE")} onClick={(e) => setFilter(toggleFilterKey(filter, "A_FAIRE", e))} accent="amber" />
-        <StatusFilterChip label="En cours" count={counts.EN_COURS} active={filter.has("EN_COURS")} onClick={(e) => setFilter(toggleFilterKey(filter, "EN_COURS", e))} accent="sky" />
-        <StatusFilterChip label="Terminé" count={counts.TERMINE} active={filter.has("TERMINE")} onClick={(e) => setFilter(toggleFilterKey(filter, "TERMINE", e))} accent="emerald" />
-        {counts.NON_APPLICABLE > 0 && (
-          <StatusFilterChip label="N/A" count={counts.NON_APPLICABLE} active={filter.has("NON_APPLICABLE")} onClick={(e) => setFilter(toggleFilterKey(filter, "NON_APPLICABLE", e))} />
-        )}
       </div>
 
       {/* Table */}
