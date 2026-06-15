@@ -28,6 +28,13 @@ export type StatusOption = {
   color: string | null;
 };
 
+/** Référence stable pour les listes d'options vides. Sans ça,
+ *  `statusOptions[c.type] ?? []` crée un nouveau tableau à CHAQUE render →
+ *  la prop `options` de StatusCell change de référence → le memo casse et
+ *  les ~960 cellules se re-render à chaque frappe. Une constante module
+ *  garde la même référence. */
+const EMPTY_OPTIONS: StatusOption[] = [];
+
 /** Etats facturation : aligne sur missions exc/IR/CAA. */
 export type EtatFacturation = "a_facturer" | "facturee" | "sans_facture";
 
@@ -354,6 +361,14 @@ export default function TrackerTable({
     () => new Set(visibleCols.map((c) => c.key)),
     [visibleCols]
   );
+
+  // Map colKey -> col pour lookups O(1). Avant : 3× cols.find() PAR cellule
+  // (~960 cellules) à chaque render → O(cells × cols). Maintenant O(1).
+  const colByKey = useMemo(() => {
+    const m = new Map<string, (typeof cols)[number]>();
+    for (const c of cols) m.set(c.key, c);
+    return m;
+  }, [cols]);
 
   // Map id tag -> ordre, pour tri par etiquette. Tags sans ordre (ou tag null
   // sur une row) finissent en fin de liste via une valeur sentinelle elevee.
@@ -1712,7 +1727,8 @@ export default function TrackerTable({
                   const isSelected = !!c.obligationId && selectedIds.has(c.obligationId);
                   // Urgence : calculee a partir du type d'obligation, de la periode
                   // (du col) et de la cloture du client. cf. lib/echeances.ts
-                  const col = cols.find((co) => co.key === c.colKey);
+                  // colByKey = lookup O(1) (avant : 3× cols.find() par cellule).
+                  const col = colByKey.get(c.colKey);
                   const urgency: UrgencyStatus = (() => {
                     if (!c.obligationId || !col?.periode) return "none";
                     const anneePeriode = extractAnneeFromPeriode(col.periode);
@@ -1766,7 +1782,7 @@ export default function TrackerTable({
                       )}
                       onMouseDown={(e) => onCellMouseDown(e, c.obligationId, rowIndex, colIndex)}
                     >
-                      {cols.find((col) => col.key === c.colKey)?.kind === "facturation" ? (
+                      {col?.kind === "facturation" ? (
                         <FacturationOnlyCell
                           cell={c}
                           typeHonosBilans={r.type_honos_bilans}
@@ -1779,9 +1795,9 @@ export default function TrackerTable({
                           isOpen={openCellId === cellId}
                           isSelected={isSelected}
                           urgency={urgency}
-                          options={statusOptions[c.type] ?? []}
+                          options={statusOptions[c.type] ?? EMPTY_OPTIONS}
                           commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
-                          rowLabel={`${r.denomination} · ${cols.find((col) => col.key === c.colKey)?.label ?? c.type}`}
+                          rowLabel={`${r.denomination} · ${col?.label ?? c.type}`}
                           typeHonosBilans={r.type_honos_bilans}
                           onOpen={handleOpen}
                           onClose={handleClose}
