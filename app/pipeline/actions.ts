@@ -5,6 +5,7 @@ import {
   type PipelineStatut,
   type SignatureStats,
 } from "@/app/clients/[slug]/actions";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Change le statut pipeline d'un client (drag-drop Kanban ou picker mobile).
@@ -28,5 +29,6 @@ export async function movePipeline(
   clientId: string,
   statut: PipelineStatut
 ): Promise<{ signature: SignatureStats | null }> {
+  await requirePermission("edit_clients");
   return setPipelineStatut(clientId, statut);
 }

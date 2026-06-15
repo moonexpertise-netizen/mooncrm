@@ -148,7 +148,7 @@ export default function EcheancesList({
       {enRetard.length > 0 && (
         <Section
           title="En retard"
-          subtitle={`${enRetard.length} obligation${enRetard.length > 1 ? "s" : ""} non terminée${enRetard.length > 1 ? "s" : ""} dont l'échéance est passée avant le 1er ${MOIS_LABEL[month - 1]}.`}
+          subtitle={`${enRetard.length} obligation${enRetard.length > 1 ? "s" : ""} non terminée${enRetard.length > 1 ? "s" : ""}, échéance passée depuis janvier ${year} (l'historique antérieur reste dans chaque tracker).`}
           icon={<AlertTriangle className="h-4 w-4 text-rose-500" />}
           accent="rose"
           items={enRetard}

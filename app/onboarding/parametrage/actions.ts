@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { shouldBeNa, type ClientContext, type ConditionsNa } from "../parcours-engine";
+import { requirePermission } from "@/lib/auth";
 
 // Critere "facturable" : meme regle que isClientBillable (lib/billable.ts).
 const BILLABLE_PIPELINES = [
@@ -172,6 +173,7 @@ export async function updateParcours(
   parcoursId: string,
   patch: { nom?: string; description?: string | null }
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { error } = await sb
     .from("onboarding_parcours")
@@ -233,6 +235,7 @@ export async function createEtape(
     description?: string | null;
   }
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
 
   // 1. Récupère les task_keys déjà utilisées dans ce parcours + l'ordre max
@@ -292,6 +295,7 @@ export async function updateEtape(
     ordre?: number;
   }
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { error } = await sb
     .from("onboarding_etape")
@@ -311,6 +315,7 @@ export async function updateEtape(
  * garder une trace, il met l'etape en N/A plutot que de la supprimer.
  */
 export async function deleteEtape(etapeId: string) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
 
   // 1. Lire le task_key avant la suppression
@@ -349,6 +354,7 @@ export async function deleteEtape(etapeId: string) {
  * Implémentation simple : un UPDATE par étape. Sur 13 étapes c'est OK.
  */
 export async function reorderEtapes(parcoursId: string, orderedIds: string[]) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   for (let i = 0; i < orderedIds.length; i++) {
     const { error } = await sb
@@ -374,6 +380,7 @@ export async function updateEtapeConditions(
   etapeId: string,
   conditions: ConditionsNa
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { error } = await sb
     .from("onboarding_etape")
@@ -403,6 +410,7 @@ export async function moveEtape(
   targetRubriqueId: string | null,
   targetIndex: number
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
 
   // 1. Charge toutes les étapes du parcours, triées
@@ -471,6 +479,7 @@ export async function createRubrique(
   parcoursId: string,
   input: { nom: string; numbering_style?: string; numbering_reset?: boolean }
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { data: last } = await sb
     .from("onboarding_rubrique")
@@ -500,6 +509,7 @@ export async function updateRubrique(
     numbering_reset?: boolean;
   }
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { error } = await sb
     .from("onboarding_rubrique")
@@ -514,6 +524,7 @@ export async function updateRubrique(
  * (clause ON DELETE SET NULL côté DB).
  */
 export async function deleteRubrique(rubriqueId: string) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { error } = await sb
     .from("onboarding_rubrique")
@@ -524,6 +535,7 @@ export async function deleteRubrique(rubriqueId: string) {
 }
 
 export async function reorderRubriques(parcoursId: string, orderedIds: string[]) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   for (let i = 0; i < orderedIds.length; i++) {
     const { error } = await sb

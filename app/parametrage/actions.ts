@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { filterByDebut, generateInstancesForType } from "@/lib/obligations-engine";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requirePermission } from "@/lib/auth";
 
 type TypeObligation =
   | "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS"
@@ -93,6 +94,7 @@ export async function setSubActive(
   annee: number,
   active: boolean
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { data: existing } = await sb
     .from("obligation_subscriptions")
@@ -122,6 +124,7 @@ export async function setTva(
   annee: number,
   mode: TvaMode | null
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const all: TvaMode[] = ["TVA_MENSUELLE", "TVA_TRIMESTRIELLE", "TVA_ANNUELLE_CA12", "TVA_NON_SOUMIS"];
   const toDeactivate = all.filter((m) => m !== mode);
@@ -161,6 +164,7 @@ export async function setRegimeAction(
   annee: number,
   regime: Regime | null
 ) {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   await sb
     .from("client_year_config")
@@ -217,6 +221,7 @@ export async function bulkSetSubActive(
   annee: number,
   active: boolean
 ) {
+  await requirePermission("edit_parametrage");
   if (clientIds.length === 0) return { updated: 0 };
   const sb = await createClient();
 
@@ -257,6 +262,7 @@ export async function bulkSetSubActive(
  * en une seule requête. Conserve l'historique d'obligations.
  */
 export async function bulkDeactivateAll(clientIds: string[], annee: number) {
+  await requirePermission("edit_parametrage");
   if (!clientIds.length) return { updated: 0 };
   const sb = await createClient();
   const { data, error } = await sb
@@ -284,6 +290,7 @@ export async function bulkReconduire(
   fromYear: number,
   toYear: number
 ) {
+  await requirePermission("edit_parametrage");
   if (clientIds.length === 0) return { created: 0 };
   const sb = await createClient();
 

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions du tracker CAA (Commissariat aux apports).
@@ -20,6 +21,7 @@ export async function createClientCaa(input: {
   dirigeant_email?: string | null;
   dirigeant_telephone?: string | null;
 }) {
+  await requirePermission("edit_production");
   if (!input.denomination?.trim()) throw new Error("Denomination obligatoire");
   const sb = await createClient();
   const { data, error } = await sb
@@ -42,6 +44,7 @@ export async function updateClientCaa(
   clientCaaId: string,
   patch: Record<string, string | number | boolean | null>
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb.from("clients_caa").update(patch).eq("id", clientCaaId);
   if (error) throw new Error(error.message);
@@ -49,6 +52,7 @@ export async function updateClientCaa(
 }
 
 export async function deleteClientCaa(clientCaaId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb.from("clients_caa").delete().eq("id", clientCaaId);
   if (error) throw new Error(error.message);
@@ -66,6 +70,7 @@ export async function setCaaObligationStatut(
   annee: number,
   libelle: string | null
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   if (libelle === null) {
@@ -112,6 +117,7 @@ export async function toggleCaaSubscription(
   clientCaaId: string,
   annee: number
 ): Promise<boolean> {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   const { data: existing } = await sb
@@ -161,6 +167,7 @@ export async function setCaaFacturation(
   annee: number,
   etat: EtatFacturation | null
 ) {
+  await requirePermission("edit_facturation");
   const sb = await createClient();
   const { error } = await sb
     .from("caa_obligations")
@@ -186,6 +193,7 @@ export async function bulkSetCaaObligationStatut(
   annee: number,
   libelle: string | null
 ) {
+  await requirePermission("edit_production");
   if (clientCaaIds.length === 0) return { updated: 0 };
   const sb = await createClient();
 
@@ -230,6 +238,7 @@ export async function setCaaForfait(
   annee: number,
   montant: number | null
 ) {
+  await requirePermission("edit_honoraires");
   if (montant !== null && montant < 0) throw new Error("Forfait negatif interdit");
   const sb = await createClient();
   // Update + select pour detecter le no-op silencieux (pas de souscription

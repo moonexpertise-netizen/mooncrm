@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Commentaires sur les missions exceptionnelles. Pattern strictement aligne
@@ -46,6 +47,7 @@ export async function listMissionExcComments(missionId: string): Promise<Mission
 
 /** Ajoute un commentaire sur une mission exc. */
 export async function addMissionExcComment(missionId: string, content: string): Promise<MissionExcComment> {
+  await requirePermission("edit_production");
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Le commentaire ne peut pas être vide.");
   if (trimmed.length > 4000) throw new Error("Commentaire trop long (max 4000 caractères).");
@@ -73,6 +75,7 @@ export async function addMissionExcComment(missionId: string, content: string): 
 
 /** Supprime un commentaire (RLS limite a l'auteur). */
 export async function deleteMissionExcComment(commentId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb.from("mission_exc_comments").delete().eq("id", commentId);
   if (error) throw new Error(error.message);

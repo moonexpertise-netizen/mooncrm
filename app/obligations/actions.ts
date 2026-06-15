@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Met à jour le statut d'une obligation à partir d'un libellé.
@@ -13,6 +14,7 @@ export async function updateObligationStatus(
   obligationId: string,
   libelle: string | null
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   if (!libelle) {
@@ -87,6 +89,7 @@ export async function bulkUpdateObligationStatus(
   obligationIds: string[],
   libelle: string | null
 ) {
+  await requirePermission("edit_production");
   if (!obligationIds.length) return { updated: 0 };
   const sb = await createClient();
 
@@ -183,6 +186,7 @@ export async function setEcheanceStatus(
   },
   libelle: string | null
 ): Promise<{ obligationId: string }> {
+  await requirePermission("edit_production");
   // Existant : delegue a la fonction simple, qui gere reset + revalidate.
   if (payload.obligationId) {
     await updateObligationStatus(payload.obligationId, libelle);
@@ -232,6 +236,7 @@ export async function ensureObligationRow(payload: {
   periode: string;
   annee: number;
 }): Promise<{ obligationId: string }> {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   // 1. Trouve la souscription active correspondante. subscription_id est
@@ -304,6 +309,7 @@ export async function ensureObligationRow(payload: {
  * Met à jour la note libre sur une obligation. note = null ou "" -> efface.
  */
 export async function updateObligationNote(obligationId: string, note: string | null) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const cleaned = note && note.trim() !== "" ? note.trim() : null;
 
@@ -330,6 +336,7 @@ export async function setObligationFacturation(
   obligationId: string,
   etat: "a_facturer" | "facturee" | "sans_facture" | null
 ) {
+  await requirePermission("edit_facturation");
   const sb = await createClient();
   const { error } = await sb
     .from("obligations")

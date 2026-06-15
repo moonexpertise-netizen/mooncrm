@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { shouldBeNa, type ClientContext } from "./parcours-engine";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions du module Onboarding.
@@ -47,6 +48,7 @@ type EtapeRow = {
  *   - Manuellement (re-init sur changement de parcours)
  */
 export async function initializeOnboardingForClient(clientId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   // 1. Caractéristiques du client (champs utilisés par les conditions)
@@ -156,6 +158,7 @@ export async function updateOnboardingTaskStatus(
   taskId: string,
   libelle: string | null
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   const { data: task, error: e0 } = await sb
@@ -212,6 +215,7 @@ export async function setGestionTns(
   clientId: string,
   value: boolean | null
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb
     .from("clients")
@@ -235,6 +239,7 @@ export async function setGestionTns(
  * N/A à la main. Pas de suppression auto pour ne pas perdre d'historique.
  */
 export async function setOrigine(clientId: string, origine: string | null) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb
     .from("clients")
@@ -262,6 +267,7 @@ export async function addOnboardingStatusOption(
   libelle: string,
   statutLogique: "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE"
 ): Promise<{ libelle: string; statut_logique: string; color: string | null }> {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const trimmed = libelle.trim();
   if (!trimmed) throw new Error("Le libellé ne peut pas être vide");
@@ -317,6 +323,7 @@ export async function renameOnboardingStatusOption(
   newLibelle: string,
   newBucket?: "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE"
 ): Promise<void> {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const trimmed = newLibelle.trim();
   if (!trimmed) throw new Error("Le libellé ne peut pas être vide");
@@ -376,6 +383,7 @@ export async function deleteOnboardingStatusOption(
   taskKey: string,
   libelle: string
 ): Promise<void> {
+  await requirePermission("edit_production");
   const sb = await createClient();
   if (!taskKey || !libelle) throw new Error("task_key et libelle requis");
 

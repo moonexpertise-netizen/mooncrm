@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Supprime tout l'historique d'audit d'un client. Utilise par le bouton
@@ -11,6 +12,7 @@ import { revalidatePath } from "next/cache";
  * Cote UI on confirme via dialogue avant d'appeler cette action.
  */
 export async function clearClientAuditLog(clientId: string, slug: string) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
   const { error } = await sb
     .from("client_audit_log")

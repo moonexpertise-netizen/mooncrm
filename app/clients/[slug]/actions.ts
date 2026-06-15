@@ -6,6 +6,7 @@ import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 import { filterByDebut, generateInstancesForType } from "@/lib/obligations-engine";
 import { getInpiCompany, InpiError } from "@/lib/inpi";
 import { logClientChanges, TRACKED_AUDIT_FIELDS } from "@/lib/audit-log";
+import { requirePermission } from "@/lib/auth";
 
 export type TypeObligation =
   | "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS"
@@ -37,6 +38,7 @@ export type PipelineStatut =
  * sur le couple `(subscription_id, periode)`).
  */
 export async function regenerateObligationsForYear(clientId: string, annee: number) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   const [{ data: client }, { data: subs }] = await Promise.all([
@@ -111,6 +113,7 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
  *          exposés à l'utilisateur dans le paramétrage)
  */
 export async function setRegime(clientId: string, annee: number, regime: Regime | null) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   const { error } = await sb
@@ -148,6 +151,7 @@ export async function setRegime(clientId: string, annee: number, regime: Regime 
  * (via le bouton "+ N+1" du YearSwitcher).
  */
 export async function initializeYear(clientId: string, annee: number) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   const { data: existing, error } = await sb
@@ -235,6 +239,7 @@ export async function signLdmAndGetStats(clientId: string): Promise<{
   arrBefore: number;
   arrAfter: number;
 }> {
+  await requirePermission("edit_clients");
   const sb = await createClient();
 
   // 1. Snapshot du client AVANT (mrr, arr, denomination, origine)
@@ -305,6 +310,7 @@ export async function setPipelineStatut(
   clientId: string,
   statut: PipelineStatut | null
 ): Promise<{ signature: SignatureStats | null }> {
+  await requirePermission("edit_clients");
   const sb = await createClient();
 
   // Lit l'etat AVANT pour pouvoir detecter une transition vers LDM signee.
@@ -408,6 +414,7 @@ export async function toggleSubscription(
   annee: number,
   enabled: boolean
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   // 1. existe-t-elle déjà ?
@@ -451,6 +458,7 @@ export async function setTvaMode(
   annee: number,
   mode: "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS" | null
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const allTvaModes = [
     "TVA_MENSUELLE", "TVA_TRIMESTRIELLE", "TVA_ANNUELLE_CA12", "TVA_NON_SOUMIS",
@@ -507,6 +515,7 @@ export async function setTvaMode(
  * Conserve l'historique d'instances (soft delete).
  */
 export async function reconduireAnnee(clientId: string, fromYear: number, toYear: number) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   // 1. Lecture en parallèle : subs source + cible + régime source
@@ -598,6 +607,7 @@ export async function addContactToClient(
     civilite?: "M." | "Mme" | "Mlle" | null;
   }
 ) {
+  await requirePermission("edit_clients");
   if (!data.nom?.trim()) throw new Error("Nom obligatoire");
   const sb = await createClient();
   const { data: created, error } = await sb
@@ -638,6 +648,7 @@ export async function updateContact(
     civilite?: "M." | "Mme" | "Mlle" | null;
   }
 ) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
   const clean: Record<string, string | null> = {};
   if (patch.nom !== undefined) {
@@ -659,6 +670,7 @@ export async function updateContactRole(
   contactId: string,
   role: string | null
 ) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
   const { error } = await sb
     .from("client_contacts")
@@ -671,6 +683,7 @@ export async function updateContactRole(
 
 /** Détache un contact d'un dossier (ne supprime pas le contact lui-même). */
 export async function removeContactFromClient(clientId: string, contactId: string) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
   const { error } = await sb
     .from("client_contacts")
@@ -724,6 +737,7 @@ export async function importFromAnnuaire(
     dirigeant?: { prenom: string | null; nom: string };
   }
 ) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
 
   // 1. Champs du client
@@ -790,6 +804,7 @@ export async function importFromAnnuaire(
  * (subs, obligations, onboarding, contacts). FK ON DELETE CASCADE.
  */
 export async function deleteClient(clientId: string) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
   const { error } = await sb.from("clients").delete().eq("id", clientId);
   if (error) throw new Error(error.message);
@@ -825,6 +840,7 @@ export async function updateClient(
   clientId: string,
   patch: Record<string, string | number | boolean | null>
 ) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
 
   // Defense : convertit null → 0 pour les colonnes numeric NOT NULL.
@@ -906,6 +922,7 @@ export async function updateClient(
  * Si nom = null/vide, détache le client de son groupe.
  */
 export async function setClientGroupe(clientId: string, nom: string | null) {
+  await requirePermission("edit_clients");
   const sb = await createClient();
 
   if (!nom || !nom.trim()) {

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions du module Creations.
@@ -35,6 +36,7 @@ export async function toggleCreationSubscription(
   clientId: string,
   annee: number
 ): Promise<boolean> {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { data: current } = await sb
     .from("clients")
@@ -80,6 +82,7 @@ export async function setCreationStatut(
   clientId: string,
   statut: CreationStatut | null
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb
     .from("clients")
@@ -99,6 +102,7 @@ export async function bulkSetCreationStatut(
   clientIds: string[],
   statut: CreationStatut | null
 ) {
+  await requirePermission("edit_production");
   if (clientIds.length === 0) return { updated: 0 };
   const sb = await createClient();
   const { error } = await sb
@@ -122,6 +126,7 @@ export async function setCreationFacturation(
   clientId: string,
   facturation: CreationFacturation | null
 ) {
+  await requirePermission("edit_facturation");
   const sb = await createClient();
   const { error } = await sb
     .from("clients")

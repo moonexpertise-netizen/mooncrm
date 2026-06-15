@@ -181,6 +181,24 @@ export async function getEcheancesPourMois(
   const monthEndIso = isoDay(monthEnd);
   const todayIso = isoDay(today);
 
+  // Borne BASSE de la section "en retard" : on ne remonte pas les retards
+  // au-dela du 1er janvier de l'annee affichee.
+  //
+  // POURQUOI : les souscriptions importees de Notion couvrent des exercices
+  // passes (2023, 2024, 2025). Les obligations correspondantes ont ete
+  // reellement deposees a l'epoque, mais jamais cochees "Termine" dans le
+  // CRM (qui n'existait pas). Sans borne, "en retard" affiche des centaines
+  // de cellules fantomes (ex. TVA mensuelle de fevrier 2025 a 476j de
+  // retard, y compris pour des dossiers internes) -> bruit ininterpretable.
+  //
+  // Le tracker de chaque obligation, lui, continue d'afficher TOUT l'
+  // historique : on ne perd aucune donnee, on nettoie juste la todo-list
+  // de pilotage mensuel.
+  //
+  // Pour changer la regle : repartir totalement a neuf = `today` ; fenetre
+  // glissante de N mois = recalculer une date a N mois en arriere.
+  const retardDepuisIso = isoDay(firstOfMonthUtc(year, 1));
+
   // Fenetre d'annees a charger : on prend [year-2, year+1] pour capturer :
   //   - les obligations annuelles N-1 (cloture decembre N-1, echeance en N)
   //   - les obligations annuelles N-2 si decalees (cloture 30/06/N-1)
@@ -358,8 +376,14 @@ export async function getEcheancesPourMois(
       if (dueIso >= monthStartIso && dueIso <= monthEndIso) {
         // L'echeance tombe dans le mois cible
         duMois.push(item);
-      } else if (dueIso < monthStartIso && dueIso < todayIso) {
-        // Echeance passee non terminee et anterieure au mois cible
+      } else if (
+        dueIso < monthStartIso &&
+        dueIso < todayIso &&
+        dueIso >= retardDepuisIso
+      ) {
+        // Echeance passee non terminee, anterieure au mois cible, ET dans la
+        // fenetre de retards retenue (>= 1er janvier de l'annee affichee).
+        // Cf. commentaire sur retardDepuisIso : exclut le backlog importe.
         enRetard.push(item);
       }
     }

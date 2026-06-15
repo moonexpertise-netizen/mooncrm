@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth";
 
 export type Comment = {
   id: string;
@@ -52,6 +53,7 @@ export async function listComments(obligationId: string): Promise<Comment[]> {
  * vu que la FK pointe vers auth.users).
  */
 export async function addComment(obligationId: string, content: string): Promise<Comment> {
+  await requirePermission("edit_production");
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Le commentaire ne peut pas être vide.");
   if (trimmed.length > 4000) throw new Error("Commentaire trop long (max 4000 caractères).");
@@ -80,6 +82,7 @@ export async function addComment(obligationId: string, content: string): Promise
 
 /** Édite un commentaire (RLS limite à l'auteur). */
 export async function editComment(commentId: string, content: string) {
+  await requirePermission("edit_production");
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Le commentaire ne peut pas être vide.");
   if (trimmed.length > 4000) throw new Error("Commentaire trop long.");
@@ -94,6 +97,7 @@ export async function editComment(commentId: string, content: string) {
 
 /** Supprime un commentaire (RLS limite à l'auteur). */
 export async function deleteComment(commentId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb.from("obligation_comments").delete().eq("id", commentId);
   if (error) throw new Error(error.message);

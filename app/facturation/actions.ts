@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions partagees pour la page Facturation centralisee.
@@ -31,6 +32,7 @@ export async function setFacturationFromCentral(
   rowId: string, // obligation_id, mission_id, OU pour caa/ir : "clientId|annee"
   etat: EtatFacturation | null
 ): Promise<void> {
+  await requirePermission("edit_facturation");
   const sb = await createClient();
 
   if (source === "ago" || source === "bilan") {

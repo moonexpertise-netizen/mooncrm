@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions du module Pilotage / Dashboard.
@@ -61,6 +62,7 @@ export async function togglePilotageSubscription(
   enabled: boolean
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    await requirePermission("edit_production");
     const sb = await createClient();
 
     if (!enabled) {
@@ -149,6 +151,7 @@ export async function setPilotageStatut(
   libelle: string | null
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    await requirePermission("edit_production");
     const sb = await createClient();
 
     let statut_logique: PilotageStatutLogique = "A_FAIRE";
@@ -201,6 +204,7 @@ export async function setPilotageCadence(
   value: TdbCadence | RdvCadence | null
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    await requirePermission("edit_production");
     const sb = await createClient();
     const col = aspect === "tdb" ? "tdb_livraison_periode" : "rdv_expert_periode";
     const type: PilotageType = aspect === "tdb" ? "TDB" : "RDV";
@@ -268,6 +272,7 @@ export async function bulkSetPilotageStatut(
 ): Promise<{ ok: boolean; updated: number; error?: string }> {
   if (ids.length === 0) return { ok: true, updated: 0 };
   try {
+    await requirePermission("edit_production");
     const sb = await createClient();
     let statut_logique: PilotageStatutLogique = "A_FAIRE";
     let statut_detail: string | null = libelle;

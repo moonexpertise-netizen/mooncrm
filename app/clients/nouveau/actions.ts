@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth";
 
 type Payload = {
   denomination: string;
@@ -54,6 +55,7 @@ type Payload = {
  * L'UI reconstruit ces URLs à la volée depuis siren si besoin.
  */
 export async function createClientFromSiren(payload: Payload) {
+  await requirePermission("edit_clients");
   if (!payload.denomination?.trim()) throw new Error("Dénomination obligatoire");
 
   const sb = await createClient();

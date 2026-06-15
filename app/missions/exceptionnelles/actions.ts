@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions pour le module Missions Exceptionnelles.
@@ -52,6 +53,7 @@ export type MissionExcInput = {
 };
 
 export async function createMission(input: MissionExcInput) {
+  await requirePermission("edit_production");
   if (!input.mission?.trim()) throw new Error("Mission obligatoire");
   const sb = await createClient();
   // baseRow : champs presents depuis migration 0048
@@ -96,6 +98,7 @@ export async function updateMission(
   missionId: string,
   patch: Record<string, string | number | boolean | null>
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   // Sanitise : trim sur les champs texte non null
   const cleaned: Record<string, string | number | boolean | null> = {};
@@ -116,6 +119,7 @@ export async function updateMission(
 }
 
 export async function deleteMission(missionId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb
     .from("missions_exceptionnelles")
@@ -132,6 +136,7 @@ export async function deleteMission(missionId: string) {
  * Le slug est regenere automatiquement par le trigger DB.
  */
 export async function duplicateMission(missionId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   // Recupere la source avec tous les champs metier (try avec ldm_statut,
   // fallback sans si migration 0049 pas appliquee)
@@ -199,6 +204,7 @@ export async function duplicateMission(missionId: string) {
 }
 
 export async function setEtatMission(missionId: string, etat: EtatMission) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb
     .from("missions_exceptionnelles")
@@ -212,6 +218,7 @@ export async function setEtatFacturation(
   missionId: string,
   etat: EtatFacturation | null
 ) {
+  await requirePermission("edit_facturation");
   const sb = await createClient();
   const { error } = await sb
     .from("missions_exceptionnelles")
@@ -225,6 +232,7 @@ export async function setLdmStatutMission(
   missionId: string,
   statut: LdmStatutMission
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb
     .from("missions_exceptionnelles")
@@ -238,6 +246,7 @@ export async function setLdmStatutMission(
 // ============================================================================
 
 export async function createMissionType(label: string, tarif: number = 0) {
+  await requirePermission("edit_honoraires");
   if (!label?.trim()) throw new Error("Libelle obligatoire");
   if (tarif < 0) throw new Error("Tarif doit etre positif");
   const sb = await createClient();
@@ -268,6 +277,7 @@ export async function createMissionType(label: string, tarif: number = 0) {
 }
 
 export async function renameMissionType(typeId: string, label: string) {
+  await requirePermission("edit_production");
   if (!label?.trim()) throw new Error("Libelle obligatoire");
   const sb = await createClient();
   const { error } = await sb
@@ -279,6 +289,7 @@ export async function renameMissionType(typeId: string, label: string) {
 
 /** Met a jour le tarif (forfait par defaut) d'un type de mission. */
 export async function setMissionTypeTarif(typeId: string, tarif: number) {
+  await requirePermission("edit_honoraires");
   if (tarif < 0) throw new Error("Tarif doit etre positif");
   const sb = await createClient();
   const { error } = await sb
@@ -289,6 +300,7 @@ export async function setMissionTypeTarif(typeId: string, tarif: number) {
 }
 
 export async function setMissionTypeActif(typeId: string, actif: boolean) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb
     .from("mission_exc_types")
@@ -298,6 +310,7 @@ export async function setMissionTypeActif(typeId: string, actif: boolean) {
 }
 
 export async function deleteMissionType(typeId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   // Verifie qu'aucune mission n'utilise ce type
   const { count } = await sb

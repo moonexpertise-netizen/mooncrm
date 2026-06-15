@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions du tracker IR.
@@ -31,6 +32,7 @@ export async function createClientIr(input: {
   email?: string | null;
   telephone?: string | null;
 }) {
+  await requirePermission("edit_production");
   if (!input.nom?.trim()) throw new Error("Nom obligatoire");
   const sb = await createClient();
   const { data, error } = await sb
@@ -59,6 +61,7 @@ export async function updateClientIr(
   clientIrId: string,
   patch: Record<string, string | number | boolean | null>
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb.from("clients_ir").update(patch).eq("id", clientIrId);
   if (error) throw new Error(error.message);
@@ -66,6 +69,7 @@ export async function updateClientIr(
 
 /** Supprime un client IR (cascade les obligations). */
 export async function deleteClientIr(clientIrId: string) {
+  await requirePermission("edit_production");
   const sb = await createClient();
   const { error } = await sb.from("clients_ir").delete().eq("id", clientIrId);
   if (error) throw new Error(error.message);
@@ -83,6 +87,7 @@ export async function setIrObligationStatut(
   type: IrType,
   libelle: string | null
 ) {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   // Reset / desouscription : on supprime carrement la ligne. La vue Base
@@ -140,6 +145,7 @@ export async function toggleIrSubscription(
   annee: number,
   type: IrType
 ): Promise<boolean> {
+  await requirePermission("edit_production");
   const sb = await createClient();
 
   const { data: existing } = await sb
@@ -223,6 +229,7 @@ export async function bulkSetIrObligationStatut(
   type: IrType,
   libelle: string | null
 ) {
+  await requirePermission("edit_production");
   if (clientIrIds.length === 0) return { updated: 0 };
   const sb = await createClient();
 
@@ -276,6 +283,7 @@ export async function setIrFacturation(
   annee: number,
   etat: EtatFacturation | null
 ) {
+  await requirePermission("edit_facturation");
   const sb = await createClient();
   const { error } = await sb
     .from("ir_obligations")
@@ -299,6 +307,7 @@ export async function setIrForfait(
   annee: number,
   montant: number | null
 ) {
+  await requirePermission("edit_honoraires");
   if (montant !== null && montant < 0) throw new Error("Forfait negatif interdit");
   const sb = await createClient();
   // Update + select pour detecter le no-op silencieux (aucune ligne IR/IFI

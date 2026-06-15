@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/auth";
 
 /**
  * Server actions pour la gestion des etiquettes TVA (tva_tags).
@@ -52,6 +53,7 @@ function isValidColor(c: string): c is TvaTagColor {
 // ============================================================================
 
 export async function createTvaTag(label: string, color: TvaTagColor = "zinc"): Promise<TvaTag> {
+  await requirePermission("edit_parametrage");
   const trimmed = label.trim();
   if (!trimmed) throw new Error("Le libellé est obligatoire");
   if (!isValidColor(color)) throw new Error("Couleur invalide");
@@ -81,6 +83,7 @@ export async function createTvaTag(label: string, color: TvaTagColor = "zinc"): 
 }
 
 export async function renameTvaTag(id: string, label: string): Promise<void> {
+  await requirePermission("edit_parametrage");
   const trimmed = label.trim();
   if (!trimmed) throw new Error("Le libellé est obligatoire");
   const sb = await createClient();
@@ -94,6 +97,7 @@ export async function renameTvaTag(id: string, label: string): Promise<void> {
 }
 
 export async function setTvaTagColor(id: string, color: TvaTagColor): Promise<void> {
+  await requirePermission("edit_parametrage");
   if (!isValidColor(color)) throw new Error("Couleur invalide");
   const sb = await createClient();
   const { error } = await sb.from("tva_tags").update({ color }).eq("id", id);
@@ -103,6 +107,7 @@ export async function setTvaTagColor(id: string, color: TvaTagColor): Promise<vo
 }
 
 export async function setTvaTagActif(id: string, actif: boolean): Promise<void> {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { error } = await sb.from("tva_tags").update({ actif }).eq("id", id);
   if (error) throw new Error(error.message);
@@ -116,6 +121,7 @@ export async function setTvaTagActif(id: string, actif: boolean): Promise<void> 
  * meme du nombre de dossiers detaches pour transparence.
  */
 export async function deleteTvaTag(id: string): Promise<{ detached: number }> {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { count } = await sb
     .from("clients")
@@ -133,6 +139,7 @@ export async function deleteTvaTag(id: string): Promise<{ detached: number }> {
  * Met a jour le champ ordre par batch.
  */
 export async function reorderTvaTags(orderedIds: string[]): Promise<void> {
+  await requirePermission("edit_parametrage");
   if (orderedIds.length === 0) return;
   const sb = await createClient();
   // Update 1 par 1 (pas de bulk avec valeurs differentes en Supabase REST sans RPC).
@@ -150,6 +157,7 @@ export async function reorderTvaTags(orderedIds: string[]): Promise<void> {
 // ============================================================================
 
 export async function setClientTvaTag(clientId: string, tagId: string | null): Promise<void> {
+  await requirePermission("edit_parametrage");
   const sb = await createClient();
   const { error } = await sb.from("clients").update({ tva_tag_id: tagId }).eq("id", clientId);
   if (error) throw new Error(error.message);
@@ -160,6 +168,7 @@ export async function setClientTvaTag(clientId: string, tagId: string | null): P
 }
 
 export async function setClientTvaEcheanceJour(clientId: string, jour: number | null): Promise<void> {
+  await requirePermission("edit_parametrage");
   if (jour !== null && (jour < 1 || jour > 31 || !Number.isInteger(jour))) {
     throw new Error("Le jour doit etre un entier entre 1 et 31");
   }
