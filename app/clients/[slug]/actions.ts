@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceViews } from "@/lib/revalidate-finance";
 import { filterByDebut, generateInstancesForType } from "@/lib/obligations-engine";
 import { getInpiCompany, InpiError } from "@/lib/inpi";
+import { logClientChanges, TRACKED_AUDIT_FIELDS } from "@/lib/audit-log";
 
 export type TypeObligation =
   | "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS"
@@ -355,6 +356,10 @@ export async function setPipelineStatut(
 
   const { error } = await sb.from("clients").update(patch).eq("id", clientId);
   if (error) throw new Error(error.message);
+
+  // Historique : log les changements de pipeline_statut et mois_signature.
+  // 'before' a deja tous les champs lus plus haut, on les passe tels quels.
+  await logClientChanges(sb, clientId, before ?? null, patch);
 
   // Bascule sur un statut "geree" (LDM signee / Interne / Sous-traitance) :
   // on initialise l'onboarding si ce n'est pas deja fait. Idempotent.
@@ -829,8 +834,31 @@ export async function updateClient(
     }
   }
 
+  // Historique : si la patch touche un champ tracke, on lit l'etat actuel
+  // AVANT l'UPDATE pour pouvoir comparer apres. Sinon on skip pour ne pas
+  // payer un select inutile sur chaque keystroke (l'edition inline peut
+  // declencher updateClient a chaque blur).
+  const patchKeys = Object.keys(patch);
+  const touchesTracked = patchKeys.some((k) =>
+    (TRACKED_AUDIT_FIELDS as readonly string[]).includes(k)
+  );
+  let before: Record<string, unknown> | null = null;
+  if (touchesTracked) {
+    const { data } = await sb
+      .from("clients")
+      .select(TRACKED_AUDIT_FIELDS.join(", "))
+      .eq("id", clientId)
+      .maybeSingle();
+    before = (data as unknown as Record<string, unknown>) ?? null;
+  }
+
   const { error } = await sb.from("clients").update(patch).eq("id", clientId);
   if (error) throw new Error(error.message);
+
+  // Log les changements sur les champs trackes (no-op si rien de tracke)
+  if (before) {
+    await logClientChanges(sb, clientId, before, patch);
+  }
 
   if ("debut_obligations" in patch) {
     const debut = patch.debut_obligations;
