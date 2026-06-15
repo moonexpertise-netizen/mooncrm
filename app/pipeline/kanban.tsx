@@ -256,17 +256,19 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         </div>
 
         {/* Rangee LDM signee + zone Perdu dans l'espace.
-            LDM signee s'elargit pour afficher 2 colonnes par defaut, 3 sur
-            grand ecran (xl+). C'est la colonne la plus chargee (~48
-            dossiers), elle merite plus d'espace pour eviter le scroll
-            constant. La zone "Perdu dans l'espace" garde flex-1 et
-            remplit l'espace restant. Items-stretch -> meme hauteur. */}
+            LDM signee est elargie a 2 sous-colonnes internes (CSS columns)
+            pour gagner en densite sur sa ~48aine de dossiers. Le flow
+            est top-to-bottom dans chaque sous-colonne (col 1 = cards 1->24,
+            col 2 = cards 25->48), comme une liste qui wrap. La zone
+            "Perdu dans l'espace" garde flex-1 et items-stretch -> meme
+            hauteur. */}
         <div className="flex gap-3 items-stretch">
-          <div className="w-[640px] xl:w-[920px] shrink-0">
+          <div className="w-[620px] shrink-0">
             <Column
               statut="7 - LDM signée"
               cards={cardsByStage.get("7 - LDM signée") ?? []}
               activeId={activeId}
+              columnCount={2}
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -839,11 +841,18 @@ const Column = memo(function Column({
   cards,
   activeId,
   terminal = false,
+  columnCount = 1,
 }: {
   statut: PipelineStatut | null;
   cards: PipelineCard[];
   activeId: string | null;
   terminal?: boolean;
+  /** Nombre de sous-colonnes internes pour afficher les cards.
+   *  1 = empile vertical (default). >1 = CSS multi-column qui flow
+   *  top-to-bottom DANS chaque sous-col (col1 = cards 1..N/k, col2 = cards
+   *  N/k+1..2N/k, etc.). Utilise uniquement pour LDM signee qui a bcp
+   *  de dossiers. */
+  columnCount?: number;
 }) {
   // null = colonne "non paramétré" non droppable
   const { setNodeRef, isOver } = useDroppable({
@@ -880,12 +889,22 @@ const Column = memo(function Column({
           <div className="text-[11px] text-zinc-400 text-center py-10 italic">
             (vide)
           </div>
+        ) : columnCount > 1 ? (
+          // CSS multi-column : flow top-to-bottom DANS chaque sous-colonne.
+          // Col 1 contient cards 1..N/k, col 2 contient cards N/k+1..2N/k,
+          // etc. Cf. lecture journal : haut->bas puis colonne suivante.
+          // break-inside-avoid empeche une card d'etre coupee en deux entre
+          // 2 colonnes.
+          <div style={{ columns: columnCount, columnGap: "0.375rem" }}>
+            {cards.map((c) => (
+              <div key={c.id} className="break-inside-avoid mb-1.5">
+                <Card card={c} muted={activeId === c.id} />
+              </div>
+            ))}
+          </div>
         ) : (
-          // Grid auto-fill : les colonnes etroites (220px) restent en
-          // 1 colonne interne, les colonnes elargies (LDM signee : 640/920px)
-          // affichent automatiquement 2 a 4 cartes par rangee. Symetrique
-          // avec ce qu'on fait dans SpaceDropZone.
-          <div className="grid gap-1.5 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
+          // Mode default : empilement vertical simple.
+          <div className="space-y-1.5">
             {cards.map((c) => (
               <Card key={c.id} card={c} muted={activeId === c.id} />
             ))}
@@ -898,7 +917,9 @@ const Column = memo(function Column({
   // Re-render la colonne uniquement si :
   // - sa liste de cartes change (déplacement intra/inter-colonnes)
   // - activeId change ET concerne une carte de cette colonne (pour muted)
+  // - columnCount change (changement de mode mono <-> multi-col)
   if (prev.statut !== next.statut || prev.terminal !== next.terminal) return false;
+  if (prev.columnCount !== next.columnCount) return false;
   if (prev.cards.length !== next.cards.length) return false;
   for (let i = 0; i < prev.cards.length; i++) {
     if (prev.cards[i].id !== next.cards[i].id) return false;
