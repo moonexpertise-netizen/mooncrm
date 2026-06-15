@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -78,6 +78,8 @@ export function Picker<T extends string>({
   minWidth?: number;
 }) {
   const [open, setOpen] = useState(false);
+  // Base d'id stable pour le lien ARIA listbox <-> options (activedescendant).
+  const listboxId = useId();
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
@@ -241,6 +243,7 @@ export function Picker<T extends string>({
         onClick={() => !disabled && setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
         className={cn(
           "inline-flex items-center px-2 py-1 rounded font-medium border transition-all whitespace-nowrap",
           textSize,
@@ -262,6 +265,11 @@ export function Picker<T extends string>({
           <div
             ref={popRef}
             role="listbox"
+            id={listboxId}
+            tabIndex={-1}
+            aria-activedescendant={
+              activeIdx >= 0 ? `${listboxId}-opt-${activeIdx}` : undefined
+            }
             style={{
               position: "fixed",
               left: `${pos.left}px`,
@@ -291,6 +299,9 @@ export function Picker<T extends string>({
                       <button
                         key={o.key}
                         type="button"
+                        role="option"
+                        id={`${listboxId}-opt-${flatIdx}`}
+                        aria-selected={isSelected}
                         data-option-idx={flatIdx}
                         onMouseEnter={() => setActiveIdx(flatIdx)}
                         onClick={() => {
