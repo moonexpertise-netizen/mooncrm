@@ -26,6 +26,10 @@ const BUCKET_PIPELINES: Record<Bucket, string[]> = {
     "4 - PC envoyée",
     "5 - PC acceptée",
     "6 - LDM envoyée",
+    // Perdus dans l'espace = prospects qui n'ont jamais repondu mais peuvent
+    // revenir. Restent listes avec les prospects, distincts des perdus
+    // definitifs.
+    "Z - Perdu dans l'espace",
   ],
   clients: ["7 - LDM signée"],
   internes_st: ["Z - Interne", "Z - Sous-traitance"],
@@ -852,6 +856,7 @@ function pipelineDotColor(statut: string): string {
   if (statut.startsWith("7 -")) return "bg-emerald-500";
   if (statut === "Z - Interne") return "bg-emerald-500";
   if (statut === "Z - Sous-traitance") return "bg-sky-500";
+  if (statut === "Z - Perdu dans l'espace") return "bg-indigo-500";
   if (statut === "Z - Prospect perdu" || statut === "Z - Résiliée") return "bg-rose-500";
   return "bg-zinc-400";
 }

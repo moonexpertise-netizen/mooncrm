@@ -51,6 +51,7 @@ const ACTIVE_STAGES: PipelineStatut[] = [
 const TERMINAL_STAGES: PipelineStatut[] = [
   "Z - Interne",
   "Z - Sous-traitance",
+  "Z - Perdu dans l'espace",
   "Z - Prospect perdu",
   "Z - Résiliée",
 ];
@@ -65,6 +66,7 @@ const SHORT_LABEL: Record<PipelineStatut, string> = {
   "7 - LDM signée": "LDM signée",
   "Z - Interne": "Interne",
   "Z - Sous-traitance": "Sous-traitance",
+  "Z - Perdu dans l'espace": "Perdu dans l'espace",
   "Z - Prospect perdu": "Prospect perdu",
   "Z - Résiliée": "Résiliée",
 };

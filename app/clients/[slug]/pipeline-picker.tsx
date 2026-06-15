@@ -17,6 +17,7 @@ const PIPELINE_VALUES: PipelineStatut[] = [
   "7 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
+  "Z - Perdu dans l'espace",
   "Z - Prospect perdu",
   "Z - Résiliée",
 ];

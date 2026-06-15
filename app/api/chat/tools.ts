@@ -33,7 +33,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         pipeline_statut: {
           type: "string",
           description:
-            "Filtre exact sur le pipeline_statut. Valeurs : '1 - Tally a envoyer', '2 - Tally a completer', '3 - PC a preparer', '4 - PC envoyee', '5 - PC acceptee', '6 - LDM envoyee', '7 - LDM signee', 'Z - Interne', 'Z - Sous-traitance', 'Z - Prospect perdu', 'Z - Resiliee'.",
+            "Filtre exact sur le pipeline_statut. Valeurs : '1 - Tally a envoyer', '2 - Tally a completer', '3 - PC a preparer', '4 - PC envoyee', '5 - PC acceptee', '6 - LDM envoyee', '7 - LDM signee', 'Z - Interne', 'Z - Sous-traitance', 'Z - Perdu dans l\\'espace', 'Z - Prospect perdu', 'Z - Resiliee'.",
         },
         bucket: {
           type: "string",
@@ -166,7 +166,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         pipeline_statut: {
           type: "string",
           description:
-            "Valeur cible exacte parmi : '1 - Tally à envoyer', '2 - Tally à compléter', '3 - PC à préparer', '4 - PC envoyée', '5 - PC acceptée', '6 - LDM envoyée', '7 - LDM signée', 'Z - Interne', 'Z - Sous-traitance', 'Z - Prospect perdu', 'Z - Résiliée'.",
+            "Valeur cible exacte parmi : '1 - Tally à envoyer', '2 - Tally à compléter', '3 - PC à préparer', '4 - PC envoyée', '5 - PC acceptée', '6 - LDM envoyée', '7 - LDM signée', 'Z - Interne', 'Z - Sous-traitance', 'Z - Perdu dans l\\'espace', 'Z - Prospect perdu', 'Z - Résiliée'.",
         },
       },
       required: ["client_search", "pipeline_statut"],
@@ -236,7 +236,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     }
     if (typeof input.bucket === "string") {
       const BUCKETS: Record<string, string[]> = {
-        prospects: ["1 - Tally à envoyer", "2 - Tally à compléter", "3 - PC à préparer", "4 - PC envoyée", "5 - PC acceptée", "6 - LDM envoyée"],
+        prospects: ["1 - Tally à envoyer", "2 - Tally à compléter", "3 - PC à préparer", "4 - PC envoyée", "5 - PC acceptée", "6 - LDM envoyée", "Z - Perdu dans l'espace"],
         clients: ["7 - LDM signée"],
         internes_st: ["Z - Interne", "Z - Sous-traitance"],
         perdus: ["Z - Prospect perdu", "Z - Résiliée"],

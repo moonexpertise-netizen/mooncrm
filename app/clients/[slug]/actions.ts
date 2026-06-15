@@ -22,7 +22,8 @@ export type PipelineStatut =
   | "3 - PC à préparer" | "4 - PC envoyée" | "5 - PC acceptée"
   | "6 - LDM envoyée" | "7 - LDM signée"
   | "Z - Interne" | "Z - Sous-traitance"
-  | "Z - Prospect perdu" | "Z - Résiliée";
+  | "Z - Prospect perdu" | "Z - Résiliée"
+  | "Z - Perdu dans l'espace";
 
 // ---------------------------------------------------------------------------
 // MOTEUR D'OBLIGATIONS · génération idempotente des instances pour une année

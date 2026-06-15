@@ -65,6 +65,10 @@ export const PIPELINE_COLORS: Record<string, string> = {
   "7 - LDM signée": "bg-emerald-100 text-emerald-800 border-emerald-200",
   "Z - Interne": "bg-amber-100 text-amber-800 border-amber-300",
   "Z - Sous-traitance": "bg-sky-100 text-sky-800 border-sky-300",
+  // Limbo : propal envoyee, jamais repondu, susceptible de revenir.
+  // Indigo pour evoquer l'espace / l'attente, distinct du rose des
+  // perdus definitifs.
+  "Z - Perdu dans l'espace": "bg-indigo-100 text-indigo-800 border-indigo-300",
   "Z - Prospect perdu": "bg-rose-100 text-rose-800 border-rose-300",
   "Z - Résiliée": "bg-rose-100 text-rose-800 border-rose-300",
 };

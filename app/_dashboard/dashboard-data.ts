@@ -52,6 +52,7 @@ const PIPELINE_ORDER = [
   "7 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
+  "Z - Perdu dans l'espace",
   "Z - Prospect perdu",
   "Z - Résiliée",
 ];
@@ -67,6 +68,7 @@ const PIPELINE_HEX: Record<string, string> = {
   "7 - LDM signée": "#10b981",
   "Z - Interne": "#10b981",
   "Z - Sous-traitance": "#0ea5e9",
+  "Z - Perdu dans l'espace": "#6366f1",
   "Z - Prospect perdu": "#ef4444",
   "Z - Résiliée": "#ef4444",
 };

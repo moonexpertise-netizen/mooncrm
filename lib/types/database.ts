@@ -28,7 +28,8 @@ export type PipelineStatut =
   | "Z - Interne"
   | "Z - Sous-traitance"
   | "Z - Prospect perdu"
-  | "Z - Résiliée";
+  | "Z - Résiliée"
+  | "Z - Perdu dans l'espace";
 
 export type TypeObligation =
   | "TVA_MENSUELLE" | "TVA_TRIMESTRIELLE" | "TVA_ANNUELLE_CA12" | "TVA_NON_SOUMIS"
