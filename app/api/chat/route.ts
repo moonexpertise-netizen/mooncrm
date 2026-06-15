@@ -113,7 +113,7 @@ function toolResultToChange(
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const MODEL = "claude-sonnet-4-5-20250929";
+const MODEL = "claude-sonnet-4-7-20251022";
 const MAX_TURNS = 8; // garde-fou anti-boucle infinie tool_use
 
 const CURRENT_YEAR = new Date().getFullYear();
