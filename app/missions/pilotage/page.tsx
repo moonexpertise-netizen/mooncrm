@@ -8,60 +8,62 @@ export const dynamic = "force-dynamic";
 const CURRENT_YEAR = new Date().getFullYear();
 
 /**
- * Page "Pilotage / Dashboard" : suivi TdB livraison + RDV Expert.
+ * Page "Pilotage" : suivi TdB livraison + RDV Expert REGROUPÉS sur une seule
+ * vue, à raison de 2 lignes par client (ligne 1 = Tableau de bord, ligne 2 =
+ * RDV Expert). La logique reste 100% dissociée : chaque ligne lit/écrit son
+ * propre type dans pilotage_obligations (TDB vs RDV) et sa propre cadence.
  *
  * Architecture :
  *   - Table pilotage_obligations (cf. migration 0062), isolee de la table
- *     obligations principale (pas d'enum partage).
- *   - Cadences (Mensuelle/Trimestrielle) sur clients.tdb_livraison_periode
- *     et rdv_expert_periode.
- *
- * Pattern : similar a /missions/ir et /missions/caa.
+ *     obligations principale.
+ *   - Cadences (Mensuelle/Trimestrielle) par (client, annee) dans
+ *     client_year_config (fallback clients.tdb_livraison_periode /
+ *     rdv_expert_periode pour le legacy).
  */
 export default async function PilotagePage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; type?: string }>;
+  searchParams: Promise<{ year?: string }>;
 }) {
   const sp = await searchParams;
   const year = sp.year ? parseInt(sp.year, 10) : CURRENT_YEAR;
-  const type = (sp.type === "RDV" ? "RDV" : "TDB") as "TDB" | "RDV";
 
   const sb = await createClient();
 
-  // 1. Toutes les pilotage_obligations pour l'année selectionnée + type
+  // 1. Toutes les pilotage_obligations de l'année (LES DEUX types TDB + RDV).
   const { data: oblig } = await sb
     .from("pilotage_obligations")
-    .select("id, client_id, periode, statut_logique, statut_detail")
-    .eq("annee", year)
-    .eq("type", type);
+    .select("id, client_id, type, periode, statut_logique, statut_detail")
+    .eq("annee", year);
   type Ob = {
     id: string;
     client_id: string;
+    type: "TDB" | "RDV";
     periode: string;
     statut_logique: string;
     statut_detail: string | null;
   };
-  const subscribedClientIds = [...new Set((oblig ?? []).map((o) => (o as Ob).client_id))];
+  const obs = (oblig ?? []) as Ob[];
+  // Clients souscrits = ceux ayant au moins une oblig pilotage (TDB OU RDV).
+  const subscribedClientIds = [...new Set(obs.map((o) => o.client_id))];
 
-  // 2. Charger uniquement les clients souscrits (= ayant au moins 1 oblig
-  //    pilotage pour cette annee/type). On ne montre PAS les autres : la
-  //    souscription se fait via la fiche client > Obligations.
   if (subscribedClientIds.length === 0) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-4">
         <PageHeader
-          title="Pilotage du dashboard"
+          title="Pilotage"
           description="Suivi de la mise à disposition du tableau de bord et des rendez-vous expert, cadence configurable par client."
         />
-        <PilotageTable rows={[]} year={year} type={type} />
+        <PilotageTable rows={[]} year={year} />
       </div>
     );
   }
 
   const { data: clientsRaw } = await sb
     .from("clients")
-    .select("id, slug, denomination, siren, pipeline_statut, origine, tdb_livraison_periode, rdv_expert_periode")
+    .select(
+      "id, slug, denomination, siren, pipeline_statut, origine, tdb_livraison_periode, rdv_expert_periode"
+    )
     .in("id", subscribedClientIds)
     .order("denomination");
   const clients = (clientsRaw ?? []).filter(isClientBillable) as Array<{
@@ -75,58 +77,64 @@ export default async function PilotagePage({
     rdv_expert_periode: string | null;
   }>;
 
-  // 2b. Cadences par (client, annee) depuis client_year_config (cf. 0063)
-  //     Fallback sur clients.tdb_livraison_periode / rdv_expert_periode si
-  //     pas de config pour cette annee (back-compat avec ancien stockage).
+  // 2. Cadences par (client, annee) depuis client_year_config (cf. 0063),
+  //    fallback sur les colonnes clients pour le legacy.
   const { data: ycRaw } = await sb
     .from("client_year_config")
     .select("client_id, annee, tdb_livraison_periode, rdv_expert_periode")
     .in("client_id", subscribedClientIds)
     .eq("annee", year);
-  const cadenceByClient = new Map<string, string | null>();
+  const ycByClient = new Map<string, { tdb: string | null; rdv: string | null }>();
   for (const yc of (ycRaw ?? []) as Array<{
     client_id: string;
-    annee: number;
     tdb_livraison_periode: string | null;
     rdv_expert_periode: string | null;
   }>) {
-    cadenceByClient.set(
-      yc.client_id,
-      type === "TDB" ? yc.tdb_livraison_periode : yc.rdv_expert_periode
-    );
+    ycByClient.set(yc.client_id, {
+      tdb: yc.tdb_livraison_periode,
+      rdv: yc.rdv_expert_periode,
+    });
   }
 
-  // 3. Pivot : 1 row par client, dans une Map cells[periode] = ...
-  const rows: PilotageRow[] = clients.map((c) => {
-    const cadenceAnnuelle = cadenceByClient.get(c.id) ?? null;
-    const fallback = type === "TDB" ? c.tdb_livraison_periode : c.rdv_expert_periode;
-    const cadence = cadenceAnnuelle ?? fallback;
-    const cells = new Map<string, PilotageCell>();
-    for (const o of (oblig ?? []) as Ob[]) {
-      if (o.client_id !== c.id) continue;
-      cells.set(o.periode, {
+  function cellsFor(clientId: string, type: "TDB" | "RDV"): Map<string, PilotageCell> {
+    const m = new Map<string, PilotageCell>();
+    for (const o of obs) {
+      if (o.client_id !== clientId || o.type !== type) continue;
+      m.set(o.periode, {
         id: o.id,
         statut_logique: o.statut_logique as PilotageCell["statut_logique"],
         statut_detail: o.statut_detail,
       });
     }
+    return m;
+  }
+
+  // 3. 1 entrée par client, avec ses 2 sous-suivis (tdb + rdv).
+  const rows: PilotageRow[] = clients.map((c) => {
+    const yc = ycByClient.get(c.id);
     return {
       id: c.id,
       slug: c.slug,
       denomination: c.denomination,
       siren: c.siren,
-      cadence: cadence as PilotageRow["cadence"],
-      cells,
+      tdb: {
+        cadence: (yc?.tdb ?? c.tdb_livraison_periode) ?? null,
+        cells: cellsFor(c.id, "TDB"),
+      },
+      rdv: {
+        cadence: (yc?.rdv ?? c.rdv_expert_periode) ?? null,
+        cells: cellsFor(c.id, "RDV"),
+      },
     };
   });
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Pilotage du dashboard"
+        title="Pilotage"
         description="Suivi de la mise à disposition du tableau de bord et des rendez-vous expert, cadence configurable par client."
       />
-      <PilotageTable rows={rows} year={year} type={type} />
+      <PilotageTable rows={rows} year={year} />
     </div>
   );
 }

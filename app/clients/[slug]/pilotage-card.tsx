@@ -113,7 +113,7 @@ export default function PilotageCard({
     <div className="rounded-lg border bg-card p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-medium">Pilotage / Dashboard</h3>
+          <h3 className="text-sm font-medium">Pilotage</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Suivi Tableau de bord + RDV Expert, cadence par exercice, sans impact sur la lettre de mission.
           </p>

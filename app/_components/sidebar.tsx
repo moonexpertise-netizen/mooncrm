@@ -123,7 +123,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/missions/creations", label: "Créations", icon: Sparkles, matchPrefix: "/missions/creations", badgeKey: "creations" },
   { href: "/missions/ir", label: "IR + IFI", icon: Receipt, matchPrefix: "/missions/ir", badgeKey: "ir" },
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa", badgeKey: "caa" },
-  { href: "/missions/pilotage", label: "Pilotage, Dashboard", icon: GaugeCircle, matchPrefix: "/missions/pilotage" },
+  { href: "/missions/pilotage", label: "Pilotage", icon: GaugeCircle, matchPrefix: "/missions/pilotage" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
   // badgeKey : compteur de factures a etablir (etat_facturation = 'a_facturer')
   // cumule sur les 5 sources (obligations / CAA / IR / missions exc / creations).
