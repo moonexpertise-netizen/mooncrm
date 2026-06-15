@@ -5,7 +5,7 @@ import { isClientBillable } from "@/lib/billable";
 
 export const dynamic = "force-dynamic";
 
-const CURRENT_YEAR = 2026;
+const CURRENT_YEAR = new Date().getFullYear();
 
 /**
  * Page "Pilotage / Dashboard" : suivi TdB livraison + RDV Expert.

@@ -292,8 +292,6 @@ export function Sidebar() {
       .then((b) => {
         if (!cancelled) {
           setBadges(b);
-          // eslint-disable-next-line no-console
-          console.log("[sidebar-badges]", b);
         }
       })
       .catch((e) => {

@@ -27,7 +27,9 @@ export const fmtDateFr = (d: string | null | undefined) => {
 // Couleurs par statut logique (badges, dots, etc.)
 export const STATUT_COLORS = {
   A_FAIRE: "bg-amber-100 text-amber-800 border-amber-200",
-  EN_COURS: "bg-blue-100 text-blue-800 border-blue-200",
+  // "En cours" = sky PARTOUT (avant : blue ici, sky ailleurs → mismatch
+  // visible dans IR/CAA vs le reste de l'app). Source de verite unique.
+  EN_COURS: "bg-sky-100 text-sky-800 border-sky-200",
   TERMINE: "bg-emerald-100 text-emerald-800 border-emerald-200",
   NON_APPLICABLE: "bg-zinc-100 text-zinc-600 border-zinc-200",
 } as const;

@@ -102,7 +102,8 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
     searchParams.has("bucket") ||
     searchParams.has("forme") ||
     searchParams.has("activite") ||
-    searchParams.has("categorie");
+    searchParams.has("categorie") ||
+    searchParams.has("pipeline");
 
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [bucket, setBucket] = useState<Bucket>(() => {
@@ -123,6 +124,19 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
   const [categorieFilter, setCategorieFilter] = useState<string>(
     () => searchParams.get("categorie") ?? ""
   );
+  // Filtre par statut pipeline EXACT (depuis le drill-down du funnel
+  // dashboard : /clients?pipeline=<statut>). Prend le pas sur le bucket
+  // tant qu'il est actif (un statut exact est plus precis qu'un groupe).
+  const [pipelineFilter, setPipelineFilter] = useState<string>(
+    () => searchParams.get("pipeline") ?? ""
+  );
+
+  // Choix de bucket : efface le filtre pipeline exact (sinon le clic sur un
+  // bucket resterait sans effet visible, masque par le pipeline override).
+  const chooseBucket = useCallback((b: Bucket) => {
+    setBucket(b);
+    setPipelineFilter("");
+  }, []);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "denomination",
     dir: "asc",
@@ -179,14 +193,22 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
     if (formeFilter.size) params.set("forme", [...formeFilter].join("|"));
     if (activiteFilter) params.set("activite", activiteFilter);
     if (categorieFilter) params.set("categorie", categorieFilter);
+    if (pipelineFilter) params.set("pipeline", pipelineFilter);
     // Sentinel : marque que l'utilisateur a explicitement choisi "Tous"
     // sans autre filtre. Sinon le prochain reload réappliquerait "clients".
-    if (bucket === "all" && !search && !formeFilter.size && !activiteFilter && !categorieFilter) {
+    if (
+      bucket === "all" &&
+      !search &&
+      !formeFilter.size &&
+      !activiteFilter &&
+      !categorieFilter &&
+      !pipelineFilter
+    ) {
       params.set("clear", "1");
     }
     const qs = params.toString();
     router.replace(`/clients${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [search, bucket, formeFilter, activiteFilter, categorieFilter, router]);
+  }, [search, bucket, formeFilter, activiteFilter, categorieFilter, pipelineFilter, router]);
 
   useEffect(() => {
     if (syncTimer.current) clearTimeout(syncTimer.current);
@@ -243,14 +265,16 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
+    // Pipeline exact actif → on ignore le bucket (override plus precis).
     const bucketSet =
-      bucket === "all" ? null : new Set(BUCKET_PIPELINES[bucket]);
+      pipelineFilter || bucket === "all" ? null : new Set(BUCKET_PIPELINES[bucket]);
     const actLower = activiteFilter.trim().toLowerCase();
     return rows.filter((r) => {
       if (s) {
         const hay = `${r.denomination} ${r.siren ?? ""} ${r.groupe_nom ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
+      if (pipelineFilter && (r.pipeline_statut ?? "") !== pipelineFilter) return false;
       if (bucketSet && !bucketSet.has(r.pipeline_statut ?? "")) return false;
       if (formeFilter.size && !formeFilter.has(r.forme ?? "")) return false;
       if (actLower && (r.activite ?? "").toLowerCase() !== actLower) return false;
@@ -261,14 +285,15 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
       }
       return true;
     });
-  }, [rows, search, bucket, formeFilter, activiteFilter, categorieFilter]);
+  }, [rows, search, bucket, formeFilter, activiteFilter, categorieFilter, pipelineFilter]);
 
   const hasActiveFilter =
     search !== "" ||
     bucket !== "clients" ||
     formeFilter.size > 0 ||
     activiteFilter !== "" ||
-    categorieFilter !== "";
+    categorieFilter !== "" ||
+    pipelineFilter !== "";
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -299,17 +324,17 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
           Desktop : chips inline. Mobile : select compact (5 chips qui
           wrappent sur 2-3 lignes mangent l'ecran). */}
       <div className="hidden md:flex flex-wrap items-center gap-1.5">
-        <BucketBtn label="Tous" active={bucket === "all"} count={bucketCounts.all} onClick={() => setBucket("all")} />
-        <BucketBtn label="Prospects" active={bucket === "prospects"} count={bucketCounts.prospects} tone="amber" onClick={() => setBucket("prospects")} />
-        <BucketBtn label="Clients" active={bucket === "clients"} count={bucketCounts.clients} tone="emerald" onClick={() => setBucket("clients")} />
-        <BucketBtn label="Internes & ST" active={bucket === "internes_st"} count={bucketCounts.internes_st} tone="sky" onClick={() => setBucket("internes_st")} />
-        <BucketBtn label="Perdus & résiliés" active={bucket === "perdus"} count={bucketCounts.perdus} tone="rose" onClick={() => setBucket("perdus")} />
+        <BucketBtn label="Tous" active={bucket === "all"} count={bucketCounts.all} onClick={() => chooseBucket("all")} />
+        <BucketBtn label="Prospects" active={bucket === "prospects"} count={bucketCounts.prospects} tone="amber" onClick={() => chooseBucket("prospects")} />
+        <BucketBtn label="Clients" active={bucket === "clients"} count={bucketCounts.clients} tone="emerald" onClick={() => chooseBucket("clients")} />
+        <BucketBtn label="Internes & ST" active={bucket === "internes_st"} count={bucketCounts.internes_st} tone="sky" onClick={() => chooseBucket("internes_st")} />
+        <BucketBtn label="Perdus & résiliés" active={bucket === "perdus"} count={bucketCounts.perdus} tone="rose" onClick={() => chooseBucket("perdus")} />
       </div>
       <div className="md:hidden">
         <MobileFilterSelect
           label="Bucket"
           value={bucket}
-          onChange={(v) => setBucket(v as typeof bucket)}
+          onChange={(v) => chooseBucket(v as typeof bucket)}
           options={[
             { value: "all", label: `Tous (${bucketCounts.all})` },
             { value: "prospects", label: `Prospects (${bucketCounts.prospects})` },
@@ -342,6 +367,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               setFormeFilter(new Set());
               setActiviteFilter("");
               setCategorieFilter("");
+              setPipelineFilter("");
             }}
             className="px-3 py-2 rounded-md text-sm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
           >
@@ -350,9 +376,15 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         )}
       </div>
 
-      {(formeFilter.size > 0 || activiteFilter || categorieFilter) && (
+      {(formeFilter.size > 0 || activiteFilter || categorieFilter || pipelineFilter) && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-zinc-500">Filtres actifs :</span>
+          {pipelineFilter && (
+            <FilterChip
+              label={`Pipeline : ${pipelineFilter.replace(/^[0-9Z]\s*-\s*/, "")}`}
+              onRemove={() => setPipelineFilter("")}
+            />
+          )}
           {categorieFilter && (
             <FilterChip
               label={`Secteur : ${categorieFilter}`}

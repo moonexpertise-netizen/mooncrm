@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /**
@@ -23,6 +24,8 @@ export default function NavButtons({
   filtered: boolean;
   navParams: string; // déjà sérialisé (nav-q=...&nav-pipeline=...)
 }) {
+  const router = useRouter();
+
   function buildHref(targetSlug: string): string {
     if (typeof window === "undefined") return `/clients/${targetSlug}${navParams ? `?${navParams}` : ""}`;
     // Conserve le sous-segment d'URL (exercice / obligations / onboarding)
@@ -44,8 +47,12 @@ export default function NavButtons({
   }
 
   function onClick(e: React.MouseEvent<HTMLAnchorElement>, targetSlug: string) {
+    // Laisser les clics modifies (nouvel onglet) au comportement natif du <a>.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    window.location.href = buildHref(targetSlug);
+    // Navigation SPA (router) au lieu d'un window.location.href qui rechargeait
+    // tout le document a chaque prev/next.
+    router.push(buildHref(targetSlug));
   }
 
   return (

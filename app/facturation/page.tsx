@@ -39,26 +39,81 @@ export default async function FacturationPage({
   const sb = await createClient();
 
   // ============================================================================
-  // 1. CAA terminees
+  // Les 6 sources sont INDEPENDANTES -> fetch en PARALLELE (Promise.all) au
+  // lieu de 6 await en serie (avant : latence = somme des 6 ; maintenant =
+  // la plus lente). CAA et IR gardent leur fallback "forfait absent"
+  // (migration 0053 pas appliquee) encapsule dans un helper.
   // ============================================================================
-  const caaRowsRes = await sb
-    .from("caa_obligations")
-    .select(
-      "id, annee, statut_logique, statut_detail, etat_facturation, forfait, clients_caa!inner(id, slug, denomination)"
-    )
-    .eq("statut_logique", "TERMINE");
-  // Fallback si forfait absent (migration 0053 pas appliquee)
-  let caaRows = caaRowsRes.data;
-  if (caaRowsRes.error) {
-    const fb = await sb
+  async function fetchCaa() {
+    const res = await sb
       .from("caa_obligations")
       .select(
-        "id, annee, statut_logique, statut_detail, etat_facturation, clients_caa!inner(id, slug, denomination)"
+        "id, annee, statut_logique, statut_detail, etat_facturation, forfait, clients_caa!inner(id, slug, denomination)"
       )
       .eq("statut_logique", "TERMINE");
-    caaRows = (fb.data ?? []).map((r) => ({ ...r, forfait: null }));
+    if (res.error) {
+      const fb = await sb
+        .from("caa_obligations")
+        .select(
+          "id, annee, statut_logique, statut_detail, etat_facturation, clients_caa!inner(id, slug, denomination)"
+        )
+        .eq("statut_logique", "TERMINE");
+      return (fb.data ?? []).map((r) => ({ ...r, forfait: null }));
+    }
+    return res.data;
   }
+  async function fetchIr() {
+    const res = await sb
+      .from("ir_obligations")
+      .select(
+        "id, annee, type, statut_logique, statut_detail, etat_facturation, forfait, clients_ir!inner(id, slug, civilite, prenom, nom)"
+      )
+      .eq("statut_logique", "TERMINE");
+    if (res.error) {
+      const fb = await sb
+        .from("ir_obligations")
+        .select(
+          "id, annee, type, statut_logique, statut_detail, etat_facturation, clients_ir!inner(id, slug, civilite, prenom, nom)"
+        )
+        .eq("statut_logique", "TERMINE");
+      return (fb.data ?? []).map((r) => ({ ...r, forfait: null }));
+    }
+    return res.data;
+  }
+  const [caaRows, irRows, agoQuery, bilanQuery, missionQuery, creationQuery] =
+    await Promise.all([
+      fetchCaa(),
+      fetchIr(),
+      sb
+        .from("obligations")
+        .select(
+          "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination, honoraires_jur)"
+        )
+        .eq("type", "AGO_DEPOT"),
+      sb
+        .from("obligations")
+        .select(
+          "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination, forfait_bilan, type_honos_bilans)"
+        )
+        .eq("type", "LIASSE_PLAQUETTE"),
+      sb
+        .from("missions_exceptionnelles")
+        .select(
+          "id, mission, etat_mission, etat_facturation, forfait, taux_horaire, duree_theorique_h, duree_reelle_h, date_fin, client_id, client_libre, clients(slug, denomination)"
+        )
+        .eq("etat_mission", "livree"),
+      sb
+        .from("clients")
+        .select(
+          "id, slug, denomination, creation_annee, creation_statut, creation_facturation, honoraires_creation"
+        )
+        .eq("origine", "1 - Création")
+        .eq("creation_statut", "actee_kbis_recu"),
+    ]);
 
+  // ============================================================================
+  // 1. CAA terminees
+  // ============================================================================
   type CaaRow = {
     id: string;
     annee: number;
@@ -87,24 +142,6 @@ export default async function FacturationPage({
   // 2. IR terminees - on aggrege IR + IFI sur (client, annee) pour eviter
   //    les doublons (1 facturation par dossier-annee, pas par type)
   // ============================================================================
-  const irRowsRes = await sb
-    .from("ir_obligations")
-    .select(
-      "id, annee, type, statut_logique, statut_detail, etat_facturation, forfait, clients_ir!inner(id, slug, civilite, prenom, nom)"
-    )
-    .eq("statut_logique", "TERMINE");
-  // Fallback si forfait absent (migration 0053 pas appliquee)
-  let irRows = irRowsRes.data;
-  if (irRowsRes.error) {
-    const fb = await sb
-      .from("ir_obligations")
-      .select(
-        "id, annee, type, statut_logique, statut_detail, etat_facturation, clients_ir!inner(id, slug, civilite, prenom, nom)"
-      )
-      .eq("statut_logique", "TERMINE");
-    irRows = (fb.data ?? []).map((r) => ({ ...r, forfait: null }));
-  }
-
   type IrRow = {
     id: string;
     annee: number;
@@ -151,12 +188,7 @@ export default async function FacturationPage({
   //      - Match permissif : tout statut contenant "depose" ou "valide" (case
   //        et accent insensitive)
   // ============================================================================
-  const { data: agoAll, error: agoErr } = await sb
-    .from("obligations")
-    .select(
-      "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination, honoraires_jur)"
-    )
-    .eq("type", "AGO_DEPOT");
+  const { data: agoAll, error: agoErr } = agoQuery;
   if (agoErr) {
     // eslint-disable-next-line no-console
     console.error("[/facturation] AGO query error:", agoErr);
@@ -205,12 +237,7 @@ export default async function FacturationPage({
   //    dans le forfait, pas de facturation separee (donc filtrés).
   //    Meme approche que AGO : fetch all + filter JS pour robustesse.
   // ============================================================================
-  const { data: bilanAll } = await sb
-    .from("obligations")
-    .select(
-      "id, annee, statut_logique, statut_detail, etat_facturation, clients!inner(id, slug, denomination, forfait_bilan, type_honos_bilans)"
-    )
-    .eq("type", "LIASSE_PLAQUETTE");
+  const { data: bilanAll } = bilanQuery;
   function isBilanBillable(statut_detail: string | null, statut_logique: string | null): boolean {
     if (statut_logique === "TERMINE") return true;
     if (!statut_detail) return false;
@@ -265,12 +292,7 @@ export default async function FacturationPage({
   // ============================================================================
   // 5. Missions exceptionnelles livrees
   // ============================================================================
-  const { data: missionRows } = await sb
-    .from("missions_exceptionnelles")
-    .select(
-      "id, mission, etat_mission, etat_facturation, forfait, taux_horaire, duree_theorique_h, duree_reelle_h, date_fin, client_id, client_libre, clients(slug, denomination)"
-    )
-    .eq("etat_mission", "livree");
+  const { data: missionRows } = missionQuery;
 
   type MissionRow = {
     id: string;
@@ -312,13 +334,7 @@ export default async function FacturationPage({
   //    Montant = clients.honoraires_creation. 1 facture par dossier (pas par
   //    annee). Annee de reference = clients.creation_annee.
   // ============================================================================
-  const { data: creationRows } = await sb
-    .from("clients")
-    .select(
-      "id, slug, denomination, creation_annee, creation_statut, creation_facturation, honoraires_creation"
-    )
-    .eq("origine", "1 - Création")
-    .eq("creation_statut", "actee_kbis_recu");
+  const { data: creationRows } = creationQuery;
 
   type CreationRow = {
     id: string;

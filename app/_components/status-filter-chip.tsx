@@ -46,6 +46,7 @@ export function StatusFilterChip({
     <button
       type="button"
       onClick={(e) => onClick(e)}
+      aria-pressed={active}
       className={cn(
         "inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors border",
         active
