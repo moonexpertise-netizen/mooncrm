@@ -3,7 +3,7 @@
 import { memo, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { GripVertical, ArrowRightLeft } from "lucide-react";
+import { GripVertical, ArrowRightLeft, ChevronDown, Check, Inbox, Rocket } from "lucide-react";
 import { useLdmCelebration } from "@/app/clients/[slug]/use-ldm-celebration";
 import { toastError } from "@/lib/toast-helpers";
 import {
@@ -267,12 +267,12 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         onDragEnd={onDragEnd}
         accessibility={{ announcements }}
       >
-      <div className="hidden md:block space-y-4">
+      <div className="hidden md:block space-y-5">
         {/* Etapes pre-signature (1 -> 6) en une rangee compacte. On sort
             LDM signee de ce grid pour pouvoir la placer cote-a-cote avec
             la zone Perdu dans l'espace en-dessous. */}
         <div
-          className="grid gap-3"
+          className="grid gap-4"
           style={{
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           }}
@@ -294,7 +294,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
             col 2 = cards 25->48), comme une liste qui wrap. La zone
             "Perdu dans l'espace" garde flex-1 et items-stretch -> meme
             hauteur. */}
-        <div className="flex gap-3 items-stretch">
+        <div className="flex gap-4 items-stretch">
           <div className="w-[620px] shrink-0">
             <Column
               statut="7 - LDM signée"
@@ -312,12 +312,12 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         </div>
 
         {/* Terminaux - visuellement séparés en bas */}
-        <div className="border-t pt-3">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+        <div className="border-t border-zinc-200 dark:border-white/[0.08] pt-4">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-3">
             Hors pipeline actif
           </div>
           <div
-            className="grid gap-3 pb-2"
+            className="grid gap-4 pb-2"
             style={{
               gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
             }}
@@ -346,11 +346,11 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
           sans Link interne (pas besoin de naviguer pendant un drag). */}
       <DragOverlay dropAnimation={null}>
         {activeCard ? (
-          <div className="rounded border bg-white dark:bg-[hsl(var(--surface-elevated))] px-2 py-1 shadow-xl ring-2 ring-[hsl(var(--gold))]/40 flex items-center gap-2 cursor-grabbing">
-            <span className="font-medium text-xs truncate">
+          <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--surface-elevated))] px-2 py-1.5 shadow-modal ring-2 ring-[hsl(var(--gold))]/40 flex items-center gap-2 cursor-grabbing">
+            <span className="font-medium text-xs truncate text-zinc-900 dark:text-zinc-50">
               {activeCard.denomination}
             </span>
-            <span className="text-[11px] tabular-nums text-zinc-700 font-medium shrink-0 ml-auto">
+            <span className="text-[11px] tabular-nums text-zinc-700 dark:text-zinc-200 font-semibold shrink-0 ml-auto">
               {fmtEuro(activeCard.arr ?? 0)}
             </span>
           </div>
@@ -399,17 +399,20 @@ function MobilePipelineList({
       ? PIPELINE_COLORS[statut] ?? ""
       : "bg-zinc-50 text-zinc-500 border-zinc-200";
     return (
-      <section key={statut ?? "__none"} className="rounded-lg border bg-card overflow-hidden">
+      <section
+        key={statut ?? "__none"}
+        className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-hidden"
+      >
         <button
           type="button"
           onClick={() => toggle(String(statut ?? "__none"))}
-          className="w-full px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-zinc-50 transition-colors"
+          className="w-full px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-zinc-50/70 dark:hover:bg-white/[0.04] transition-colors"
           aria-expanded={!isClosed}
         >
           <div className="flex items-center gap-2 min-w-0">
             <span
               className={cn(
-                "inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border truncate",
+                "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border truncate",
                 color
               )}
             >
@@ -419,38 +422,45 @@ function MobilePipelineList({
               {subset.length} · {fmtEuro(totalArr(subset))}
             </span>
           </div>
-          <span
+          <ChevronDown
+            aria-hidden
             className={cn(
-              "text-zinc-400 text-xs transition-transform",
+              "h-4 w-4 text-zinc-400 dark:text-zinc-500 transition-transform shrink-0",
               isClosed && "-rotate-90"
             )}
-            aria-hidden
-          >
-            ▼
-          </span>
+          />
         </button>
         {!isClosed && (
-          <div className="divide-y divide-zinc-100">
+          <div className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
             {subset.length === 0 ? (
-              <div className="px-3 py-3 text-[12px] text-muted-foreground text-center">
-                (vide)
+              <div className="flex flex-col items-center justify-center text-center py-10">
+                <Inbox className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+                <p className="mt-2 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Aucun dossier
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Rien à cette étape pour l&apos;instant.
+                </p>
               </div>
             ) : (
               subset.map((c) => (
-                <div key={c.id} className="px-3 py-2.5 flex items-center gap-2">
+                <div
+                  key={c.id}
+                  className="px-3 py-2.5 flex items-center gap-2 hover:bg-zinc-50/70 dark:hover:bg-white/[0.04] transition-colors"
+                >
                   <Link
                     href={`/clients/${c.slug}`}
-                    className="font-medium text-sm truncate min-w-0 flex-1 hover:text-[hsl(var(--gold))] transition-colors"
+                    className="font-medium text-sm truncate min-w-0 flex-1 text-zinc-900 dark:text-zinc-100 hover:text-[hsl(var(--gold))] transition-colors"
                   >
                     {c.denomination}
                   </Link>
-                  <span className="text-xs tabular-nums text-zinc-700 font-medium shrink-0">
+                  <span className="text-xs tabular-nums text-zinc-700 dark:text-zinc-200 font-medium shrink-0">
                     {fmtEuro(c.arr ?? 0)}
                   </span>
                   <button
                     type="button"
                     onClick={() => setPickerOpenFor(c.id)}
-                    className="shrink-0 ml-1 inline-flex items-center justify-center w-8 h-8 rounded-md border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 active:bg-zinc-100 transition-colors"
+                    className="shrink-0 ml-1 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] hover:bg-zinc-50 dark:hover:bg-white/[0.08] text-zinc-500 dark:text-zinc-300 active:bg-zinc-100 transition-colors"
                     aria-label="Changer le statut"
                     title="Déplacer"
                   >
@@ -469,8 +479,8 @@ function MobilePipelineList({
     <div className="space-y-3">
       {ACTIVE_STAGES.map((s) => renderSection(s, SHORT_LABEL[s]))}
 
-      <div className="pt-3 border-t border-zinc-200">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 px-1">
+      <div className="pt-4 border-t border-zinc-200 dark:border-white/[0.08]">
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 px-1">
           Hors pipeline actif
         </div>
         <div className="space-y-3">
@@ -511,8 +521,11 @@ function MobilePipelineList({
                 </span>
               </div>
               {subset.length === 0 ? (
-                <div className="text-center py-4 text-[11px] text-indigo-200/40 italic">
-                  Aucun dossier en dérive.
+                <div className="flex flex-col items-center justify-center text-center py-8">
+                  <Rocket className="h-7 w-7 text-indigo-300/40" />
+                  <p className="mt-2 text-[11px] text-indigo-200/50 italic">
+                    Aucun dossier en dérive.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -613,13 +626,13 @@ function MobileStatutPicker({
               >
                 <span
                   className={cn(
-                    "inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                    "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border",
                     PIPELINE_COLORS[s] ?? ""
                   )}
                 >
                   {SHORT_LABEL[s]}
                 </span>
-                {active && <span className="ml-auto text-zinc-400">✓</span>}
+                {active && <Check className="ml-auto h-4 w-4 text-zinc-400" />}
               </button>
             );
           })}

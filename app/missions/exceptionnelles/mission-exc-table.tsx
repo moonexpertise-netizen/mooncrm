@@ -606,7 +606,7 @@ export default function MissionExcTable({
   // ============================================================================
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {ConfirmDialog}
 
       {/* Recap KPI */}

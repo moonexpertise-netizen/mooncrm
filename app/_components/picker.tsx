@@ -245,7 +245,7 @@ export function Picker<T extends string>({
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         className={cn(
-          "inline-flex items-center px-2 py-1 rounded font-medium border transition-all whitespace-nowrap",
+          "inline-flex items-center px-2 py-1 rounded-md font-medium border transition-all whitespace-nowrap",
           textSize,
           disabled
             ? "opacity-50 cursor-not-allowed"
@@ -278,7 +278,7 @@ export function Picker<T extends string>({
               zIndex: 1000,
               minWidth: `${minWidth}px`,
             }}
-            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+            className="bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-xl shadow-pop ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
           >
             {(() => {
               // Recalcule la liste plate ici pour mapper le bon `flatIdx`
@@ -318,7 +318,7 @@ export function Picker<T extends string>({
                             : "hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
                         )}
                       >
-                        <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
+                        <span className={cn("inline-block px-1.5 py-0.5 rounded-md text-[10px] border", o.color)}>
                           {o.label}
                         </span>
                         {isSelected && (

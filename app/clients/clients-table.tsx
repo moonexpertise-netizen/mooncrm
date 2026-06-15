@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Check, ChevronDown, SearchX, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
@@ -319,7 +320,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Buckets metier : Prospects / Clients / Internes & ST / Perdus
           Desktop : chips inline. Mobile : select compact (5 chips qui
           wrappent sur 2-3 lignes mangent l'ecran). */}
@@ -351,7 +352,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
           placeholder="Rechercher (dénomination, siren, groupe...)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[260px] px-3 py-2 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400 transition"
+          className="flex-1 min-w-[260px] h-9 px-3 rounded-lg border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-white/[0.30] focus:ring-2 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.04] transition-colors"
         />
         <MultiSelect
           label="Forme"
@@ -369,7 +370,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               setCategorieFilter("");
               setPipelineFilter("");
             }}
-            className="px-3 py-2 rounded-md text-sm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+            className="h-9 px-3 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
           >
             Réinitialiser
           </button>
@@ -378,7 +379,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
 
       {(formeFilter.size > 0 || activiteFilter || categorieFilter || pipelineFilter) && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-zinc-500">Filtres actifs :</span>
+          <span className="text-muted-foreground">Filtres actifs :</span>
           {pipelineFilter && (
             <FilterChip
               label={`Pipeline : ${pipelineFilter.replace(/^[0-9Z]\s*-\s*/, "")}`}
@@ -405,22 +406,22 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 px-1 text-xs text-zinc-500">
+      <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
         <div>
-          <span className="font-medium text-zinc-700 tabular-nums">{sorted.length}</span> client{sorted.length > 1 ? "s" : ""} <span className="text-zinc-400">sur {rows.length}</span>
+          <span className="font-medium text-zinc-700 dark:text-zinc-200 tabular-nums">{sorted.length}</span> client{sorted.length > 1 ? "s" : ""} <span className="text-zinc-400 dark:text-zinc-500">sur {rows.length}</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-zinc-500">ARR cumulé</span>
-          <span className="font-semibold text-zinc-900 tabular-nums">{fmtEuro(totalArr)}</span>
+          <span className="text-muted-foreground">ARR cumulé</span>
+          <span className="font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{fmtEuro(totalArr)}</span>
         </div>
       </div>
 
       {/* Desktop : table moderne (style Attio/Linear). Bordures très douces,
           header avec uppercase tracking-wide, hover row subtil, lignes plus
           aérées (py-3 au lieu de py-2). */}
-      <div className="hidden md:block rounded-lg border border-zinc-200/70 bg-white overflow-hidden">
+      <div className="hidden md:block rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-zinc-50/60 text-zinc-500 text-[11px] uppercase tracking-wider font-medium border-b border-zinc-200/60">
+          <thead className="bg-zinc-50/60 dark:bg-white/[0.03] text-muted-foreground text-[11px] uppercase tracking-wider font-medium border-b border-zinc-200/60 dark:border-white/[0.06]">
             <tr>
               <Th label="Client" sortKey="denomination" sort={sort} onSort={toggleSort}
                 width={columnWidths.denomination} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
@@ -436,7 +437,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                 width={columnWidths.arr} onResize={setColumnWidth} onResetWidth={resetColumnWidth} />
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
             {sorted.map((r) => {
               const navParams = new URLSearchParams();
               if (search) navParams.set("nav-q", search);
@@ -452,10 +453,10 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
               <tr
                 key={r.id}
                 id={`client-${r.slug}`}
-                className="border-t border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer group/row"
+                className="hover:bg-zinc-50/70 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group/row"
               >
-                <td className="px-3 py-2.5">
-                  <div className="font-medium text-zinc-900 flex items-center gap-1.5 flex-wrap">
+                <td className="px-3 py-2.5 align-middle">
+                  <div className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 flex-wrap">
                     <Link href={href} className="hover:underline">
                       {r.denomination}
                     </Link>
@@ -467,38 +468,38 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     </Link>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-zinc-600">
+                <td className="px-3 py-2.5 align-middle text-zinc-600 dark:text-zinc-300">
                   <Link href={href} className="block">
                     {r.forme ? (
-                      <span className="inline-block px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 text-zinc-700 tabular-nums">
+                      <span className="inline-block px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-200 tabular-nums">
                         {r.forme}
                       </span>
                     ) : (
-                      <span className="text-zinc-300">-</span>
+                      <span className="text-zinc-300 dark:text-zinc-600">-</span>
                     )}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5 text-zinc-600">
+                <td className="px-3 py-2.5 align-middle text-zinc-600 dark:text-zinc-300">
                   <Link href={href} className="block">
-                    {r.groupe_nom ?? <span className="text-zinc-300">-</span>}
+                    {r.groupe_nom ?? <span className="text-zinc-300 dark:text-zinc-600">-</span>}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5 text-zinc-600">
+                <td className="px-3 py-2.5 align-middle text-zinc-600 dark:text-zinc-300">
                   <Link href={href} className="block">
-                    {r.activite ?? <span className="text-zinc-300">-</span>}
+                    {r.activite ?? <span className="text-zinc-300 dark:text-zinc-600">-</span>}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5 align-middle">
                   <Link href={href} className="block">
                     {r.pipeline_statut ? (
                       <Badge text={r.pipeline_statut} color={PIPELINE_COLORS[r.pipeline_statut]} />
                     ) : (
-                      <span className="text-zinc-300">-</span>
+                      <span className="text-zinc-300 dark:text-zinc-600">-</span>
                     )}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums">
-                  <Link href={href} className="block font-medium text-zinc-900">
+                <td className="px-3 py-2.5 align-middle text-right tabular-nums">
+                  <Link href={href} className="block font-medium text-zinc-900 dark:text-zinc-100">
                     {fmtEuro(r.arr ?? 0)}
                   </Link>
                 </td>
@@ -507,9 +508,12 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             })}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-sm text-muted-foreground">
-                  <div className="space-y-2">
-                    <div className="text-zinc-400">Aucun client ne correspond aux filtres.</div>
+                <td colSpan={6} className="px-4 py-10 text-center">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <SearchX className="h-8 w-8 text-zinc-300 dark:text-zinc-600" aria-hidden="true" />
+                    <div className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                      Aucun client ne correspond aux filtres
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
@@ -518,7 +522,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                         setFormeFilter(new Set());
                         setActiviteFilter("");
                       }}
-                      className="text-xs text-zinc-600 hover:text-zinc-900 underline-offset-2 hover:underline"
+                      className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline-offset-2 hover:underline"
                     >
                       Réinitialiser les filtres
                     </button>

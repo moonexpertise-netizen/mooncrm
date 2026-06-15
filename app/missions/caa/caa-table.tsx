@@ -549,7 +549,7 @@ export default function CaaTable({
   const urlNext = mode === "year" ? urlForYear(nextCenter) : urlForBase(nextCenter);
 
   return (
-    <div className={cn("space-y-3", isPending && "opacity-95")}>
+    <div className={cn("space-y-5", isPending && "opacity-95")}>
       {ConfirmDialog}
 
       <div className="flex items-center justify-between gap-3 flex-wrap">

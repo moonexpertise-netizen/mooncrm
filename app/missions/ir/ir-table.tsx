@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Pencil, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Pencil, Plus, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import {
@@ -577,7 +577,7 @@ export default function IrTable({
   const urlNext = mode === "year" ? urlForYear(nextCenter) : urlForBase(nextCenter);
 
   return (
-    <div className={cn("space-y-3", isPending && "opacity-95")}>
+    <div className={cn("space-y-5", isPending && "opacity-95")}>
       {ConfirmDialog}
 
       {/* Onglets Base / Year + bouton ajouter */}
@@ -685,7 +685,7 @@ export default function IrTable({
           l'annee selectionnee). Grid auto-fit pour s'adapter au nombre de
           cards : 1 col mobile -> N cols desktop selon la largeur. */}
       {recapYears.length > 0 && (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {recapYears.map((y) => {
             const ir = statsFor(y, "IR");
             const ifi = statsFor(y, "IFI");
@@ -745,15 +745,21 @@ export default function IrTable({
 
       {/* Table */}
       {visibleRows.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
-          {localRows.length === 0
-            ? "Aucun dossier IR pour l'instant. Clique sur « Nouveau dossier IR » pour commencer."
-            : `Aucun dossier souscrit pour l'exercice ${selectedYear}. Passe en vue « Base » pour souscrire des années.`}
+        <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] py-10 px-6 text-center shadow-card">
+          <FileText className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600" aria-hidden="true" />
+          <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+            {localRows.length === 0 ? "Aucun dossier IR" : `Aucun dossier · exercice ${selectedYear}`}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {localRows.length === 0
+              ? "Clique sur « Nouveau dossier IR » pour commencer."
+              : "Passe en vue « Base » pour souscrire des années."}
+          </p>
         </div>
       ) : (
         <div
           style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
-          className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card"
+          className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card"
         >
           <table
             className="w-full text-sm min-w-[820px] focus:outline-none"
@@ -761,19 +767,19 @@ export default function IrTable({
           >
             <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Nom</th>
+                <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Nom</th>
                 {mode === "base" ? (
                   <>
-                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Statut LDM</th>
-                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR · années</th>
-                    <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI · années</th>
+                    <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Statut LDM</th>
+                    <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR · années</th>
+                    <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI · années</th>
                   </>
                 ) : (
                   <>
-                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR {selectedYear}</th>
-                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI {selectedYear}</th>
-                    <th scope="col" className="px-2 py-2.5 text-right font-medium text-xs text-zinc-600 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires IR + IFI (HT)">Forfait HT</th>
-                    <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Facturation</th>
+                    <th scope="col" className="px-3 py-2.5 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IR {selectedYear}</th>
+                    <th scope="col" className="px-3 py-2.5 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">IFI {selectedYear}</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]" title="Forfait d'honoraires IR + IFI (HT)">Forfait HT</th>
+                    <th scope="col" className="px-3 py-2.5 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Facturation</th>
                   </>
                 )}
                 <th scope="col" className="px-2 py-2.5 w-10" />
@@ -938,7 +944,7 @@ export default function IrTable({
                           minWidth={220}
                         />
                       </td>
-                      <td className="px-2 py-3 text-right">
+                      <td className="px-3 py-2.5 text-right">
                         <EditableForfait
                           value={r.forfaits.get(selectedYear) ?? null}
                           onSave={(v) => onSetForfait(r.id, v)}
@@ -971,7 +977,7 @@ export default function IrTable({
                       </td>
                     </>
                   )}
-                  <td className="px-2 py-3 text-right">
+                  <td className="px-3 py-2.5 text-right">
                     <div className="inline-flex items-center gap-0.5">
                       <button
                         onClick={() => setEditingId(r.id)}
@@ -1267,8 +1273,8 @@ function NewClientIrForm({
   }
 
   return (
-    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-4 shadow-card space-y-3">
-      <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nouveau dossier IR</div>
+    <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-4 md:p-5 shadow-card space-y-3">
+      <div className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Nouveau dossier IR</div>
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
         <select
           value={civilite}

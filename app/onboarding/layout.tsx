@@ -7,7 +7,7 @@ import OnboardingTabs from "./onboarding-tabs";
  */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         title="Onboarding"
         description="Suivi de l'intégration des nouveaux dossiers · signés / internes / sous-traitance"

@@ -62,7 +62,7 @@ export default async function IdentiteTab({
   const tvaTags = await loadActiveTvaTags(currentTvaTagId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <Card title="Pipeline">
         <PipelinePicker
           clientId={id}

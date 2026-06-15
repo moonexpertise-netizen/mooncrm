@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Inbox, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
@@ -198,9 +198,9 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
   }, [annotated]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Toolbar */}
-      <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] px-3 py-2.5 space-y-2 md:space-y-0">
+      <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card px-3 py-2.5 space-y-2 md:space-y-0">
         {/* Ligne 1 (commune) : search + count (count cache mobile, place ailleurs) */}
         <div className="flex items-center gap-2">
           <input
@@ -302,11 +302,17 @@ export default function OnboardingList({ rows }: { rows: OnboardingRow[] }) {
 
       {/* Liste */}
       {sorted.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] shadow-card p-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
-          Aucun dossier ne correspond aux filtres.
+        <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card flex flex-col items-center justify-center text-center py-10">
+          <Inbox className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+          <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+            Aucun dossier
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Aucun dossier ne correspond aux filtres.
+          </p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] shadow-card divide-y divide-zinc-100 dark:divide-white/[0.04] overflow-hidden">
+        <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card divide-y divide-zinc-100 dark:divide-white/[0.06] overflow-hidden">
           {sorted.map((r) => (
             <OnboardingRowComp key={r.id} row={r} type={r.type} fromUrl={fromUrl} />
           ))}
@@ -351,7 +357,7 @@ function OnboardingRowComp({
           </span>
           <span
             className={cn(
-              "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border",
+              "shrink-0 inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border",
               TYPE_PILL[type]
             )}
           >
@@ -445,7 +451,7 @@ function ProgressRing({
       {/* Texte centre */}
       <div className="absolute inset-0 flex items-center justify-center">
         {noTasks ? (
-          <span className="text-[10px] text-zinc-300 dark:text-zinc-600">–</span>
+          <Minus className="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600" />
         ) : isComplete ? (
           <CheckCircle2 className="h-5 w-5 text-emerald-500" />
         ) : (
@@ -487,7 +493,7 @@ function FilterChip({
     <button
       onClick={onClick}
       className={cn(
-        "px-2 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
+        "px-2 py-1 rounded-md text-[11px] font-medium border transition-all duration-150 active:scale-95 inline-flex items-center gap-1.5",
         active && type
           ? `${TYPE_PILL[type]} shadow-sm`
           : active && tone
@@ -516,7 +522,7 @@ function SortBtn({
     <button
       onClick={onClick}
       className={cn(
-        "px-2 py-0.5 rounded text-[11px] transition-colors",
+        "px-2 py-0.5 rounded-md text-[11px] transition-colors",
         active
           ? "bg-zinc-100 text-zinc-900 dark:bg-white/[0.08] dark:text-zinc-50 font-medium"
           : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"

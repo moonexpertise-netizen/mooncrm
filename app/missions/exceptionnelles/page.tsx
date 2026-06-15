@@ -147,7 +147,7 @@ export default async function MissionsExcPage() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         title="Missions exceptionnelles"
         description="Suivi des missions ponctuelles (transferts de siège, CAA, évaluations, attestations, AG extraordinaires, audits…)"

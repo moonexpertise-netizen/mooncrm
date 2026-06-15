@@ -354,7 +354,7 @@ export default function PilotageTable({
   // ============================================================================
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {/* Onglets type + sélecteur année */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <nav

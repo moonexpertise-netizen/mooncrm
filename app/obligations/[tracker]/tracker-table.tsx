@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, MoveHorizontal, X, Copy, Inbox } from "lucide-react";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
@@ -1214,7 +1214,7 @@ export default function TrackerTable({
           - Chips de filtre par etiquette TVA (vitesse de realisation : Express
             / Standard / + longue / ...) configurables via /parametrage/tva-tags. */}
       {isTvaMensuelle && (
-        <div className="flex items-center gap-3 flex-wrap rounded-lg border bg-card px-3 py-2">
+        <div className="flex items-center gap-3 flex-wrap rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-card px-3 py-2">
           {/* Toggle 3m / 12m */}
           <div className="inline-flex items-center gap-1 p-0.5 rounded-md bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
             <button
@@ -1335,7 +1335,7 @@ export default function TrackerTable({
           chips wrappaient sur 4-6 lignes et mangeaient tout l'ecran. */}
 
       {/* === Mobile === */}
-      <div className="md:hidden rounded-lg border bg-card px-3 py-2.5 space-y-2">
+      <div className="md:hidden rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-card px-3 py-2.5 space-y-2">
         <input
           type="text"
           placeholder="Filtrer par client..."
@@ -1425,20 +1425,21 @@ export default function TrackerTable({
           <button
             onClick={() => setAutoFit((v) => !v)}
             className={cn(
-              "px-2 py-1 rounded-md text-[11px] border transition-all duration-150 active:scale-95",
+              "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] border transition-all duration-150 active:scale-95",
               autoFit
                 ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] border-[hsl(var(--gold))]/40"
-                : "bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900"
+                : "bg-white dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-white/[0.08] hover:text-zinc-900 dark:hover:text-zinc-100"
             )}
             title="Ajuster les colonnes au contenu"
           >
-            ⇔ Auto
+            <MoveHorizontal className="h-3.5 w-3.5" />
+            Auto
           </button>
         </div>
       </div>
 
       {/* === Desktop : barre d'outils dense, chips inline === */}
-      <div className="hidden md:flex items-center gap-2 flex-wrap rounded-lg border bg-card px-3 py-2">
+      <div className="hidden md:flex items-center gap-2 flex-wrap rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-card px-3 py-2">
         <input
           type="text"
           placeholder="Filtrer par client..."
@@ -1491,10 +1492,11 @@ export default function TrackerTable({
               {filterCloture.size > 0 && (
                 <button
                   onClick={() => setFilterCloture(new Set())}
-                  className="text-[11px] text-zinc-400 hover:text-zinc-700 transition-colors ml-0.5"
+                  className="inline-flex items-center justify-center w-5 h-5 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors ml-0.5"
                   title="Toutes les clôtures"
+                  aria-label="Réinitialiser le filtre clôture"
                 >
-                  ×
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
@@ -1534,14 +1536,15 @@ export default function TrackerTable({
           <button
             onClick={() => setAutoFit((v) => !v)}
             className={cn(
-              "px-2 py-1 rounded-md text-[11px] border transition-all duration-150 active:scale-95",
+              "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] border transition-all duration-150 active:scale-95",
               autoFit
                 ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] border-[hsl(var(--gold))]/40"
-                : "bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900"
+                : "bg-white dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-white/[0.08] hover:text-zinc-900 dark:hover:text-zinc-100"
             )}
             title="Ajuster les colonnes au contenu"
           >
-            ⇔ Auto
+            <MoveHorizontal className="h-3.5 w-3.5" />
+            Auto
           </button>
           <span className="text-[11px] text-muted-foreground tabular-nums">
             {filtered.length} client{filtered.length > 1 ? "s" : ""}
@@ -1561,7 +1564,7 @@ export default function TrackerTable({
           WebkitOverflowScrolling: "touch",
           overscrollBehaviorX: "contain",
         }}
-        className="rounded-lg border overflow-x-auto bg-card"
+        className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] overflow-x-auto bg-card"
       >
         <table className="w-full text-sm border-collapse min-w-[640px]">
           <thead className="bg-zinc-50 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-200 text-xs">

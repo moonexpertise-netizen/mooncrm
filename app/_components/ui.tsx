@@ -199,7 +199,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-lg bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/70 dark:border-white/[0.06]",
+        "rounded-xl bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/70 dark:border-white/[0.08] shadow-card",
         className
       )}
       {...rest}
@@ -216,7 +216,10 @@ export function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("px-4 py-3 border-b border-zinc-100 dark:border-white/[0.06]", className)}
+      className={cn(
+        "px-4 md:px-5 py-3 border-b border-zinc-100 dark:border-white/[0.06]",
+        className
+      )}
       {...rest}
     >
       {children}
@@ -230,7 +233,7 @@ export function CardBody({
   ...rest
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("p-4", className)} {...rest}>
+    <div className={cn("p-4 md:p-5", className)} {...rest}>
       {children}
     </div>
   );
@@ -256,24 +259,22 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] px-6 py-9 text-center space-y-3",
+        "rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card px-6 py-10 flex flex-col items-center text-center",
         className
       )}
     >
       {icon && (
-        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400 mx-auto">
+        <div className="mb-3 text-zinc-300 dark:text-zinc-600 [&>svg]:h-8 [&>svg]:w-8">
           {icon}
         </div>
       )}
-      <div>
-        <h3 className="text-[15px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">{title}</h3>
-        {description && (
-          <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto leading-snug">
-            {description}
-          </p>
-        )}
-      </div>
-      {action && <div className="pt-2">{action}</div>}
+      <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-300">{title}</h3>
+      {description && (
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-snug">
+          {description}
+        </p>
+      )}
+      {action && <div className="pt-4">{action}</div>}
     </div>
   );
 }
@@ -290,7 +291,7 @@ export function Toolbar({
   return (
     <div
       className={cn(
-        "rounded-lg bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/70 dark:border-white/[0.06] px-3 py-2 flex items-center gap-2 flex-wrap",
+        "rounded-xl bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/70 dark:border-white/[0.08] shadow-card px-3 py-2 flex items-center gap-2 flex-wrap",
         className
       )}
       {...rest}

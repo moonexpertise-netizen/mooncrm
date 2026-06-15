@@ -143,7 +143,7 @@ function ConfirmModalRender({
 
       <div
         ref={dialogRef}
-        className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
+        className="relative w-full max-w-md rounded-xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
       >
         {/* Header */}
         <div
@@ -170,7 +170,7 @@ function ConfirmModalRender({
           <div className="flex-1 min-w-0">
             <h3
               id="confirm-modal-title"
-              className="text-sm font-semibold text-zinc-900 dark:text-zinc-50"
+              className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
             >
               {title}
             </h3>
@@ -181,7 +181,7 @@ function ConfirmModalRender({
           <button
             type="button"
             onClick={onCancel}
-            className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+            className="shrink-0 p-1 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
             aria-label="Fermer"
           >
             <X className="h-4 w-4" />
@@ -191,7 +191,7 @@ function ConfirmModalRender({
         {/* Body : type-to-confirm */}
         {typeToConfirm && (
           <div className="px-5 py-4">
-            <div className="rounded-lg bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/[0.08] px-3 py-2">
+            <div className="rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/[0.08] px-3 py-2">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">
                 Pour confirmer, tape exactement :
               </div>
@@ -321,10 +321,10 @@ function AlertModalRender({
       />
       <div
         ref={dialogRef}
-        className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
+        className="relative w-full max-w-md rounded-xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade"
       >
         <div className="px-5 py-4 border-b bg-zinc-50 dark:bg-white/[0.03] border-zinc-200 dark:border-white/[0.06]">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">{title}</h3>
           {description && (
             <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{description}</div>
           )}

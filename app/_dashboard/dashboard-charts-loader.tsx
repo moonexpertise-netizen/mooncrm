@@ -14,25 +14,25 @@ const DashboardCharts = dynamic(() => import("./dashboard-charts"), {
 });
 
 function DashboardSkeleton() {
+  const card =
+    "rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card";
   return (
     <div className="space-y-5 animate-pulse">
       {/* KPI cards row : 4 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-lg border bg-card p-4 h-24" />
+          <div key={i} className={`${card} h-[108px]`} />
         ))}
       </div>
-      {/* Pipeline funnel */}
-      <div className="rounded-lg border bg-card p-4 h-72" />
       {/* Two charts side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-lg border bg-card p-4 h-72" />
-        <div className="rounded-lg border bg-card p-4 h-72" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`${card} h-80`} />
+        <div className={`${card} h-80`} />
       </div>
-      {/* Mix activité + risque */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-lg border bg-card p-4 h-64" />
-        <div className="rounded-lg border bg-card p-4 h-64" />
+      {/* Top clients + mix activité */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`${card} h-64`} />
+        <div className={`${card} h-64`} />
       </div>
     </div>
   );

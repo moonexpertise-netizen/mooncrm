@@ -162,7 +162,7 @@ export default async function ClientLayout({
   const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 text-sm">
         <BackButton defaultHref={back.href} defaultLabel={back.label} currentSlug={slug} />
         <NavButtons
@@ -188,7 +188,7 @@ export default async function ClientLayout({
 
       {/* HERO HEADER - Card premium avec gradient subtil + métrique mise en valeur.
           Mobile : tout en colonne. Desktop : titre + meta à gauche, MRR + actions à droite. */}
-      <div className="hero-surface rounded-2xl px-5 md:px-6 py-5 md:py-6">
+      <div className="hero-surface rounded-xl px-5 md:px-6 py-5 md:py-6">
         <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-start lg:justify-between gap-4 lg:gap-6">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -197,17 +197,17 @@ export default async function ClientLayout({
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-2 text-xs sm:text-sm">
               {client.siren && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200/80 text-zinc-600 tabular-nums">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-300 tabular-nums">
                   SIREN {client.siren}
                 </span>
               )}
               {client.forme && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200/80 text-zinc-600 font-medium">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-300 font-medium">
                   {client.forme}
                 </span>
               )}
               {client.activite && (
-                <span className="text-zinc-500 ml-1">{client.activite}</span>
+                <span className="text-zinc-500 dark:text-zinc-400 ml-1">{client.activite}</span>
               )}
               {groupeNom && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border border-[hsl(var(--gold))]/15 font-medium">
@@ -228,12 +228,12 @@ export default async function ClientLayout({
               sur desktop empilé verticalement à droite. */}
           <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-start gap-3 w-full lg:w-auto">
             <div className="lg:text-right">
-              <div className="text-[10px] uppercase tracking-[0.08em] text-zinc-500 font-semibold">MRR</div>
-              <div className="font-display text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-900 tabular-nums leading-none mt-1">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 font-semibold">MRR</div>
+              <div className="font-display text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums leading-none mt-1">
                 {fmtEuro(client.mrr)}
               </div>
-              <div className="text-[11px] sm:text-xs text-zinc-500 mt-1.5 tabular-nums">
-                ARR <span className="font-medium text-zinc-700">{fmtEuro(client.arr ?? (client.mrr ?? 0) * 12)}</span>
+              <div className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 tabular-nums">
+                ARR <span className="font-medium text-zinc-700 dark:text-zinc-200">{fmtEuro(client.arr ?? (client.mrr ?? 0) * 12)}</span>
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
@@ -300,7 +300,7 @@ export default async function ClientLayout({
       <FicheTabs slug={slug} />
 
       {/* Contenu de l'onglet courant */}
-      <div className={cn("mt-6")}>{children}</div>
+      <div className={cn("mt-5")}>{children}</div>
     </div>
   );
 }

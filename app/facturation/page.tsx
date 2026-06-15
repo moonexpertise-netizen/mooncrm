@@ -396,7 +396,7 @@ export default async function FacturationPage({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         title="Facturation"
         description="Centralisation des factures à émettre · CAA, IR, AGO, Bilans, Créations, Missions exc."

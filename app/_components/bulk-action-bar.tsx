@@ -137,7 +137,7 @@ export function BulkActionBar({
     <div
       role="region"
       aria-label={`${count} cellule(s) sélectionnée(s)`}
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-2xl ring-1 ring-black/10 dark:ring-white/10 animate-slide-up-fade"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-pop ring-1 ring-black/10 dark:ring-white/10 animate-slide-up-fade"
     >
       {/* Compteur + nom de la colonne active */}
       <div className="flex items-baseline gap-1.5">
@@ -163,7 +163,7 @@ export function BulkActionBar({
               type="button"
               onClick={() => onApply(o.key)}
               className={cn(
-                "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80",
+                "inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium border transition-all hover:opacity-80",
                 o.color
               )}
               title={`Appliquer "${o.label}" à ${count} cellule${count > 1 ? "s" : ""}`}

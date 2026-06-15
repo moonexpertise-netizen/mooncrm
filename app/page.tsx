@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const data = await loadDashboardData();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Dashboard"
         description="Vue d'ensemble du portefeuille · pipeline, signatures, production"

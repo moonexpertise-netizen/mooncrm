@@ -56,7 +56,7 @@ function useChartColors() {
  */
 export default function DashboardCharts({ data }: { data: DashboardData }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <KpiCards kpi={data.kpi} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -78,7 +78,7 @@ export default function DashboardCharts({ data }: { data: DashboardData }) {
 
 function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard
         label="Clients"
         value={kpi.clientsActifs.toString()}
@@ -157,28 +157,28 @@ function KpiCard({
   const content = (
     <>
       <div className="flex items-start justify-between gap-3 mb-3">
-        <span className="text-[10px] uppercase tracking-[0.08em] text-zinc-500 font-semibold">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
           {label}
         </span>
         <span
           className={cn(
-            "inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0",
+            "inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
             toneClass.icon
           )}
         >
           {icon}
         </span>
       </div>
-      <div className="font-display text-3xl md:text-[32px] font-semibold tracking-tight text-zinc-900 tabular-nums leading-none">
+      <div className="font-display text-3xl md:text-[32px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums leading-none">
         {value}
       </div>
       {sub && (
-        <div className="text-[11px] text-zinc-500 mt-2 truncate">{sub}</div>
+        <div className="text-[11px] text-muted-foreground mt-2 truncate">{sub}</div>
       )}
     </>
   );
   const base =
-    "block rounded-2xl border border-zinc-200/70 bg-white shadow-card px-5 py-4 transition-all";
+    "block rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-4 md:p-5 transition-all";
   if (href) {
     return (
       <Link
@@ -219,24 +219,24 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
   }
 
   return (
-    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
-      <header className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Pipeline</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
+    <section className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-4 md:p-5">
+      <header className="flex items-center justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Pipeline
+          </h2>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             Clique sur une barre pour filtrer les clients
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[10px]">
-          <SegToggle
-            options={[
-              { value: "count", label: "Nb" },
-              { value: "arr", label: "€" },
-            ]}
-            value={mode}
-            onChange={(v) => setMode(v as "count" | "arr")}
-          />
-        </div>
+        <SegToggle
+          options={[
+            { value: "count", label: "Nb" },
+            { value: "arr", label: "€" },
+          ]}
+          value={mode}
+          onChange={(v) => setMode(v as "count" | "arr")}
+        />
       </header>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
@@ -261,9 +261,9 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
                 if (!active || !payload?.length) return null;
                 const p = payload[0].payload as { full: string; value: number };
                 return (
-                  <div className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.12] rounded-md shadow-md dark:shadow-pop px-2 py-1 text-xs">
-                    <div className="font-medium">{p.full}</div>
-                    <div className="text-zinc-600 tabular-nums">
+                  <div className="rounded-lg border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-pop px-2.5 py-1.5 text-xs">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-50">{p.full}</div>
+                    <div className="text-muted-foreground tabular-nums">
                       {mode === "arr"
                         ? fmtEuro(p.value)
                         : `${fmtCompactCount(p.value)} dossier${p.value > 1 ? "s" : ""}`}
@@ -318,13 +318,13 @@ function SignaturesParMois({
   }));
 
   return (
-    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
-      <header className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-900 tracking-tight">
+    <section className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-4 md:p-5">
+      <header className="flex items-center justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Signatures · 12 derniers mois
           </h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             Barres = mois · ligne = cumul YTD (reset au 1er janvier)
           </p>
         </div>
@@ -370,12 +370,12 @@ function SignaturesParMois({
                 const v = payload[0]?.value as number;
                 const c = payload[1]?.value as number;
                 return (
-                  <div className="bg-white dark:bg-[hsl(var(--surface-elevated))] border dark:border-white/[0.12] rounded-md shadow-md dark:shadow-pop px-2 py-1 text-xs">
-                    <div className="font-medium">{label}</div>
-                    <div className="text-zinc-700 tabular-nums">
+                  <div className="rounded-lg border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-pop px-2.5 py-1.5 text-xs">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-50">{label}</div>
+                    <div className="text-zinc-700 dark:text-zinc-300 tabular-nums">
                       Mois : {mode === "arr" ? fmtEuro(v) : fmtCompactCount(v)}
                     </div>
-                    <div className="text-zinc-500 tabular-nums">
+                    <div className="text-muted-foreground tabular-nums">
                       Cumul YTD : {mode === "arr" ? fmtEuro(c) : fmtCompactCount(c)}
                     </div>
                   </div>
@@ -430,13 +430,23 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
   const max = Math.max(...topClients.map((c) => c.arr ?? 0), 1);
 
   return (
-    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
+    <section className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-4 md:p-5">
       <header className="mb-4">
-        <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Top 10 clients · ARR</h2>
-        <p className="text-xs text-zinc-500 mt-0.5">Clic = ouvre la fiche</p>
+        <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          Top 10 clients · ARR
+        </h2>
+        <p className="text-[11px] text-muted-foreground mt-0.5">Clic = ouvre la fiche</p>
       </header>
       {topClients.length === 0 ? (
-        <div className="text-xs text-zinc-400 text-center py-8">Aucun client actif.</div>
+        <div className="flex flex-col items-center justify-center text-center py-10">
+          <Users className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300 mt-3">
+            Aucun client actif
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Les clients en LDM signée apparaîtront ici.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-1.5">
           {topClients.map((c) => {
@@ -445,19 +455,19 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
               <li key={c.id}>
                 <Link
                   href={`/clients/${c.slug}`}
-                  className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50 transition-colors"
+                  className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50/70 dark:hover:bg-white/[0.04] transition-colors"
                 >
                   <div className="flex items-baseline justify-between gap-2 mb-1">
                     {/* Le texte reste foreground neutre au hover, pour rester
                         TOUJOURS lisible quelle que soit la couleur de la barre. */}
-                    <span className="text-xs font-medium text-zinc-800 truncate group-hover/row:text-zinc-900 dark:group-hover/row:text-zinc-50">
+                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate group-hover/row:text-zinc-900 dark:group-hover/row:text-zinc-50">
                       {c.denomination}
                     </span>
-                    <span className="text-[11px] tabular-nums text-zinc-700 shrink-0">
+                    <span className="text-[11px] tabular-nums text-zinc-700 dark:text-zinc-300 shrink-0">
                       {fmtEuro(c.arr)}
                     </span>
                   </div>
-                  <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
+                  <div className="h-1 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden">
                     {/* Barre tres discrete en dark (la row du #1 fait 100pct
                         de width, donc une barre pleine ecraserait le texte). */}
                     <div
@@ -499,16 +509,24 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
   ];
 
   return (
-    <section className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-5">
+    <section className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-4 md:p-5">
       <header className="mb-4">
-        <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Mix activité</h2>
-        <p className="text-xs text-zinc-500 mt-0.5">
+        <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          Mix activité
+        </h2>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
           Répartition par secteur métier · clic pour voir les dossiers
         </p>
       </header>
       {mixActivite.length === 0 ? (
-        <div className="text-xs text-zinc-400 text-center py-8">
-          Pas de données.
+        <div className="flex flex-col items-center justify-center text-center py-10">
+          <TrendingUp className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300 mt-3">
+            Pas de données
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            La répartition par secteur s&apos;affichera ici.
+          </p>
         </div>
       ) : (
         <ul className="space-y-1.5">
@@ -520,17 +538,17 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
               <li key={row.name}>
                 <Link
                   href={`/clients?categorie=${encodeURIComponent(row.name)}`}
-                  className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50 transition-colors"
+                  className="group/row block px-2 py-1.5 -mx-2 rounded-md hover:bg-zinc-50/70 dark:hover:bg-white/[0.04] transition-colors"
                 >
                   <div className="flex items-baseline justify-between gap-2 mb-1">
                     <span className="text-xs font-medium text-zinc-800 dark:text-zinc-100 truncate group-hover/row:text-zinc-900 dark:group-hover/row:text-zinc-50">
                       {row.name}
                     </span>
-                    <span className="text-[11px] tabular-nums text-zinc-600 dark:text-zinc-400 shrink-0">
+                    <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">
                       {row.value} dossier{row.value > 1 ? "s" : ""}
                     </span>
                   </div>
-                  <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
+                  <div className="h-1 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden">
                     <div
                       className={cn(
                         "h-full opacity-70 dark:opacity-55 group-hover/row:opacity-95 dark:group-hover/row:opacity-80 transition-opacity",
@@ -593,16 +611,16 @@ function SegToggle<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-50 p-0.5">
+    <div className="inline-flex shrink-0 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.04] p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "px-2 py-0.5 text-[11px] font-medium rounded transition-colors",
+            "px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors",
             value === o.value
-              ? "bg-white text-zinc-900 shadow-sm"
-              : "text-zinc-500 hover:text-zinc-900"
+              ? "bg-white dark:bg-white/[0.10] text-zinc-900 dark:text-zinc-50 shadow-sm"
+              : "text-muted-foreground hover:text-zinc-900 dark:hover:text-zinc-100"
           )}
         >
           {o.label}

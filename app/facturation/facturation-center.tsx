@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { ExternalLink } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
 import { setFacturationFromCentral } from "./actions";
@@ -146,9 +146,9 @@ export default function FacturationCenter({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi label="À facturer" value={String(kpi.aFacturer)} subtitle={kpi.totalAFacturer ? formatEUR(kpi.totalAFacturer) + " (estim.)" : "-"} accent="amber" />
         <Kpi label="Facturées" value={String(kpi.facturee)} subtitle={kpi.totalFacturee ? formatEUR(kpi.totalFacturee) + " (estim.)" : "-"} accent="emerald" />
         <Kpi label="Sans facture" value={String(kpi.sansFacture)} subtitle="-" accent="zinc" />
@@ -173,50 +173,52 @@ export default function FacturationCenter({
 
       {/* Tableau */}
       {localItems.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-8 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-card">
-          Aucune ligne de facturation pour ces filtres.
+        <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card flex flex-col items-center justify-center py-10 text-center">
+          <Inbox className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+          <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">Aucune ligne de facturation</p>
+          <p className="mt-1 text-xs text-muted-foreground">Aucun élément ne correspond à ces filtres.</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
+        <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] overflow-x-auto shadow-card">
           <table className="w-full text-sm min-w-[800px]" aria-label="Facturation à émettre">
-            <thead className="bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-200 dark:border-white/[0.06]">
+            <thead className="border-b border-zinc-100 dark:border-white/[0.06]">
               <tr>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Source</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Client</th>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Détail</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[120px]">Montant HT</th>
-                <th scope="col" className="px-3 py-2 text-center font-medium text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[140px]">État</th>
+                <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-muted-foreground">Source</th>
+                <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-muted-foreground">Client</th>
+                <th scope="col" className="px-3 py-2.5 text-left font-medium text-[11px] uppercase tracking-wider text-muted-foreground">Détail</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-medium text-[11px] uppercase tracking-wider text-muted-foreground w-[120px]">Montant HT</th>
+                <th scope="col" className="px-3 py-2.5 text-center font-medium text-[11px] uppercase tracking-wider text-muted-foreground w-[140px]">État</th>
                 <th scope="col" className="px-2 py-2.5 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {localItems.map((it) => (
-                <tr key={it.key} className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors">
-                  <td className="px-3 py-2.5">
-                    <span className={cn("inline-block px-2 py-0.5 rounded text-[10px] font-medium border", SOURCE_COLOR[it.source])}>
+                <tr key={it.key} className="hover:bg-zinc-50/70 dark:hover:bg-white/[0.04] transition-colors">
+                  <td className="align-middle px-3 py-2.5">
+                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border", SOURCE_COLOR[it.source])}>
                       {SOURCE_LABEL[it.source]}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="align-middle px-3 py-2.5">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">{it.clientName}</span>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="align-middle px-3 py-2.5">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-zinc-800 dark:text-zinc-200">{it.detail}</span>
                       {it.sousDetail && (
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{it.sousDetail}</span>
+                        <span className="text-[11px] text-muted-foreground">{it.sousDetail}</span>
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-sm font-semibold">
-                    {it.montant ? formatEUR(it.montant) : <span className="text-zinc-300 dark:text-zinc-600 italic">-</span>}
+                  <td className="align-middle px-3 py-2.5 text-right tabular-nums text-sm font-semibold">
+                    {it.montant ? formatEUR(it.montant) : <span className="text-zinc-300 dark:text-zinc-600">-</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-center">
+                  <td className="align-middle px-3 py-2.5 text-center">
                     <FactPicker value={it.etat_facturation} onChange={(v) => onSetFact(it, v)} />
                   </td>
-                  <td className="px-2 py-2.5 text-right">
+                  <td className="align-middle px-2 py-2.5 text-right">
                     {it.clientHref && (
-                      <Link href={it.clientHref} className="inline-flex items-center justify-center w-7 h-7 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label={`Ouvrir ${it.clientName}`} title="Ouvrir la page source">
+                      <Link href={it.clientHref} className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label={`Ouvrir ${it.clientName}`} title="Ouvrir la page source">
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Link>
                     )}
@@ -228,7 +230,7 @@ export default function FacturationCenter({
         </div>
       )}
 
-      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1">
+      <p className="text-[11px] text-muted-foreground px-1 tabular-nums">
         {localItems.length} ligne{localItems.length > 1 ? "s" : ""} affichée{localItems.length > 1 ? "s" : ""}
         {totalCount !== localItems.length && ` sur ${totalCount} au total`}.
       </p>
@@ -254,10 +256,10 @@ function Kpi({
     zinc: "text-zinc-700 dark:text-zinc-300",
   };
   return (
-    <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] p-3 shadow-card">
-      <div className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium">{label}</div>
-      <div className={cn("text-xl font-semibold tabular-nums mt-1", colors[accent])}>{value}</div>
-      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">{subtitle}</div>
+    <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] p-4 shadow-card">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
+      <div className={cn("text-xl font-semibold tabular-nums tracking-tight mt-1", colors[accent])}>{value}</div>
+      <div className="text-[11px] text-muted-foreground mt-0.5 truncate tabular-nums">{subtitle}</div>
     </div>
   );
 }
@@ -275,8 +277,8 @@ function FilterBar({
 }) {
   return (
     <div className="inline-flex items-center gap-2">
-      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{label} :</span>
-      <nav className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
+      <span className="text-[11px] text-muted-foreground">{label} :</span>
+      <nav className="inline-flex items-center gap-1 p-1 rounded-lg bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
         {options.map((o) => {
           const active = o.key === value;
           return (
@@ -361,11 +363,12 @@ function FactPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "inline-flex items-center px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 whitespace-nowrap min-w-[100px] justify-center",
+          "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors hover:opacity-80 whitespace-nowrap min-w-[100px] justify-center",
           current ? current.color : FACT_OPTIONS[0].color
         )}
       >
-        {current ? current.label : "À facturer"}
+        <span>{current ? current.label : "À facturer"}</span>
+        <ChevronDown className="h-3 w-3 opacity-60" />
       </button>
       {open &&
         pos &&
@@ -380,7 +383,7 @@ function FactPicker({
               transform: pos.openUp ? "translateY(calc(-100% - 4px))" : "translateY(4px)",
               zIndex: 1000,
             }}
-            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-2xl ring-1 ring-black/5 dark:ring-white/[0.06] overflow-hidden animate-slide-up-fade"
+            className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.08] rounded-lg shadow-pop overflow-hidden animate-slide-up-fade"
           >
             {FACT_OPTIONS.map((o) => (
               <button
@@ -395,10 +398,10 @@ function FactPicker({
                   value === o.key && "bg-zinc-50 dark:bg-white/[0.04]"
                 )}
               >
-                <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] border", o.color)}>
+                <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] border", o.color)}>
                   {o.label}
                 </span>
-                {value === o.key && <span className="text-zinc-400 dark:text-zinc-500 ml-auto text-xs">✓</span>}
+                {value === o.key && <Check className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 ml-auto" />}
               </button>
             ))}
             {value !== null && (

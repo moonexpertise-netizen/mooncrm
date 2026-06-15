@@ -119,7 +119,7 @@ export default async function CaaPage({
     : `Missions de commissariat aux apports · Exercice ${selectedYear}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader title="CAA · Commissariat aux apports" description={description} />
       <CaaTable
         rows={rows}

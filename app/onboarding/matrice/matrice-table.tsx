@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Check, Minus, Pencil, X } from "lucide-react";
+import { Check, Inbox, Minus, Pencil, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
@@ -399,41 +399,41 @@ export default function MatriceTable({
   return (
     <div className="space-y-3">
       {/* Toolbar unifiée (mêmes filtres et tri que la vue Liste) */}
-      <div className="rounded-lg border bg-card px-3 py-2 flex items-center gap-2 flex-wrap">
+      <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card px-3 py-2.5 flex items-center gap-2 flex-wrap">
         <input
           type="text"
           placeholder="Filtrer par nom ou SIREN…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]/60"
+          className="w-64 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all hover:border-zinc-300 dark:hover:border-white/[0.16] focus:outline-none focus:border-zinc-900 dark:focus:border-white/[0.30] focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.04]"
         />
-        <div className="h-6 w-px bg-zinc-200 mx-1" />
-        <span className="text-[11px] text-zinc-500">Type :</span>
+        <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08] mx-1" />
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Type :</span>
         <FilterChip label="Tous" active={typeFilter === "all"} count={typeCounts.all} onClick={() => setTypeFilter("all")} />
         <FilterChip label="Création" active={typeFilter === "creation"} count={typeCounts.creation} type="creation" onClick={() => setTypeFilter("creation")} />
         <FilterChip label="Reprise avec EC" active={typeFilter === "reprise_ec"} count={typeCounts.reprise_ec} type="reprise_ec" onClick={() => setTypeFilter("reprise_ec")} />
         <FilterChip label="Reprise sans EC" active={typeFilter === "reprise_sans_ec"} count={typeCounts.reprise_sans_ec} type="reprise_sans_ec" onClick={() => setTypeFilter("reprise_sans_ec")} />
         <FilterChip label="Interne" active={typeFilter === "interne"} count={typeCounts.interne} type="interne" onClick={() => setTypeFilter("interne")} />
         <FilterChip label="ST" active={typeFilter === "soustraitance"} count={typeCounts.soustraitance} type="soustraitance" onClick={() => setTypeFilter("soustraitance")} />
-        <div className="h-6 w-px bg-zinc-200 mx-1" />
-        <span className="text-[11px] text-zinc-500">TNS :</span>
+        <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08] mx-1" />
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">TNS :</span>
         <FilterChip label="Tous" active={tnsFilter === "all"} count={tnsCounts.all} onClick={() => setTnsFilter("all")} />
         <FilterChip label="TNS" active={tnsFilter === "tns"} count={tnsCounts.tns} tone="emerald" onClick={() => setTnsFilter("tns")} />
         <FilterChip label="Non TNS" active={tnsFilter === "non_tns"} count={tnsCounts.non_tns} tone="zinc" onClick={() => setTnsFilter("non_tns")} />
         {tnsCounts.undecided > 0 && (
           <FilterChip label="?" active={tnsFilter === "undecided"} count={tnsCounts.undecided} tone="amber" onClick={() => setTnsFilter("undecided")} />
         )}
-        <div className="h-6 w-px bg-zinc-200 mx-1" />
-        <span className="text-[11px] text-zinc-500">Statut :</span>
+        <div className="h-6 w-px bg-zinc-200 dark:bg-white/[0.08] mx-1" />
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Statut :</span>
         <FilterChip label="Tous" active={statusFilter === "all"} count={statusCounts.all} onClick={() => setStatusFilter("all")} />
         <FilterChip label="En cours" active={statusFilter === "in_progress"} count={statusCounts.in_progress} tone="amber" onClick={() => setStatusFilter("in_progress")} />
         <FilterChip label="Pas commencé" active={statusFilter === "not_started"} count={statusCounts.not_started} tone="rose" onClick={() => setStatusFilter("not_started")} />
         <FilterChip label="Terminé" active={statusFilter === "complete"} count={statusCounts.complete} tone="emerald" onClick={() => setStatusFilter("complete")} />
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-[11px] text-zinc-500">Tri :</span>
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Tri :</span>
           <SortBtn label="Progression" active={sortMode === "pct"} onClick={() => setSortMode("pct")} />
           <SortBtn label="Nom" active={sortMode === "nom"} onClick={() => setSortMode("nom")} />
-          <span className="text-[11px] text-zinc-500 tabular-nums ml-2">
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums ml-2">
             {sorted.length} dossier{sorted.length > 1 ? "s" : ""}
           </span>
         </div>
@@ -441,11 +441,17 @@ export default function MatriceTable({
 
       {/* Tableau */}
       {sorted.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
-          Aucun dossier ne correspond aux filtres.
+        <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card flex flex-col items-center justify-center text-center py-10">
+          <Inbox className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+          <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+            Aucun dossier
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Aucun dossier ne correspond aux filtres.
+          </p>
         </div>
       ) : (
-        <div className="rounded-lg border bg-card overflow-x-auto -mx-3 md:mx-0" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-x-auto -mx-3 md:mx-0" style={{ WebkitOverflowScrolling: "touch" }}>
           <table className="text-sm border-separate border-spacing-0" style={{ minWidth: "min(900px, max-content)" }}>
             <thead>
               {/* Numéro + label de colonne */}

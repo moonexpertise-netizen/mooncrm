@@ -104,7 +104,7 @@ export default async function CreationsPage({
     : `Pilotage des créations de sociétés · Exercice ${selectedYear}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader title="Créations · Suivi des dossiers" description={description} />
       <CreationsTable
         rows={rows}

@@ -163,7 +163,7 @@ export default function FinanceDashboard({ data }: { data: FinanceData }) {
   const [drawer, setDrawer] = useState<{ title: string; subtitle?: string; node: React.ReactNode } | null>(null);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 1. HERO */}
       <HeroBlock hero={data.hero} year={data.currentYear} monthsRemaining={data.monthsRemaining} />
 

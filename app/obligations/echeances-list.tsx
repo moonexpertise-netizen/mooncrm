@@ -8,6 +8,7 @@ import {
   ChevronRight,
   AlertTriangle,
   Calendar,
+  CalendarCheck,
   ExternalLink,
   MessageSquare,
 } from "lucide-react";
@@ -238,7 +239,7 @@ function Section({
   }, [items]);
 
   return (
-    <section className="rounded-2xl border border-zinc-200/70 dark:border-white/[0.06] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-hidden">
+    <section className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-hidden">
       <header className={cn(
         "flex items-start gap-3 px-4 py-3 border-b",
         accent === "rose"
@@ -250,12 +251,18 @@ function Section({
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 tracking-tight">
             {title}
           </h2>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">{subtitle}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
         </div>
       </header>
       {emptyState ? (
-        <div className="px-4 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
-          {emptyState}
+        <div className="flex flex-col items-center justify-center text-center py-10 px-4">
+          <CalendarCheck className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+          <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+            {emptyState}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Rien ne tombe sur cette période.
+          </p>
         </div>
       ) : (
         <div className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
@@ -263,10 +270,10 @@ function Section({
             <div key={g.slug}>
               {/* Sous-header par tracker : nom + compteur */}
               <div className="flex items-baseline justify-between gap-3 px-4 py-2 bg-zinc-50/60 dark:bg-white/[0.02] border-b border-zinc-100 dark:border-white/[0.04]">
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {g.title}
                 </h3>
-                <span className="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                <span className="text-[10px] tabular-nums text-muted-foreground">
                   {g.items.length} {g.items.length > 1 ? "obligations" : "obligation"}
                 </span>
               </div>

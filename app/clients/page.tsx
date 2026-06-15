@@ -17,7 +17,7 @@ export default async function ClientsPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+      <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200">
         Erreur de chargement : {error.message}
       </div>
     );
@@ -40,14 +40,14 @@ export default async function ClientsPage() {
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         title="Clients"
         description={`${rows.length} fiche${rows.length > 1 ? "s" : ""} au total`}
         actions={
           <Link
             href="/clients/nouveau"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-sm font-medium shadow-card hover:bg-zinc-800 hover:shadow-card-hover transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 active:scale-[0.97]"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 text-sm font-medium shadow-card hover:bg-zinc-800 dark:hover:bg-white hover:shadow-card-hover transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 active:scale-[0.97]"
           >
             <Plus className="h-4 w-4" />
             Nouveau client

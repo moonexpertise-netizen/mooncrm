@@ -13,11 +13,11 @@ export default function Loading() {
         </div>
       </div>
       {/* Toolbar */}
-      <div className="rounded-lg border bg-card px-3 py-2">
+      <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-card px-3 py-2">
         <div className="h-8 w-64 bg-zinc-100 rounded" />
       </div>
       {/* Tableau */}
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-card">
         <div className="h-12 bg-zinc-100 border-b" />
         {Array.from({ length: 12 }).map((_, i) => (
           <div key={i} className="h-11 border-b last:border-b-0 bg-zinc-50/40" />

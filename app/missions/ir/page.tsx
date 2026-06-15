@@ -156,7 +156,7 @@ export default async function IrPage({
     : `Suivi des declarations IR et IFI · Exercice ${selectedYear}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader title="IR + IFI · Impôts sur le Revenu / Fortune" description={description} />
       <IrTable
         rows={rows}
