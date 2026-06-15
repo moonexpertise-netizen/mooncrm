@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/app/_components/page-header";
 import { categorieActivite } from "@/lib/activite-categorie";
-import FinanceDashboard, { type FinanceData } from "./finance-dashboard";
+import FinanceDashboardLoader from "./finance-dashboard-loader";
+import type { FinanceData } from "./finance-dashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -787,7 +788,7 @@ export default async function FinancePage() {
         title="Finance · Cockpit"
         description={`Réalisé · projection 12 mois · atterrissage ${currentYear} · scénarios & leviers`}
       />
-      <FinanceDashboard data={data} />
+      <FinanceDashboardLoader data={data} />
     </div>
   );
 }
