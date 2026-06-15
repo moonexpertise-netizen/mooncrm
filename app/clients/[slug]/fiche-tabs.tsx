@@ -22,6 +22,7 @@ export default function FicheTabs({ slug }: { slug: string }) {
     { href: `${base}/exercice`, label: "Échéances", match: (p: string) => p.startsWith(`${base}/exercice`) },
     { href: `${base}/obligations`, label: "Obligations", match: (p: string) => p.startsWith(`${base}/obligations`) },
     { href: `${base}/onboarding`, label: "Onboarding", match: (p: string) => p.startsWith(`${base}/onboarding`) },
+    { href: `${base}/historique`, label: "Historique", match: (p: string) => p.startsWith(`${base}/historique`) },
   ];
 
   return (
