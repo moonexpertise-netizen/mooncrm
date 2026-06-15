@@ -48,18 +48,19 @@ const ACTIVE_STAGES: PipelineStatut[] = [
   "6 - LDM envoyée",
   "7 - LDM signée",
 ];
-// "Perdu dans l'espace" appartient a la zone "Hors pipeline actif" : ce
-// ne sont PAS des clients (pas de LDM signee), juste des prospects en
-// sommeil. On les groupe visuellement avec les autres Z-* (Interne,
-// Sous-traitance, Prospect perdu, Resiliee) pour ne pas suggerer qu'ils
-// font partie du flux commercial actif.
+// "Perdu dans l'espace" n'est plus une colonne classique : elle a sa
+// propre zone "starfield" en bas du kanban (cf. SpaceDropZone). C'est
+// une zone large, sombre, evocatrice, ou on lache les dossiers qui
+// "tombent dans l'espace". Cote metier ils restent listes (consultables
+// via la table clients) mais visuellement le pipeline ne les met plus
+// au meme niveau que les vrais statuts terminaux.
 const TERMINAL_STAGES: PipelineStatut[] = [
   "Z - Interne",
   "Z - Sous-traitance",
-  "Z - Perdu dans l'espace",
   "Z - Prospect perdu",
   "Z - Résiliée",
 ];
+const SPACE_STATUT: PipelineStatut = "Z - Perdu dans l'espace";
 
 const SHORT_LABEL: Record<PipelineStatut, string> = {
   "1 - Tally à envoyer": "Tally à envoyer",
@@ -281,6 +282,14 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
             />
           </div>
         </div>
+
+        {/* Zone spéciale "Perdu dans l'espace" : grosse drop zone sombre,
+            largeur pleine, look "espace profond". Les dossiers qu'on y
+            lache "disparaissent dans le vide". */}
+        <SpaceDropZone
+          cards={cardsByStage.get(SPACE_STATUT) ?? []}
+          activeId={activeId}
+        />
       </div>
 
       {/* Overlay visuel pendant le drag : version "ghost" légère de la card,
@@ -420,6 +429,74 @@ function MobilePipelineList({
         </div>
       </div>
 
+      {/* Section speciale "Perdu dans l'espace" : meme look espace que
+          desktop, mais en mode liste verticale collapsable. */}
+      <section className="mt-4 relative rounded-xl border border-indigo-500/20 bg-gradient-to-br from-[#0a0f1f] via-[#0d1430] to-[#0b1024] overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage: `
+              radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,0.5), transparent),
+              radial-gradient(1px 1px at 80px 70px, rgba(199,210,254,0.4), transparent),
+              radial-gradient(1.5px 1.5px at 160px 40px, rgba(255,255,255,0.5), transparent),
+              radial-gradient(1px 1px at 240px 100px, rgba(199,210,254,0.4), transparent),
+              radial-gradient(1px 1px at 320px 50px, rgba(255,255,255,0.5), transparent)
+            `,
+            backgroundSize: "400px 140px",
+            backgroundRepeat: "repeat",
+          }}
+        />
+        {(() => {
+          const subset = cards.filter((c) => c.pipeline_statut === SPACE_STATUT).sort(sortColumnDesc);
+          const totalArr = subset.reduce((s, c) => s + (c.arr ?? 0), 0);
+          return (
+            <div className="relative p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-indigo-300/80">
+                  Perdu dans l&apos;espace
+                </span>
+                <span className="text-[10px] tabular-nums text-indigo-200/60 font-medium whitespace-nowrap">
+                  {subset.length} · {fmtEuro(totalArr)}
+                </span>
+              </div>
+              {subset.length === 0 ? (
+                <div className="text-center py-4 text-[11px] text-indigo-200/40 italic">
+                  Aucun dossier en dérive.
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {subset.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center gap-2 rounded-md border border-indigo-300/15 bg-indigo-950/30 px-2 py-2"
+                    >
+                      <Link
+                        href={`/clients/${c.slug}`}
+                        className="font-medium text-[12px] truncate min-w-0 flex-1 text-indigo-100/90"
+                      >
+                        {c.denomination}
+                      </Link>
+                      <span className="text-[10px] tabular-nums text-indigo-200/50 font-medium shrink-0">
+                        {fmtEuro(c.arr ?? 0)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPickerOpenFor(c.id)}
+                        className="shrink-0 ml-1 inline-flex items-center justify-center w-7 h-7 rounded-md border border-indigo-300/15 bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-200/60 transition-colors"
+                        aria-label="Changer le statut"
+                      >
+                        <ArrowRightLeft className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </section>
+
       {/* Picker statut : modal plein écran qui slide-up depuis le bas */}
       {pickerOpenFor && (
         <MobileStatutPicker
@@ -525,6 +602,30 @@ function MobileStatutPicker({
               </button>
             );
           })}
+          {/* Perdu dans l'espace : option speciale, separee visuellement
+              avec un fond degrade comme la drop zone. */}
+          <div className="text-[10px] uppercase tracking-wide text-indigo-400 px-2 pt-3">
+            Zone de dérive
+          </div>
+          {(() => {
+            const active = card.pipeline_statut === SPACE_STATUT;
+            return (
+              <button
+                type="button"
+                onClick={() => onPick(SPACE_STATUT)}
+                className={cn(
+                  "w-full text-left px-3 py-3 rounded-md flex items-center gap-2 transition-colors",
+                  "bg-gradient-to-r from-[#0d1430] to-[#1a1f3d] text-indigo-100",
+                  active && "ring-2 ring-indigo-400/60"
+                )}
+              >
+                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border border-indigo-300/30 text-indigo-100">
+                  {SHORT_LABEL[SPACE_STATUT]}
+                </span>
+                {active && <span className="ml-auto text-indigo-200">✓</span>}
+              </button>
+            );
+          })()}
         </div>
         <button
           type="button"
@@ -537,6 +638,178 @@ function MobileStatutPicker({
     </>
   );
 }
+
+// ============================================================================
+//  Zone "Perdu dans l'espace" : drop zone speciale, look espace profond.
+//
+//  Sortie du flot des colonnes terminales pour bien materialiser que ces
+//  dossiers ne sont pas dans un funnel commercial actif : on les a laisses
+//  tomber dans le vide. Le drop fonctionne avec dnd-kit comme les colonnes
+//  classiques (id = "Z - Perdu dans l'espace"), mais visuellement c'est un
+//  panel large et sombre avec un starfield CSS.
+// ============================================================================
+const SpaceDropZone = memo(function SpaceDropZone({
+  cards,
+  activeId,
+}: {
+  cards: PipelineCard[];
+  activeId: string | null;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: SPACE_STATUT });
+  const totalArr = cards.reduce((s, c) => s + (c.arr ?? 0), 0);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "relative mt-6 rounded-2xl border overflow-hidden transition-all",
+        "border-indigo-500/20",
+        // Background "espace profond" : gradient dark navy + starfield
+        // genere via box-shadow d'un pseudo-element (cf. ::before en CSS).
+        "bg-gradient-to-br from-[#0a0f1f] via-[#0d1430] to-[#0b1024]",
+        isOver
+          ? "ring-2 ring-indigo-400/60 ring-offset-2 ring-offset-background border-indigo-400/50 shadow-[0_0_60px_-10px_rgba(99,102,241,0.5)]"
+          : "shadow-[0_0_40px_-15px_rgba(99,102,241,0.25)] hover:shadow-[0_0_50px_-15px_rgba(99,102,241,0.35)]"
+      )}
+    >
+      {/* Starfield decoratif : couches de points blancs via box-shadow.
+          Pure CSS, zero JS. Pointer-events-none pour ne pas gener le drop. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage: `
+            radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,0.6), transparent),
+            radial-gradient(1px 1px at 60px 70px, rgba(255,255,255,0.4), transparent),
+            radial-gradient(1.5px 1.5px at 120px 40px, rgba(199,210,254,0.5), transparent),
+            radial-gradient(1px 1px at 200px 90px, rgba(255,255,255,0.5), transparent),
+            radial-gradient(1px 1px at 280px 20px, rgba(255,255,255,0.3), transparent),
+            radial-gradient(1.5px 1.5px at 340px 110px, rgba(199,210,254,0.4), transparent),
+            radial-gradient(1px 1px at 420px 60px, rgba(255,255,255,0.5), transparent),
+            radial-gradient(1px 1px at 500px 130px, rgba(255,255,255,0.4), transparent),
+            radial-gradient(1.5px 1.5px at 580px 50px, rgba(199,210,254,0.5), transparent),
+            radial-gradient(1px 1px at 660px 100px, rgba(255,255,255,0.3), transparent),
+            radial-gradient(1px 1px at 740px 30px, rgba(255,255,255,0.6), transparent),
+            radial-gradient(1.5px 1.5px at 820px 80px, rgba(199,210,254,0.4), transparent)
+          `,
+          backgroundSize: "900px 160px",
+          backgroundRepeat: "repeat",
+        }}
+      />
+      {/* Halo central indigo qui pulse legerement au hover-drop */}
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 transition-opacity",
+          isOver ? "opacity-100" : "opacity-40"
+        )}
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(99,102,241,0.15), transparent 70%)",
+        }}
+      />
+
+      <div className="relative p-5 md:p-6">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-indigo-300/80">
+              Perdu dans l&apos;espace
+            </span>
+            <span className="text-[10px] text-indigo-200/40 italic hidden sm:inline">
+              · zone de derive
+            </span>
+          </div>
+          <div className="text-[11px] tabular-nums whitespace-nowrap text-indigo-200/60 font-medium">
+            {cards.length} {cards.length > 1 ? "dossiers" : "dossier"} · {fmtEuro(totalArr)}
+          </div>
+        </div>
+
+        {cards.length === 0 ? (
+          <div className="text-center py-8 text-[12px] text-indigo-200/40 italic">
+            Glisse un dossier ici pour le mettre en sommeil.
+            <br />
+            Il flottera en attendant un signe de vie.
+          </div>
+        ) : (
+          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {cards.map((c) => (
+              <SpaceCard key={c.id} card={c} muted={activeId === c.id} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}, (prev, next) => {
+  // Re-render uniquement si la liste change ou si activeId concerne une
+  // carte de la zone (pour appliquer `muted`).
+  if (prev.cards.length !== next.cards.length) return false;
+  for (let i = 0; i < prev.cards.length; i++) {
+    if (prev.cards[i].id !== next.cards[i].id) return false;
+    if (prev.cards[i].arr !== next.cards[i].arr) return false;
+    if (prev.cards[i].denomination !== next.cards[i].denomination) return false;
+  }
+  const prevHasActive = prev.cards.some((c) => c.id === prev.activeId);
+  const nextHasActive = next.cards.some((c) => c.id === next.activeId);
+  if (prevHasActive !== nextHasActive || prev.activeId !== next.activeId) {
+    if (prevHasActive || nextHasActive) return false;
+  }
+  return true;
+});
+
+/** Carte light, theme sombre, pour la zone espace. Reutilise le draggable
+ *  dnd-kit pour pouvoir ressortir un dossier de la zone si l'utilisateur
+ *  change d'avis. */
+const SpaceCard = memo(function SpaceCard({
+  card,
+  muted = false,
+}: {
+  card: PipelineCard;
+  muted?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: card.id,
+  });
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        transition: "none",
+      }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group rounded-md border border-indigo-300/15 bg-indigo-950/30 backdrop-blur-sm",
+        "px-2 py-1.5 flex items-center gap-1.5 select-none",
+        !isDragging && "hover:border-indigo-300/30 hover:bg-indigo-900/40 transition-colors",
+        muted && "opacity-30"
+      )}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Déplacer hors de Perdu dans l'espace"
+        className="shrink-0 -my-1.5 -ml-1 px-1 py-2 text-indigo-300/30 hover:text-indigo-200/70 cursor-grab active:cursor-grabbing touch-none transition-colors"
+        onClick={(e) => e.preventDefault()}
+      >
+        <GripVertical className="h-3 w-3" />
+      </button>
+      <Link
+        href={`/clients/${card.slug}`}
+        className="font-medium text-[12px] truncate min-w-0 flex-1 text-indigo-100/90 group-hover:text-indigo-50 transition-colors"
+      >
+        {card.denomination}
+      </Link>
+      <span className="text-[10px] tabular-nums text-indigo-200/50 font-medium shrink-0">
+        {fmtEuro(card.arr ?? 0)}
+      </span>
+    </div>
+  );
+});
 
 const Column = memo(function Column({
   statut,
