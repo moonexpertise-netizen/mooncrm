@@ -236,14 +236,16 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         onDragEnd={onDragEnd}
       >
       <div className="hidden md:block space-y-4">
-        {/* Étapes actives - grid auto-fit qui wrap si nécessaire. */}
+        {/* Etapes pre-signature (1 -> 6) en une rangee compacte. On sort
+            LDM signee de ce grid pour pouvoir la placer cote-a-cote avec
+            la zone Perdu dans l'espace en-dessous. */}
         <div
-          className="grid gap-3 pb-2"
+          className="grid gap-3"
           style={{
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           }}
         >
-          {ACTIVE_STAGES.map((s) => (
+          {ACTIVE_STAGES.slice(0, 6).map((s) => (
             <Column
               key={s}
               statut={s}
@@ -251,6 +253,27 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
               activeId={activeId}
             />
           ))}
+        </div>
+
+        {/* Rangee LDM signee + zone Perdu dans l'espace.
+            LDM signee garde sa largeur de colonne kanban classique (300px).
+            La zone "Perdu dans l'espace" remplit tout l'espace a droite,
+            comme demande par Benjamin. Ils ont la meme hauteur grace a
+            items-stretch. */}
+        <div className="flex gap-3 items-stretch">
+          <div className="w-[300px] shrink-0">
+            <Column
+              statut="7 - LDM signée"
+              cards={cardsByStage.get("7 - LDM signée") ?? []}
+              activeId={activeId}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <SpaceDropZone
+              cards={cardsByStage.get(SPACE_STATUT) ?? []}
+              activeId={activeId}
+            />
+          </div>
         </div>
 
         {/* Terminaux - visuellement séparés en bas */}
@@ -282,14 +305,6 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
             />
           </div>
         </div>
-
-        {/* Zone spéciale "Perdu dans l'espace" : grosse drop zone sombre,
-            largeur pleine, look "espace profond". Les dossiers qu'on y
-            lache "disparaissent dans le vide". */}
-        <SpaceDropZone
-          cards={cardsByStage.get(SPACE_STATUT) ?? []}
-          activeId={activeId}
-        />
       </div>
 
       {/* Overlay visuel pendant le drag : version "ghost" légère de la card,
@@ -662,10 +677,10 @@ const SpaceDropZone = memo(function SpaceDropZone({
     <div
       ref={setNodeRef}
       className={cn(
-        "relative mt-6 rounded-2xl border overflow-hidden transition-all",
+        // h-full pour suivre la hauteur de la colonne LDM signee voisine.
+        "relative h-full rounded-2xl border overflow-hidden transition-all",
         "border-indigo-500/20",
-        // Background "espace profond" : gradient dark navy + starfield
-        // genere via box-shadow d'un pseudo-element (cf. ::before en CSS).
+        // Background "espace profond" : gradient dark navy + starfield.
         "bg-gradient-to-br from-[#0a0f1f] via-[#0d1430] to-[#0b1024]",
         isOver
           ? "ring-2 ring-indigo-400/60 ring-offset-2 ring-offset-background border-indigo-400/50 shadow-[0_0_60px_-10px_rgba(99,102,241,0.5)]"
@@ -709,8 +724,8 @@ const SpaceDropZone = memo(function SpaceDropZone({
         }}
       />
 
-      <div className="relative p-5 md:p-6">
-        <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="relative h-full flex flex-col p-5 md:p-6">
+        <div className="flex items-center justify-between gap-3 mb-3 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-indigo-300/80">
               Perdu dans l&apos;espace
@@ -725,16 +740,23 @@ const SpaceDropZone = memo(function SpaceDropZone({
         </div>
 
         {cards.length === 0 ? (
-          <div className="text-center py-8 text-[12px] text-indigo-200/40 italic">
-            Glisse un dossier ici pour le mettre en sommeil.
-            <br />
-            Il flottera en attendant un signe de vie.
+          // Vide : message centre verticalement dans tout l'espace dispo.
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-[13px] text-indigo-200/40 italic leading-relaxed max-w-md">
+              Glisse un dossier ici pour le mettre en sommeil.
+              <br />
+              Il flottera en attendant un signe de vie.
+            </div>
           </div>
         ) : (
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {cards.map((c) => (
-              <SpaceCard key={c.id} card={c} muted={activeId === c.id} />
-            ))}
+          // Avec contenu : grille auto-fit qui remplit l'espace, scrollable
+          // si on depasse la hauteur de la rangee (= LDM signee voisine).
+          <div className="flex-1 overflow-y-auto pr-1 -mr-1">
+            <div className="grid gap-1.5 grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
+              {cards.map((c) => (
+                <SpaceCard key={c.id} card={c} muted={activeId === c.id} />
+              ))}
+            </div>
           </div>
         )}
       </div>
