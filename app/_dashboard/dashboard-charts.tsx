@@ -25,7 +25,24 @@ import {
   ComposedChart,
 } from "recharts";
 import { cn, fmtEuro, PIPELINE_COLORS } from "@/lib/utils";
+import { useTheme } from "@/app/_components/theme-provider";
 import type { DashboardData } from "./dashboard-data";
+
+/**
+ * Couleurs de charts theme-aware. Avant : axes/labels en hex codé en dur
+ * (#71717a / #52525b) ≈ 2:1 sur le fond dark #202020 → dashboard illisible
+ * en dark ET navy. On dérive les teintes du thème résolu.
+ */
+function useChartColors() {
+  const { resolvedTheme } = useTheme();
+  const dark = resolvedTheme !== "light";
+  return {
+    axis: dark ? "#a1a1aa" : "#71717a", // zinc-400 / zinc-500
+    label: dark ? "#d4d4d8" : "#52525b", // zinc-300 / zinc-600
+    cursor: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+    grid: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+  };
+}
 
 /**
  * Composant client du dashboard. Reçoit toutes les données pré-agrégées
@@ -182,6 +199,7 @@ function KpiCard({
 function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
   const router = useRouter();
   const [mode, setMode] = useState<"count" | "arr">("count");
+  const cc = useChartColors();
 
   // Filtrer les étapes à 0 pour la lisibilité (mais on les garde si toutes à 0)
   const visible = pipeline.filter((p) => p.count > 0);
@@ -228,17 +246,17 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
               angle={-25}
               textAnchor="end"
               interval={0}
-              tick={{ fontSize: 10, fill: "#71717a" }}
+              tick={{ fontSize: 10, fill: cc.axis }}
             />
             <YAxis
-              tick={{ fontSize: 10, fill: "#71717a" }}
+              tick={{ fontSize: 10, fill: cc.axis }}
               tickFormatter={(v) =>
                 mode === "arr" ? fmtCompactEuro(v) : fmtCompactCount(v)
               }
               width={56}
             />
             <Tooltip
-              cursor={{ fill: "rgba(0,0,0,0.04)" }}
+              cursor={{ fill: cc.cursor }}
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
                 const p = payload[0].payload as { full: string; value: number };
@@ -263,7 +281,7 @@ function PipelineFunnel({ pipeline }: { pipeline: DashboardData["pipeline"] }) {
               <LabelList
                 dataKey="value"
                 position="top"
-                style={{ fontSize: 10, fill: "#52525b" }}
+                style={{ fontSize: 10, fill: cc.label }}
                 formatter={(v: unknown) =>
                   mode === "arr"
                     ? fmtCompactEuro(Number(v))
@@ -291,6 +309,7 @@ function SignaturesParMois({
   signaturesParMois: DashboardData["signaturesParMois"];
 }) {
   const [mode, setMode] = useState<"count" | "arr">("count");
+  const cc = useChartColors();
 
   const data = signaturesParMois.map((m) => ({
     month: m.monthLabel,
@@ -323,14 +342,14 @@ function SignaturesParMois({
           <ComposedChart data={data} margin={{ top: 12, right: 8, left: -8, bottom: 16 }}>
             <XAxis
               dataKey="month"
-              tick={{ fontSize: 10, fill: "#71717a" }}
+              tick={{ fontSize: 10, fill: cc.axis }}
               interval={0}
               angle={-25}
               textAnchor="end"
             />
             <YAxis
               yAxisId="left"
-              tick={{ fontSize: 10, fill: "#71717a" }}
+              tick={{ fontSize: 10, fill: cc.axis }}
               tickFormatter={(v) =>
                 mode === "arr" ? fmtCompactEuro(v) : fmtCompactCount(v)
               }
@@ -339,7 +358,7 @@ function SignaturesParMois({
             <YAxis
               yAxisId="right"
               orientation="right"
-              tick={{ fontSize: 10, fill: "#a3a3a3" }}
+              tick={{ fontSize: 10, fill: cc.axis }}
               tickFormatter={(v) =>
                 mode === "arr" ? fmtCompactEuro(v) : fmtCompactCount(v)
               }
@@ -377,7 +396,7 @@ function SignaturesParMois({
               <LabelList
                 dataKey="value"
                 position="top"
-                style={{ fontSize: 10, fill: "#52525b" }}
+                style={{ fontSize: 10, fill: cc.label }}
                 formatter={(v: unknown) => {
                   const n = Number(v);
                   if (n === 0) return ""; // pas de label sur les barres à 0
@@ -389,7 +408,9 @@ function SignaturesParMois({
               yAxisId="right"
               type="monotone"
               dataKey="cumul"
-              stroke="#10b981"
+              // sky (et non #10b981 vert = couleur "LDM signée") : evite la
+              // confusion entre la ligne de cumul et le statut signe.
+              stroke="#0ea5e9"
               strokeWidth={2}
               dot={{ r: 3 }}
               name="Cumul YTD"
