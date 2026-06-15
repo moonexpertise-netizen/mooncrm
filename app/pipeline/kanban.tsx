@@ -9,12 +9,14 @@ import { toastError } from "@/lib/toast-helpers";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type Announcements,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -138,8 +140,37 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   // Le link au milieu de la card a son propre clic, plus de conflit.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } })
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
+    // Clavier : Espace/Entree sur la poignee saisit la carte, fleches la
+    // deplacent au-dessus des colonnes, Espace/Entree depose, Echap annule.
+    // Sans ce sensor, changer un statut (seule action de la page) etait
+    // impossible sans souris (WCAG 2.1.1).
+    useSensor(KeyboardSensor)
   );
+
+  // Annonces lecteur d'ecran (FR) pendant le drag clavier/souris.
+  const announcements: Announcements = {
+    onDragStart({ active }) {
+      const c = localCards.find((x) => x.id === String(active.id));
+      return c ? `${c.denomination} saisi. Utilisez les flèches pour déplacer.` : "Carte saisie.";
+    },
+    onDragOver({ active, over }) {
+      if (!over) return undefined;
+      const c = localCards.find((x) => x.id === String(active.id));
+      const label = SHORT_LABEL[String(over.id) as PipelineStatut] ?? String(over.id);
+      return c ? `${c.denomination} au-dessus de ${label}.` : undefined;
+    },
+    onDragEnd({ active, over }) {
+      const c = localCards.find((x) => x.id === String(active.id));
+      if (!over) return c ? `${c.denomination} reposé, statut inchangé.` : undefined;
+      const label = SHORT_LABEL[String(over.id) as PipelineStatut] ?? String(over.id);
+      return c ? `${c.denomination} déplacé vers ${label}.` : undefined;
+    },
+    onDragCancel({ active }) {
+      const c = localCards.find((x) => x.id === String(active.id));
+      return c ? `Déplacement de ${c.denomination} annulé.` : "Déplacement annulé.";
+    },
+  };
 
   function onDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id));
@@ -234,6 +265,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         sensors={sensors}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
+        accessibility={{ announcements }}
       >
       <div className="hidden md:block space-y-4">
         {/* Etapes pre-signature (1 -> 6) en une rangee compacte. On sort
@@ -817,7 +849,7 @@ const SpaceCard = memo(function SpaceCard({
         type="button"
         {...attributes}
         {...listeners}
-        aria-label="Déplacer hors de Perdu dans l'espace"
+        aria-label={`Déplacer ${card.denomination} hors de Perdu dans l'espace — Espace pour saisir`}
         className="shrink-0 -my-1.5 -ml-1 px-1 py-2 text-indigo-300/30 hover:text-indigo-200/70 cursor-grab active:cursor-grabbing touch-none transition-colors"
         onClick={(e) => e.preventDefault()}
       >
@@ -985,7 +1017,7 @@ const Card = memo(function Card({
         ref={undefined}
         {...(isOverlay ? {} : attributes)}
         {...(isOverlay ? {} : listeners)}
-        aria-label="Déplacer la carte"
+        aria-label={`Déplacer ${card.denomination} — Espace pour saisir, flèches pour déplacer`}
         className={cn(
           "shrink-0 -my-1.5 -ml-2 px-1.5 py-2 text-zinc-300 hover:text-zinc-600 group-hover:text-zinc-400 rounded-l-lg transition-colors",
           "cursor-grab active:cursor-grabbing touch-none"

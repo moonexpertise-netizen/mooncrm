@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Briefcase,
   ChevronLeft,
@@ -200,6 +201,11 @@ export function Sidebar() {
   // les transitions/animations CSS sur le 1er render pour eviter le "shift"
   // visible quand le state initial != etat hydrate.
   const [hydrated, setHydrated] = useState(false);
+  // Flyout (tooltip / sous-menu Production) en mode REPLIE. Rendu en portail
+  // `fixed` sur <body> car le <nav> est scrollable (overflow-y-auto force
+  // overflow-x a clipper) : un tooltip `absolute` y serait coupe. On mesure
+  // la position de l'item au survol. cf. fix audit "tooltips/flyout clippes".
+  const [flyout, setFlyout] = useState<{ item: NavItem; top: number; left: number } | null>(null);
 
   useEffect(() => {
     const sb = createClient();
@@ -512,6 +518,14 @@ export function Sidebar() {
             return (
               <NavWrap key={item.href} id={item.href} animate={hydrated} className="relative group/item">
                 <div
+                  onMouseEnter={(e) => {
+                    if (!showCollapsed) return;
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setFlyout({ item, top: r.top, left: r.right + 8 });
+                  }}
+                  onMouseLeave={() => {
+                    if (showCollapsed) setFlyout((f) => (f?.item.href === item.href ? null : f));
+                  }}
                   className={cn(
                     "relative flex items-center rounded-md text-[13px]",
                     active
@@ -576,35 +590,9 @@ export function Sidebar() {
                   )}
                 </div>
 
-                {/* Tooltip quand replié (uniquement desktop collapsed) */}
-                {showCollapsed && (
-                  <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                    <div className="bg-[hsl(var(--surface-elevated))] dark:bg-[hsl(var(--surface-elevated))] border border-white/10 text-zinc-100 text-xs px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap">
-                      {item.label}
-                      {isProduction && hasChildren && item.children && (
-                        <div className="mt-1.5 pt-1.5 border-t border-white/10 space-y-1 max-h-80 overflow-auto">
-                          {item.children.map((c, i) =>
-                            c.kind === "header" ? (
-                              <div
-                                key={`h-${i}`}
-                                className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold pt-1.5 first:pt-0"
-                              >
-                                {c.label}
-                              </div>
-                            ) : (
-                              <div
-                                key={c.slug}
-                                className="text-zinc-300 text-[11px] pl-1.5"
-                              >
-                                {c.label}
-                              </div>
-                            )
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {/* Le tooltip/flyout en mode replié est rendu en portail
+                    `fixed` (cf. flyout state + bloc en fin de composant) pour
+                    échapper au clip overflow du <nav> scrollable. */}
 
                 {/* Sous-menu Production - rubriques sur bandeau, sous-rubriques petites.
                     Note: les sous-items NE SONT PAS deplacables (ordre fixe par groupe
@@ -739,6 +727,40 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+
+    {/* Flyout mode replié, rendu en portail fixed sur <body> pour échapper
+        au clip overflow du <nav>. Affiche le label de l'item + le sous-menu
+        Production complet quand on survole une icône en sidebar repliée. */}
+    {flyout && typeof document !== "undefined" &&
+      createPortal(
+        <div
+          className="pointer-events-none fixed z-popover"
+          style={{ top: flyout.top, left: flyout.left }}
+        >
+          <div className="animate-fade-in bg-[hsl(var(--surface-elevated))] border border-white/10 text-zinc-100 text-xs px-2.5 py-1.5 rounded-md shadow-pop whitespace-nowrap">
+            {flyout.item.label}
+            {flyout.item.href === "/obligations" && flyout.item.children && (
+              <div className="mt-1.5 pt-1.5 border-t border-white/10 space-y-1 max-h-80 overflow-auto">
+                {flyout.item.children.map((c, i) =>
+                  c.kind === "header" ? (
+                    <div
+                      key={`h-${i}`}
+                      className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold pt-1.5 first:pt-0"
+                    >
+                      {c.label}
+                    </div>
+                  ) : (
+                    <div key={c.slug} className="text-zinc-300 text-[11px] pl-1.5">
+                      {c.label}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
