@@ -18,9 +18,11 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminUsersPage() {
   const sb = await createClient();
+  // select("*") : tolère que la migration 0078 (colonne role) ne soit pas
+  // encore appliquée — l'UI retombe sur resolveRole(is_admin).
   const { data: profiles } = await sb
     .from("profiles")
-    .select("id, email, approved, is_admin, role, created_at, approved_at")
+    .select("*")
     .order("approved", { ascending: true }) // En attente d'abord
     .order("created_at", { ascending: false });
 

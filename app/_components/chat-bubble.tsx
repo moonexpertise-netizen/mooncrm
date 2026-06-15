@@ -153,7 +153,7 @@ export default function ChatBubble() {
       if (!user) return;
       const { data: prof } = await sb
         .from("profiles")
-        .select("is_admin, role")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
       setCanUse(hasPermission(resolveRole(prof ?? {}), "use_jarvis"));

@@ -53,9 +53,12 @@ export async function updateSession(request: NextRequest) {
   // automatiquement par le trigger handle_new_user() à chaque signup, donc
   // il devrait toujours exister pour un user valide.
   if (user && !isPublic) {
+    // select("*") (et non "role" explicite) : tolère que la migration 0078
+    // ne soit pas encore appliquée (sinon la requête échoue et bloquerait
+    // l'accès à tout le monde). resolveRole retombe sur is_admin si pas de role.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("approved, is_admin, role")
+      .select("*")
       .eq("id", user.id)
       .maybeSingle();
 

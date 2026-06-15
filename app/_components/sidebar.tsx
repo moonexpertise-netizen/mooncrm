@@ -222,7 +222,7 @@ export function Sidebar() {
       if (!user) return;
       const { data: prof } = await sb
         .from("profiles")
-        .select("is_admin, role")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
       setMe({

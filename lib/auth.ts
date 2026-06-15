@@ -18,9 +18,11 @@ export async function getMyRole(): Promise<Role | null> {
     data: { user },
   } = await sb.auth.getUser();
   if (!user) return null;
+  // select("*") : tolère l'absence de la colonne `role` (migration 0078 pas
+  // encore appliquée) — resolveRole retombe alors sur is_admin.
   const { data } = await sb
     .from("profiles")
-    .select("role, is_admin, approved")
+    .select("*")
     .eq("id", user.id)
     .maybeSingle();
   if (!data || data.approved !== true) return null;
