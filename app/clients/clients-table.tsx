@@ -468,7 +468,7 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     </Link>
                   )}
                 </td>
-                <td className="px-3 py-2.5 align-middle text-zinc-600 dark:text-zinc-300">
+                <td className="px-3 py-2.5 align-middle text-zinc-700 dark:text-zinc-200">
                   <Link href={href} className="block">
                     {r.forme ? (
                       <span className="inline-block px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-200 tabular-nums">
@@ -479,12 +479,12 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
                     )}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5 align-middle text-zinc-600 dark:text-zinc-300">
+                <td className="px-3 py-2.5 align-middle text-zinc-700 dark:text-zinc-200">
                   <Link href={href} className="block">
                     {r.groupe_nom ?? <span className="text-zinc-300 dark:text-zinc-600">-</span>}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5 align-middle text-zinc-600 dark:text-zinc-300">
+                <td className="px-3 py-2.5 align-middle text-zinc-700 dark:text-zinc-200">
                   <Link href={href} className="block">
                     {r.activite ?? <span className="text-zinc-300 dark:text-zinc-600">-</span>}
                   </Link>
