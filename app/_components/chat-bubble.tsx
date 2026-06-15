@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { resolveRole, hasPermission } from "@/lib/permissions";
 
 /** Mutation faite par Jarvis et renvoyee par /api/chat. */
 type JarvisChange = {
@@ -140,6 +142,24 @@ function pickFrenchMaleVoice(): SpeechSynthesisVoice | null {
 }
 
 export default function ChatBubble() {
+  // Jarvis réservé aux profils ayant la permission use_jarvis (Admin /
+  // Collaborateur). On masque entièrement la bulle sinon. Démarre caché et
+  // s'affiche une fois la permission confirmée (pas de flash pour les autres).
+  const [canUse, setCanUse] = useState(false);
+  useEffect(() => {
+    const sb = createClient();
+    (async () => {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      const { data: prof } = await sb
+        .from("profiles")
+        .select("is_admin, role")
+        .eq("id", user.id)
+        .maybeSingle();
+      setCanUse(hasPermission(resolveRole(prof ?? {}), "use_jarvis"));
+    })();
+  }, []);
+
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -477,6 +497,9 @@ export default function ChatBubble() {
     if (recording) stopRecording();
     else startRecording();
   }
+
+  // Profil sans accès Jarvis → pas de bulle du tout.
+  if (!canUse) return null;
 
   return (
     <>

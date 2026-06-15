@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveRole, hasPermission } from "@/lib/permissions";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -54,19 +55,12 @@ export async function updateSession(request: NextRequest) {
   if (user && !isPublic) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("approved, is_admin")
+      .select("approved, is_admin, role")
       .eq("id", user.id)
       .maybeSingle();
 
     const isApproved = profile?.approved === true;
-    const isAdmin = profile?.is_admin === true;
-
-    // Pages réservées aux admins
-    if (path.startsWith("/admin") && !isAdmin) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/";
-      return NextResponse.redirect(url);
-    }
+    const role = resolveRole(profile ?? {});
 
     // Non-approuvé : seule la page /en-attente lui est accessible.
     if (!isApproved && path !== "/en-attente") {
@@ -80,6 +74,33 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);
+    }
+
+    // ===== Gardes de routes par permission (couche 1) =====
+    // On ne contrôle que les utilisateurs approuvés (les non-approuvés sont
+    // déjà bloqués au-dessus).
+    if (isApproved) {
+      const denied =
+        (path.startsWith("/admin") && !hasPermission(role, "manage_users")) ||
+        (path.startsWith("/finance") && !hasPermission(role, "view_finance")) ||
+        (path.startsWith("/facturation") && !hasPermission(role, "view_facturation")) ||
+        (path.startsWith("/parametrage") && !hasPermission(role, "edit_parametrage"));
+
+      if (denied) {
+        const url = request.nextUrl.clone();
+        // Externe n'a pas de dashboard financier d'accueil → on l'envoie vers
+        // la liste clients ; les autres reviennent à l'accueil.
+        url.pathname = role === "externe" ? "/clients" : "/";
+        return NextResponse.redirect(url);
+      }
+
+      // Externe : pas de page d'accueil financière (ARR/MRR). Redirige vers
+      // la liste clients.
+      if (role === "externe" && path === "/") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/clients";
+        return NextResponse.redirect(url);
+      }
     }
   }
 

@@ -20,7 +20,7 @@ export default async function AdminUsersPage() {
   const sb = await createClient();
   const { data: profiles } = await sb
     .from("profiles")
-    .select("id, email, approved, is_admin, created_at, approved_at")
+    .select("id, email, approved, is_admin, role, created_at, approved_at")
     .order("approved", { ascending: true }) // En attente d'abord
     .order("created_at", { ascending: false });
 

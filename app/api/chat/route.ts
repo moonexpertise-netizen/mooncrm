@@ -15,6 +15,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { can } from "@/lib/auth";
 import { TOOL_DEFINITIONS, TOOL_HANDLERS } from "./tools";
 import { slugForType } from "@/app/obligations/trackers";
 
@@ -281,6 +282,15 @@ export async function POST(req: Request) {
   } = await sb.auth.getUser();
   if (!user) {
     return Response.json({ error: "Non authentifie" }, { status: 401 });
+  }
+
+  // 1b. Permission : Jarvis réservé aux profils ayant `use_jarvis`
+  //     (Admin / Collaborateur). Lecture seule + Externe sont bloqués.
+  if (!(await can("use_jarvis"))) {
+    return Response.json(
+      { error: "Votre profil n'a pas accès à l'assistant." },
+      { status: 403 }
+    );
   }
 
   // 2. Cle API

@@ -47,7 +47,15 @@ import { CSS } from "@dnd-kit/utilities";
 import { TRACKERS, TRACKER_GROUPS } from "@/app/obligations/trackers";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { resolveRole, hasPermission, ROLE_LABELS, type Permission, type Role } from "@/lib/permissions";
 import { loadSidebarBadges } from "./sidebar-badges-loader";
+
+/** Rubriques de nav réservées à une permission (masquées sinon). */
+const NAV_PERMISSION: Record<string, Permission> = {
+  "/finance": "view_finance",
+  "/facturation": "view_facturation",
+  "/parametrage": "edit_parametrage",
+};
 
 export const SIDEBAR_STORAGE_KEY = "moon.sidebar.collapsed";
 export const SIDEBAR_EVENT = "moon:sidebar-toggle";
@@ -179,7 +187,7 @@ export function Sidebar() {
   const [persistedObligationsYear, setPersistedObligationsYear] = useState<number | null>(null);
   // Profile du user logué : sert à afficher email dans le footer + lien
   // Admin → Utilisateurs si is_admin. Fetch une seule fois au mount.
-  const [me, setMe] = useState<{ email: string; isAdmin: boolean } | null>(null);
+  const [me, setMe] = useState<{ email: string; isAdmin: boolean; role: Role } | null>(null);
   // Badges "A faire" sur Creations / IR / CAA + factures a etablir sur
   // Facturation. Charges au mount + a chaque changement de route (cf. effet
   // plus bas) pour rester a jour.
@@ -214,12 +222,13 @@ export function Sidebar() {
       if (!user) return;
       const { data: prof } = await sb
         .from("profiles")
-        .select("is_admin")
+        .select("is_admin, role")
         .eq("id", user.id)
         .maybeSingle();
       setMe({
         email: user.email ?? "",
         isAdmin: prof?.is_admin === true,
+        role: resolveRole(prof ?? {}),
       });
     })();
   }, []);
@@ -381,10 +390,21 @@ export function Sidebar() {
     });
   }
 
-  // NAV_ITEMS ordonnes selon navOrder (custom de l'utilisateur)
+  // NAV_ITEMS ordonnes selon navOrder (custom de l'utilisateur), puis filtres
+  // par permission : on masque les rubriques que le role courant ne peut pas
+  // voir (Finance, Facturation, Parametrage). Tant que le role n'est pas
+  // charge, on cache les rubriques gatees (evite un flash pour les non-admins).
+  const role = me?.role ?? null;
   const orderedNavItems = navOrder
     .map((href) => NAV_ITEMS.find((i) => i.href === href))
-    .filter((i): i is NavItem => i !== undefined);
+    .filter((i): i is NavItem => i !== undefined)
+    .filter((item) => {
+      // Externe : pas de dashboard d'accueil financier
+      if (item.href === "/" && role === "externe") return false;
+      const perm = NAV_PERMISSION[item.href];
+      if (!perm) return true;
+      return role ? hasPermission(role, perm) : false;
+    });
 
   // Année Production active : URL si on est sur /obligations*, sinon la
   // dernière mémorisée. Sert à propager ?year= dans les liens du sidebar.
@@ -675,7 +695,7 @@ export function Sidebar() {
               {me ? displayNameFromEmail(me.email) : "…"}
             </div>
             <div className="text-[11px] text-zinc-500 truncate">
-              {me?.isAdmin ? "Administrateur" : "MOON Expertise"}
+              {me ? ROLE_LABELS[me.role] : "MOON Expertise"}
             </div>
             {me?.isAdmin && (
               <Link
