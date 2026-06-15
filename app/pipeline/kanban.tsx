@@ -47,11 +47,15 @@ const ACTIVE_STAGES: PipelineStatut[] = [
   "5 - PC acceptée",
   "6 - LDM envoyée",
   "7 - LDM signée",
+  // "Perdu dans l'espace" reste dans la zone active du kanban (a cote
+  // de LDM signee) plutot que dans "Hors pipeline actif" : ce sont des
+  // prospects en sommeil mais susceptibles de revenir, l'oeil doit les
+  // voir naturellement avec les autres prospects.
+  "Z - Perdu dans l'espace",
 ];
 const TERMINAL_STAGES: PipelineStatut[] = [
   "Z - Interne",
   "Z - Sous-traitance",
-  "Z - Perdu dans l'espace",
   "Z - Prospect perdu",
   "Z - Résiliée",
 ];
