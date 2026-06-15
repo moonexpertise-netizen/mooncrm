@@ -113,7 +113,13 @@ function toolResultToChange(
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const MODEL = "claude-opus-4-7-20251022";
+// Modèle Jarvis. Configurable via env ANTHROPIC_MODEL (Vercel) pour pouvoir
+// changer de modèle SANS redéployer le code et SANS risque de 404 sur un ID
+// inventé. Fallback : Sonnet 4.5, dont l'ID est certifié valide (c'était le
+// modèle d'origine qui marchait). Pour passer sur Opus, mettre l'ID API EXACT
+// (copié depuis la console Anthropic, ex. claude-opus-4-1-20250805) dans
+// ANTHROPIC_MODEL — surtout pas un ID deviné, sinon l'API renvoie 404.
+const MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-5-20250929";
 const MAX_TURNS = 8; // garde-fou anti-boucle infinie tool_use
 
 const CURRENT_YEAR = new Date().getFullYear();
