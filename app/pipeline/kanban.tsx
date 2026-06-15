@@ -256,12 +256,13 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         </div>
 
         {/* Rangee LDM signee + zone Perdu dans l'espace.
-            LDM signee garde sa largeur de colonne kanban classique (300px).
-            La zone "Perdu dans l'espace" remplit tout l'espace a droite,
-            comme demande par Benjamin. Ils ont la meme hauteur grace a
-            items-stretch. */}
+            LDM signee s'elargit pour afficher 2 colonnes par defaut, 3 sur
+            grand ecran (xl+). C'est la colonne la plus chargee (~48
+            dossiers), elle merite plus d'espace pour eviter le scroll
+            constant. La zone "Perdu dans l'espace" garde flex-1 et
+            remplit l'espace restant. Items-stretch -> meme hauteur. */}
         <div className="flex gap-3 items-stretch">
-          <div className="w-[300px] shrink-0">
+          <div className="w-[640px] xl:w-[920px] shrink-0">
             <Column
               statut="7 - LDM signée"
               cards={cardsByStage.get("7 - LDM signée") ?? []}
@@ -874,15 +875,21 @@ const Column = memo(function Column({
           {cards.length} · {fmtEuro(totalArr)}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto p-2">
         {cards.length === 0 ? (
           <div className="text-[11px] text-zinc-400 text-center py-10 italic">
             (vide)
           </div>
         ) : (
-          cards.map((c) => (
-            <Card key={c.id} card={c} muted={activeId === c.id} />
-          ))
+          // Grid auto-fill : les colonnes etroites (220px) restent en
+          // 1 colonne interne, les colonnes elargies (LDM signee : 640/920px)
+          // affichent automatiquement 2 a 4 cartes par rangee. Symetrique
+          // avec ce qu'on fait dans SpaceDropZone.
+          <div className="grid gap-1.5 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
+            {cards.map((c) => (
+              <Card key={c.id} card={c} muted={activeId === c.id} />
+            ))}
+          </div>
         )}
       </div>
     </div>
