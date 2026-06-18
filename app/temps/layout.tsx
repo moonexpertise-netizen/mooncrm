@@ -21,25 +21,29 @@ export default function TempsLayout({ children }: { children: React.ReactNode })
           Feuille de temps et planning de l&apos;équipe.
         </p>
       </div>
-      <div className="flex items-center gap-1 border-b border-zinc-200 dark:border-white/[0.08]">
+      <nav
+        aria-label="Sections temps"
+        className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]"
+      >
         {TABS.map((t) => {
           const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
           return (
             <Link
               key={t.href}
               href={t.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "px-3.5 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                "px-3.5 py-2 text-sm rounded-lg transition-all whitespace-nowrap",
                 active
-                  ? "border-[hsl(var(--gold))] text-zinc-900 dark:text-zinc-50"
-                  : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
               )}
             >
               {t.label}
             </Link>
           );
         })}
-      </div>
+      </nav>
       {children}
     </div>
   );

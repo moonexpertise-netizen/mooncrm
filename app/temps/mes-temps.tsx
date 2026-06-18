@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCan } from "@/app/_components/permissions-context";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
@@ -79,6 +79,10 @@ function fmtHours(min: number): string {
 function minutesToDecimal(min: number): string {
   return (min / 60).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 }
+/** Normalise pour une recherche insensible aux accents et à la casse. */
+function norm(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
 
 const INPUT_CLS =
   "h-9 px-2.5 rounded-md border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] disabled:opacity-50 disabled:cursor-not-allowed";
@@ -118,6 +122,11 @@ export default function MesTemps({
     () => activites.map((a) => ({ value: a.id, label: a.libelle })),
     [activites]
   );
+  // Pour le filtre de la liste : on ajoute une option « Tous les dossiers ».
+  const filterDossierOptions = useMemo<ComboOption[]>(
+    () => [{ value: "", label: "Tous les dossiers" }, ...dossierOptions],
+    [dossierOptions]
+  );
 
   // --- Vue : semaine (toutes les journées) ou jour (une seule) ---
   const [viewMode, setViewMode] = useState<"semaine" | "jour">("semaine");
@@ -130,6 +139,11 @@ export default function MesTemps({
   const [jour, setJour] = useState<string>(defaultDay);
   const [commentaire, setCommentaire] = useState<string>("");
   const [facturable, setFacturable] = useState<boolean>(true);
+
+  // Filtres de la liste (n'affectent pas le total « cette semaine »).
+  const [fSearch, setFSearch] = useState<string>("");
+  const [fDossier, setFDossier] = useState<string>("");
+  const [fActivite, setFActivite] = useState<string>("");
 
   // Quand on change de semaine, on recale le jour ciblé dans la semaine.
   useEffect(() => {
@@ -208,6 +222,23 @@ export default function MesTemps({
     toastSuccess("Copié dans le formulaire — ajuste et valide");
   }
 
+  const displayed = useMemo(() => {
+    const nq = norm(fSearch);
+    return entries.filter((e) => {
+      if (fDossier === "__autre" && e.clientId !== null) return false;
+      if (fDossier && fDossier !== "__autre" && e.clientId !== fDossier) return false;
+      if (fActivite && e.activiteId !== fActivite) return false;
+      if (nq) {
+        const hay = norm(
+          `${e.clientName ?? ""} ${e.categorieAutre ?? ""} ${e.activiteLibelle ?? ""} ${e.commentaire ?? ""}`
+        );
+        if (!hay.includes(nq)) return false;
+      }
+      return true;
+    });
+  }, [entries, fSearch, fDossier, fActivite]);
+  const hasFilters = !!(fSearch || fDossier || fActivite);
+
   const weekTotal = entries.reduce((s, e) => s + e.dureeMinutes, 0);
   const prevWeek = addDaysIso(weekStart, -7);
   const nextWeek = addDaysIso(weekStart, 7);
@@ -251,17 +282,18 @@ export default function MesTemps({
         )}
 
         {/* Bascule Semaine / Jour */}
-        <div className="inline-flex rounded-md border border-zinc-200 dark:border-white/[0.12] overflow-hidden ml-1">
+        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08] ml-1">
           {(["semaine", "jour"] as const).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setViewMode(m)}
+              aria-current={viewMode === m ? "true" : undefined}
               className={cn(
-                "px-3 h-9 text-sm transition-colors",
+                "px-3 py-1.5 text-sm rounded-lg transition-all",
                 viewMode === m
-                  ? "bg-zinc-900 text-white dark:bg-white/[0.12] dark:text-zinc-50"
-                  : "bg-white dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.08]"
+                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
               )}
             >
               {m === "semaine" ? "Semaine" : "Jour"}
@@ -412,10 +444,55 @@ export default function MesTemps({
         )}
       </div>
 
+      {/* Filtres de la liste */}
+      {entries.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              value={fSearch}
+              onChange={(e) => setFSearch(e.target.value)}
+              placeholder="Filtrer mes saisies…"
+              className="h-9 w-full pl-8 pr-2.5 rounded-md border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+              aria-label="Filtrer mes saisies"
+            />
+          </div>
+          <Combobox
+            value={fDossier}
+            onChange={setFDossier}
+            options={filterDossierOptions}
+            placeholder="Dossier…"
+            ariaLabel="Filtrer par dossier"
+            className="min-w-[170px] w-[200px]"
+          />
+          <select
+            value={fActivite}
+            onChange={(e) => setFActivite(e.target.value)}
+            className={cn(INPUT_CLS, "min-w-[130px]")}
+            aria-label="Filtrer par activité"
+          >
+            <option value="">Toutes activités</option>
+            {activites.map((a) => (
+              <option key={a.id} value={a.id}>{a.libelle}</option>
+            ))}
+          </select>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={() => { setFSearch(""); setFDossier(""); setFActivite(""); }}
+              className="inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+            >
+              <X className="h-3.5 w-3.5" /> Réinitialiser
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Liste */}
       <div className="space-y-3">
         {shownDays.map((d) => {
-          const dayEntries = entries.filter((e) => e.dateJour === d);
+          const dayEntries = displayed.filter((e) => e.dateJour === d);
           if (dayEntries.length === 0) return null;
           const total = dayEntries.reduce((s, e) => s + e.dureeMinutes, 0);
           return (
@@ -485,11 +562,15 @@ export default function MesTemps({
         })}
 
         {/* États vides */}
-        {viewMode === "semaine" && entries.length === 0 && (
-          <EmptyState label="Aucun temps saisi cette semaine." />
+        {viewMode === "semaine" && displayed.length === 0 && (
+          <EmptyState
+            label={hasFilters ? "Aucune saisie ne correspond aux filtres." : "Aucun temps saisi cette semaine."}
+          />
         )}
-        {viewMode === "jour" && entries.filter((e) => e.dateJour === jour).length === 0 && (
-          <EmptyState label={`Aucun temps saisi le ${dayLabel(jour)}.`} />
+        {viewMode === "jour" && displayed.filter((e) => e.dateJour === jour).length === 0 && (
+          <EmptyState
+            label={hasFilters ? "Aucune saisie ne correspond aux filtres ce jour." : `Aucun temps saisi le ${dayLabel(jour)}.`}
+          />
         )}
       </div>
     </div>

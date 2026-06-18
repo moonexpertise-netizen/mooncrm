@@ -178,17 +178,18 @@ export default function Planning({
             Cette semaine
           </button>
         )}
-        <div className="inline-flex rounded-md border border-zinc-200 dark:border-white/[0.12] overflow-hidden ml-1">
+        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08] ml-1">
           {(["semaine", "jour"] as const).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setViewMode(m)}
+              aria-current={viewMode === m ? "true" : undefined}
               className={cn(
-                "px-3 h-9 text-sm transition-colors",
+                "px-3 py-1.5 text-sm rounded-lg transition-all",
                 viewMode === m
-                  ? "bg-zinc-900 text-white dark:bg-white/[0.12] dark:text-zinc-50"
-                  : "bg-white dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.08]"
+                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-semibold"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/50 dark:hover:bg-white/[0.06] border border-transparent"
               )}
             >
               {m === "semaine" ? "Semaine" : "Jour"}
