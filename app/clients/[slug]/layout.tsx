@@ -155,6 +155,18 @@ export default async function ClientLayout({
     clientList = (allClientsList ?? []) as Array<{ slug: string; denomination: string }>;
   }
 
+  // Modèles d'e-mails (guide) passés au bouton "Envoyer le guide". Repli sur
+  // les défauts côté composant si la table n'existe pas encore (migration 0085).
+  const { data: emailTplRows } = await supabase
+    .from("email_templates")
+    .select("key, subject, body");
+  const emailTplByKey = new Map(
+    ((emailTplRows ?? []) as { key: string; subject: string; body: string }[]).map((r) => [
+      r.key,
+      { subject: r.subject, body: r.body },
+    ])
+  );
+
   const idx = clientList.findIndex((c) => c.slug === slug);
   const prev = idx > 0 ? clientList[idx - 1] : null;
   const next = idx >= 0 && idx < clientList.length - 1 ? clientList[idx + 1] : null;
@@ -259,6 +271,10 @@ export default async function ClientLayout({
                 denomination={client.denomination}
                 siren={client.siren}
                 origine={client.origine}
+                templates={{
+                  creation: emailTplByKey.get("guide_creation") ?? null,
+                  reprise: emailTplByKey.get("guide_reprise") ?? null,
+                }}
               />
               <LDMButton
                 clientId={client.id}

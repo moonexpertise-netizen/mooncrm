@@ -1,6 +1,10 @@
 "use client";
 
 import { Mail } from "lucide-react";
+import {
+  DEFAULT_EMAIL_TEMPLATES,
+  type EmailTemplate,
+} from "@/lib/email-templates-defaults";
 
 /**
  * Bouton "Envoyer le guide" : ouvre un mailto pré-rempli avec le guide Gamma
@@ -12,19 +16,22 @@ import { Mail } from "lucide-react";
  *   - Création / Création par Tiers → guide CRÉATION
  *   - autre                         → guide REPRISE
  *
- * L'identification du dossier post-remplissage se fait côté webhook via SIREN
- * (Reprise) ou email (Création) - le guide n'est pas personnalisé par prospect.
+ * Les textes (objet + corps) sont éditables dans /parametrage/emails et passés
+ * via `templates`. Repli sur DEFAULT_EMAIL_TEMPLATES si absents. Placeholders
+ * {lien} (URL du guide) et {denomination} substitués à l'envoi.
  */
 export default function TallyButton({
   email,
   denomination,
   origine,
+  templates,
 }: {
   clientId: string; // gardé pour rétrocompat, non utilisé ici
   email: string | null;
   denomination: string;
   siren: string | null;
   origine: string | null;
+  templates?: { creation: EmailTemplate | null; reprise: EmailTemplate | null };
 }) {
   const isCreation =
     origine === "1 - Création" || origine === "2 - Création par Tiers";
@@ -46,31 +53,16 @@ export default function TallyButton({
   }
 
   function onClick() {
-    const subject = `Guide de ${isCreation ? "création" : "reprise"} — MOON Expertise (${denomination})`;
+    const tpl: EmailTemplate = isCreation
+      ? templates?.creation ?? DEFAULT_EMAIL_TEMPLATES.guide_creation
+      : templates?.reprise ?? DEFAULT_EMAIL_TEMPLATES.guide_reprise;
 
-    // Intro + dernière démarche varient selon création / reprise.
-    const intro = isCreation
-      ? "Pour donner suite à votre acceptation de notre proposition commerciale, nous vous invitons à consulter notre guide de création, accessible via le lien ci-dessous. Celui-ci vous accompagnera tout au long des prochaines étapes de la création de votre entreprise."
-      : "Pour donner suite à votre acceptation de notre proposition commerciale, nous vous invitons à consulter notre guide de reprise, accessible via le lien ci-dessous. Celui-ci vous accompagnera tout au long des prochaines étapes de la reprise de votre entreprise par MOON Expertise.";
-    const demarche = isCreation
-      ? "Ces éléments nous permettront de préparer votre lettre de mission, qui formalise notre collaboration, et d’engager les démarches nécessaires à la constitution de votre entreprise."
-      : "Ces éléments nous permettront de préparer votre lettre de mission, qui formalise notre collaboration, et d’engager les démarches nécessaires à la reprise de votre dossier.";
+    // Substitution des variables. gammaUrl est garanti non-null ici.
+    const fill = (s: string) =>
+      s.replace(/\{lien\}/g, gammaUrl as string).replace(/\{denomination\}/g, denomination);
 
-    const body = [
-      "Bonjour,",
-      "",
-      intro,
-      "",
-      gammaUrl,
-      "",
-      `Depuis la première diapositive, vous pourrez accéder à un formulaire en cliquant sur le bouton prévu à cet effet. Nous vous remercions de bien vouloir le compléter et nous transmettre l’ensemble des informations et documents demandés. ${demarche}`,
-      "",
-      "Nous vous souhaitons une bonne réception de ces éléments et restons à votre disposition pour toute précision complémentaire.",
-      "",
-      "Respectueusement,",
-      "Benjamin Perez, MOON Expertise",
-    ].join("\n");
-
+    const subject = fill(tpl.subject);
+    const body = fill(tpl.body);
     const mailto = `mailto:${encodeURIComponent(email ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailto;
   }
