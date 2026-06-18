@@ -28,7 +28,9 @@ export type Permission =
   | "edit_production" // obligations, missions, échéances, onboarding, pilotage
   | "edit_facturation" // marquer facturé / à facturer
   | "edit_parametrage" // statuts, étiquettes TVA, configuration
-  | "use_jarvis"; // chatbot IA
+  | "use_jarvis" // chatbot IA
+  | "saisir_temps" // saisir ses propres temps (feuille de temps)
+  | "voir_temps_equipe"; // voir les temps de l'équipe + rentabilité par dossier
 
 export const ROLES: Role[] = ["admin", "collaborateur", "lecture", "externe"];
 
@@ -36,6 +38,8 @@ export const ROLES: Role[] = ["admin", "collaborateur", "lecture", "externe"];
 export const ALL_PERMISSIONS: Permission[] = [
   "edit_clients",
   "edit_production",
+  "saisir_temps",
+  "voir_temps_equipe",
   "view_facturation",
   "edit_facturation",
   "view_honoraires",
@@ -49,6 +53,8 @@ export const ALL_PERMISSIONS: Permission[] = [
 export const PERMISSION_LABELS: Record<Permission, string> = {
   edit_clients: "Éditer clients & pipeline",
   edit_production: "Éditer la production",
+  saisir_temps: "Saisir ses temps",
+  voir_temps_equipe: "Voir les temps de l'équipe",
   view_facturation: "Voir la facturation",
   edit_facturation: "Modifier la facturation",
   view_honoraires: "Voir les honoraires",
@@ -92,6 +98,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "edit_facturation",
     "edit_parametrage",
     "use_jarvis",
+    "saisir_temps",
+    "voir_temps_equipe",
   ],
   collaborateur: [
     "view_facturation",
@@ -100,6 +108,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "edit_production",
     "edit_facturation",
     "use_jarvis",
+    "saisir_temps",
   ],
   lecture: ["view_facturation", "view_honoraires"],
   externe: [],

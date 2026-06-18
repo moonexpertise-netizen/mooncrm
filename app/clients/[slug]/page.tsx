@@ -17,6 +17,7 @@ import { Card, FieldReadonly, SectionTitle } from "./_components";
 import { loadClient, loadContactsLink, loadActiveTvaTags, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
 import TvaFieldsCard from "./tva-fields-card";
+import TempsCard from "./temps-card";
 
 export const dynamic = "force-dynamic";
 
@@ -176,6 +177,8 @@ export default async function IdentiteTab({
           <EditableNumber clientId={id} field="exceptionnel" value={client.exceptionnel} label="Honos exceptionnels" unit="eur" permission="edit_honoraires" />
         </div>
       </Card>
+
+      <TempsCard clientId={id} honorairesCompta={client.honoraires_compta} />
 
       {/* SECTION 3 - DÉTAILS CRM */}
       <SectionTitle

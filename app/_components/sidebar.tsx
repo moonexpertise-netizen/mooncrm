@@ -25,6 +25,7 @@ import {
   Users,
   Wallet,
   Workflow,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -55,6 +56,7 @@ const NAV_PERMISSION: Record<string, Permission> = {
   "/finance": "view_finance",
   "/facturation": "view_facturation",
   "/parametrage": "edit_parametrage",
+  "/temps": "saisir_temps",
 };
 
 export const SIDEBAR_STORAGE_KEY = "moon.sidebar.collapsed";
@@ -132,6 +134,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/missions/ir", label: "IR + IFI", icon: Receipt, matchPrefix: "/missions/ir", badgeKey: "ir" },
   { href: "/missions/caa", label: "CAA", icon: Stamp, matchPrefix: "/missions/caa", badgeKey: "caa" },
   { href: "/missions/pilotage", label: "Pilotage", icon: GaugeCircle, matchPrefix: "/missions/pilotage" },
+  { href: "/temps", label: "Mes temps", icon: Clock, matchPrefix: "/temps" },
   // Facturation centralisee : agrege les factures a emettre de tous les modules.
   // badgeKey : compteur de factures a etablir (etat_facturation = 'a_facturer')
   // cumule sur les 5 sources (obligations / CAA / IR / missions exc / creations).
