@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy, Search, X, Pencil, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy, Search, X, Pencil, Check, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCan } from "@/app/_components/permissions-context";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
-import { createTimeEntry, updateTimeEntry, deleteTimeEntry } from "./actions";
+import { createTimeEntry, updateTimeEntry, deleteTimeEntry, deleteTimeEntries } from "./actions";
 import { Combobox, type ComboOption } from "./combobox";
 import { useTempsFilters } from "./use-temps-filters";
 
@@ -84,6 +84,34 @@ function minutesToDecimal(min: number): string {
 function norm(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
+/** Génère et télécharge un CSV (séparateur ; + BOM pour Excel FR). */
+function exportCsv(rows: Entry[], weekStart: string) {
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const header = ["Date", "Dossier", "Catégorie", "Activité", "Durée (h)", "Commentaire", "Facturable"];
+  const body = rows.map((e) =>
+    [
+      e.dateJour,
+      e.clientName ?? "",
+      e.clientId ? "" : e.categorieAutre ?? "Autre",
+      e.activiteLibelle ?? "",
+      (e.dureeMinutes / 60).toLocaleString("fr-FR", { maximumFractionDigits: 2 }),
+      e.commentaire ?? "",
+      e.facturable ? "Oui" : "Non",
+    ]
+      .map((x) => esc(String(x)))
+      .join(";")
+  );
+  const csv = "﻿" + [header.join(";"), ...body].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `mes-temps-${weekStart}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 const INPUT_CLS =
   "h-9 px-2.5 rounded-md border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] disabled:opacity-50 disabled:cursor-not-allowed";
@@ -145,6 +173,8 @@ export default function MesTemps({
   const { q: fSearch, dossier: fDossier, activite: fActivite, set: setFilters, reset: resetFilters } = useTempsFilters();
   // Édition : id de la saisie en cours de modification (sinon création).
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Sélection multiple (suppression groupée / export).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Quand on change de semaine, on recale le jour ciblé dans la semaine.
   useEffect(() => {
@@ -275,6 +305,41 @@ export default function MesTemps({
     });
   }, [entries, fSearch, fDossier, fActivite]);
   const hasFilters = !!(fSearch || fDossier || fActivite);
+
+  const allSelected = displayed.length > 0 && displayed.every((e) => selected.has(e.id));
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+  function toggleAll() {
+    setSelected((prev) => {
+      if (displayed.length > 0 && displayed.every((e) => prev.has(e.id))) return new Set();
+      return new Set(displayed.map((e) => e.id));
+    });
+  }
+  function exportSelected() {
+    const rows = displayed.filter((e) => selected.has(e.id));
+    if (rows.length > 0) exportCsv(rows, weekStart);
+  }
+  function deleteSelected() {
+    const ids = displayed.filter((e) => selected.has(e.id)).map((e) => e.id);
+    if (ids.length === 0) return;
+    if (!window.confirm(`Supprimer ${ids.length} saisie${ids.length > 1 ? "s" : ""} ? Action irréversible.`)) return;
+    startTransition(async () => {
+      const res = await deleteTimeEntries(ids);
+      if (!res.ok) {
+        toastError(res.error ?? "Suppression impossible.");
+        return;
+      }
+      setSelected(new Set());
+      toastSuccess(`${res.deleted} saisie${res.deleted > 1 ? "s" : ""} supprimée${res.deleted > 1 ? "s" : ""}`);
+      router.refresh();
+    });
+  }
 
   const weekTotal = entries.reduce((s, e) => s + e.dureeMinutes, 0);
   const prevWeek = addDaysIso(weekStart, -7);
@@ -459,16 +524,6 @@ export default function MesTemps({
         </div>
 
         <div className="flex items-center gap-3 mt-2 px-0.5">
-          <label className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={facturable}
-              onChange={(e) => setFacturable(e.target.checked)}
-              disabled={!canSaisir}
-              className="h-3.5 w-3.5 rounded border-zinc-300 dark:border-white/[0.2] accent-[hsl(var(--gold))]"
-            />
-            Facturable
-          </label>
           {editingId ? (
             <span className="text-[11px] font-medium text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))]">
               Modification d&apos;une saisie — clique « Enregistrer » pour valider.
@@ -481,17 +536,15 @@ export default function MesTemps({
           )}
         </div>
 
-        {isAutre && (
-          <input
-            type="text"
-            value={commentaire}
-            onChange={(e) => setCommentaire(e.target.value)}
-            placeholder="Commentaire (obligatoire hors dossier)…"
-            disabled={!canSaisir}
-            className={cn(INPUT_CLS, "w-full mt-2")}
-            aria-label="Commentaire"
-          />
-        )}
+        <input
+          type="text"
+          value={commentaire}
+          onChange={(e) => setCommentaire(e.target.value)}
+          placeholder={isAutre ? "Commentaire (obligatoire hors dossier)…" : "Commentaire / précision (optionnel, utile avec l'activité « Autre »)…"}
+          disabled={!canSaisir}
+          className={cn(INPUT_CLS, "w-full mt-2")}
+          aria-label="Commentaire"
+        />
 
         {!canSaisir && (
           <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
@@ -545,6 +598,43 @@ export default function MesTemps({
         </div>
       )}
 
+      {/* Sélection groupée */}
+      {entries.length > 0 && (
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <label className="inline-flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              className="h-4 w-4 rounded border-zinc-300 dark:border-white/[0.2] accent-[hsl(var(--gold))]"
+            />
+            {allSelected ? "Tout désélectionner" : "Tout sélectionner"}
+          </label>
+          {selected.size > 0 && (
+            <div className="inline-flex items-center gap-2">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
+                {selected.size} sélectionnée{selected.size > 1 ? "s" : ""}
+              </span>
+              <button
+                type="button"
+                onClick={exportSelected}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-zinc-200 dark:border-white/[0.12] text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/[0.06] transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" /> Exporter
+              </button>
+              <button
+                type="button"
+                onClick={deleteSelected}
+                disabled={!canSaisir || isPending}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-rose-200 dark:border-rose-500/30 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Supprimer
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Liste */}
       <div className="space-y-3">
         {shownDays.map((d) => {
@@ -562,7 +652,20 @@ export default function MesTemps({
               </div>
               <ul className="divide-y divide-zinc-100 dark:divide-white/[0.05]">
                 {dayEntries.map((e) => (
-                  <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <li
+                    key={e.id}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2.5",
+                      selected.has(e.id) && "bg-[hsl(var(--gold))]/[0.06]"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(e.id)}
+                      onChange={() => toggleOne(e.id)}
+                      className="h-4 w-4 rounded border-zinc-300 dark:border-white/[0.2] accent-[hsl(var(--gold))] shrink-0"
+                      aria-label="Sélectionner cette saisie"
+                    />
                     <div className="min-w-0 flex-1">
                       {e.clientId && e.clientSlug ? (
                         <Link

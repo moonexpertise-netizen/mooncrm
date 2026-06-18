@@ -125,3 +125,21 @@ export async function deleteTimeEntry(id: string): Promise<{ ok: boolean; error?
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+/** Suppression groupée. La RLS limite aux propres lignes (les autres sont
+ *  silencieusement ignorées). */
+export async function deleteTimeEntries(
+  ids: string[]
+): Promise<{ ok: boolean; deleted: number; error?: string }> {
+  try {
+    await requirePermission("saisir_temps");
+    if (ids.length === 0) return { ok: true, deleted: 0 };
+    const sb = await createClient();
+    const { error } = await sb.from("time_entries").delete().in("id", ids);
+    if (error) throw new Error(error.message);
+    revalidatePath("/temps");
+    return { ok: true, deleted: ids.length };
+  } catch (e) {
+    return { ok: false, deleted: 0, error: e instanceof Error ? e.message : String(e) };
+  }
+}
