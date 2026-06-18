@@ -3,16 +3,17 @@
 import { Mail } from "lucide-react";
 
 /**
- * Bouton "Envoyer présentation" : ouvre un mailto pré-rempli avec la Gamma
- * (présentation MOON) qui contient le lien Tally en page 2. La Gamma envoyée
- * dépend de l'origine :
- *   - Création / Création par Tiers → Gamma CRÉATION
- *   - autre                         → Gamma REPRISE
+ * Bouton "Envoyer le guide" : ouvre un mailto pré-rempli avec le guide Gamma
+ * (création ou reprise) à envoyer après acceptation de la proposition
+ * commerciale. Le formulaire à compléter est un BOUTON sur la 1re diapositive
+ * du guide (pas de lien Tally séparé dans le mail).
  *
- * Le formulaire Tally embarqué dans la Gamma est statique. L'identification
- * du dossier post-remplissage se fait côté webhook via SIREN (Reprise) ou
- * email (Création) - pas de client_id puisque la Gamma n'est pas personnalisée
- * par prospect.
+ * Le guide envoyé dépend de l'origine :
+ *   - Création / Création par Tiers → guide CRÉATION
+ *   - autre                         → guide REPRISE
+ *
+ * L'identification du dossier post-remplissage se fait côté webhook via SIREN
+ * (Reprise) ou email (Création) - le guide n'est pas personnalisé par prospect.
  */
 export default function TallyButton({
   email,
@@ -39,23 +40,34 @@ export default function TallyButton({
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-100 text-zinc-400 text-xs font-medium cursor-not-allowed"
       >
         <Mail className="h-3.5 w-3.5" />
-        Envoyer présentation
+        Envoyer le guide
       </button>
     );
   }
 
   function onClick() {
-    const subject = `Présentation MOON Expertise : ${denomination}`;
+    const subject = `Guide de ${isCreation ? "création" : "reprise"} — MOON Expertise (${denomination})`;
+
+    // Intro + dernière démarche varient selon création / reprise.
+    const intro = isCreation
+      ? "Pour donner suite à votre acceptation de notre proposition commerciale, nous vous invitons à consulter notre guide de création, accessible via le lien ci-dessous. Celui-ci vous accompagnera tout au long des prochaines étapes de la création de votre entreprise."
+      : "Pour donner suite à votre acceptation de notre proposition commerciale, nous vous invitons à consulter notre guide de reprise, accessible via le lien ci-dessous. Celui-ci vous accompagnera tout au long des prochaines étapes de la reprise de votre entreprise par MOON Expertise.";
+    const demarche = isCreation
+      ? "Ces éléments nous permettront de préparer votre lettre de mission, qui formalise notre collaboration, et d’engager les démarches nécessaires à la constitution de votre entreprise."
+      : "Ces éléments nous permettront de préparer votre lettre de mission, qui formalise notre collaboration, et d’engager les démarches nécessaires à la reprise de votre dossier.";
+
     const body = [
       "Bonjour,",
       "",
-      "Suite à notre rencontre, voici la présentation de notre cabinet ainsi qu'un formulaire à compléter en page 2, qui nous permettra de préparer votre proposition commerciale :",
+      intro,
       "",
       gammaUrl,
       "",
-      "À votre disposition pour toute question.",
+      `Depuis la première diapositive, vous pourrez accéder à un formulaire en cliquant sur le bouton prévu à cet effet. Nous vous remercions de bien vouloir le compléter et nous transmettre l’ensemble des informations et documents demandés. ${demarche}`,
       "",
-      "Cordialement,",
+      "Nous vous souhaitons une bonne réception de ces éléments et restons à votre disposition pour toute précision complémentaire.",
+      "",
+      "Respectueusement,",
       "Benjamin Perez, MOON Expertise",
     ].join("\n");
 
@@ -66,11 +78,11 @@ export default function TallyButton({
   return (
     <button
       onClick={onClick}
-      title={`Envoie la présentation ${isCreation ? "Création" : "Reprise"} par mail`}
+      title={`Envoie le guide ${isCreation ? "création" : "reprise"} par mail`}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-zinc-300 text-zinc-700 text-xs font-medium hover:bg-zinc-50 hover:border-zinc-400 transition shadow-sm"
     >
       <Mail className="h-3.5 w-3.5" />
-      Envoyer présentation {isCreation ? "(création)" : "(reprise)"}
+      Envoyer le guide {isCreation ? "(création)" : "(reprise)"}
     </button>
   );
 }
