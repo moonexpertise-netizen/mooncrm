@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   addContactToClient,
   removeContactFromClient,
@@ -29,8 +30,8 @@ export default function ContactsCard({
   clientId: string;
   contacts: ContactRow[];
 }) {
+  const canEdit = useCan("edit_clients");
   const [adding, setAdding] = useState(false);
-  const [, startTransition] = useTransition();
 
   return (
     <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card overflow-hidden">
@@ -47,7 +48,8 @@ export default function ContactsCard({
         {!adding && (
           <button
             onClick={() => setAdding(true)}
-            className="text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 shadow-card transition-all font-medium"
+            disabled={!canEdit}
+            className="text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 shadow-card transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Ajouter
           </button>
@@ -61,7 +63,7 @@ export default function ContactsCard({
 
       <ul className="space-y-1">
         {contacts.map((c) => (
-          <ContactRowItem key={c.contactId} clientId={clientId} row={c} />
+          <ContactRowItem key={c.contactId} clientId={clientId} row={c} canEdit={canEdit} />
         ))}
       </ul>
 
@@ -77,7 +79,15 @@ export default function ContactsCard({
   );
 }
 
-function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }) {
+function ContactRowItem({
+  clientId,
+  row,
+  canEdit,
+}: {
+  clientId: string;
+  row: ContactRow;
+  canEdit: boolean;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const { confirm, ConfirmDialog } = useConfirm();
@@ -143,6 +153,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
       try {
         await removeContactFromClient(clientId, row.contactId);
       } catch (e) {
+        toastError(e, "Echec du detachement du contact");
         await alert({ title: "Erreur", description: (e as Error).message });
       }
     });
@@ -171,26 +182,30 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
       {AlertDialog}
       {/* Ligne 1 mobile : civilité + prénom + nom + supprimer */}
       <div className="flex items-center gap-2 sm:contents">
-        <CivilitePicker value={display.civilite} onChange={commitCivilite} />
+        <CivilitePicker value={display.civilite} onChange={commitCivilite} disabled={!canEdit} />
         <InlineField
           value={display.prenom ?? ""}
           placeholder="Prénom"
           onCommit={(v) => commit("prenom", v)}
           className="text-sm min-w-[80px] flex-1 sm:flex-none"
+          disabled={!canEdit}
         />
         <InlineField
           value={display.nom}
           placeholder="Nom"
           onCommit={(v) => commit("nom", v)}
           className="font-medium min-w-[80px] flex-1 sm:flex-none"
+          disabled={!canEdit}
         />
-        <button
-          onClick={onRemove}
-          className="sm:hidden text-sm text-zinc-400 hover:text-rose-600 px-1.5 shrink-0"
-          title="Détacher du dossier"
-        >
-          ✕
-        </button>
+        {canEdit && (
+          <button
+            onClick={onRemove}
+            className="sm:hidden text-sm text-zinc-400 hover:text-rose-600 px-1.5 shrink-0"
+            title="Détacher du dossier"
+          >
+            ✕
+          </button>
+        )}
       </div>
       {/* Ligne 2+ mobile : rôle/email/téléphone empilés */}
       <InlineField
@@ -198,6 +213,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         placeholder="Rôle"
         onCommit={(v) => commit("role", v)}
         className="text-xs w-full sm:w-auto"
+        disabled={!canEdit}
       />
       <InlineField
         value={display.email ?? ""}
@@ -205,6 +221,7 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         onCommit={(v) => commit("email", v)}
         className="text-xs w-full sm:w-auto"
         type="email"
+        disabled={!canEdit}
       />
       <InlineField
         value={display.telephone ?? ""}
@@ -212,14 +229,17 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
         onCommit={(v) => commit("telephone", v)}
         className="text-xs tabular-nums w-full sm:w-auto"
         type="tel"
+        disabled={!canEdit}
       />
-      <button
-        onClick={onRemove}
-        className="hidden sm:block ml-auto opacity-0 group-hover:opacity-100 transition text-xs text-zinc-400 hover:text-rose-600 px-1.5"
-        title="Détacher du dossier"
-      >
-        ✕
-      </button>
+      {canEdit && (
+        <button
+          onClick={onRemove}
+          className="hidden sm:block ml-auto opacity-0 group-hover:opacity-100 transition text-xs text-zinc-400 hover:text-rose-600 px-1.5"
+          title="Détacher du dossier"
+        >
+          ✕
+        </button>
+      )}
     </li>
   );
 }
@@ -228,9 +248,11 @@ function ContactRowItem({ clientId, row }: { clientId: string; row: ContactRow }
 function CivilitePicker({
   value,
   onChange,
+  disabled = false,
 }: {
   value: "M." | "Mme" | "Mlle" | null;
   onChange: (v: "M." | "Mme" | "Mlle" | null) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -249,9 +271,11 @@ function CivilitePicker({
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => !disabled && setOpen((v) => !v)}
+        disabled={disabled}
         className={cn(
           "px-1.5 py-0.5 rounded text-xs font-medium border transition shrink-0",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
           value
             ? "bg-emerald-50/30 border-emerald-200 text-zinc-900 hover:border-emerald-400"
             : "bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
@@ -308,12 +332,14 @@ function InlineField({
   onCommit,
   className,
   type = "text",
+  disabled = false,
 }: {
   value: string;
   placeholder: string;
   onCommit: (v: string) => void;
   className?: string;
   type?: string;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -324,6 +350,7 @@ function InlineField({
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => onCommit(draft)}
+      disabled={disabled}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
@@ -331,6 +358,7 @@ function InlineField({
       className={cn(
         "px-1.5 py-0.5 rounded border text-sm transition-all",
         "focus:outline-none focus:ring-2 focus:ring-zinc-400/30 dark:focus:ring-white/15 focus:border-zinc-400 dark:focus:border-zinc-300",
+        "disabled:opacity-60 disabled:cursor-not-allowed",
         draft.trim()
           ? // Rempli : fond neutre transparent, bordure discrete
             "bg-transparent border-zinc-200 dark:border-white/[0.08] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/[0.18]"
@@ -387,6 +415,7 @@ function NewContactForm({
         onDone();
       } catch (e) {
         setError((e as Error).message);
+        toastError(e, "Echec de l'ajout du contact");
       }
     });
   }

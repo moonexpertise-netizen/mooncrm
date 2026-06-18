@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { useAlert } from "@/app/_components/confirm-modal";
 import {
   reconduireAnnee,
@@ -74,6 +76,7 @@ export default function ObligationsMatrix({
     return debutYear !== null && y < debutYear;
   }
 
+  const canEdit = useCan("edit_production");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { alert, AlertDialog } = useAlert();
@@ -128,6 +131,7 @@ export default function ObligationsMatrix({
   }
 
   function queueReconduit(from: number) {
+    if (!canEdit) return;
     const to = from + 1;
     setPendingReconduits((prev) => {
       // Évite les doublons ; remplace si déjà en file pour le même `to`
@@ -141,25 +145,34 @@ export default function ObligationsMatrix({
   }
 
   function commitDrafts() {
+    if (!canEdit) return;
     if (pendingReconduits.length === 0) return;
     const draft = [...pendingReconduits];
     // Vider la sélection draft tout de suite (optimistic UI)
     setPendingReconduits([]);
     startTransition(async () => {
-      // Si toutes les sources sont différentes (pas de chaîne), parallélise.
-      // Sinon (ex. 2024→2025 puis 2025→2026), exécution séquentielle.
-      const sources = new Set(draft.map((d) => d.from));
-      const targets = new Set(draft.map((d) => d.to));
-      const hasChain = [...sources].some((s) => targets.has(s));
-      if (hasChain) {
-        for (const { from, to } of draft) await reconduireAnnee(clientId, from, to);
-      } else {
-        await Promise.all(draft.map((d) => reconduireAnnee(clientId, d.from, d.to)));
+      try {
+        // Si toutes les sources sont différentes (pas de chaîne), parallélise.
+        // Sinon (ex. 2024→2025 puis 2025→2026), exécution séquentielle.
+        const sources = new Set(draft.map((d) => d.from));
+        const targets = new Set(draft.map((d) => d.to));
+        const hasChain = [...sources].some((s) => targets.has(s));
+        if (hasChain) {
+          for (const { from, to } of draft) await reconduireAnnee(clientId, from, to);
+        } else {
+          await Promise.all(draft.map((d) => reconduireAnnee(clientId, d.from, d.to)));
+        }
+        router.refresh();
+      } catch (e) {
+        // Restaure les drafts pour que l'utilisateur puisse reessayer.
+        setPendingReconduits(draft);
+        toastError(e, "Echec de la reconduction");
       }
     });
   }
 
   function onToggle(type: SubKey, annee: number) {
+    if (!canEdit) return;
     if (pendingReconduits.length > 0) {
       void alert({
         title: "Reconductions en attente",
@@ -169,15 +182,20 @@ export default function ObligationsMatrix({
     }
     const current = isActive(type, annee);
     startTransition(async () => {
-      await toggleSubscription(clientId, type as TypeObligation, annee, !current);
-      // Refresh : toggleSubscription cree/desactive des obligations cote
-      // serveur. La matrice doit refleter immediatement les nouvelles
-      // souscriptions sans reload.
-      router.refresh();
+      try {
+        await toggleSubscription(clientId, type as TypeObligation, annee, !current);
+        // Refresh : toggleSubscription cree/desactive des obligations cote
+        // serveur. La matrice doit refleter immediatement les nouvelles
+        // souscriptions sans reload.
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour de l'obligation");
+      }
     });
   }
 
   function onTva(annee: number, mode: TvaMode | null) {
+    if (!canEdit) return;
     if (pendingReconduits.length > 0) {
       void alert({
         title: "Reconductions en attente",
@@ -186,12 +204,17 @@ export default function ObligationsMatrix({
       return;
     }
     startTransition(async () => {
-      await setTvaMode(clientId, annee, mode);
-      router.refresh();
+      try {
+        await setTvaMode(clientId, annee, mode);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour du regime TVA");
+      }
     });
   }
 
   function onRegime(annee: number, regime: Regime | null) {
+    if (!canEdit) return;
     if (pendingReconduits.length > 0) {
       void alert({
         title: "Reconductions en attente",
@@ -200,12 +223,17 @@ export default function ObligationsMatrix({
       return;
     }
     startTransition(async () => {
-      await setRegimeAction(clientId, annee, regime);
-      router.refresh();
+      try {
+        await setRegimeAction(clientId, annee, regime);
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour du regime fiscal");
+      }
     });
   }
 
   function onDebutChange(year: number | null) {
+    if (!canEdit) return;
     if (pendingReconduits.length > 0) {
       void alert({
         title: "Reconductions en attente",
@@ -214,12 +242,16 @@ export default function ObligationsMatrix({
       return;
     }
     startTransition(async () => {
-      await updateClient(clientId, {
-        debut_obligations: year ? `${year}-01-01` : null,
-      });
-      // debut_obligations desactive les subscriptions des annees anterieures
-      // cote serveur : la matrice doit le voir sans reload.
-      router.refresh();
+      try {
+        await updateClient(clientId, {
+          debut_obligations: year ? `${year}-01-01` : null,
+        });
+        // debut_obligations desactive les subscriptions des annees anterieures
+        // cote serveur : la matrice doit le voir sans reload.
+        router.refresh();
+      } catch (e) {
+        toastError(e, "Echec de la mise a jour de la reprise");
+      }
     });
   }
 
@@ -243,9 +275,9 @@ export default function ObligationsMatrix({
             onChange={(e) =>
               onDebutChange(e.target.value ? parseInt(e.target.value, 10) : null)
             }
-            disabled={isPending || pendingReconduits.length > 0}
+            disabled={isPending || pendingReconduits.length > 0 || !canEdit}
             className={cn(
-              "px-2 py-1 rounded border text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))]",
+              "px-2 py-1 rounded border text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))] disabled:opacity-50 disabled:cursor-not-allowed",
               debutYear !== null
                 ? "border-[hsl(var(--gold))]/40 text-[hsl(var(--gold-dark))] font-medium"
                 : "border-zinc-300 text-zinc-700"
@@ -334,8 +366,9 @@ export default function ObligationsMatrix({
                       {!before && (
                         <button
                           onClick={() => queueReconduit(y)}
-                          className="inline-flex items-center justify-center w-5 h-5 rounded text-[hsl(var(--gold))] hover:bg-[hsl(var(--gold))]/15 transition opacity-60 hover:opacity-100"
-                          title={`Reconduire ${y} vers ${y + 1} (draft)`}
+                          disabled={!canEdit}
+                          className="inline-flex items-center justify-center w-5 h-5 rounded text-[hsl(var(--gold))] hover:bg-[hsl(var(--gold))]/15 transition opacity-60 hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={canEdit ? `Reconduire ${y} vers ${y + 1} (draft)` : "Droit de production requis"}
                         >
                           <ChevronRight className="h-3.5 w-3.5" />
                         </button>
@@ -363,8 +396,9 @@ export default function ObligationsMatrix({
                     <select
                       value={r ?? ""}
                       onChange={(e) => onRegime(y, (e.target.value as Regime | "") || null)}
+                      disabled={!canEdit}
                       className={cn(
-                        "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))]",
+                        "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))] disabled:opacity-50 disabled:cursor-not-allowed",
                         r ? "border-zinc-300 text-zinc-700" : "border-amber-200 bg-amber-50 text-amber-700"
                       )}
                     >
@@ -393,8 +427,9 @@ export default function ObligationsMatrix({
                     <select
                       value={m ?? ""}
                       onChange={(e) => onTva(y, (e.target.value as TvaMode | "") || null)}
+                      disabled={!canEdit}
                       className={cn(
-                        "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))]",
+                        "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))] disabled:opacity-50 disabled:cursor-not-allowed",
                         m ? "border-zinc-300 text-zinc-700" : "border-amber-200 bg-amber-50 text-amber-700"
                       )}
                     >
@@ -434,7 +469,8 @@ export default function ObligationsMatrix({
                   }
                   const v = isActive(row.key, y);
                   const isIS = row.key === "IS_ACOMPTE" || row.key === "IS_SOLDE";
-                  const disabled = isIS && getRegime(y) === "IR";
+                  const regimeLocked = isIS && getRegime(y) === "IR";
+                  const disabled = regimeLocked || !canEdit;
                   return (
                     <td key={y} className={cn("px-0.5 text-center align-middle", isYearInDraft(y) && "bg-[hsl(var(--gold))]/5")}>
                       <button
@@ -447,9 +483,9 @@ export default function ObligationsMatrix({
                             ? "border-zinc-200 bg-zinc-50 cursor-not-allowed"
                             : "border-zinc-200 bg-white"
                         )}
-                        title={disabled ? "Désactivé en régime IR" : v ? "Désactiver" : "Activer"}
+                        title={regimeLocked ? "Désactivé en régime IR" : !canEdit ? "Droit de production requis" : v ? "Désactiver" : "Activer"}
                       >
-                        {disabled ? (
+                        {regimeLocked ? (
                           v && <span className="text-[12px] text-zinc-300 leading-none">✓</span>
                         ) : (
                           <span

@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { updateClient } from "./actions";
 import { initializeOnboardingForClient } from "@/app/onboarding/actions";
 
@@ -21,6 +22,7 @@ export function ClotureSplit({
   jour: number | null;
   mois: number | null;
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [localJour, setLocalJour] = useState<number | null>(jour);
   const [localMois, setLocalMois] = useState<number | null>(mois);
@@ -54,6 +56,21 @@ export function ClotureSplit({
     "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
   ];
+
+  if (!canEdit) {
+    const txt =
+      localJour != null && localMois != null
+        ? `${String(localJour).padStart(2, "0")} ${months[localMois - 1] ?? ""}`.trim()
+        : null;
+    return (
+      <div className="grid grid-cols-[140px_minmax(0,360px)] gap-2 py-1 text-sm items-center">
+        <div className="text-muted-foreground">Clôture standard</div>
+        <div className="px-2 py-1 rounded-md border border-zinc-100 dark:border-white/[0.06] bg-zinc-50/60 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-300 min-h-[34px] flex items-center">
+          {txt ?? <span className="text-zinc-400 dark:text-zinc-500">—</span>}
+        </div>
+      </div>
+    );
+  }
 
   // Style commun aux 2 selects natifs (aligné avec fieldInputClass dans editable.tsx)
   function selectClass(filled: boolean, extra = "") {
@@ -123,6 +140,7 @@ export function EditableTextArea({
   label: string;
   placeholder?: string;
 }) {
+  const canEdit = useCan("edit_clients");
   const [display, setDisplay] = useState(value);
   const [draft, setDraft] = useState(value ?? "");
   const [, startTransition] = useTransition();
@@ -140,11 +158,23 @@ export function EditableTextArea({
     startTransition(async () => {
       try {
         await updateClient(clientId, { [field]: newValue });
-      } catch {
+      } catch (e) {
         setDisplay(value);
         setDraft(value ?? "");
+        toastError(e, "Echec de la sauvegarde de la note");
       }
     });
+  }
+
+  if (!canEdit) {
+    return (
+      <div className="py-1 text-sm max-w-[500px]">
+        <div className="text-muted-foreground text-xs mb-1">{label}</div>
+        <div className="w-full px-2 py-1 rounded-md border border-zinc-100 dark:border-white/[0.06] bg-zinc-50/60 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap min-h-[60px]">
+          {display ? display : <span className="text-zinc-400 dark:text-zinc-500">{placeholder}</span>}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -186,6 +216,7 @@ export function EditableGestionTns({
   value: boolean | null;
   label: string;
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [display, setDisplay] = useState<boolean | null>(value);
   const [, startTransition] = useTransition();
@@ -215,8 +246,25 @@ export function EditableGestionTns({
       } catch (e) {
         setDisplay(prev);
         setError(e instanceof Error ? e.message : String(e));
+        toastError(e, "Echec de la sauvegarde de la gestion TNS");
       }
     });
+  }
+
+  if (!canEdit) {
+    const txt = display === null ? null : display ? "Gestion TNS" : "Pas de gestion TNS";
+    return (
+      <div className="py-1.5 sm:py-1 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,360px)] gap-1 sm:gap-2 sm:items-center">
+          <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
+          <div className="min-w-0">
+            <div className="w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-[34px] rounded-md border border-zinc-100 dark:border-white/[0.06] bg-zinc-50/60 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-300 flex items-center">
+              {txt ?? <span className="text-zinc-400 dark:text-zinc-500">—</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const filled = display !== null;

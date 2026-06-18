@@ -121,21 +121,21 @@ export default async function IdentiteTab({
         sub="Forfaits qui alimentent la lettre de mission"
       />
       <Card title="Forfaits récurrents">
-        <EditableNumber clientId={id} field="honoraires_compta" value={client.honoraires_compta} label="Forfait comptable" unit="eur" />
+        <EditableNumber clientId={id} field="honoraires_compta" value={client.honoraires_compta} label="Forfait comptable" unit="eur" permission="edit_honoraires" />
         <div className="border-t pt-2 mt-1">
-          <EditableSelect clientId={id} field="type_honos_bilans" value={client.type_honos_bilans} label="Forfait bilan" options={["Facturés", "Inclus"]} />
+          <EditableSelect clientId={id} field="type_honos_bilans" value={client.type_honos_bilans} label="Forfait bilan" options={["Facturés", "Inclus"]} permission="edit_honoraires" />
           {client.type_honos_bilans === "Facturés" && (
-            <EditableNumber clientId={id} field="forfait_bilan" value={client.forfait_bilan} label="↳ Montant" unit="eur" />
+            <EditableNumber clientId={id} field="forfait_bilan" value={client.forfait_bilan} label="↳ Montant" unit="eur" permission="edit_honoraires" />
           )}
         </div>
         <div className="border-t pt-2 mt-1">
-          <EditableSelect clientId={id} field="type_honos_jur" value={client.type_honos_jur} label="Forfait juridique" options={["Facturés", "Inclus", "Non souscrit"]} />
+          <EditableSelect clientId={id} field="type_honos_jur" value={client.type_honos_jur} label="Forfait juridique" options={["Facturés", "Inclus", "Non souscrit"]} permission="edit_honoraires" />
           {client.type_honos_jur === "Facturés" && (
-            <EditableNumber clientId={id} field="honoraires_jur" value={client.honoraires_jur} label="↳ Montant" unit="eur" />
+            <EditableNumber clientId={id} field="honoraires_jur" value={client.honoraires_jur} label="↳ Montant" unit="eur" permission="edit_honoraires" />
           )}
         </div>
         <div className="border-t pt-2 mt-1">
-          <EditableSelect clientId={id} field="tdb_periode" value={client.tdb_periode} label="Forfait pilotage" options={["Mensuel", "Trimestriel", "Non souscrit"]} />
+          <EditableSelect clientId={id} field="tdb_periode" value={client.tdb_periode} label="Forfait pilotage" options={["Mensuel", "Trimestriel", "Non souscrit"]} permission="edit_honoraires" />
           {(client.tdb_periode === "Mensuel" || client.tdb_periode === "Trimestriel") && (
             <>
               <EditableNumber
@@ -144,6 +144,7 @@ export default async function IdentiteTab({
                 value={client.tdb_honos_periode}
                 label={`↳ Montant / ${client.tdb_periode === "Mensuel" ? "mois" : "trimestre"}`}
                 unit="eur"
+                permission="edit_honoraires"
               />
               <FieldReadonly
                 label="↳ Équivalent mensuel"
@@ -160,19 +161,19 @@ export default async function IdentiteTab({
 
       <Card title="Honoraires one-shot">
         <div>
-          <EditableSelect clientId={id} field="type_honos_creation" value={client.type_honos_creation} label="Forfait création" options={["Facturés", "Non souscrit"]} />
+          <EditableSelect clientId={id} field="type_honos_creation" value={client.type_honos_creation} label="Forfait création" options={["Facturés", "Non souscrit"]} permission="edit_honoraires" />
           {client.type_honos_creation === "Facturés" && (
-            <EditableNumber clientId={id} field="honoraires_creation" value={client.honoraires_creation} label="↳ Montant" unit="eur" />
+            <EditableNumber clientId={id} field="honoraires_creation" value={client.honoraires_creation} label="↳ Montant" unit="eur" permission="edit_honoraires" />
           )}
         </div>
         <div className="border-t pt-2 mt-1">
-          <EditableSelect clientId={id} field="type_honos_reprise" value={client.type_honos_reprise} label="Forfait reprise" options={["Facturés", "Non souscrit"]} />
+          <EditableSelect clientId={id} field="type_honos_reprise" value={client.type_honos_reprise} label="Forfait reprise" options={["Facturés", "Non souscrit"]} permission="edit_honoraires" />
           {client.type_honos_reprise === "Facturés" && (
-            <EditableNumber clientId={id} field="honoraires_reprise" value={client.honoraires_reprise} label="↳ Montant" unit="eur" />
+            <EditableNumber clientId={id} field="honoraires_reprise" value={client.honoraires_reprise} label="↳ Montant" unit="eur" permission="edit_honoraires" />
           )}
         </div>
         <div className="border-t pt-2 mt-1">
-          <EditableNumber clientId={id} field="exceptionnel" value={client.exceptionnel} label="Honos exceptionnels" unit="eur" />
+          <EditableNumber clientId={id} field="exceptionnel" value={client.exceptionnel} label="Honos exceptionnels" unit="eur" permission="edit_honoraires" />
         </div>
       </Card>
 

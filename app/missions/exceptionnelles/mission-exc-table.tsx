@@ -24,6 +24,7 @@ import { useConfirm } from "@/app/_components/confirm-modal";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
+import { useCan } from "@/app/_components/permissions-context";
 import { Picker } from "@/app/_components/picker";
 import { useLocalStoragePref, useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import {
@@ -255,6 +256,9 @@ export default function MissionExcTable({
   currentUserEmail?: string | null;
 }) {
   const router = useRouter();
+  const canEditProduction = useCan("edit_production");
+  const canEditFacturation = useCan("edit_facturation");
+  const canEditHonoraires = useCan("edit_honoraires");
   const [, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
   const [localTypes, setLocalTypes] = useState(types);
@@ -697,7 +701,8 @@ export default function MissionExcTable({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors"
+              disabled={!canEditProduction}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Nouvelle mission
@@ -869,7 +874,8 @@ export default function MissionExcTable({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors"
+              disabled={!canEditProduction}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Nouvelle mission
@@ -882,6 +888,7 @@ export default function MissionExcTable({
         <NewMissionForm
           types={localTypes.filter((t) => t.actif)}
           clientOptions={clientOptions}
+          canEditProduction={canEditProduction}
           onCancel={() => setAdding(false)}
           onCreated={() => {
             setAdding(false);
@@ -895,6 +902,8 @@ export default function MissionExcTable({
         <TypesManagerModal
           types={localTypes}
           onTypesChange={setLocalTypes}
+          canEditProduction={canEditProduction}
+          canEditHonoraires={canEditHonoraires}
           onClose={() => {
             setEditingTypes(false);
             router.refresh();
@@ -935,6 +944,9 @@ export default function MissionExcTable({
                   type={r.type_id ? typesById.get(r.type_id) ?? null : null}
                   types={localTypes.filter((t) => t.actif)}
                   clientOptions={clientOptions}
+                  canEditProduction={canEditProduction}
+                  canEditFacturation={canEditFacturation}
+                  canEditHonoraires={canEditHonoraires}
                   commentCount={commentCounts[r.id] ?? 0}
                   onSaveField={(field, value) => onSaveField(r.id, field, value)}
                   onChangeClient={(cid, libre) => onChangeClient(r.id, cid, libre)}
@@ -969,6 +981,7 @@ export default function MissionExcTable({
           missionId={openCommentsFor.missionId}
           missionLabel={openCommentsFor.missionLabel}
           currentUserEmail={currentUserEmail ?? null}
+          canComment={canEditProduction}
           anchorRect={openCommentsFor.anchorRect}
           onClose={() => setOpenCommentsFor(null)}
           onCountChange={(count) => {
@@ -1128,6 +1141,9 @@ function MissionRow({
   type,
   types,
   clientOptions,
+  canEditProduction,
+  canEditFacturation,
+  canEditHonoraires,
   commentCount,
   onSaveField,
   onChangeClient,
@@ -1143,6 +1159,12 @@ function MissionRow({
   type: MissionExcType | null;
   types: MissionExcType[];
   clientOptions: MissionExcClientOption[];
+  /** Droit d'éditer la production (mission, type, dates, statuts mission/LDM). */
+  canEditProduction: boolean;
+  /** Droit d'éditer l'état de facturation. */
+  canEditFacturation: boolean;
+  /** Droit d'éditer les montants (forfait). */
+  canEditHonoraires: boolean;
   /** Nombre de commentaires lies a cette mission (badge sur le bouton 💬). */
   commentCount: number;
   onSaveField: (field: keyof MissionExcRow, value: string | number | null) => void;
@@ -1177,6 +1199,7 @@ function MissionRow({
               row={row}
               clientOptions={clientOptions}
               onChange={onChangeClient}
+              disabled={!canEditProduction}
             />
           </div>
         </div>
@@ -1188,6 +1211,7 @@ function MissionRow({
           value={type}
           types={types}
           onChange={onSetType}
+          disabled={!canEditProduction}
         />
       </td>
 
@@ -1199,6 +1223,7 @@ function MissionRow({
           onSave={(v) => onSaveField("mission", v || row.mission)}
           className="font-medium text-zinc-900 dark:text-zinc-100"
           required
+          disabled={!canEditProduction}
         />
         <EditableText
           value={row.description ?? ""}
@@ -1206,6 +1231,7 @@ function MissionRow({
           onSave={(v) => onSaveField("description", v || null)}
           multiline
           className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5"
+          disabled={!canEditProduction}
         />
         {/* Date de debut editable inline (tri de la table = par date_debut DESC).
             Date de fin retiree de la vue pour eviter le bruit visuel. */}
@@ -1215,6 +1241,7 @@ function MissionRow({
             value={row.date_debut}
             placeholder="début…"
             onSave={(v) => onSaveField("date_debut", v)}
+            disabled={!canEditProduction}
           />
         </div>
       </td>
@@ -1227,6 +1254,7 @@ function MissionRow({
           suffix="€ HT"
           step={50}
           onSave={(v) => onSaveField("forfait", v)}
+          disabled={!canEditHonoraires}
         />
       </td>
 
@@ -1236,6 +1264,7 @@ function MissionRow({
           value={row.etat_mission}
           options={ETAT_MISSION_OPTIONS}
           onChange={(v) => onSetEtatMission(v as EtatMission)}
+          disabled={!canEditProduction}
         />
       </td>
 
@@ -1249,6 +1278,7 @@ function MissionRow({
           onChange={(v) => onSetEtatFacturation(v as EtatFacturation)}
           onReset={() => onSetEtatFacturation(null)}
           allowEmpty
+          disabled={!canEditFacturation}
           placeholderTitle="Facturation non encore définie"
         />
       </td>
@@ -1259,6 +1289,7 @@ function MissionRow({
           value={row.ldm_statut}
           options={LDM_STATUT_OPTIONS}
           onChange={(v) => onSetLdmStatut(v as LdmStatutMission)}
+          disabled={!canEditProduction}
         />
       </td>
 
@@ -1290,7 +1321,8 @@ function MissionRow({
         </button>
         <button
           onClick={onDuplicate}
-          className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
+          disabled={!canEditProduction}
+          className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Dupliquer la mission"
           title="Dupliquer"
         >
@@ -1298,7 +1330,8 @@ function MissionRow({
         </button>
         <button
           onClick={onDelete}
-          className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+          disabled={!canEditProduction}
+          className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Supprimer la mission"
           title="Supprimer"
         >
@@ -1321,6 +1354,7 @@ function EditableText({
   multiline,
   className,
   required,
+  disabled = false,
 }: {
   value: string;
   placeholder: string;
@@ -1328,10 +1362,27 @@ function EditableText({
   multiline?: boolean;
   className?: string;
   required?: boolean;
+  /** Lecture seule : affiche la valeur sans édition possible (droit manquant). */
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value);
   useEffect(() => setLocal(value), [value]);
+
+  // Lecture seule : on rend le texte sans interaction (pas de bouton d'édition).
+  if (disabled) {
+    return (
+      <div
+        className={cn(
+          "-mx-1.5 px-1.5 py-0.5 block min-h-[1.25rem]",
+          className,
+          !value && "text-zinc-400 dark:text-zinc-500 italic",
+        )}
+      >
+        {value || placeholder}
+      </div>
+    );
+  }
 
   function commit() {
     setEditing(false);
@@ -1411,11 +1462,14 @@ function EditableDate({
   placeholder,
   onSave,
   className,
+  disabled = false,
 }: {
   value: string | null;
   placeholder: string;
   onSave: (v: string | null) => void;
   className?: string;
+  /** Lecture seule : affiche la date sans édition possible (droit manquant). */
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value ?? "");
@@ -1426,6 +1480,15 @@ function EditableDate({
     const v = local.trim();
     const next = v === "" ? null : v;
     if (next !== value) onSave(next);
+  }
+
+  // Lecture seule : on rend la date formatee sans interaction.
+  if (disabled) {
+    return (
+      <span className={cn(value ? "" : "italic", className)}>
+        {value ? formatDate(value) : placeholder}
+      </span>
+    );
   }
 
   if (editing) {
@@ -1474,15 +1537,34 @@ function EditableNumber({
   suffix,
   step,
   onSave,
+  disabled = false,
 }: {
   value: number | null;
   suffix: string;
   step?: number;
   onSave: (v: number | null) => void;
+  /** Lecture seule : affiche le montant sans édition possible (droit manquant). */
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value === null ? "" : String(value));
   useEffect(() => setLocal(value === null ? "" : String(value)), [value]);
+
+  // Lecture seule : on rend le montant formate sans interaction.
+  if (disabled) {
+    return (
+      <div
+        className={cn(
+          "w-full text-right px-1.5 py-0.5 tabular-nums text-sm",
+          value === null
+            ? "text-zinc-300 dark:text-zinc-600 italic"
+            : "text-zinc-900 dark:text-zinc-100",
+        )}
+      >
+        {value === null ? "-" : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(value)} ${suffix}`}
+      </div>
+    );
+  }
 
   function commit() {
     setEditing(false);
@@ -1543,10 +1625,13 @@ function ClientPicker({
   row,
   clientOptions,
   onChange,
+  disabled = false,
 }: {
   row: MissionExcRow;
   clientOptions: MissionExcClientOption[];
   onChange: (clientId: string | null, libre: string | null) => void;
+  /** Lecture seule : empêche l'ouverture du picker (droit manquant). */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -1636,7 +1721,8 @@ function ClientPicker({
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full text-left -mx-1.5 px-1.5 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+        disabled={disabled}
+        className="w-full text-left -mx-1.5 px-1.5 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
       >
         {row.client_id && row.client_denomination ? (
           <div className="flex items-center gap-1.5 min-w-0">
@@ -1752,10 +1838,13 @@ function TypePicker({
   value,
   types,
   onChange,
+  disabled = false,
 }: {
   value: MissionExcType | null;
   types: MissionExcType[];
   onChange: (typeId: string | null) => void;
+  /** Lecture seule : empêche l'ouverture du picker (droit manquant). */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -1803,8 +1892,9 @@ function TypePicker({
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
         className={cn(
-          "inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 max-w-full",
+          "inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all hover:opacity-80 max-w-full disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50",
           value
             ? colorForType(value.slug)
             : "bg-zinc-50 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10]"
@@ -1882,11 +1972,14 @@ function TypePicker({
 function NewMissionForm({
   types,
   clientOptions,
+  canEditProduction,
   onCancel,
   onCreated,
 }: {
   types: MissionExcType[];
   clientOptions: MissionExcClientOption[];
+  /** Droit de créer une mission (sinon bouton "Créer" désactivé). */
+  canEditProduction: boolean;
   onCancel: () => void;
   onCreated: () => void;
 }) {
@@ -2032,7 +2125,7 @@ function NewMissionForm({
         <button
           type="button"
           onClick={submit}
-          disabled={isPending || !mission.trim()}
+          disabled={isPending || !mission.trim() || !canEditProduction}
           className="px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isPending ? "Création…" : "Créer"}
@@ -2052,9 +2145,12 @@ function NewMissionForm({
 function TarifInput({
   initialValue,
   onCommit,
+  disabled = false,
 }: {
   initialValue: number;
   onCommit: (raw: string) => void;
+  /** Lecture seule : tarif non éditable (droit honoraires manquant). */
+  disabled?: boolean;
 }) {
   const [val, setVal] = useState(initialValue ? String(initialValue) : "");
   // Sync si la valeur change de l'exterieur (ex. optimistic update revert)
@@ -2073,8 +2169,9 @@ function TarifInput({
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
+        disabled={disabled}
         placeholder="0"
-        className="w-full px-1 py-1 text-xs tabular-nums bg-transparent focus:outline-none text-zinc-800 dark:text-zinc-200"
+        className="w-full px-1 py-1 text-xs tabular-nums bg-transparent focus:outline-none text-zinc-800 dark:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed"
         title="Tarif par défaut (forfait HT) pour ce type"
       />
       <span className="text-[9px] text-zinc-400 dark:text-zinc-500 shrink-0">€</span>
@@ -2085,10 +2182,16 @@ function TarifInput({
 function TypesManagerModal({
   types,
   onTypesChange,
+  canEditProduction,
+  canEditHonoraires,
   onClose,
 }: {
   types: MissionExcType[];
   onTypesChange: (next: MissionExcType[]) => void;
+  /** Droit de gérer les types (créer / renommer / activer / supprimer). */
+  canEditProduction: boolean;
+  /** Droit d'éditer le tarif par défaut d'un type. */
+  canEditHonoraires: boolean;
   onClose: () => void;
 }) {
   const [newLabel, setNewLabel] = useState("");
@@ -2221,8 +2324,9 @@ function TypesManagerModal({
               onKeyDown={(e) => {
                 if (e.key === "Enter") addType();
               }}
+              disabled={!canEditProduction}
               placeholder="Nouveau type (ex. Restructuration)…"
-              className="flex-1 px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm"
+              className="flex-1 px-2 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <div className="flex items-center gap-1 px-2 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] w-[120px]">
               <input
@@ -2234,8 +2338,9 @@ function TypesManagerModal({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addType();
                 }}
+                disabled={!canEditProduction || !canEditHonoraires}
                 placeholder="0"
-                className="w-full px-1 py-1.5 text-sm tabular-nums bg-transparent focus:outline-none"
+                className="w-full px-1 py-1.5 text-sm tabular-nums bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Tarif par défaut (forfait HT) pour ce type"
               />
               <span className="text-[10px] text-zinc-400 dark:text-zinc-500">€ HT</span>
@@ -2243,8 +2348,8 @@ function TypesManagerModal({
             <button
               type="button"
               onClick={addType}
-              disabled={!newLabel.trim()}
-              className="px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50"
+              disabled={!newLabel.trim() || !canEditProduction}
+              className="px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Ajouter
             </button>
@@ -2276,7 +2381,8 @@ function TypesManagerModal({
                   <button
                     type="button"
                     onClick={() => startEdit(t)}
-                    className="flex-1 text-left text-sm text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    disabled={!canEditProduction}
+                    className="flex-1 text-left text-sm text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:cursor-not-allowed"
                   >
                     {t.label}
                   </button>
@@ -2285,12 +2391,14 @@ function TypesManagerModal({
                 <TarifInput
                   initialValue={t.tarif}
                   onCommit={(raw) => commitTarif(t, raw)}
+                  disabled={!canEditHonoraires}
                 />
                 <button
                   type="button"
                   onClick={() => toggleActif(t)}
+                  disabled={!canEditProduction}
                   className={cn(
-                    "px-2 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium border transition-colors",
+                    "px-2 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                     t.actif
                       ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
                       : "bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08]"
@@ -2301,7 +2409,8 @@ function TypesManagerModal({
                 <button
                   type="button"
                   onClick={() => removeType(t)}
-                  className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                  disabled={!canEditProduction}
+                  className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label={`Supprimer ${t.label}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   addOnboardingStatusOption,
   deleteOnboardingStatusOption,
@@ -83,6 +84,7 @@ export default function OnboardingEditor({
     );
   }
 
+  const canEdit = useCan("edit_production");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -122,7 +124,8 @@ export default function OnboardingEditor({
           index={numbered ? i + 1 : null}
           options={optionsByKey[t.task_key] ?? []}
           isOpen={openTaskId === t.id}
-          onOpen={() => setOpenTaskId(t.id)}
+          canEdit={canEdit}
+          onOpen={() => canEdit && setOpenTaskId(t.id)}
           onClose={() => setOpenTaskId(null)}
           onPick={(libelle, sl) => onPick(t.id, libelle, sl)}
           onReset={() => onReset(t.id)}
@@ -141,6 +144,7 @@ function TaskRow({
   index,
   options,
   isOpen,
+  canEdit,
   onOpen,
   onClose,
   onPick,
@@ -151,6 +155,7 @@ function TaskRow({
   index: number | null;
   options: OnboardingStatusOption[];
   isOpen: boolean;
+  canEdit: boolean;
   onOpen: () => void;
   onClose: () => void;
   onPick: (libelle: string, statut_logique: StatutLogique) => void;
@@ -225,8 +230,11 @@ function TaskRow({
         type="button"
         data-status-button="1"
         onClick={onOpen}
+        disabled={!canEdit}
+        title={canEdit ? undefined : "Droit de production requis"}
         className={cn(
-          "px-2 py-1 rounded-md text-[11px] font-medium border max-w-[180px] truncate transition-all hover:opacity-80 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          "px-2 py-1 rounded-md text-[11px] font-medium border max-w-[180px] truncate transition-all focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          canEdit ? "hover:opacity-80 hover:shadow-sm" : "opacity-60 cursor-not-allowed",
           colorClass
         )}
       >

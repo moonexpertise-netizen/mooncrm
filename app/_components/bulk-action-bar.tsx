@@ -33,6 +33,7 @@ export function BulkActionBar({
   options,
   onApply,
   columnLabel,
+  disabled = false,
   /** @deprecated utiliser columnLabel */
   label,
 }: {
@@ -42,6 +43,10 @@ export function BulkActionBar({
   onApply: (key: string) => void;
   /** Titre de la colonne active. Ex. "Facturation", "Statut IR". */
   columnLabel?: string;
+  /** Désactive les boutons d'application (droit manquant). La sélection reste
+   *  consultable et le bouton de fermeture (X) reste actif : seules les
+   *  ÉCRITURES sont bloquées. */
+  disabled?: boolean;
   /** Compat ancien API. */
   label?: string;
 }) {
@@ -162,8 +167,9 @@ export function BulkActionBar({
               key={o.key}
               type="button"
               onClick={() => onApply(o.key)}
+              disabled={disabled}
               className={cn(
-                "inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium border transition-all hover:opacity-80",
+                "inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium border transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed",
                 o.color
               )}
               title={`Appliquer "${o.label}" à ${count} cellule${count > 1 ? "s" : ""}`}
@@ -178,7 +184,8 @@ export function BulkActionBar({
           ref={btnRef}
           type="button"
           onClick={() => setPickerOpen((v) => !v)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium bg-white/10 dark:bg-zinc-900/10 hover:bg-white/20 dark:hover:bg-zinc-900/20 transition-colors"
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium bg-white/10 dark:bg-zinc-900/10 hover:bg-white/20 dark:hover:bg-zinc-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Appliquer
           <ChevronDown className="h-3 w-3 opacity-70" />

@@ -7,6 +7,7 @@ import { MessageSquare, MoveHorizontal, X, Copy, Inbox } from "lucide-react";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { PappersInpiBadges } from "@/lib/pappers-badges";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   bulkUpdateObligationStatus,
   setObligationFacturation,
@@ -120,6 +121,12 @@ export default function TrackerTable({
   tvaTags?: TvaTag[] | null;
 }) {
   const isTvaMensuelle = trackerSlug === "tva-mensuelle";
+  // Droits effectifs de l'utilisateur (confort visuel : on grise les
+  // controles d'ecriture ; la vraie barriere reste cote server actions).
+  //  - edit_production : statut d'obligation, bulk, facturation.
+  //  - edit_parametrage : etiquette TVA (setClientTvaTag).
+  const canEditProduction = useCan("edit_production");
+  const canEditParametrage = useCan("edit_parametrage");
   const [search, setSearch] = useState("");
   const [openCellId, setOpenCellId] = useState<string | null>(null);
   const [highlightedCellId, setHighlightedCellId] = useState<string | null>(null);
@@ -648,6 +655,11 @@ export default function TrackerTable({
   // (comportement Excel "1 cellule → plusieurs"). Sinon, paste positionnel.
   function pasteClipboardAt(anchorRow: number, anchorCol: number) {
     if (!clipboard) return;
+    // Lecture seule : le coller est une mutation -> on bloque + toast.
+    if (!canEditProduction) {
+      toastError("Droit d'édition requis pour coller des statuts.");
+      return;
+    }
     const byLibelle = new Map<string, { ids: string[]; statut_logique: StatutLogique }>();
 
     const isSingleCell = clipboard.rows === 1 && clipboard.cols === 1;
@@ -998,6 +1010,12 @@ export default function TrackerTable({
   // Bulk action : applique un libellé (ou null = reset) à la sélection
   function runBulk(obligationIds: string[], libelle: string | null) {
     if (obligationIds.length === 0) return;
+    // Lecture seule : on bloque la mutation groupee + toast (les boutons
+    // de la barre d'action sont deja grises, ceci est une securite).
+    if (!canEditProduction) {
+      toastError("Droit d'édition requis pour modifier les statuts.");
+      return;
+    }
     // Optimistic : applique le patch à chaque cellule. Pour libelle=null on
     // ne sait pas le défaut par type, on laisse le serveur trancher (on
     // affichera A_FAIRE/statut_detail à null en attendant).
@@ -1070,6 +1088,10 @@ export default function TrackerTable({
   // d'être créés en closure à chaque cellule.
   const onPick = useCallback(
     (obligationId: string, libelle: string, type: string) => {
+      if (!canEditProduction) {
+        toastError("Droit d'édition requis pour modifier ce statut.");
+        return;
+      }
       const opts = statusOptions[type] ?? [];
       const opt = opts.find((o) => o.libelle === libelle);
       const newStatutLogique = (opt?.statut_logique as StatutLogique) ?? "A_FAIRE";
@@ -1107,11 +1129,15 @@ export default function TrackerTable({
         }
       });
     },
-    [statusOptions, applyPatch, router, filtered, visibleCols]
+    [statusOptions, applyPatch, router, filtered, visibleCols, canEditProduction]
   );
 
   const onReset = useCallback(
     (obligationId: string) => {
+      if (!canEditProduction) {
+        toastError("Droit d'édition requis pour réinitialiser ce statut.");
+        return;
+      }
       applyPatch({ obligationId, statut_logique: "A_FAIRE", statut_detail: null });
       setOpenCellId(null);
       startTransition(async () => {
@@ -1124,7 +1150,7 @@ export default function TrackerTable({
         }
       });
     },
-    [applyPatch, router]
+    [applyPatch, router, canEditProduction]
   );
 
   // Facturation juridique (AGO_DEPOT) ou bilan (LIASSE_PLAQUETTE) : 2e pastille
@@ -1133,6 +1159,10 @@ export default function TrackerTable({
   // appliquee, RLS, etc.). En cas d'erreur on revert via router.refresh().
   const onSetFactStable = useCallback(
     (obligationId: string, etat: EtatFacturation | null) => {
+      if (!canEditProduction) {
+        toastError("Droit d'édition requis pour modifier la facturation.");
+        return;
+      }
       applyPatch({ obligationId, etat_facturation: etat });
       startTransition(async () => {
         try {
@@ -1144,7 +1174,7 @@ export default function TrackerTable({
         }
       });
     },
-    [applyPatch, router]
+    [applyPatch, router, canEditProduction]
   );
 
   // (Le système de notes legacy est remplacé par les commentaires latéraux.)
@@ -1158,6 +1188,11 @@ export default function TrackerTable({
   // Optimistic update sur localRows + persist async + revert si erreur.
   const onChangeTvaTag = useCallback(
     (clientId: string, tagId: string | null) => {
+      // L'etiquette TVA releve du parametrage, pas de la production.
+      if (!canEditParametrage) {
+        toastError("Droit de paramétrage requis pour modifier l'étiquette.");
+        return;
+      }
       const previous = localRows.find((r) => r.clientId === clientId)?.tva_tag_id ?? null;
       setLocalRows((state) =>
         state.map((r) => (r.clientId === clientId ? { ...r, tva_tag_id: tagId } : r))
@@ -1175,7 +1210,7 @@ export default function TrackerTable({
         }
       });
     },
-    [localRows, router]
+    [localRows, router, canEditParametrage]
   );
 
   // Ouverture du popover commentaires (depuis l'icône 💬 d'une cellule).
@@ -1675,6 +1710,7 @@ export default function TrackerTable({
                           <InlineTvaTagPicker
                             tags={tvaTags}
                             currentTagId={r.tva_tag_id}
+                            canEdit={canEditParametrage}
                             onChange={(tagId) => onChangeTvaTag(r.clientId, tagId)}
                           />
                         </div>
@@ -1792,6 +1828,7 @@ export default function TrackerTable({
                         <FacturationOnlyCell
                           cell={c}
                           typeHonosBilans={r.type_honos_bilans}
+                          canEdit={canEditProduction}
                           onSetFacturation={onSetFactStable}
                         />
                       ) : (
@@ -1805,6 +1842,7 @@ export default function TrackerTable({
                           commentCount={c.obligationId ? commentCounts[c.obligationId] ?? 0 : 0}
                           rowLabel={`${r.denomination}, ${col?.label ?? c.type}`}
                           typeHonosBilans={r.type_honos_bilans}
+                          canEdit={canEditProduction}
                           onOpen={handleOpen}
                           onClose={handleClose}
                           onPick={onPick}
@@ -1875,8 +1913,9 @@ export default function TrackerTable({
                       });
                       if (anchorRow !== -1) pasteClipboardAt(anchorRow, anchorCol);
                     }}
-                    className="text-xs px-2.5 py-1 rounded-md text-white bg-[hsl(var(--gold))] hover:opacity-90 transition flex items-center gap-1.5"
-                    title={`Coller la grille ${clipboard.rows}×${clipboard.cols} (Ctrl+V)`}
+                    disabled={!canEditProduction}
+                    className="text-xs px-2.5 py-1 rounded-md text-white bg-[hsl(var(--gold))] hover:opacity-90 transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
+                    title={canEditProduction ? `Coller la grille ${clipboard.rows}×${clipboard.cols} (Ctrl+V)` : "Droit d'édition requis"}
                   >
                     Coller
                     <span className="opacity-90 font-mono text-[10px]">
@@ -1898,11 +1937,16 @@ export default function TrackerTable({
                 <button
                   key={o.libelle}
                   onClick={() => runBulk([...selectedIds], o.libelle)}
+                  disabled={!canEditProduction}
                   className={cn(
-                    "px-2.5 py-1 rounded-md text-xs font-medium border transition-all duration-150 active:scale-95 hover:shadow-md hover:-translate-y-0.5",
+                    "px-2.5 py-1 rounded-md text-xs font-medium border transition-all duration-150 active:scale-95 hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0",
                     statutColorClass(o.statut_logique, o.color)
                   )}
-                  title={`Appliquer "${o.libelle}" à ${selectedIds.size} cellule${selectedIds.size > 1 ? "s" : ""}`}
+                  title={
+                    canEditProduction
+                      ? `Appliquer "${o.libelle}" à ${selectedIds.size} cellule${selectedIds.size > 1 ? "s" : ""}`
+                      : "Droit d'édition requis"
+                  }
                 >
                   {o.libelle}
                 </button>
@@ -1910,8 +1954,9 @@ export default function TrackerTable({
               <div className="h-5 w-px bg-white/20 mx-1" />
               <button
                 onClick={() => runBulk([...selectedIds], null)}
-                className="px-2.5 py-1 rounded-md text-xs text-zinc-300 hover:bg-white/10 transition-colors"
-                title="Réinitialiser à la valeur par défaut du type"
+                disabled={!canEditProduction}
+                className="px-2.5 py-1 rounded-md text-xs text-zinc-300 hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                title={canEditProduction ? "Réinitialiser à la valeur par défaut du type" : "Droit d'édition requis"}
               >
                 Réinitialiser
               </button>
@@ -1968,10 +2013,13 @@ const TVA_TAG_BG_COLORS: Record<string, string> = {
 function InlineTvaTagPicker({
   tags,
   currentTagId,
+  canEdit,
   onChange,
 }: {
   tags: TvaTag[];
   currentTagId: string | null;
+  /** Droit edit_parametrage : sans lui, le chip etiquette est grise. */
+  canEdit: boolean;
   onChange: (tagId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -2022,17 +2070,29 @@ function InlineTvaTagPicker({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (!canEdit) return;
           setOpen((v) => !v);
         }}
+        disabled={!canEdit}
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
           "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors whitespace-nowrap",
+          !canEdit && "opacity-50 cursor-not-allowed",
           current
             ? TVA_TAG_BG_COLORS[current.color] ?? TVA_TAG_BG_COLORS.zinc
-            : "border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/[0.20]"
+            : cn(
+                "border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-400 dark:text-zinc-500",
+                canEdit && "hover:text-zinc-700 dark:hover:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/[0.20]"
+              )
         )}
-        title={current ? `Étiquette : ${current.label}` : "Attribuer une étiquette TVA"}
+        title={
+          !canEdit
+            ? "Droit de paramétrage requis"
+            : current
+            ? `Étiquette : ${current.label}`
+            : "Attribuer une étiquette TVA"
+        }
       >
         {current ? (
           <>
@@ -2140,6 +2200,7 @@ const StatusCell = memo(function StatusCell({
   commentCount,
   rowLabel,
   typeHonosBilans,
+  canEdit,
   onPick,
   onReset,
   onOpenComments,
@@ -2160,6 +2221,9 @@ const StatusCell = memo(function StatusCell({
    *  facturation bilan est separee ('Facturés'). 'Inclus' ou null = pas de
    *  facturation a suivre. */
   typeHonosBilans: string | null;
+  /** Droit edit_production : sans lui, la pastille de statut est grisee et
+   *  n'ouvre pas le picker (la lecture des commentaires reste possible). */
+  canEdit: boolean;
   onPick: (obligationId: string, libelle: string, type: string) => void;
   onReset: (obligationId: string) => void;
   onOpenComments: (
@@ -2280,8 +2344,10 @@ const StatusCell = memo(function StatusCell({
             e.preventDefault();
             return;
           }
+          if (!canEdit) return;
           onOpen(cellId);
         }}
+        disabled={!canEdit}
         data-cell-button="1"
         tabIndex={0}
         style={
@@ -2292,10 +2358,17 @@ const StatusCell = memo(function StatusCell({
             : undefined
         }
         className={cn(
-          "relative inline-block px-2 py-1 rounded-md text-[11px] font-medium border max-w-[110px] truncate hover:opacity-80 hover:shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          "relative inline-block px-2 py-1 rounded-md text-[11px] font-medium border max-w-[110px] truncate transition-all focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          canEdit ? "hover:opacity-80 hover:shadow-sm" : "opacity-50 cursor-not-allowed",
           colorClass
         )}
-        title={cell.echeance ? `Échéance : ${fmtDateFr(cell.echeance)}` : undefined}
+        title={
+          !canEdit
+            ? "Droit d'édition requis"
+            : cell.echeance
+            ? `Échéance : ${fmtDateFr(cell.echeance)}`
+            : undefined
+        }
       >
         {cell.statut_detail ?? defaultLibelle}
       </button>
@@ -2471,6 +2544,7 @@ const StatusCell = memo(function StatusCell({
     prev.typeHonosBilans === next.typeHonosBilans &&
     prev.isOpen === next.isOpen &&
     prev.isSelected === next.isSelected &&
+    prev.canEdit === next.canEdit &&
     prev.options === next.options &&
     prev.commentCount === next.commentCount &&
     prev.rowLabel === next.rowLabel &&
@@ -2499,10 +2573,13 @@ const StatusCell = memo(function StatusCell({
 function FacturationOnlyCell({
   cell,
   typeHonosBilans,
+  canEdit,
   onSetFacturation,
 }: {
   cell: TrackerCell;
   typeHonosBilans: string | null;
+  /** Droit edit_production : sans lui, la pastille facturation est grisee. */
+  canEdit: boolean;
   onSetFacturation: (obligationId: string, etat: EtatFacturation | null) => void;
 }) {
   // Pas d'obligation -> dash discret
@@ -2529,6 +2606,7 @@ function FacturationOnlyCell({
     <FacturationMiniPill
       value={cell.etat_facturation}
       isReadyForBilling={isReady}
+      canEdit={canEdit}
       onChange={(v) => onSetFacturation(cell.obligationId!, v)}
     />
   );
@@ -2537,12 +2615,15 @@ function FacturationOnlyCell({
 function FacturationMiniPill({
   value,
   isReadyForBilling,
+  canEdit,
   onChange,
 }: {
   value: EtatFacturation | null;
   /** True quand la prestation est achevee (statut_logique = TERMINE) : on
    *  affiche "À facturer" par defaut au lieu du placeholder "Fact. ?". */
   isReadyForBilling: boolean;
+  /** Droit edit_production : sans lui, la pastille est grisee. */
+  canEdit: boolean;
   onChange: (v: EtatFacturation | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -2597,15 +2678,20 @@ function FacturationMiniPill({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          if (!canEdit) return;
           setOpen((v) => !v);
         }}
+        disabled={!canEdit}
         title={
-          isReadyForBilling
+          !canEdit
+            ? "Droit d'édition requis"
+            : isReadyForBilling
             ? "Facturation - prestation terminée"
             : "Facturation - prestation pas encore terminée"
         }
         className={cn(
-          "inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border transition-all hover:opacity-80 leading-tight",
+          "inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border transition-all leading-tight",
+          canEdit ? "hover:opacity-80" : "opacity-50 cursor-not-allowed",
           current
             ? current.color
             : "bg-transparent text-zinc-300 dark:text-zinc-600 border-dashed border-zinc-200 dark:border-white/[0.08]"

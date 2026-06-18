@@ -26,6 +26,7 @@ import { Picker } from "@/app/_components/picker";
 import { FormModal } from "@/app/_components/form-modal";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
+import { useCan } from "@/app/_components/permissions-context";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 
@@ -91,6 +92,10 @@ export default function CaaTable({
   statusOptions: CaaStatusOption[];
 }) {
   const router = useRouter();
+  // Droits effectifs (confort visuel ; la vraie barrière est côté serveur).
+  const canEditProduction = useCan("edit_production");
+  const canEditFacturation = useCan("edit_facturation");
+  const canEditHonoraires = useCan("edit_honoraires");
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -639,7 +644,8 @@ export default function CaaTable({
         {!adding && (
           <button
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors"
+            disabled={!canEditProduction}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             Nouveau dossier CAA
@@ -788,6 +794,7 @@ export default function CaaTable({
                           value={r.ldm_statut}
                           options={LDM_VALUES}
                           onChange={(v) => onSetLdm(r.id, v)}
+                          disabled={!canEditProduction}
                           align="left"
                           minWidth={200}
                         />
@@ -797,6 +804,7 @@ export default function CaaTable({
                           years={pillYears ?? years}
                           subscribedYears={new Set(r.obligations.keys())}
                           onToggle={(year) => onToggleSubscription(r.id, year)}
+                          disabled={!canEditProduction}
                         />
                       </td>
                     </>
@@ -828,6 +836,7 @@ export default function CaaTable({
                           onReset={r.obligations.has(selectedYear) ? () => onSetStatut(r.id, null) : undefined}
                           resetLabel="Marquer N/A (désouscrire de cette année)"
                           allowEmpty
+                          disabled={!canEditProduction}
                           placeholder="N/A"
                           align="center"
                           minWidth={220}
@@ -837,7 +846,7 @@ export default function CaaTable({
                         <EditableForfait
                           value={r.obligations.get(selectedYear)?.forfait ?? null}
                           onSave={(v) => onSetForfait(r.id, v)}
-                          disabled={!r.obligations.has(selectedYear)}
+                          disabled={!r.obligations.has(selectedYear) || !canEditHonoraires}
                         />
                       </td>
                       <td
@@ -861,7 +870,7 @@ export default function CaaTable({
                           onChange={(v) => onSetFacturation(r.id, v as EtatFacturation)}
                           onReset={() => onSetFacturation(r.id, null)}
                           allowEmpty
-                          disabled={!r.obligations.has(selectedYear)}
+                          disabled={!r.obligations.has(selectedYear) || !canEditFacturation}
                           align="center"
                           minWidth={200}
                         />
@@ -872,7 +881,8 @@ export default function CaaTable({
                     <div className="inline-flex items-center gap-0.5">
                       <button
                         onClick={() => setEditingId(r.id)}
-                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
+                        disabled={!canEditProduction}
+                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={`Modifier ${r.denomination}`}
                         title="Modifier le dossier"
                       >
@@ -880,7 +890,8 @@ export default function CaaTable({
                       </button>
                       <button
                         onClick={() => onDelete(r.id, r.denomination)}
-                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                        disabled={!canEditProduction}
+                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={`Supprimer ${r.denomination}`}
                         title="Supprimer le dossier"
                       >
@@ -932,6 +943,9 @@ export default function CaaTable({
                 }))
           }
           onApply={onBulkApply}
+          disabled={
+            activeCol === COL_FACT ? !canEditFacturation : !canEditProduction
+          }
         />
       )}
     </div>
@@ -985,10 +999,13 @@ function YearPills({
   years,
   subscribedYears,
   onToggle,
+  disabled = false,
 }: {
   years: number[];
   subscribedYears: Set<number>;
   onToggle: (year: number) => void;
+  /** Désactive les pastilles (droit edit_production manquant). */
+  disabled?: boolean;
 }) {
   // Grid 3 colonnes compact -> ~6 ans tiennent sur 2 lignes.
   return (
@@ -1000,10 +1017,11 @@ function YearPills({
             key={y}
             type="button"
             onClick={() => onToggle(y)}
+            disabled={disabled}
             aria-pressed={subscribed}
             title={subscribed ? `Souscrit ${y}, clic pour retirer` : `Non souscrit ${y}, clic pour ajouter`}
             className={cn(
-              "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
+              "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed",
               subscribed
                 ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))] font-semibold"
                 : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10] hover:text-zinc-700 dark:hover:text-zinc-300"

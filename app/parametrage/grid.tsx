@@ -14,6 +14,8 @@ import {
   setTva,
 } from "./actions";
 import { useAlert, useConfirm } from "@/app/_components/confirm-modal";
+import { useCan } from "@/app/_components/permissions-context";
+import { toastError } from "@/lib/toast-helpers";
 
 type SubKey =
   | "TVS" | "IS_ACOMPTE" | "IS_SOLDE" | "CVAE" | "CVAE_ACOMPTE"
@@ -80,6 +82,7 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
   const { alert, AlertDialog } = useAlert();
+  const canEditParametrage = useCan("edit_parametrage");
 
   function setHoverCol(key: SubKey | null) {
     const prev = currentHoverColRef.current;
@@ -179,8 +182,13 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
     setColMenu(null);
     startTransition(async () => {
-      await bulkSetSubActive(ids, key, year, active);
-      router.refresh();
+      try {
+        await bulkSetSubActive(ids, key, year, active);
+        router.refresh();
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -229,8 +237,13 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
   function onToggleSub(clientId: string, key: SubKey, current: boolean) {
     applyPatch({ kind: "sub", clientId, key, active: !current });
     startTransition(async () => {
-      await setSubActive(clientId, key, year, !current);
-      router.refresh();
+      try {
+        await setSubActive(clientId, key, year, !current);
+        router.refresh();
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -238,8 +251,13 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     const nextMode = (mode || null) as TvaMode | null;
     applyPatch({ kind: "tva", clientId, mode: nextMode });
     startTransition(async () => {
-      await setTva(clientId, year, nextMode);
-      router.refresh();
+      try {
+        await setTva(clientId, year, nextMode);
+        router.refresh();
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -247,8 +265,13 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     const nextRegime = (r || null) as "IR" | "IS" | null;
     applyPatch({ kind: "regime", clientId, regime: nextRegime });
     startTransition(async () => {
-      await setRegimeAction(clientId, year, nextRegime);
-      router.refresh();
+      try {
+        await setRegimeAction(clientId, year, nextRegime);
+        router.refresh();
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -257,8 +280,13 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     const ids = [...selectedClientIds];
     for (const id of ids) applyPatch({ kind: "sub", clientId: id, key, active });
     startTransition(async () => {
-      await bulkSetSubActive(ids, key, year, active);
-      router.refresh();
+      try {
+        await bulkSetSubActive(ids, key, year, active);
+        router.refresh();
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -272,12 +300,17 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     });
     if (!ok) return;
     startTransition(async () => {
-      const res = await bulkReconduire([...selectedClientIds], year, year + 1);
-      router.refresh();
-      await alert({
-        title: `Reconduction effectuée`,
-        description: `${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`,
-      });
+      try {
+        const res = await bulkReconduire([...selectedClientIds], year, year + 1);
+        router.refresh();
+        await alert({
+          title: `Reconduction effectuée`,
+          description: `${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`,
+        });
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -289,13 +322,18 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     });
     if (!ok) return;
     startTransition(async () => {
-      const res = await bulkReconduire([clientId], year, year + 1);
-      router.refresh();
-      if (res.created === 0) {
-        await alert({
-          title: "Rien à reconduire",
-          description: `Le dossier est déjà à jour, ou n'a aucune obligation active en ${year}.`,
-        });
+      try {
+        const res = await bulkReconduire([clientId], year, year + 1);
+        router.refresh();
+        if (res.created === 0) {
+          await alert({
+            title: "Rien à reconduire",
+            description: `Le dossier est déjà à jour, ou n'a aucune obligation active en ${year}.`,
+          });
+        }
+      } catch (e) {
+        toastError(e);
+        router.refresh();
       }
     });
   }
@@ -311,12 +349,17 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
     });
     if (!ok) return;
     startTransition(async () => {
-      const res = await bulkReconduire(ids, year, year + 1);
-      router.refresh();
-      await alert({
-        title: "Reconduction effectuée",
-        description: `${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`,
-      });
+      try {
+        const res = await bulkReconduire(ids, year, year + 1);
+        router.refresh();
+        await alert({
+          title: "Reconduction effectuée",
+          description: `${res.created} subscription${res.created > 1 ? "s" : ""} reconduite${res.created > 1 ? "s" : ""} vers ${year + 1}.`,
+        });
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -337,8 +380,13 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
       for (const k of allKeys) applyPatch({ kind: "sub", clientId: id, key: k, active: false });
     }
     startTransition(async () => {
-      await bulkDeactivateAll(ids, year);
-      router.refresh();
+      try {
+        await bulkDeactivateAll(ids, year);
+        router.refresh();
+      } catch (e) {
+        toastError(e);
+        router.refresh();
+      }
     });
   }
 
@@ -359,7 +407,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={reconduireAll}
-              className="px-2.5 py-1 rounded-md text-xs border border-[hsl(var(--gold))]/40 bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] hover:bg-[hsl(var(--gold))]/20 transition"
+              disabled={!canEditParametrage}
+              className="px-2.5 py-1 rounded-md text-xs border border-[hsl(var(--gold))]/40 bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] hover:bg-[hsl(var(--gold))]/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
               title={`Reconduire la conf ${year} vers ${year + 1} pour tous les dossiers affichés`}
             >
               Reconduire tout vers {year + 1} ›
@@ -471,13 +520,15 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                       </div>
                       <button
                         onClick={() => bulkColumn(c.key, true)}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50 text-emerald-800 flex items-center gap-2"
+                        disabled={!canEditParametrage}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50 text-emerald-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span className="text-base">✓</span> Activer pour tous
                       </button>
                       <button
                         onClick={() => bulkColumn(c.key, false)}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-rose-50 text-rose-800 flex items-center gap-2"
+                        disabled={!canEditParametrage}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-rose-50 text-rose-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span className="text-base">✗</span> Désactiver pour tous
                       </button>
@@ -558,8 +609,9 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                       <select
                         value={r.regime ?? ""}
                         onChange={(e) => onChangeRegime(r.id, e.target.value as "IR" | "IS" | "")}
+                        disabled={!canEditParametrage}
                         className={cn(
-                          "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))]",
+                          "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))] disabled:opacity-50 disabled:cursor-not-allowed",
                           r.regime ? "border-zinc-300 text-zinc-700" : "border-amber-200 bg-amber-50 text-amber-700"
                         )}
                       >
@@ -576,8 +628,9 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                       <select
                         value={r.tvaMode ?? ""}
                         onChange={(e) => onChangeTva(r.id, e.target.value as TvaMode | "")}
+                        disabled={!canEditParametrage}
                         className={cn(
-                          "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))]",
+                          "px-1.5 py-0.5 rounded text-[11px] border bg-white focus:outline-none focus:ring-1 focus:ring-[hsl(var(--gold))] disabled:opacity-50 disabled:cursor-not-allowed",
                           r.tvaMode ? "border-zinc-300 text-zinc-700" : "border-amber-200 bg-amber-50 text-amber-700"
                         )}
                       >
@@ -602,6 +655,10 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                     }
                     const isIS = col.key === "IS_ACOMPTE" || col.key === "IS_SOLDE";
                     const disabled = isIR && isIS;
+                    // Bloque aussi le clic si l'utilisateur n'a pas le droit
+                    // d'édition (grise + non cliquable). On garde `disabled`
+                    // (règle IR) pour le rendu "grey check" spécifique.
+                    const cellDisabled = disabled || !canEditParametrage;
                     const v = r.subs[col.key];
                     return (
                       <td
@@ -612,14 +669,15 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                         className="px-0.5 py-1 text-center align-middle transition-colors duration-100"
                       >
                         <button
-                          disabled={disabled}
+                          disabled={cellDisabled}
                           onClick={() => onToggleSub(r.id, col.key, v)}
                           className={cn(
                             "w-7 h-7 inline-flex items-center justify-center rounded border",
                             "active:scale-95 group/cell relative overflow-hidden transition-transform duration-100",
                             disabled
                               ? "border-zinc-200 bg-zinc-50 cursor-not-allowed"
-                              : "border-zinc-200 bg-white"
+                              : "border-zinc-200 bg-white",
+                            !disabled && !canEditParametrage && "cursor-not-allowed opacity-50"
                           )}
                           title={
                             disabled
@@ -655,7 +713,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                     ) : (
                       <button
                         onClick={() => reconduireOne(r.id)}
-                        className="px-2 py-1 rounded-md text-[11px] border border-[hsl(var(--gold))]/30 bg-white text-[hsl(var(--gold-dark))] hover:bg-[hsl(var(--gold))]/10 hover:border-[hsl(var(--gold))]/60 transition"
+                        disabled={!canEditParametrage}
+                        className="px-2 py-1 rounded-md text-[11px] border border-[hsl(var(--gold))]/30 bg-white text-[hsl(var(--gold-dark))] hover:bg-[hsl(var(--gold))]/10 hover:border-[hsl(var(--gold))]/60 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         title={`Reconduire ce dossier vers ${year + 1}`}
                       >
                         {year + 1} ›
@@ -686,14 +745,16 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
               </div>
               <button
                 onClick={reconduire}
-                className="text-xs px-2.5 py-1 rounded-md bg-[hsl(var(--gold))] text-white hover:opacity-90 transition font-medium"
+                disabled={!canEditParametrage}
+                className="text-xs px-2.5 py-1 rounded-md bg-[hsl(var(--gold))] text-white hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 title={`Reconduire la conf vers ${year + 1}`}
               >
                 Reconduire vers {year + 1}
               </button>
               <button
                 onClick={decocheAll}
-                className="text-xs px-2.5 py-1 rounded-md border border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 transition"
+                disabled={!canEditParametrage}
+                className="text-xs px-2.5 py-1 rounded-md border border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 title={`Décocher toutes les obligations ${year} pour la sélection`}
               >
                 Tout décocher
@@ -713,7 +774,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                 <button
                   key={c.key}
                   onClick={() => bulkApply(c.key, true)}
-                  className="px-2 py-0.5 rounded text-[11px] border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 transition"
+                  disabled={!canEditParametrage}
+                  className="px-2 py-0.5 rounded text-[11px] border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   title={`Activer ${c.label} pour les ${selectedClientIds.size} client(s) sélectionné(s)`}
                 >
                   + {c.short}
@@ -726,7 +788,8 @@ export default function ParametrageGrid({ rows, year }: { rows: Row[]; year: num
                 <button
                   key={c.key}
                   onClick={() => bulkApply(c.key, false)}
-                  className="px-2 py-0.5 rounded text-[11px] border border-rose-500/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 transition"
+                  disabled={!canEditParametrage}
+                  className="px-2 py-0.5 rounded text-[11px] border border-rose-500/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   title={`Désactiver ${c.label} pour les ${selectedClientIds.size} client(s) sélectionné(s)`}
                 >
                   − {c.short}

@@ -6,6 +6,8 @@ import { Building2, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { libelleFromNaf } from "@/lib/naf-libelles";
 import { formeFromNatureJuridique, type FormeJuridique } from "@/lib/nature-to-forme";
+import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { fetchInpiCloture, importFromAnnuaire } from "./actions";
 
 /**
@@ -82,6 +84,7 @@ export default function AnnuaireButton({
   siren: string | null;
   current: CurrentData;
 }) {
+  const canEdit = useCan("edit_clients");
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -232,7 +235,7 @@ export default function AnnuaireButton({
   }
 
   function onImport() {
-    if (!data) return;
+    if (!data || !canEdit) return;
     setError(null);
     const patch: {
       adresse_siege?: string | null;
@@ -272,6 +275,7 @@ export default function AnnuaireButton({
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
+        toastError(e, "Echec de l'import depuis l'annuaire");
       }
     });
   }
@@ -280,8 +284,13 @@ export default function AnnuaireButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        title="Récupérer les infos depuis l'annuaire des entreprises"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-zinc-300 text-zinc-700 text-xs font-medium hover:bg-zinc-50 hover:border-zinc-400 transition shadow-sm"
+        disabled={!canEdit}
+        title={
+          canEdit
+            ? "Récupérer les infos depuis l'annuaire des entreprises"
+            : "Droit d'édition requis pour importer depuis l'annuaire"
+        }
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-zinc-300 text-zinc-700 text-xs font-medium hover:bg-zinc-50 hover:border-zinc-400 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Building2 className="h-3.5 w-3.5" />
         Annuaire

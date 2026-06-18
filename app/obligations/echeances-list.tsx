@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { cn, fmtDateFr, statutColorClass } from "@/lib/utils";
 import { Picker } from "@/app/_components/picker";
+import { useCan } from "@/app/_components/permissions-context";
+import { toastError } from "@/lib/toast-helpers";
 import { setEcheanceStatus, ensureObligationRow } from "./actions";
 import CommentsPopover from "./[tracker]/comments-panel";
 import type { SerializedEcheanceItem, EcheanceStatusOption } from "./page";
@@ -312,6 +314,9 @@ function EcheanceRow({
   onOpenComments: (payload: OpenCommentsPayload) => void;
 }) {
   const router = useRouter();
+  // Droit d'edition de production : sans lui, le picker de statut est grise.
+  // La lecture des commentaires reste autorisee (cf. CommentsButton).
+  const canEdit = useCan("edit_production");
   const [, startTransition] = useTransition();
 
   // Override optimistic uniquement pendant l'action serveur. Une fois
@@ -421,8 +426,9 @@ function EcheanceRow({
       startTransition(() => router.refresh());
     } catch (err) {
       // Revert l'optimistic en cas d'erreur serveur (ex. souscription
-      // disparue, validation, etc.)
+      // disparue, validation, refus de permission cote serveur, etc.)
       console.error("setEcheanceStatus failed", err);
+      toastError(err, "Échec mise à jour du statut");
       setOptimistic(null);
     } finally {
       setPending(false);
@@ -454,6 +460,7 @@ function EcheanceRow({
         setCreatedObligationId(oid);
       } catch (err) {
         console.error("ensureObligationRow failed", err);
+        toastError(err, "Impossible d'ouvrir les commentaires");
         return;
       }
     }
@@ -490,7 +497,7 @@ function EcheanceRow({
             options={pickerOptions}
             onPick={handlePick}
             placeholder="À faire"
-            disabled={pending || options.length === 0}
+            disabled={pending || options.length === 0 || !canEdit}
           />
           <CommentsButton count={commentCount} onClick={handleOpenComments} large />
           <Link
@@ -552,7 +559,7 @@ function EcheanceRow({
           options={pickerOptions}
           onPick={handlePick}
           placeholder="À faire"
-          disabled={pending || options.length === 0}
+          disabled={pending || options.length === 0 || !canEdit}
         />
         <CommentsButton count={commentCount} onClick={handleOpenComments} />
         <Link

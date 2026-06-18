@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   addComment,
   deleteComment,
@@ -38,6 +39,9 @@ export default function CommentsPopover({
   onClose: () => void;
   onCountChange?: (count: number) => void;
 }) {
+  // Lecture des commentaires : autorisee a tous. Seuls l'ajout et la
+  // suppression (mutations) sont reserves au droit edit_production.
+  const canEdit = useCan("edit_production");
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -204,6 +208,7 @@ export default function CommentsPopover({
               key={c.id}
               comment={c}
               isMine={c.author_email === currentUserEmail}
+              canEdit={canEdit}
               onDelete={handleDelete}
             />
           ))
@@ -211,7 +216,7 @@ export default function CommentsPopover({
       </div>
 
       {/* Composer ISOLÉ : son propre state, ne re-render PAS le parent à chaque keystroke */}
-      <Composer onSend={handleSend} error={error} clearError={() => setError(null)} />
+      <Composer onSend={handleSend} error={error} clearError={() => setError(null)} canEdit={canEdit} />
     </div>
   );
 }
@@ -223,10 +228,13 @@ export default function CommentsPopover({
 const CommentItem = memo(function CommentItem({
   comment,
   isMine,
+  canEdit,
   onDelete,
 }: {
   comment: Comment;
   isMine: boolean;
+  /** Droit edit_production : sans lui, pas de suppression possible. */
+  canEdit: boolean;
   onDelete: (commentId: string) => void;
 }) {
   const initials = (comment.author_email.split("@")[0] || "?")
@@ -249,7 +257,7 @@ const CommentItem = memo(function CommentItem({
           >
             {formatRelative(comment.created_at)}
           </time>
-          {isMine && (
+          {isMine && canEdit && (
             <button
               onClick={() => onDelete(comment.id)}
               className="ml-auto opacity-0 group-hover/comment:opacity-100 text-[10px] text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 transition-opacity"
@@ -283,10 +291,13 @@ function Composer({
   onSend,
   error,
   clearError,
+  canEdit,
 }: {
   onSend: (content: string) => Promise<boolean>;
   error: string | null;
   clearError: () => void;
+  /** Droit edit_production : sans lui, l'envoi est desactive (lecture seule). */
+  canEdit: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -307,7 +318,7 @@ function Composer({
 
   async function submit() {
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content || sending || !canEdit) return;
     setSending(true);
     if (error) clearError();
     const ok = await onSend(content);
@@ -342,9 +353,10 @@ function Composer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKey}
-          placeholder="Ajouter un commentaire…"
+          disabled={!canEdit}
+          placeholder={canEdit ? "Ajouter un commentaire…" : "Lecture seule"}
           rows={1}
-          className="w-full resize-none px-2.5 py-1.5 text-xs bg-transparent focus:outline-none text-zinc-900 dark:text-zinc-100"
+          className="w-full resize-none px-2.5 py-1.5 text-xs bg-transparent focus:outline-none text-zinc-900 dark:text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ minHeight: 32 }}
         />
         <div className="flex items-center justify-between px-2 pb-1">
@@ -354,13 +366,14 @@ function Composer({
           <button
             type="button"
             onClick={submit}
-            disabled={sending || !draft.trim()}
+            disabled={sending || !draft.trim() || !canEdit}
             className={cn(
               "px-2.5 py-0.5 rounded text-[11px] font-medium transition-all",
-              draft.trim() && !sending
+              draft.trim() && !sending && canEdit
                 ? "bg-[hsl(var(--gold))] text-white hover:opacity-90"
                 : "bg-zinc-100 dark:bg-white/[0.06] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
             )}
+            title={canEdit ? undefined : "Droit d'édition requis"}
           >
             {sending ? "…" : "Envoyer"}
           </button>

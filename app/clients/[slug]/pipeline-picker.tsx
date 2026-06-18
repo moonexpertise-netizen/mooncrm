@@ -6,6 +6,7 @@ import { cn, PIPELINE_COLORS } from "@/lib/utils";
 import { setPipelineStatut, type PipelineStatut } from "./actions";
 import { useLdmCelebration } from "./use-ldm-celebration";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 
 const PIPELINE_VALUES: PipelineStatut[] = [
   "1 - Tally à envoyer",
@@ -37,6 +38,7 @@ export default function PipelinePicker({
   clientId: string;
   current: PipelineStatut | null;
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [local, setLocal] = useState<PipelineStatut | null>(current);
@@ -46,6 +48,7 @@ export default function PipelinePicker({
   useEffect(() => setLocal(current), [current]);
 
   function onChange(next: PipelineStatut | null) {
+    if (!canEdit) return;
     setLocal(next); // optimistic
     startTransition(async () => {
       try {
@@ -81,8 +84,10 @@ export default function PipelinePicker({
           <button
             key={p}
             onClick={() => onChange(active ? null : p)}
+            disabled={!canEdit}
             className={cn(
               "px-3 py-1.5 rounded-full text-xs border transition-all duration-150 active:scale-95",
+              !canEdit && "opacity-50 cursor-not-allowed",
               active
                 ? // Active : couleur du statut + ring sans offset blanc (qui
                   // creait un halo blanc en dark mode).

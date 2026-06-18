@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { deleteClient } from "./actions";
 
 /**
@@ -21,6 +23,7 @@ export default function DeleteClientButton({
   clientId: string;
   denomination: string;
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -64,6 +67,7 @@ export default function DeleteClientButton({
         router.push("/clients");
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
+        toastError(e, "Echec de la suppression du dossier");
       }
     });
   }
@@ -72,12 +76,13 @@ export default function DeleteClientButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        disabled={isPending}
+        disabled={isPending || !canEdit}
         className={cn(
           "text-xs px-2.5 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50 hover:border-rose-400 transition-colors",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
           isPending && "opacity-60"
         )}
-        title="Supprimer définitivement le dossier"
+        title={canEdit ? "Supprimer définitivement le dossier" : "Droit d'édition requis pour supprimer"}
       >
         {isPending ? "Suppression…" : "Supprimer le dossier"}
       </button>

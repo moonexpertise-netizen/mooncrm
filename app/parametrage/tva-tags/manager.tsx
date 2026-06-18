@@ -6,6 +6,7 @@ import { Check, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useConfirm } from "@/app/_components/confirm-modal";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   createTvaTag,
   deleteTvaTag,
@@ -44,6 +45,7 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
   const [newColor, setNewColor] = useState<TvaTagColor>("zinc");
   const [creating, setCreating] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
+  const canEditParametrage = useCan("edit_parametrage");
 
   function onCreate() {
     const trimmed = newLabel.trim();
@@ -152,13 +154,14 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
               if (e.key === "Enter" && !creating) onCreate();
             }}
             placeholder="Ex. TVA Express, TVA + longue, Saisonnier…"
-            className="flex-1 min-w-[200px] px-3 py-1.5 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            disabled={!canEditParametrage}
+            className="flex-1 min-w-[200px] px-3 py-1.5 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <ColorPicker value={newColor} onChange={setNewColor} />
+          <ColorPicker value={newColor} onChange={setNewColor} disabled={!canEditParametrage} />
           <button
             type="button"
             onClick={onCreate}
-            disabled={!newLabel.trim() || creating}
+            disabled={!canEditParametrage || !newLabel.trim() || creating}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -184,7 +187,7 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
                 )}
               >
                 {/* Couleur (picker au clic) */}
-                <ColorPicker value={r.color as TvaTagColor} onChange={(c) => onSetColor(r.id, c)} />
+                <ColorPicker value={r.color as TvaTagColor} onChange={(c) => onSetColor(r.id, c)} disabled={!canEditParametrage} />
 
                 {/* Label inline editable */}
                 <input
@@ -198,7 +201,8 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
                       e.currentTarget.blur();
                     }
                   }}
-                  className="flex-1 min-w-0 px-2 py-1 rounded text-sm bg-transparent border border-transparent hover:border-zinc-200 dark:hover:border-white/[0.08] focus:outline-none focus:border-zinc-300 dark:focus:border-white/[0.16] focus:bg-white dark:focus:bg-white/[0.04] transition-colors"
+                  readOnly={!canEditParametrage}
+                  className="flex-1 min-w-0 px-2 py-1 rounded text-sm bg-transparent border border-transparent hover:border-zinc-200 dark:hover:border-white/[0.08] focus:outline-none focus:border-zinc-300 dark:focus:border-white/[0.16] focus:bg-white dark:focus:bg-white/[0.04] transition-colors read-only:cursor-default read-only:hover:border-transparent"
                 />
 
                 {/* Compteur clients */}
@@ -210,8 +214,9 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
                 <button
                   type="button"
                   onClick={() => onToggleActif(r.id, !r.actif)}
+                  disabled={!canEditParametrage}
                   className={cn(
-                    "px-2 py-1 rounded text-[11px] font-medium border transition-colors",
+                    "px-2 py-1 rounded text-[11px] font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                     r.actif
                       ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/25"
                       : "border-zinc-200 dark:border-white/[0.10] bg-zinc-50 dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
@@ -229,7 +234,8 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
                 <button
                   type="button"
                   onClick={() => onDelete(r)}
-                  className="p-1.5 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                  disabled={!canEditParametrage}
+                  className="p-1.5 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label={`Supprimer ${r.label}`}
                   title="Supprimer cette étiquette"
                 >
@@ -255,12 +261,17 @@ export default function TvaTagsManager({ initialRows }: { initialRows: TvaTagRow
 function ColorPicker({
   value,
   onChange,
+  disabled = false,
 }: {
   value: TvaTagColor;
   onChange: (c: TvaTagColor) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div className="inline-flex items-center gap-1 p-1 rounded-md border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02]">
+    <div className={cn(
+      "inline-flex items-center gap-1 p-1 rounded-md border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02]",
+      disabled && "opacity-50"
+    )}>
       {COLOR_PALETTE.map((c) => {
         const active = c.key === value;
         return (
@@ -268,10 +279,11 @@ function ColorPicker({
             key={c.key}
             type="button"
             onClick={() => onChange(c.key)}
+            disabled={disabled}
             aria-label={`Couleur ${c.key}`}
             title={c.key}
             className={cn(
-              "w-4 h-4 rounded-full transition-all",
+              "w-4 h-4 rounded-full transition-all disabled:cursor-not-allowed",
               c.bg,
               active ? cn("ring-2 ring-offset-1 dark:ring-offset-zinc-900 scale-110", c.ring) : "opacity-70 hover:opacity-100"
             )}

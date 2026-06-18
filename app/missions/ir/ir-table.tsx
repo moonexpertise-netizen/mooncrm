@@ -28,6 +28,7 @@ import { FormModal } from "@/app/_components/form-modal";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import { computeEcheanceIR, getUrgencyStatus } from "@/lib/echeances";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
+import { useCan } from "@/app/_components/permissions-context";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
 
@@ -103,6 +104,10 @@ export default function IrTable({
   statusOptions: Record<string, IrStatusOption[]>;
 }) {
   const router = useRouter();
+  // Droits effectifs (confort visuel ; la vraie barrière est côté serveur).
+  const canEditProduction = useCan("edit_production");
+  const canEditFacturation = useCan("edit_facturation");
+  const canEditHonoraires = useCan("edit_honoraires");
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -672,7 +677,8 @@ export default function IrTable({
         {!adding && (
           <button
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors"
+            disabled={!canEditProduction}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             Nouveau dossier IR
@@ -853,6 +859,7 @@ export default function IrTable({
                           value={r.ldm_statut}
                           options={LDM_VALUES}
                           onChange={(v) => onSetLdm(r.id, v)}
+                          disabled={!canEditProduction}
                           align="left"
                           minWidth={200}
                         />
@@ -866,6 +873,7 @@ export default function IrTable({
                               .map((c) => c.annee)
                           )}
                           onToggle={(year) => onToggleSubscription(r.id, year, "IR")}
+                          disabled={!canEditProduction}
                         />
                       </td>
                       <td className="px-3 py-2.5">
@@ -877,6 +885,7 @@ export default function IrTable({
                               .map((c) => c.annee)
                           )}
                           onToggle={(year) => onToggleSubscription(r.id, year, "IFI")}
+                          disabled={!canEditProduction}
                         />
                       </td>
                     </>
@@ -908,6 +917,7 @@ export default function IrTable({
                           onReset={r.obligations.has(`${selectedYear}|IR`) ? () => onSetStatut(r.id, "IR", null) : undefined}
                           resetLabel="Marquer N/A (désouscrire de cette année)"
                           allowEmpty
+                          disabled={!canEditProduction}
                           placeholder="N/A"
                           align="center"
                           minWidth={220}
@@ -939,6 +949,7 @@ export default function IrTable({
                           onReset={r.obligations.has(`${selectedYear}|IFI`) ? () => onSetStatut(r.id, "IFI", null) : undefined}
                           resetLabel="Marquer N/A (désouscrire de cette année)"
                           allowEmpty
+                          disabled={!canEditProduction}
                           placeholder="N/A"
                           align="center"
                           minWidth={220}
@@ -948,6 +959,7 @@ export default function IrTable({
                         <EditableForfait
                           value={r.forfaits.get(selectedYear) ?? null}
                           onSave={(v) => onSetForfait(r.id, v)}
+                          disabled={!canEditHonoraires}
                         />
                       </td>
                       <td
@@ -971,6 +983,7 @@ export default function IrTable({
                           onChange={(v) => onSetFacturation(r.id, v as EtatFacturation)}
                           onReset={() => onSetFacturation(r.id, null)}
                           allowEmpty
+                          disabled={!canEditFacturation}
                           align="center"
                           minWidth={200}
                         />
@@ -981,7 +994,8 @@ export default function IrTable({
                     <div className="inline-flex items-center gap-0.5">
                       <button
                         onClick={() => setEditingId(r.id)}
-                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
+                        disabled={!canEditProduction}
+                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={`Modifier ${r.nom}`}
                         title="Modifier le dossier"
                       >
@@ -989,7 +1003,8 @@ export default function IrTable({
                       </button>
                       <button
                         onClick={() => onDelete(r.id, [r.prenom, r.nom].filter(Boolean).join(" "))}
-                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                        disabled={!canEditProduction}
+                        className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={`Supprimer ${r.nom}`}
                         title="Supprimer le dossier"
                       >
@@ -1054,6 +1069,9 @@ export default function IrTable({
               : []
           }
           onApply={onBulkApply}
+          disabled={
+            activeCol === COL_FACT ? !canEditFacturation : !canEditProduction
+          }
         />
       )}
     </div>
@@ -1113,10 +1131,13 @@ function YearPills({
   years,
   subscribedYears,
   onToggle,
+  disabled = false,
 }: {
   years: number[];
   subscribedYears: Set<number>;
   onToggle: (year: number) => void;
+  /** Désactive les pastilles (droit edit_production manquant). */
+  disabled?: boolean;
 }) {
   // Layout 3 colonnes : ~6 ans tiennent sur 2 lignes compactes. Auto-wrap
   // via grid si l'array deborde.
@@ -1129,10 +1150,11 @@ function YearPills({
             key={y}
             type="button"
             onClick={() => onToggle(y)}
+            disabled={disabled}
             aria-pressed={subscribed}
             title={subscribed ? `Souscrit ${y}, clic pour retirer` : `Non souscrit ${y}, clic pour ajouter`}
             className={cn(
-              "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400",
+              "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed",
               subscribed
                 ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))] font-semibold"
                 : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10] hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -1346,9 +1368,13 @@ function NewClientIrForm({
 function EditableForfait({
   value,
   onSave,
+  disabled = false,
 }: {
   value: number | null;
   onSave: (v: number | null) => void;
+  /** Lecture seule (droit edit_honoraires manquant) : affiche le montant sans
+   *  input éditable. */
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value === null ? "" : String(value));
@@ -1367,6 +1393,25 @@ function EditableForfait({
       return;
     }
     if (n !== value) onSave(n);
+  }
+
+  // Lecture seule : montant affiché sans bouton/input (pas de mutation possible).
+  if (disabled) {
+    return (
+      <span
+        className={cn(
+          "inline-block w-full text-right px-1.5 py-0.5 tabular-nums text-sm",
+          value === null
+            ? "text-zinc-400 dark:text-zinc-500 italic"
+            : "text-zinc-900 dark:text-zinc-100"
+        )}
+        title="Forfait d'honoraires (€ HT)"
+      >
+        {value === null
+          ? "-"
+          : `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value)} € HT`}
+      </span>
+    );
   }
 
   if (editing) {

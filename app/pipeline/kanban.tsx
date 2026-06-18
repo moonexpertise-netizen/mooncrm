@@ -6,6 +6,7 @@ import Link from "next/link";
 import { GripVertical, ArrowRightLeft, ChevronDown, Check, Inbox, Rocket } from "lucide-react";
 import { useLdmCelebration } from "@/app/clients/[slug]/use-ldm-celebration";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   DndContext,
   DragOverlay,
@@ -111,6 +112,10 @@ function sortColumnDesc(a: PipelineCard, b: PipelineCard): number {
 
 export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   const router = useRouter();
+  // Droit d'edition des dossiers/pipeline. Sans lui (lecture/externe) : on
+  // grise les poignees de drag + le picker mobile. Le serveur refuse de
+  // toute facon (movePipeline -> requirePermission("edit_clients")).
+  const canEdit = useCan("edit_clients");
   const [, startTransition] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
   // État local optimiste : appliqué immédiatement, puis revalidate côté serveur
@@ -194,6 +199,10 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
   // useLdmCelebration. Coherent avec la fiche client (LDMSigneeButton /
   // PipelinePicker).
   function moveCardOptimistic(cardId: string, newStatut: PipelineStatut) {
+    if (!canEdit) {
+      toastError("Action non autorisée pour votre profil.");
+      return;
+    }
     const prev = localCards.find((c) => c.id === cardId);
     const previousStatut = prev?.pipeline_statut;
     const previousChangedAt = prev?.pipeline_changed_at ?? null;
@@ -257,6 +266,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         <MobilePipelineList
           cards={localCards}
           onMove={moveCardOptimistic}
+          canEdit={canEdit}
         />
       </div>
 
@@ -368,9 +378,11 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
 function MobilePipelineList({
   cards,
   onMove,
+  canEdit,
 }: {
   cards: PipelineCard[];
   onMove: (cardId: string, newStatut: PipelineStatut) => void;
+  canEdit: boolean;
 }) {
   // Stages dépliés : par défaut tous ouverts en mobile (l'utilisateur voit
   // immédiatement tous les dossiers). L'utilisateur peut replier.
@@ -460,9 +472,10 @@ function MobilePipelineList({
                   <button
                     type="button"
                     onClick={() => setPickerOpenFor(c.id)}
-                    className="shrink-0 ml-1 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] hover:bg-zinc-50 dark:hover:bg-white/[0.08] text-zinc-500 dark:text-zinc-300 active:bg-zinc-100 transition-colors"
+                    disabled={!canEdit}
+                    className="shrink-0 ml-1 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] hover:bg-zinc-50 dark:hover:bg-white/[0.08] text-zinc-500 dark:text-zinc-300 active:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     aria-label="Changer le statut"
-                    title="Déplacer"
+                    title={canEdit ? "Déplacer" : "Lecture seule"}
                   >
                     <ArrowRightLeft className="h-3.5 w-3.5" />
                   </button>
@@ -546,7 +559,8 @@ function MobilePipelineList({
                       <button
                         type="button"
                         onClick={() => setPickerOpenFor(c.id)}
-                        className="shrink-0 ml-1 inline-flex items-center justify-center w-7 h-7 rounded-md border border-indigo-300/15 bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-200/60 transition-colors"
+                        disabled={!canEdit}
+                        className="shrink-0 ml-1 inline-flex items-center justify-center w-7 h-7 rounded-md border border-indigo-300/15 bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-200/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label="Changer le statut"
                       >
                         <ArrowRightLeft className="h-3 w-3" />
@@ -840,6 +854,7 @@ const SpaceCard = memo(function SpaceCard({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
   });
+  const canEdit = useCan("edit_clients");
   const style = transform
     ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
@@ -860,10 +875,20 @@ const SpaceCard = memo(function SpaceCard({
     >
       <button
         type="button"
-        {...attributes}
-        {...listeners}
-        aria-label={`Déplacer ${card.denomination} hors de Perdu dans l'espace — Espace pour saisir`}
-        className="shrink-0 -my-1.5 -ml-1 px-1 py-2 text-indigo-300/30 hover:text-indigo-200/70 cursor-grab active:cursor-grabbing touch-none transition-colors"
+        disabled={!canEdit}
+        {...(canEdit ? attributes : {})}
+        {...(canEdit ? listeners : {})}
+        aria-label={
+          canEdit
+            ? `Déplacer ${card.denomination} hors de Perdu dans l'espace — Espace pour saisir`
+            : "Déplacement non autorisé (lecture seule)"
+        }
+        className={cn(
+          "shrink-0 -my-1.5 -ml-1 px-1 py-2 text-indigo-300/30 touch-none transition-colors",
+          canEdit
+            ? "hover:text-indigo-200/70 cursor-grab active:cursor-grabbing"
+            : "opacity-40 cursor-not-allowed"
+        )}
         onClick={(e) => e.preventDefault()}
       >
         <GripVertical className="h-3 w-3" />
@@ -1002,6 +1027,7 @@ const Card = memo(function Card({
     id: card.id,
     // Le drag ne se déclenche QUE depuis le handle (pas depuis la card entière)
   });
+  const canEdit = useCan("edit_clients");
   // GPU translate pour fluidité. translate3d force la composition couche
   // séparée → pas de repaint coûteux du body pendant le drag.
   const style = transform
@@ -1028,12 +1054,19 @@ const Card = memo(function Card({
       <button
         type="button"
         ref={undefined}
-        {...(isOverlay ? {} : attributes)}
-        {...(isOverlay ? {} : listeners)}
-        aria-label={`Déplacer ${card.denomination} — Espace pour saisir, flèches pour déplacer`}
+        disabled={!canEdit}
+        {...(isOverlay || !canEdit ? {} : attributes)}
+        {...(isOverlay || !canEdit ? {} : listeners)}
+        aria-label={
+          canEdit
+            ? `Déplacer ${card.denomination} — Espace pour saisir, flèches pour déplacer`
+            : "Déplacement non autorisé (lecture seule)"
+        }
         className={cn(
-          "shrink-0 -my-1.5 -ml-2 px-1.5 py-2 text-zinc-300 hover:text-zinc-600 group-hover:text-zinc-400 rounded-l-lg transition-colors",
-          "cursor-grab active:cursor-grabbing touch-none"
+          "shrink-0 -my-1.5 -ml-2 px-1.5 py-2 text-zinc-300 rounded-l-lg transition-colors touch-none",
+          canEdit
+            ? "hover:text-zinc-600 group-hover:text-zinc-400 cursor-grab active:cursor-grabbing"
+            : "opacity-40 cursor-not-allowed"
         )}
         onClick={(e) => e.preventDefault()}
       >

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   setPilotageCadence,
   togglePilotageSubscription,
@@ -44,6 +45,7 @@ export default function PilotageCard({
   years: number[];
   active: PilotageActiveMap;
 }) {
+  const canEdit = useCan("edit_production");
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [localActive, setLocalActive] = useState<PilotageActiveMap>(active);
@@ -57,6 +59,7 @@ export default function PilotageCard({
   }
 
   function onToggle(annee: number, type: "TDB" | "RDV") {
+    if (!canEdit) return;
     const cur = getCell(annee);
     const next = !cur[type];
     setLocalActive((prev) => ({
@@ -77,6 +80,7 @@ export default function PilotageCard({
   }
 
   function onCadenceChange(annee: number, aspect: "tdb" | "rdv", value: string) {
+    if (!canEdit) return;
     const cur = getCell(annee);
     const prevValue = aspect === "tdb" ? cur.tdbCadence : cur.rdvCadence;
     setLocalActive((prev) => ({
@@ -148,12 +152,13 @@ export default function PilotageCard({
                 return (
                   <td key={y} className="px-1 py-2 text-center align-middle">
                     <div className="flex flex-col items-center gap-1.5">
-                      <Toggle on={on} onClick={() => onToggle(y, "TDB")} />
+                      <Toggle on={on} onClick={() => onToggle(y, "TDB")} disabled={!canEdit} />
                       {on && (
                         <select
                           value={getCell(y).tdbCadence || "Mensuelle"}
                           onChange={(e) => onCadenceChange(y, "tdb", e.target.value)}
-                          className="px-1.5 py-0.5 rounded text-[11px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                          disabled={!canEdit}
+                          className="px-1.5 py-0.5 rounded text-[11px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="Mensuelle">Mensuelle</option>
                           <option value="Trimestrielle">Trimestrielle</option>
@@ -172,12 +177,13 @@ export default function PilotageCard({
                 return (
                   <td key={y} className="px-1 py-2 text-center align-middle">
                     <div className="flex flex-col items-center gap-1.5">
-                      <Toggle on={on} onClick={() => onToggle(y, "RDV")} />
+                      <Toggle on={on} onClick={() => onToggle(y, "RDV")} disabled={!canEdit} />
                       {on && (
                         <select
                           value={getCell(y).rdvCadence || "Mensuel"}
                           onChange={(e) => onCadenceChange(y, "rdv", e.target.value)}
-                          className="px-1.5 py-0.5 rounded text-[11px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                          disabled={!canEdit}
+                          className="px-1.5 py-0.5 rounded text-[11px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="Mensuel">Mensuel</option>
                           <option value="Trimestriel">Trimestriel</option>
@@ -195,17 +201,19 @@ export default function PilotageCard({
   );
 }
 
-function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+function Toggle({ on, onClick, disabled = false }: { on: boolean; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "w-7 h-7 inline-flex items-center justify-center rounded border transition-transform active:scale-95",
         "border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.02]",
-        "group/cell relative overflow-hidden"
+        "group/cell relative overflow-hidden",
+        disabled && "opacity-50 cursor-not-allowed"
       )}
-      title={on ? "Désactiver le suivi" : "Activer le suivi"}
+      title={disabled ? "Droit de production requis" : on ? "Désactiver le suivi" : "Activer le suivi"}
     >
       <span
         className={cn(

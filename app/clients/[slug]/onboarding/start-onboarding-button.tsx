@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { initializeOnboardingForClient } from "@/app/onboarding/actions";
 
 /**
@@ -16,11 +17,12 @@ import { initializeOnboardingForClient } from "@/app/onboarding/actions";
  * n'est cree (parcours par defaut absent), un toast info l'explique.
  */
 export default function StartOnboardingButton({ clientId }: { clientId: string }) {
+  const canEdit = useCan("edit_production");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function onClick() {
-    if (isPending) return;
+    if (isPending || !canEdit) return;
     startTransition(async () => {
       try {
         const res = await initializeOnboardingForClient(clientId);
@@ -42,7 +44,8 @@ export default function StartOnboardingButton({ clientId }: { clientId: string }
     <button
       type="button"
       onClick={onClick}
-      disabled={isPending}
+      disabled={isPending || !canEdit}
+      title={canEdit ? undefined : "Droit de production requis"}
       className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <Sparkles className="h-4 w-4" aria-hidden="true" />

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn, fmtEuro } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
+import type { Permission } from "@/lib/permissions";
 import { setClientGroupe, updateClient, updateContact } from "./actions";
 
 /**
@@ -122,6 +124,26 @@ function useSaver(clientId: string, field: string) {
   return { save, error };
 }
 
+/**
+ * Rendu LECTURE SEULE d'un champ : même gabarit que les inputs (hauteur,
+ * arrondi) mais non interactif. Utilisé quand l'utilisateur n'a pas le droit
+ * d'édition correspondant. Pas de passage en édition, pas d'input.
+ */
+function ReadonlyValue({ value, placeholder }: { value: string | null; placeholder?: string }) {
+  const filled = value != null && value !== "";
+  return (
+    <div
+      className={cn(
+        "w-full px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg border text-base sm:text-sm flex items-center",
+        "bg-zinc-50/60 dark:bg-white/[0.03] border-zinc-100 dark:border-white/[0.06]",
+        filled ? "text-zinc-700 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-500"
+      )}
+    >
+      {filled ? value : placeholder ?? "—"}
+    </div>
+  );
+}
+
 function FieldShell({
   label,
   children,
@@ -159,13 +181,16 @@ export function EditableText({
   value,
   label,
   placeholder = "- à renseigner",
+  permission = "edit_clients",
 }: {
   clientId: string;
   field: string;
   value: string | null;
   label: string;
   placeholder?: string;
+  permission?: Permission;
 }) {
+  const canEdit = useCan(permission);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const { save, error } = useSaver(clientId, field);
@@ -180,6 +205,14 @@ export function EditableText({
     if (newValue === (display ?? null)) return;
     setDisplay(newValue);
     save(newValue, rollback);
+  }
+
+  if (!canEdit) {
+    return (
+      <FieldShell label={label}>
+        <ReadonlyValue value={display} placeholder={placeholder} />
+      </FieldShell>
+    );
   }
 
   return (
@@ -210,6 +243,7 @@ export function EditableNumber({
   label,
   unit,
   placeholder = "- à renseigner",
+  permission = "edit_clients",
 }: {
   clientId: string;
   field: string;
@@ -217,7 +251,9 @@ export function EditableNumber({
   label: string;
   unit?: "eur" | "plain";
   placeholder?: string;
+  permission?: Permission;
 }) {
+  const canEdit = useCan(permission);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(formatDraft(value, unit));
   const { save, error } = useSaver(clientId, field);
@@ -252,6 +288,14 @@ export function EditableNumber({
       save(n, rollback);
     }
     setDraft(formatDraft(n, unit));
+  }
+
+  if (!canEdit) {
+    return (
+      <FieldShell label={label}>
+        <ReadonlyValue value={formatDraft(display, unit) || null} placeholder={placeholder} />
+      </FieldShell>
+    );
   }
 
   return (
@@ -291,12 +335,15 @@ export function EditableDate({
   field,
   value,
   label,
+  permission = "edit_clients",
 }: {
   clientId: string;
   field: string;
   value: string | null;
   label: string;
+  permission?: Permission;
 }) {
+  const canEdit = useCan(permission);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
   const { save, error } = useSaver(clientId, field);
@@ -310,6 +357,14 @@ export function EditableDate({
     if (newValue === (display ?? null)) return;
     setDisplay(newValue);
     save(newValue, rollback);
+  }
+
+  if (!canEdit) {
+    return (
+      <FieldShell label={label}>
+        <ReadonlyValue value={display} />
+      </FieldShell>
+    );
   }
 
   return (
@@ -337,6 +392,7 @@ export function EditableSelect({
   value,
   label,
   options,
+  permission = "edit_clients",
 }: {
   clientId: string;
   field: string;
@@ -344,7 +400,9 @@ export function EditableSelect({
   label: string;
   options: readonly string[];
   placeholder?: string;
+  permission?: Permission;
 }) {
+  const canEdit = useCan(permission);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const { save, error } = useSaver(clientId, field);
 
@@ -353,6 +411,14 @@ export function EditableSelect({
     if (newValue === (display ?? null)) return;
     setDisplay(newValue);
     save(newValue, rollback);
+  }
+
+  if (!canEdit) {
+    return (
+      <FieldShell label={label}>
+        <ReadonlyValue value={display} />
+      </FieldShell>
+    );
   }
 
   return (
@@ -388,6 +454,7 @@ export function EditableGroupe({
   label: string;
   options: string[];
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
@@ -420,6 +487,14 @@ export function EditableGroupe({
   }
 
   const datalistId = `groupes-${clientId}`;
+
+  if (!canEdit) {
+    return (
+      <FieldShell label={label}>
+        <ReadonlyValue value={display} />
+      </FieldShell>
+    );
+  }
 
   return (
     <FieldShell label={label} error={error}>
@@ -463,6 +538,7 @@ export function EditableContactText({
   placeholder?: string;
   required?: boolean;
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value ?? "");
@@ -493,8 +569,17 @@ export function EditableContactText({
       } catch (e) {
         rollback();
         setError(e instanceof Error ? e.message : String(e));
+        toastError(e, "Echec de la sauvegarde du contact");
       }
     });
+  }
+
+  if (!canEdit) {
+    return (
+      <FieldShell label={label}>
+        <ReadonlyValue value={display} placeholder={placeholder} />
+      </FieldShell>
+    );
   }
 
   return (
@@ -527,6 +612,7 @@ export function EditableContactCivilite({
   value: "M." | "Mme" | "Mlle" | null;
   label: string;
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [, startTransition] = useTransition();
@@ -546,8 +632,22 @@ export function EditableContactCivilite({
       } catch (e) {
         rollback();
         setError(e instanceof Error ? e.message : String(e));
+        toastError(e, "Echec de la sauvegarde de la civilite");
       }
     });
+  }
+
+  if (!canEdit) {
+    const labelMap: Record<string, string> = {
+      "M.": "Monsieur",
+      Mme: "Madame",
+      Mlle: "Mademoiselle",
+    };
+    return (
+      <FieldShell label={label}>
+        <ReadonlyValue value={display ? labelMap[display] ?? display : null} />
+      </FieldShell>
+    );
   }
 
   return (
@@ -578,6 +678,7 @@ export function EditableHeading({
   clientId: string;
   value: string;
 }) {
+  const canEdit = useCan("edit_clients");
   const [editing, setEditing] = useState(false);
   const [display, setDisplay, rollback] = useOptimistic(value);
   const [draft, setDraft] = useState(value);
@@ -603,6 +704,14 @@ export function EditableHeading({
     }
     setDisplay(trimmed);
     save(trimmed, rollback);
+  }
+
+  if (!canEdit) {
+    return (
+      <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        {display}
+      </h1>
+    );
   }
 
   if (editing) {

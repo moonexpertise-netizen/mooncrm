@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { initializeYear } from "./actions";
 
 export default function YearSwitcher({
@@ -14,6 +16,7 @@ export default function YearSwitcher({
   selected: number;
   clientId: string;
 }) {
+  const canEdit = useCan("edit_production");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -24,9 +27,14 @@ export default function YearSwitcher({
   }
 
   function addNewYear(y: number) {
+    if (!canEdit) return;
     startTransition(async () => {
-      await initializeYear(clientId, y);
-      go(y);
+      try {
+        await initializeYear(clientId, y);
+        go(y);
+      } catch (e) {
+        toastError(e, "Echec de l'initialisation de l'exercice");
+      }
     });
   }
 
@@ -58,8 +66,9 @@ export default function YearSwitcher({
       })}
       <button
         onClick={() => addNewYear(nextYearProposed)}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[12px] font-medium tabular-nums border border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-white/[0.20] hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors"
-        title={`Paramétrer l'exercice ${nextYearProposed} (DAS2 + CFE cochés par défaut)`}
+        disabled={!canEdit}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[12px] font-medium tabular-nums border border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-white/[0.20] hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title={canEdit ? `Paramétrer l'exercice ${nextYearProposed} (DAS2 + CFE cochés par défaut)` : "Droit de production requis"}
       >
         <span className="text-zinc-400 dark:text-zinc-500">+</span>
         {nextYearProposed}

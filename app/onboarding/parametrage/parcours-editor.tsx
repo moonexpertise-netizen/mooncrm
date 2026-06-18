@@ -32,6 +32,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/app/_components/confirm-modal";
+import { useCan } from "@/app/_components/permissions-context";
+import { toastError } from "@/lib/toast-helpers";
 import {
   createEtape,
   createRubrique,
@@ -102,6 +104,7 @@ export default function ParcoursEditor({
   const [, startTransition] = useTransition();
   const [expandedEtapeId, setExpandedEtapeId] = useState<string | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
+  const canEdit = useCan("edit_parametrage");
 
   // State local + sync via prop pour conserver l'UI immediate pendant le save.
   // Resync via useEffect (et non pas setState pendant render, qui declenche un
@@ -141,9 +144,13 @@ export default function ParcoursEditor({
   }, [localEtapes, localRubriques]);
 
   // -------- DnD setup --------
-  const sensors = useSensors(
+  // En lecture seule, aucun capteur → le drag-and-drop de réordonnancement
+  // est désactivé (sécurité visuelle, le serveur refuserait de toute façon).
+  const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
+  const noSensors = useSensors();
+  const sensors = canEdit ? dndSensors : noSensors;
 
   /**
    * Collision custom : on regarde d'abord les containers sous le pointeur
@@ -236,8 +243,13 @@ export default function ParcoursEditor({
       const targetRubId = toContainer === NO_RUB ? null : toContainer;
       // Si c'est un reorder pur dans le même container, optimisation : pas
       // besoin de toucher rubrique_id. Mais l'action moveEtape gère ça.
-      await moveEtape(parcoursId, activeId, targetRubId, targetIndex);
-      refresh();
+      try {
+        await moveEtape(parcoursId, activeId, targetRubId, targetIndex);
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
@@ -247,12 +259,17 @@ export default function ParcoursEditor({
       state.map((e) => (e.id === etapeId ? { ...e, ...patch } : e))
     );
     startTransition(async () => {
-      await updateEtape(etapeId, {
-        libelle: patch.libelle,
-        nom_court: patch.nom_court,
-        description: patch.description,
-      });
-      refresh();
+      try {
+        await updateEtape(etapeId, {
+          libelle: patch.libelle,
+          nom_court: patch.nom_court,
+          description: patch.description,
+        });
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
@@ -266,8 +283,13 @@ export default function ParcoursEditor({
     if (!ok) return;
     setLocalEtapes((state) => state.filter((e) => e.id !== etapeId));
     startTransition(async () => {
-      await deleteEtape(etapeId);
-      refresh();
+      try {
+        await deleteEtape(etapeId);
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
@@ -278,16 +300,26 @@ export default function ParcoursEditor({
       )
     );
     startTransition(async () => {
-      await updateEtapeConditions(etapeId, conditions);
-      refresh();
+      try {
+        await updateEtapeConditions(etapeId, conditions);
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
   // -------- Handlers rubriques --------
   function onAddRubrique() {
     startTransition(async () => {
-      await createRubrique(parcoursId, { nom: "Nouvelle rubrique" });
-      refresh();
+      try {
+        await createRubrique(parcoursId, { nom: "Nouvelle rubrique" });
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
@@ -296,12 +328,17 @@ export default function ParcoursEditor({
       state.map((r) => (r.id === rubId ? { ...r, ...patch } : r))
     );
     startTransition(async () => {
-      await updateRubrique(rubId, {
-        nom: patch.nom,
-        numbering_style: patch.numbering_style,
-        numbering_reset: patch.numbering_reset,
-      });
-      refresh();
+      try {
+        await updateRubrique(rubId, {
+          nom: patch.nom,
+          numbering_style: patch.numbering_style,
+          numbering_reset: patch.numbering_reset,
+        });
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
@@ -318,8 +355,13 @@ export default function ParcoursEditor({
       state.map((e) => (e.rubrique_id === rubId ? { ...e, rubrique_id: null } : e))
     );
     startTransition(async () => {
-      await deleteRubrique(rubId);
-      refresh();
+      try {
+        await deleteRubrique(rubId);
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
@@ -331,8 +373,13 @@ export default function ParcoursEditor({
     const next = arrayMove(localRubriques, idx, newIdx);
     setLocalRubriques(next);
     startTransition(async () => {
-      await reorderRubriques(parcoursId, next.map((r) => r.id));
-      refresh();
+      try {
+        await reorderRubriques(parcoursId, next.map((r) => r.id));
+        refresh();
+      } catch (e) {
+        toastError(e);
+        refresh();
+      }
     });
   }
 
@@ -362,6 +409,7 @@ export default function ParcoursEditor({
             onUpdateEtape={onUpdateEtape}
             onDeleteEtape={onDeleteEtape}
             onUpdateConditions={onUpdateConditions}
+            canEdit={canEdit}
           />
         )}
 
@@ -386,22 +434,25 @@ export default function ParcoursEditor({
               onUpdateEtape={onUpdateEtape}
               onDeleteEtape={onDeleteEtape}
               onUpdateConditions={onUpdateConditions}
+              canEdit={canEdit}
             />
           );
         })}
 
-        {/* Boutons ajout */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <AddEtapeForm parcoursId={parcoursId} onAdded={refresh} />
-          <button
-            type="button"
-            onClick={onAddRubrique}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-50 transition-colors"
-          >
-            <FolderPlus className="h-3.5 w-3.5" />
-            Ajouter une rubrique
-          </button>
-        </div>
+        {/* Boutons ajout (paramétrage uniquement) */}
+        {canEdit && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <AddEtapeForm parcoursId={parcoursId} onAdded={refresh} />
+            <button
+              type="button"
+              onClick={onAddRubrique}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-50 transition-colors"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              Ajouter une rubrique
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Drag overlay : aperçu de l'étape pendant le drag */}
@@ -430,6 +481,7 @@ function ContainerSection({
   onUpdateEtape,
   onDeleteEtape,
   onUpdateConditions,
+  canEdit,
 }: {
   containerId: ContainerId;
   title: string;
@@ -440,6 +492,7 @@ function ContainerSection({
   onUpdateEtape: (id: string, patch: Partial<EtapeRow>) => void;
   onDeleteEtape: (id: string, libelle: string) => void;
   onUpdateConditions: (id: string, c: ConditionsNa) => void;
+  canEdit: boolean;
 }) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -455,6 +508,7 @@ function ContainerSection({
         onUpdateEtape={onUpdateEtape}
         onDeleteEtape={onDeleteEtape}
         onUpdateConditions={onUpdateConditions}
+        canEdit={canEdit}
       />
     </div>
   );
@@ -478,6 +532,7 @@ function RubriqueSection({
   onUpdateEtape,
   onDeleteEtape,
   onUpdateConditions,
+  canEdit,
 }: {
   rubrique: RubriqueRow;
   idx: number;
@@ -492,6 +547,7 @@ function RubriqueSection({
   onUpdateEtape: (id: string, patch: Partial<EtapeRow>) => void;
   onDeleteEtape: (id: string, libelle: string) => void;
   onUpdateConditions: (id: string, c: ConditionsNa) => void;
+  canEdit: boolean;
 }) {
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -502,7 +558,7 @@ function RubriqueSection({
           <button
             type="button"
             onClick={() => onMoveRubrique(-1)}
-            disabled={idx === 0}
+            disabled={!canEdit || idx === 0}
             className="p-0.5 rounded text-zinc-400 hover:text-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
             title="Monter la rubrique"
           >
@@ -511,7 +567,7 @@ function RubriqueSection({
           <button
             type="button"
             onClick={() => onMoveRubrique(1)}
-            disabled={idx >= total - 1}
+            disabled={!canEdit || idx >= total - 1}
             className="p-0.5 rounded text-zinc-400 hover:text-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
             title="Descendre la rubrique"
           >
@@ -528,6 +584,7 @@ function RubriqueSection({
           onCommit={(v) => onUpdateRubrique({ nom: v })}
           className="font-semibold text-sm flex-1 min-w-[200px]"
           placeholder="Nom de la rubrique"
+          disabled={!canEdit}
         />
 
         <div className="flex items-center gap-2 text-[11px] shrink-0">
@@ -538,7 +595,8 @@ function RubriqueSection({
               onChange={(e) =>
                 onUpdateRubrique({ numbering_style: e.target.value as NumberingStyle })
               }
-              className="px-1.5 py-1 rounded border border-zinc-300 bg-white text-[11px] focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              disabled={!canEdit}
+              className="px-1.5 py-1 rounded border border-zinc-300 bg-white text-[11px] focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="decimal">1, 2, 3…</option>
               <option value="alpha">A, B, C…</option>
@@ -546,14 +604,15 @@ function RubriqueSection({
               <option value="none">Aucun</option>
             </select>
           </label>
-          <label className="flex items-center gap-1 text-zinc-600 cursor-pointer">
+          <label className={cn("flex items-center gap-1 text-zinc-600", canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-50")}>
             <input
               type="checkbox"
               checked={rubrique.numbering_reset}
               onChange={(e) =>
                 onUpdateRubrique({ numbering_reset: e.target.checked })
               }
-              className="rounded"
+              disabled={!canEdit}
+              className="rounded disabled:cursor-not-allowed"
             />
             Recommencer à 1
           </label>
@@ -562,7 +621,8 @@ function RubriqueSection({
         <button
           type="button"
           onClick={onDeleteRubrique}
-          className="p-1.5 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+          disabled={!canEdit}
+          className="p-1.5 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Supprimer la rubrique"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -578,6 +638,7 @@ function RubriqueSection({
         onUpdateEtape={onUpdateEtape}
         onDeleteEtape={onDeleteEtape}
         onUpdateConditions={onUpdateConditions}
+        canEdit={canEdit}
       />
     </div>
   );
@@ -596,6 +657,7 @@ function SortableEtapeList({
   onUpdateEtape,
   onDeleteEtape,
   onUpdateConditions,
+  canEdit,
 }: {
   containerId: ContainerId;
   etapes: EtapeRow[];
@@ -605,6 +667,7 @@ function SortableEtapeList({
   onUpdateEtape: (id: string, patch: Partial<EtapeRow>) => void;
   onDeleteEtape: (id: string, libelle: string) => void;
   onUpdateConditions: (id: string, c: ConditionsNa) => void;
+  canEdit: boolean;
 }) {
   const ids = useMemo(() => etapes.map((e) => e.id), [etapes]);
   // useDroppable : rend le wrapper du container "droppable" pour qu'on puisse
@@ -645,6 +708,7 @@ function SortableEtapeList({
               onUpdate={(patch) => onUpdateEtape(etape.id, patch)}
               onDelete={() => onDeleteEtape(etape.id, etape.libelle)}
               onUpdateConditions={(c) => onUpdateConditions(etape.id, c)}
+              canEdit={canEdit}
             />
           ))
         )}
@@ -665,6 +729,7 @@ function SortableEtapeCard({
   onUpdate,
   onDelete,
   onUpdateConditions,
+  canEdit,
 }: {
   etape: EtapeRow;
   number: string;
@@ -673,9 +738,10 @@ function SortableEtapeCard({
   onUpdate: (patch: Partial<EtapeRow>) => void;
   onDelete: () => void;
   onUpdateConditions: (c: ConditionsNa) => void;
+  canEdit: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: etape.id });
+    useSortable({ id: etape.id, disabled: !canEdit });
   const conditions = normalize(etape.conditions_na);
   const conditionsCount = conditions.items.length;
 
@@ -688,12 +754,18 @@ function SortableEtapeCard({
   return (
     <div ref={setNodeRef} style={style} className="px-4 py-3 bg-white">
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Drag handle */}
+        {/* Drag handle (réordonnancement → paramétrage uniquement) */}
         <button
           type="button"
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 rounded text-zinc-300 hover:text-zinc-600 hover:bg-zinc-100 transition-colors shrink-0"
+          {...(canEdit ? attributes : {})}
+          {...(canEdit ? listeners : {})}
+          disabled={!canEdit}
+          className={cn(
+            "p-1 rounded text-zinc-300 transition-colors shrink-0",
+            canEdit
+              ? "cursor-grab active:cursor-grabbing hover:text-zinc-600 hover:bg-zinc-100"
+              : "cursor-not-allowed opacity-40"
+          )}
           title="Glisser pour réordonner"
           aria-label="Glisser pour réordonner"
         >
@@ -715,6 +787,7 @@ function SortableEtapeCard({
             onCommit={(v) => onUpdate({ nom_court: v })}
             className="text-sm w-[180px]"
             placeholder="ex: Tally"
+            disabled={!canEdit}
           />
         </div>
 
@@ -728,6 +801,7 @@ function SortableEtapeCard({
             onCommit={(v) => onUpdate({ libelle: v })}
             className="font-medium text-sm w-full"
             placeholder="ex: Tally rempli"
+            disabled={!canEdit}
           />
         </div>
 
@@ -750,7 +824,8 @@ function SortableEtapeCard({
           <button
             type="button"
             onClick={onDelete}
-            className="p-1.5 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            disabled={!canEdit}
+            className="p-1.5 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Supprimer l'étape"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -760,7 +835,7 @@ function SortableEtapeCard({
 
       {isExpanded && (
         <div className="mt-3 ml-12 border-l-2 border-amber-200 pl-3">
-          <ConditionsEditor conditions={conditions} onChange={onUpdateConditions} />
+          <ConditionsEditor conditions={conditions} onChange={onUpdateConditions} canEdit={canEdit} />
         </div>
       )}
     </div>
@@ -815,11 +890,13 @@ function InlineText({
   onCommit,
   className,
   placeholder,
+  disabled = false,
 }: {
   value: string;
   onCommit: (v: string) => void;
   className?: string;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   if (draft !== value && draft === "") setDraft(value);
@@ -835,6 +912,7 @@ function InlineText({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       placeholder={placeholder}
+      readOnly={disabled}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         if (e.key === "Escape") {
@@ -844,6 +922,7 @@ function InlineText({
       }}
       className={cn(
         "px-2 py-1 rounded border border-zinc-300 bg-white hover:border-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 text-sm focus:outline-none transition-colors",
+        disabled && "opacity-60 cursor-default hover:border-zinc-300 read-only:focus:ring-0",
         className
       )}
     />
@@ -883,9 +962,11 @@ const FIELD_VALUES: Partial<Record<ConditionField, Array<{ value: string; label:
 function ConditionsEditor({
   conditions,
   onChange,
+  canEdit,
 }: {
   conditions: ConditionsNa;
   onChange: (c: ConditionsNa) => void;
+  canEdit: boolean;
 }) {
   const items = conditions.items;
 
@@ -925,8 +1006,9 @@ function ConditionsEditor({
             <button
               type="button"
               onClick={() => setCombinator("AND")}
+              disabled={!canEdit}
               className={cn(
-                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                 conditions.combinator === "AND"
                   ? "bg-white text-zinc-900 shadow-sm"
                   : "text-zinc-500 hover:text-zinc-700"
@@ -938,8 +1020,9 @@ function ConditionsEditor({
             <button
               type="button"
               onClick={() => setCombinator("OR")}
+              disabled={!canEdit}
               className={cn(
-                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                "px-2 py-0.5 rounded text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                 conditions.combinator === "OR"
                   ? "bg-white text-zinc-900 shadow-sm"
                   : "text-zinc-500 hover:text-zinc-700"
@@ -965,6 +1048,7 @@ function ConditionsEditor({
               item={it}
               onUpdate={(p) => updateItem(i, p)}
               onRemove={() => removeItem(i)}
+              canEdit={canEdit}
             />
             {i < items.length - 1 && (
               <div className="text-center text-[10px] font-bold text-zinc-400 my-0.5 select-none">
@@ -978,7 +1062,8 @@ function ConditionsEditor({
       <button
         type="button"
         onClick={addItem}
-        className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+        disabled={!canEdit}
+        className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Plus className="h-3 w-3" />
         Ajouter une condition
@@ -991,10 +1076,12 @@ function ConditionRow({
   item,
   onUpdate,
   onRemove,
+  canEdit,
 }: {
   item: ConditionItem;
   onUpdate: (patch: Partial<ConditionItem>) => void;
   onRemove: () => void;
+  canEdit: boolean;
 }) {
   const isBoolField = item.field === "gestion_tns";
   const hint = FIELD_VALUES[item.field];
@@ -1015,7 +1102,8 @@ function ConditionRow({
           // Reset values quand on change de champ (les anciennes valeurs ne correspondent plus)
           onUpdate({ field: newField, values: [] });
         }}
-        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 shrink-0"
+        disabled={!canEdit}
+        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {FIELDS.map((f) => (
           <option key={f} value={f}>
@@ -1028,7 +1116,8 @@ function ConditionRow({
       <select
         value={item.op}
         onChange={(e) => onUpdate({ op: e.target.value as ConditionOp })}
-        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 shrink-0"
+        disabled={!canEdit}
+        className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {OPS.map((o) => (
           <option key={o} value={o}>
@@ -1046,11 +1135,13 @@ function ConditionRow({
               label="TNS (true)"
               active={item.values.some((x) => x === true)}
               onClick={() => toggleValue(true)}
+              disabled={!canEdit}
             />
             <ToggleValue
               label="Non TNS (false)"
               active={item.values.some((x) => x === false)}
               onClick={() => toggleValue(false)}
+              disabled={!canEdit}
             />
           </>
         ) : hint ? (
@@ -1060,6 +1151,7 @@ function ConditionRow({
               label={opt.label}
               active={item.values.some((x) => x === opt.value)}
               onClick={() => toggleValue(opt.value)}
+              disabled={!canEdit}
             />
           ))
         ) : (
@@ -1076,7 +1168,8 @@ function ConditionRow({
               })
             }
             placeholder="valeur1, valeur2, …"
-            className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 flex-1 min-w-[180px]"
+            readOnly={!canEdit}
+            className="px-1.5 py-0.5 rounded border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 flex-1 min-w-[180px] read-only:opacity-50 read-only:cursor-default"
           />
         )}
       </div>
@@ -1084,7 +1177,8 @@ function ConditionRow({
       <button
         type="button"
         onClick={onRemove}
-        className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto shrink-0"
+        disabled={!canEdit}
+        className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
         title="Supprimer la condition"
       >
         <Trash2 className="h-3 w-3" />
@@ -1098,17 +1192,20 @@ function ToggleValue({
   label,
   active,
   onClick,
+  disabled = false,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "px-2 py-0.5 rounded-full text-[11px] border transition-all active:scale-95",
+        "px-2 py-0.5 rounded-full text-[11px] border transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
         active
           ? "bg-zinc-900 text-white border-zinc-900"
           : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50"

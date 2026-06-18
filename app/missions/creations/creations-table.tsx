@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useColumnSelection } from "@/app/_components/use-column-selection";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
+import { useCan } from "@/app/_components/permissions-context";
 import { Picker } from "@/app/_components/picker";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
@@ -118,6 +119,8 @@ export default function CreationsTable({
   pillYears?: number[];
 }) {
   const router = useRouter();
+  const canEditProduction = useCan("edit_production");
+  const canEditFacturation = useCan("edit_facturation");
   const [isPending, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
   // Set vide = "Tous". Cmd/Ctrl+clic = toggle. Persiste dans localStorage.
@@ -684,6 +687,7 @@ export default function CreationsTable({
                         years={pillYears ?? years}
                         activeYear={r.creation_annee}
                         onToggle={(year) => onToggleSubscription(r.id, year)}
+                        disabled={!canEditProduction}
                       />
                     </td>
                   ) : (
@@ -714,6 +718,7 @@ export default function CreationsTable({
                                  : "Terminé",
                           }))}
                           onChange={(v) => onSetStatut(r.id, v === "non_demarre" ? null : (v as CreationStatut))}
+                          disabled={!canEditProduction}
                           minWidth={240}
                           align="center"
                         />
@@ -739,6 +744,7 @@ export default function CreationsTable({
                           onChange={(v) => onSetFacturation(r.id, v as CreationFacturation)}
                           onReset={() => onSetFacturation(r.id, null)}
                           allowEmpty
+                          disabled={!canEditFacturation}
                           align="center"
                           minWidth={200}
                         />
@@ -786,6 +792,7 @@ export default function CreationsTable({
       <BulkActionBar
         count={selectedCount}
         onClear={clearSelection}
+        disabled={activeCol === COL_FACT ? !canEditFacturation : !canEditProduction}
         columnLabel={activeCol === COL_FACT ? "Facturation" : "Statut création"}
         options={
           activeCol === COL_FACT
@@ -815,10 +822,12 @@ function YearPills({
   years,
   activeYear,
   onToggle,
+  disabled = false,
 }: {
   years: number[];
   activeYear: number | null;
   onToggle: (year: number) => void;
+  disabled?: boolean;
 }) {
   // Grid 3 colonnes compact -> ~6 ans tiennent sur 2 lignes.
   return (
@@ -830,8 +839,9 @@ function YearPills({
             key={y}
             type="button"
             onClick={() => onToggle(y)}
+            disabled={disabled}
             className={cn(
-              "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all tabular-nums",
+              "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all tabular-nums disabled:opacity-50 disabled:cursor-not-allowed",
               isActive
                 ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))] font-semibold"
                 : "bg-white dark:bg-white/[0.02] text-zinc-600 dark:text-zinc-400 border-dashed border-zinc-300 dark:border-white/[0.10] hover:border-zinc-400 dark:hover:border-white/[0.20] hover:text-zinc-900 dark:hover:text-zinc-100"

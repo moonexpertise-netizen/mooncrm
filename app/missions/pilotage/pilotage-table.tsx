@@ -9,6 +9,7 @@ import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { BulkActionBar } from "@/app/_components/bulk-action-bar";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
+import { useCan } from "@/app/_components/permissions-context";
 import { Picker } from "@/app/_components/picker";
 import { useLocalStorageSet } from "@/app/_components/use-local-storage-pref";
 import { useGridSelection } from "@/app/_components/use-grid-selection";
@@ -109,6 +110,7 @@ export default function PilotageTable({
   year: number;
 }) {
   const router = useRouter();
+  const canEditProduction = useCan("edit_production");
   const [, startTransition] = useTransition();
   const [localRows, setLocalRows] = useState(rows);
   useEffect(() => setLocalRows(rows), [rows]);
@@ -533,8 +535,9 @@ export default function PilotageTable({
                             <select
                               value={sub.cadence ?? cadOpts.mensuel}
                               onChange={(e) => onSetCadence(r.id, kind, e.target.value)}
+                              disabled={!canEditProduction}
                               aria-label={`Cadence ${KIND_LABEL[kind]} ${r.denomination}`}
-                              className="px-1.5 py-0.5 rounded text-[12px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+                              className="px-1.5 py-0.5 rounded text-[12px] border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <option value={cadOpts.mensuel}>{cadOpts.mensuel}</option>
                               <option value={cadOpts.tri}>{cadOpts.tri}</option>
@@ -603,6 +606,7 @@ export default function PilotageTable({
                                       onChange={(libelle) => onSetStatut(r.id, kind, periode, libelle)}
                                       onReset={() => onSetStatut(r.id, kind, periode, null)}
                                       allowEmpty
+                                      disabled={!canEditProduction}
                                       align="center"
                                       size="xs"
                                       minWidth={200}
@@ -664,6 +668,7 @@ export default function PilotageTable({
       <BulkActionBar
         count={selectedCount}
         onClear={clearSelection}
+        disabled={!canEditProduction}
         columnLabel="Statut"
         options={[
           { key: "A_FAIRE", label: "À faire", color: TDB_OPTIONS[0].color },

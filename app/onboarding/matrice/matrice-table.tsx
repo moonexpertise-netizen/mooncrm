@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Check, Inbox, Minus, Pencil, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 import {
   addOnboardingStatusOption,
@@ -138,6 +139,8 @@ export default function MatriceTable({
   optionsByKey: Record<string, OnboardingStatusOption[]>;
 }) {
   const router = useRouter();
+  const canEditProduction = useCan("edit_production");
+  const canEditParametrage = useCan("edit_parametrage");
   // Filtres persistés dans l'URL (cf. /onboarding qui fait pareil) : F5 et
   // switch d'onglet Liste ↔ Matrice ne perdent rien.
   const searchParams = useSearchParams();
@@ -537,6 +540,7 @@ export default function MatriceTable({
                         onOpen={() => setOpenOriginePicker(r.id)}
                         onClose={() => setOpenOriginePicker(null)}
                         onSet={(v) => onSetOrigineRow(r.id, v)}
+                        canEdit={canEditProduction}
                       />
                       <TnsChip
                         value={r.gestion_tns}
@@ -544,6 +548,7 @@ export default function MatriceTable({
                         onOpen={() => setOpenTnsPicker(r.id)}
                         onClose={() => setOpenTnsPicker(null)}
                         onSet={(v) => onSetTns(r.id, v)}
+                        canEdit={canEditProduction}
                       />
                     </div>
                     <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5">
@@ -574,6 +579,8 @@ export default function MatriceTable({
                         onReset={() => {
                           if (cell) onResetStatus(r.id, i, cell.id);
                         }}
+                        canEditProduction={canEditProduction}
+                        canEditParametrage={canEditParametrage}
                       />
                     </td>
                   ))}
@@ -636,6 +643,8 @@ function MatrixCell({
   onClose,
   onPick,
   onReset,
+  canEditProduction,
+  canEditParametrage,
 }: {
   cell: MatriceTaskCell | null;
   /** task_key de l'étape (pour créer un nouveau libellé option) */
@@ -648,6 +657,10 @@ function MatrixCell({
   onClose: () => void;
   onPick: (libelle: string, statut_logique: StatutLogique) => void;
   onReset: () => void;
+  /** Droit de modifier le statut de tâche (ouvrir le picker, reset). */
+  canEditProduction: boolean;
+  /** Droit de gérer les libellés (créer / renommer / supprimer une option). */
+  canEditParametrage: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -728,12 +741,18 @@ function MatrixCell({
     <div className="inline-block" ref={ref}>
       <button
         data-cell-button="1"
-        onClick={onOpen}
+        onClick={canEditProduction ? onOpen : undefined}
+        disabled={!canEditProduction}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-label={`Statut : ${currentLabel}. Cliquer pour modifier.`}
-        className="p-0.5 rounded cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))]"
-        title={`${currentLabel}, clic pour modifier`}
+        className={cn(
+          "p-0.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))]",
+          canEditProduction
+            ? "cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+            : "cursor-not-allowed opacity-50"
+        )}
+        title={canEditProduction ? `${currentLabel}, clic pour modifier` : currentLabel}
       >
         <StatusDot statut={cell.statut_logique} />
       </button>
@@ -795,6 +814,7 @@ function MatrixCell({
                           taskKey={taskKey}
                           isSelected={cell.statut_detail === opt.libelle}
                           onPick={() => onPick(opt.libelle, opt.statut_logique)}
+                          canEdit={canEditParametrage}
                         />
                       ))}
                     </div>
@@ -802,13 +822,16 @@ function MatrixCell({
                 })
               )}
             </div>
-            {/* Création inline d'une nouvelle option (style Notion) */}
-            <CreateOptionInline
-              taskKey={taskKey}
-              onCreated={(libelle, sl) => onPick(libelle, sl)}
-            />
-            {/* Footer reset */}
-            {cell.statut_detail && (
+            {/* Création inline d'une nouvelle option (style Notion).
+                Réservé au paramétrage (gestion des libellés). */}
+            {canEditParametrage && (
+              <CreateOptionInline
+                taskKey={taskKey}
+                onCreated={(libelle, sl) => onPick(libelle, sl)}
+              />
+            )}
+            {/* Footer reset (modifie le statut de tâche → production) */}
+            {cell.statut_detail && canEditProduction && (
               <div className="border-t dark:border-white/[0.06] bg-zinc-50/50 dark:bg-white/[0.03]">
                 <button
                   onClick={onReset}
@@ -835,12 +858,14 @@ function OrigineChip({
   onOpen,
   onClose,
   onSet,
+  canEdit,
 }: {
   origine: string | null;
   isOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
   onSet: (v: string | null) => void;
+  canEdit: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -900,12 +925,14 @@ function OrigineChip({
     <div className="inline-block" ref={ref}>
       <button
         data-origine-button="1"
-        onClick={onOpen}
+        onClick={canEdit ? onOpen : undefined}
+        disabled={!canEdit}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-label={origine ? `Origine : ${origine}. Cliquer pour modifier.` : "Origine non renseignée. Cliquer pour définir."}
         className={cn(
-          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          canEdit ? "hover:opacity-80" : "opacity-50 cursor-not-allowed",
           TYPE_PILL[type]
         )}
         title={origine ? `Origine : ${origine}, clic pour modifier` : "Origine non renseignée, clic pour modifier"}
@@ -973,12 +1000,14 @@ function TnsChip({
   onOpen,
   onClose,
   onSet,
+  canEdit,
 }: {
   value: boolean | null;
   isOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
   onSet: (v: boolean | null) => void;
+  canEdit: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -1042,12 +1071,14 @@ function TnsChip({
     <div className="inline-block" ref={ref}>
       <button
         data-tns-button="1"
-        onClick={onOpen}
+        onClick={canEdit ? onOpen : undefined}
+        disabled={!canEdit}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-label={`Gestion TNS : ${label}. Cliquer pour modifier.`}
         className={cn(
-          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
+          canEdit ? "hover:opacity-80" : "opacity-50 cursor-not-allowed",
           cls
         )}
         title="Caractéristique TNS, clic pour modifier"
@@ -1253,11 +1284,14 @@ function OptionRow({
   taskKey,
   isSelected,
   onPick,
+  canEdit,
 }: {
   opt: OnboardingStatusOption;
   taskKey: string;
   isSelected: boolean;
   onPick: () => void;
+  /** Droit de renommer / supprimer le libellé (edit_parametrage). */
+  canEdit: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -1427,18 +1461,20 @@ function OptionRow({
         </span>
         {isSelected && <span className="text-zinc-400 dark:text-zinc-500 text-xs">✓</span>}
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditing(true);
-        }}
-        title="Renommer ce libellé"
-        aria-label={`Renommer ${opt.libelle}`}
-        className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/[0.10] opacity-0 group-hover/optrow:opacity-100 transition-opacity focus:opacity-100"
-      >
-        <Pencil className="h-3 w-3" aria-hidden="true" />
-      </button>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditing(true);
+          }}
+          title="Renommer ce libellé"
+          aria-label={`Renommer ${opt.libelle}`}
+          className="shrink-0 p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/[0.10] opacity-0 group-hover/optrow:opacity-100 transition-opacity focus:opacity-100"
+        >
+          <Pencil className="h-3 w-3" aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

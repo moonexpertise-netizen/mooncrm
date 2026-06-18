@@ -4,6 +4,8 @@ import "./globals.css";
 import { AppShell } from "./_components/app-shell";
 import { ThemedToaster } from "./_components/themed-toaster";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "./_components/theme-provider";
+import { PermissionsProvider } from "./_components/permissions-context";
+import { getMyPermissions } from "@/lib/auth";
 
 // Inter : la police de référence des SaaS premium (Linear, Attio, dashboard
 // Stripe). Une seule famille pour le texte ET les titres (look app cohérent).
@@ -20,11 +22,14 @@ export const metadata: Metadata = {
   description: "CRM interne MOON Expertise",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Droits effectifs chargés côté serveur → fournis au contexte client sans
+  // flash. Set vide si non authentifié (pages /login, /en-attente).
+  const perms = [...(await getMyPermissions())];
   return (
     <html
       lang="fr"
@@ -48,7 +53,9 @@ export default function RootLayout({
           Aller au contenu
         </a>
         <ThemeProvider>
-          <AppShell>{children}</AppShell>
+          <PermissionsProvider perms={perms}>
+            <AppShell>{children}</AppShell>
+          </PermissionsProvider>
           {/* Toasts globaux (succes / erreur / info) - top-right. Le theme
               suit le theme RESOLU de l'app (navy -> dark) via ThemedToaster,
               et non l'OS, sinon les toasts detonnent en navy/clair OS. */}

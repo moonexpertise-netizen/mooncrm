@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { Trash2, Filter, Sparkles, User as UserIcon } from "lucide-react";
 import { cn, fmtEuro } from "@/lib/utils";
+import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { clearClientAuditLog } from "./actions";
 
@@ -80,6 +82,7 @@ export default function HistoriqueList({
   clientSlug: string;
   entries: AuditEntry[];
 }) {
+  const canEdit = useCan("edit_clients");
   const [filter, setFilter] = useState<"all" | Category>("all");
   const [isPending, startTransition] = useTransition();
   const { confirm, ConfirmDialog } = useConfirm();
@@ -101,6 +104,7 @@ export default function HistoriqueList({
   }, [entries, filter]);
 
   async function onClear() {
+    if (!canEdit) return;
     const ok = await confirm({
       title: "Vider l'historique ?",
       description: `Toutes les entrées seront supprimées définitivement (${entries.length} ligne${entries.length > 1 ? "s" : ""}). Les modifications futures seront tracées normalement.`,
@@ -112,8 +116,7 @@ export default function HistoriqueList({
       try {
         await clearClientAuditLog(clientId, clientSlug);
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error("clearClientAuditLog failed", e);
+        toastError(e, "Echec du vidage de l'historique");
       }
     });
   }
@@ -131,12 +134,12 @@ export default function HistoriqueList({
           <FilterChip label="Honoraires" count={counts.honoraires} active={filter === "honoraires"} onClick={() => setFilter("honoraires")} accent="emerald" />
           <FilterChip label="Autres" count={counts.autres} active={filter === "autres"} onClick={() => setFilter("autres")} />
         </div>
-        {entries.length > 0 && (
+        {entries.length > 0 && canEdit && (
           <button
             type="button"
             onClick={onClear}
             disabled={isPending}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Supprime définitivement toutes les entrées d'historique"
           >
             <Trash2 className="h-3.5 w-3.5" />

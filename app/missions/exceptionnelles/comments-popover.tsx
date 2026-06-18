@@ -26,6 +26,7 @@ export default function MissionExcCommentsPopover({
   missionId,
   missionLabel,
   currentUserEmail,
+  canComment = true,
   anchorRect,
   onClose,
   onCountChange,
@@ -33,6 +34,9 @@ export default function MissionExcCommentsPopover({
   missionId: string;
   missionLabel: string;
   currentUserEmail: string | null;
+  /** Droit d'écrire/supprimer un commentaire (edit_production). La lecture
+   *  reste toujours possible : seuls l'envoi et la suppression sont bloqués. */
+  canComment?: boolean;
   anchorRect: { left: number; top: number; bottom: number; right: number } | null;
   onClose: () => void;
   onCountChange?: (count: number) => void;
@@ -193,13 +197,19 @@ export default function MissionExcCommentsPopover({
               key={c.id}
               comment={c}
               isMine={c.author_email === currentUserEmail}
+              canDelete={canComment}
               onDelete={handleDelete}
             />
           ))
         )}
       </div>
 
-      <Composer onSend={handleSend} error={error} clearError={() => setError(null)} />
+      <Composer
+        onSend={handleSend}
+        error={error}
+        clearError={() => setError(null)}
+        disabled={!canComment}
+      />
     </div>
   );
 }
@@ -211,10 +221,13 @@ export default function MissionExcCommentsPopover({
 const CommentItem = memo(function CommentItem({
   comment,
   isMine,
+  canDelete,
   onDelete,
 }: {
   comment: MissionExcComment;
   isMine: boolean;
+  /** Droit de supprimer (edit_production). Si false, pas de bouton Supprimer. */
+  canDelete: boolean;
   onDelete: (commentId: string) => void;
 }) {
   const initials = (comment.author_email.split("@")[0] || "?").slice(0, 2).toUpperCase();
@@ -235,7 +248,7 @@ const CommentItem = memo(function CommentItem({
           >
             {formatRelative(comment.created_at)}
           </time>
-          {isMine && (
+          {isMine && canDelete && (
             <button
               onClick={() => onDelete(comment.id)}
               className="ml-auto opacity-0 group-hover/comment:opacity-100 text-[10px] text-zinc-400 hover:text-rose-600 transition-opacity"
@@ -257,10 +270,13 @@ function Composer({
   onSend,
   error,
   clearError,
+  disabled = false,
 }: {
   onSend: (content: string) => Promise<boolean>;
   error: string | null;
   clearError: () => void;
+  /** Droit d'écrire manquant : champ + bouton désactivés. */
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -279,7 +295,7 @@ function Composer({
 
   async function submit() {
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content || sending || disabled) return;
     setSending(true);
     if (error) clearError();
     const ok = await onSend(content);
@@ -312,9 +328,10 @@ function Composer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKey}
-          placeholder="Ajouter un commentaire…"
+          disabled={disabled}
+          placeholder={disabled ? "Lecture seule" : "Ajouter un commentaire…"}
           rows={1}
-          className="w-full resize-none px-2.5 py-1.5 text-xs bg-transparent focus:outline-none text-zinc-900 dark:text-zinc-100"
+          className="w-full resize-none px-2.5 py-1.5 text-xs bg-transparent focus:outline-none text-zinc-900 dark:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
           style={{ minHeight: 32 }}
         />
         <div className="flex items-center justify-between px-2 pb-1">
@@ -324,10 +341,10 @@ function Composer({
           <button
             type="button"
             onClick={submit}
-            disabled={sending || !draft.trim()}
+            disabled={sending || !draft.trim() || disabled}
             className={cn(
               "px-2.5 py-0.5 rounded text-[11px] font-medium transition-all",
-              draft.trim() && !sending
+              draft.trim() && !sending && !disabled
                 ? "bg-[hsl(var(--gold))] text-white hover:opacity-90"
                 : "bg-zinc-100 dark:bg-white/[0.06] text-zinc-400 cursor-not-allowed",
             )}

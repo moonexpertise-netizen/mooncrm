@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import {
   setClientTvaTag,
   setClientTvaEcheanceJour,
@@ -33,6 +34,7 @@ export default function TvaFieldsCard({
   initialEcheanceJour: number | null;
   tags: Array<{ id: string; label: string; color: string; actif: boolean }>;
 }) {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [tagId, setTagId] = useState(initialTagId);
@@ -99,8 +101,10 @@ export default function TvaFieldsCard({
             <select
               value={tagId ?? ""}
               onChange={(e) => onChangeTag(e.target.value || null)}
+              disabled={!canEdit}
               className={cn(
                 "px-2 py-1 rounded-md border text-[13px] focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-white dark:bg-white/[0.04]",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
                 current
                   ? "border-zinc-300 dark:border-white/[0.12] text-zinc-800 dark:text-zinc-200"
                   : "border-dashed border-zinc-300 dark:border-white/[0.10] text-zinc-500 dark:text-zinc-400"
@@ -140,6 +144,7 @@ export default function TvaFieldsCard({
             value={jour}
             onChange={(e) => setJour(e.target.value)}
             onBlur={onBlurJour}
+            disabled={!canEdit}
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
               if (e.key === "Escape") {
@@ -148,7 +153,7 @@ export default function TvaFieldsCard({
               }
             }}
             placeholder="24"
-            className="w-16 px-2 py-1 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-[13px] tabular-nums text-right focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            className="w-16 px-2 py-1 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-[13px] tabular-nums text-right focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <span className="text-[12px] text-zinc-500 dark:text-zinc-400">
             du mois suivant

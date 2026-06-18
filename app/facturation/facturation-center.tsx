@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown, ExternalLink, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
+import { useCan } from "@/app/_components/permissions-context";
 import { setFacturationFromCentral } from "./actions";
 
 export type FactSource = "caa" | "ir" | "ago" | "bilan" | "mission_exc" | "creation";
@@ -98,6 +99,7 @@ export default function FacturationCenter({
   const [, startTransition] = useTransition();
   const [localItems, setLocalItems] = useState(items);
   useEffect(() => setLocalItems(items), [items]);
+  const canEditFacturation = useCan("edit_facturation");
 
   function onSetFact(item: FactItem, etat: FactItem["etat_facturation"]) {
     setLocalItems((prev) =>
@@ -214,7 +216,7 @@ export default function FacturationCenter({
                     {it.montant ? formatEUR(it.montant) : <span className="text-zinc-300 dark:text-zinc-600">-</span>}
                   </td>
                   <td className="align-middle px-3 py-2.5 text-center">
-                    <FactPicker value={it.etat_facturation} onChange={(v) => onSetFact(it, v)} />
+                    <FactPicker value={it.etat_facturation} onChange={(v) => onSetFact(it, v)} disabled={!canEditFacturation} />
                   </td>
                   <td className="align-middle px-2 py-2.5 text-right">
                     {it.clientHref && (
@@ -309,9 +311,11 @@ function FilterBar({
 function FactPicker({
   value,
   onChange,
+  disabled = false,
 }: {
   value: FactItem["etat_facturation"];
   onChange: (v: FactItem["etat_facturation"]) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -359,11 +363,13 @@ function FactPicker({
       <button
         ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => !disabled && setOpen((v) => !v)}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors hover:opacity-80 whitespace-nowrap min-w-[100px] justify-center",
+          "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap min-w-[100px] justify-center",
+          disabled ? "opacity-50 cursor-not-allowed" : "hover:opacity-80",
           current ? current.color : FACT_OPTIONS[0].color
         )}
       >

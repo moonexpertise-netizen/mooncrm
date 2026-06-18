@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { libelleFromNaf } from "@/lib/naf-libelles";
 import { formeFromNatureJuridique, defaultClotureForForme } from "@/lib/nature-to-forme";
+import { useCan } from "@/app/_components/permissions-context";
+import { toastError } from "@/lib/toast-helpers";
 import { createClientFromSiren } from "./actions";
 import { fetchInpiCloture } from "@/app/clients/[slug]/actions";
 
@@ -108,6 +110,7 @@ function cleanName(s: Suggestion): string {
 }
 
 export default function NouveauClientForm() {
+  const canEdit = useCan("edit_clients");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -312,6 +315,7 @@ export default function NouveauClientForm() {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canEdit) return;
     setError(null);
 
     // Validation bloquante : les 4 champs strictement obligatoires.
@@ -386,6 +390,7 @@ export default function NouveauClientForm() {
         router.push(`/clients/${slug}`);
       } catch (e) {
         setError((e as Error).message);
+        toastError(e, "Echec de la creation du client");
       }
     });
   }
@@ -937,12 +942,19 @@ export default function NouveauClientForm() {
         </div>
       )}
 
+      {!canEdit && (
+        <div className="rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+          Vous n&apos;avez pas le droit de créer un client.
+        </div>
+      )}
+
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || !canEdit}
           className={cn(
             "px-4 py-2 rounded-md bg-[#0D1122] dark:bg-zinc-50 text-white dark:text-zinc-900 text-sm font-medium transition-colors",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
             isPending ? "opacity-60" : "hover:bg-[#0D1122]/85 dark:hover:bg-white"
           )}
         >
