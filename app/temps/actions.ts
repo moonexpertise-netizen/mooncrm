@@ -69,6 +69,49 @@ export async function createTimeEntry(
   }
 }
 
+export async function updateTimeEntry(
+  id: string,
+  input: CreateTimeEntryInput
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requirePermission("saisir_temps");
+    const sb = await createClient();
+
+    const isAutre = !input.clientId;
+    const commentaire = input.commentaire?.trim() || null;
+    if (isAutre && (!input.categorieAutre || !commentaire)) {
+      throw new Error(
+        "Hors dossier comptable : choisissez une catégorie « Autre » et saisissez un commentaire."
+      );
+    }
+    if (!Number.isFinite(input.dureeMinutes) || input.dureeMinutes <= 0) {
+      throw new Error("Durée invalide.");
+    }
+    if (input.dureeMinutes > 1440) throw new Error("Durée maximale : 24 h.");
+
+    // La RLS limite la mise à jour à ses propres lignes. On ne touche pas user_id.
+    const { error } = await sb
+      .from("time_entries")
+      .update({
+        client_id: input.clientId,
+        categorie_autre: isAutre ? input.categorieAutre : null,
+        activite_id: input.activiteId,
+        date_jour: input.dateJour,
+        duree_minutes: Math.round(input.dureeMinutes),
+        annee: input.annee,
+        commentaire,
+        facturable: input.facturable,
+      })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/temps");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function deleteTimeEntry(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await requirePermission("saisir_temps");

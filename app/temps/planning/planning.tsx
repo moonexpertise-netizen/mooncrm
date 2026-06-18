@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Combobox, type ComboOption } from "../combobox";
+import { useTempsFilters } from "../use-temps-filters";
 
 export type PEntry = {
   id: string;
@@ -91,11 +92,8 @@ export default function Planning({
   const [jour, setJour] = useState<string>(days.includes(todayIso) ? todayIso : weekStart);
   const jourIdx = days.indexOf(jour);
 
-  // Filtres
-  const [collab, setCollab] = useState<string>("");
-  const [dossier, setDossier] = useState<string>("");
-  const [activite, setActivite] = useState<string>("");
-  const [q, setQ] = useState<string>("");
+  // Filtres — partagés avec l'onglet Saisie (persistés en localStorage).
+  const { q, dossier, activite, collab, set: setFilters, reset: resetFilters } = useTempsFilters();
 
   const colorOf = useMemo(() => {
     const idx = new Map<string, number>();
@@ -129,13 +127,7 @@ export default function Planning({
     });
   }, [entries, collab, dossier, activite, q]);
 
-  const hasFilters = collab || dossier || activite || q;
-  function resetFilters() {
-    setCollab("");
-    setDossier("");
-    setActivite("");
-    setQ("");
-  }
+  const hasFilters = !!(collab || dossier || activite || q);
 
   const weekTotal = filtered.reduce((s, e) => s + e.dureeMinutes, 0);
   const prevWeek = addDaysIso(weekStart, -7);
@@ -209,7 +201,7 @@ export default function Planning({
           <input
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => setFilters({ q: e.target.value })}
             placeholder="Rechercher (dossier, activité, collaborateur…)"
             className="h-9 w-full pl-8 pr-2.5 rounded-md border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
             aria-label="Recherche"
@@ -217,7 +209,7 @@ export default function Planning({
         </div>
         <select
           value={collab}
-          onChange={(e) => setCollab(e.target.value)}
+          onChange={(e) => setFilters({ collab: e.target.value })}
           className="h-9 px-2.5 rounded-md border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] min-w-[150px]"
           aria-label="Collaborateur"
         >
@@ -228,7 +220,7 @@ export default function Planning({
         </select>
         <Combobox
           value={dossier}
-          onChange={setDossier}
+          onChange={(v) => setFilters({ dossier: v })}
           options={dossierOptions}
           placeholder="Dossier…"
           ariaLabel="Filtrer par dossier"
@@ -236,7 +228,7 @@ export default function Planning({
         />
         <select
           value={activite}
-          onChange={(e) => setActivite(e.target.value)}
+          onChange={(e) => setFilters({ activite: e.target.value })}
           className="h-9 px-2.5 rounded-md border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] min-w-[130px]"
           aria-label="Activité"
         >

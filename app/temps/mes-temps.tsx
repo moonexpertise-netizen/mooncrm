@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy, Search, X, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCan } from "@/app/_components/permissions-context";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
-import { createTimeEntry, deleteTimeEntry } from "./actions";
+import { createTimeEntry, updateTimeEntry, deleteTimeEntry } from "./actions";
 import { Combobox, type ComboOption } from "./combobox";
+import { useTempsFilters } from "./use-temps-filters";
 
 export type Entry = {
   id: string;
@@ -140,10 +141,10 @@ export default function MesTemps({
   const [commentaire, setCommentaire] = useState<string>("");
   const [facturable, setFacturable] = useState<boolean>(true);
 
-  // Filtres de la liste (n'affectent pas le total « cette semaine »).
-  const [fSearch, setFSearch] = useState<string>("");
-  const [fDossier, setFDossier] = useState<string>("");
-  const [fActivite, setFActivite] = useState<string>("");
+  // Filtres de la liste — partagés avec l'onglet Planning (persistés).
+  const { q: fSearch, dossier: fDossier, activite: fActivite, set: setFilters, reset: resetFilters } = useTempsFilters();
+  // Édition : id de la saisie en cours de modification (sinon création).
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Quand on change de semaine, on recale le jour ciblé dans la semaine.
   useEffect(() => {
@@ -175,23 +176,32 @@ export default function MesTemps({
       return;
     }
     const annee = parseInt(jour.substring(0, 4), 10);
+    const payload = {
+      clientId: isAutre ? null : dossier,
+      categorieAutre: isAutre ? categorieAutre : null,
+      activiteId: activiteId || null,
+      dateJour: jour,
+      dureeMinutes: minutes,
+      annee,
+      commentaire: commentaire.trim() || null,
+      facturable,
+    };
+    const idToEdit = editingId;
     startTransition(async () => {
-      const res = await createTimeEntry({
-        clientId: isAutre ? null : dossier,
-        categorieAutre: isAutre ? categorieAutre : null,
-        activiteId: activiteId || null,
-        dateJour: jour,
-        dureeMinutes: minutes,
-        annee,
-        commentaire: commentaire.trim() || null,
-        facturable,
-      });
+      const res = idToEdit
+        ? await updateTimeEntry(idToEdit, payload)
+        : await createTimeEntry(payload);
       if (!res.ok) {
         toastError(res.error ?? "Enregistrement impossible.");
         return;
       }
       resetForm();
-      toastSuccess("Temps enregistré");
+      if (idToEdit) {
+        setEditingId(null);
+        toastSuccess("Saisie modifiée");
+      } else {
+        toastSuccess("Temps enregistré");
+      }
       router.refresh();
     });
   }
@@ -207,9 +217,33 @@ export default function MesTemps({
     });
   }
 
-  /** Recopie une ligne dans le formulaire (bouton dupliquer). */
+  /** Duplique une ligne IMMÉDIATEMENT (copie créée sans validation). */
   function duplicate(e: Entry) {
     if (!canSaisir) return;
+    startTransition(async () => {
+      const res = await createTimeEntry({
+        clientId: e.clientId,
+        categorieAutre: e.categorieAutre,
+        activiteId: e.activiteId,
+        dateJour: e.dateJour,
+        dureeMinutes: e.dureeMinutes,
+        annee: e.annee,
+        commentaire: e.commentaire,
+        facturable: e.facturable,
+      });
+      if (!res.ok) {
+        toastError(res.error ?? "Duplication impossible.");
+        return;
+      }
+      toastSuccess("Saisie dupliquée");
+      router.refresh();
+    });
+  }
+
+  /** Charge une ligne dans le formulaire pour la MODIFIER (puis Enregistrer). */
+  function startEdit(e: Entry) {
+    if (!canSaisir) return;
+    setEditingId(e.id);
     setDossier(e.clientId ?? "__autre");
     setCategorieAutre(e.categorieAutre ?? AUTRE_CATEGORIES[0]);
     setActiviteId(e.activiteId ?? "");
@@ -217,9 +251,12 @@ export default function MesTemps({
     setCommentaire(e.commentaire ?? "");
     setFacturable(e.facturable);
     setJour(e.dateJour);
-    if (viewMode === "jour") setJour(e.dateJour);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    toastSuccess("Copié dans le formulaire — ajuste et valide");
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setDuree("");
+    setCommentaire("");
   }
 
   const displayed = useMemo(() => {
@@ -404,8 +441,21 @@ export default function MesTemps({
             disabled={!canSaisir || isPending}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-gold text-zinc-900 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Plus className="h-4 w-4" /> Ajouter
+            {editingId ? (
+              <><Check className="h-4 w-4" /> Enregistrer</>
+            ) : (
+              <><Plus className="h-4 w-4" /> Ajouter</>
+            )}
           </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="inline-flex items-center h-9 px-3 rounded-md border border-zinc-200 dark:border-white/[0.12] text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.06] transition-colors"
+            >
+              Annuler
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3 mt-2 px-0.5">
@@ -419,10 +469,16 @@ export default function MesTemps({
             />
             Facturable
           </label>
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            Durée en heures décimales (1,5 = 1 h 30)
-            {viewMode === "jour" && <> · saisie pour le {dayLabel(jour)}</>}.
-          </span>
+          {editingId ? (
+            <span className="text-[11px] font-medium text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))]">
+              Modification d&apos;une saisie — clique « Enregistrer » pour valider.
+            </span>
+          ) : (
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+              Durée en heures décimales (1,5 = 1 h 30)
+              {viewMode === "jour" && <> · saisie pour le {dayLabel(jour)}</>}.
+            </span>
+          )}
         </div>
 
         {isAutre && (
@@ -452,7 +508,7 @@ export default function MesTemps({
             <input
               type="text"
               value={fSearch}
-              onChange={(e) => setFSearch(e.target.value)}
+              onChange={(e) => setFilters({ q: e.target.value })}
               placeholder="Filtrer mes saisies…"
               className="h-9 w-full pl-8 pr-2.5 rounded-md border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
               aria-label="Filtrer mes saisies"
@@ -460,7 +516,7 @@ export default function MesTemps({
           </div>
           <Combobox
             value={fDossier}
-            onChange={setFDossier}
+            onChange={(v) => setFilters({ dossier: v })}
             options={filterDossierOptions}
             placeholder="Dossier…"
             ariaLabel="Filtrer par dossier"
@@ -468,7 +524,7 @@ export default function MesTemps({
           />
           <select
             value={fActivite}
-            onChange={(e) => setFActivite(e.target.value)}
+            onChange={(e) => setFilters({ activite: e.target.value })}
             className={cn(INPUT_CLS, "min-w-[130px]")}
             aria-label="Filtrer par activité"
           >
@@ -480,7 +536,7 @@ export default function MesTemps({
           {hasFilters && (
             <button
               type="button"
-              onClick={() => { setFSearch(""); setFDossier(""); setFActivite(""); }}
+              onClick={resetFilters}
               className="inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
             >
               <X className="h-3.5 w-3.5" /> Réinitialiser
@@ -536,11 +592,21 @@ export default function MesTemps({
                     </span>
                     <button
                       type="button"
-                      onClick={() => duplicate(e)}
+                      onClick={() => startEdit(e)}
                       disabled={!canSaisir}
                       className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Modifier cette saisie"
+                      title="Modifier"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => duplicate(e)}
+                      disabled={!canSaisir || isPending}
+                      className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       aria-label="Dupliquer cette saisie"
-                      title="Dupliquer"
+                      title="Dupliquer (copie immédiate)"
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </button>
