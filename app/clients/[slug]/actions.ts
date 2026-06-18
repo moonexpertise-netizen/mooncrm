@@ -20,9 +20,10 @@ export type TypeObligation =
 
 export type Regime = "IR" | "IS";
 export type PipelineStatut =
-  | "1 - Tally à envoyer" | "2 - Tally à compléter"
-  | "3 - PC à préparer" | "4 - PC envoyée" | "5 - PC acceptée"
-  | "6 - LDM envoyée" | "7 - LDM signée"
+  | "1 - Rencontre prospect"
+  | "2 - PC à préparer" | "3 - PC envoyée" | "4 - PC acceptée"
+  | "5 - Guide + Tally envoyé" | "6 - LDM à préparer"
+  | "7 - LDM envoyée" | "8 - LDM signée"
   | "Z - Interne" | "Z - Sous-traitance"
   | "Z - Prospect perdu" | "Z - Résiliée"
   | "Z - Perdu dans l'espace";
@@ -257,7 +258,7 @@ export async function signLdmAndGetStats(clientId: string): Promise<{
   const { data: signed } = await sb
     .from("clients")
     .select("mrr, arr")
-    .eq("pipeline_statut", "7 - LDM signée");
+    .eq("pipeline_statut", "8 - LDM signée");
   const mrrBefore = (signed ?? []).reduce((s, c) => s + (c.mrr ?? 0), 0);
   const arrBefore = (signed ?? []).reduce((s, c) => s + (c.arr ?? 0), 0);
 
@@ -269,7 +270,7 @@ export async function signLdmAndGetStats(clientId: string): Promise<{
   await Promise.all([
     sb
       .from("clients")
-      .update({ mois_signature: today, pipeline_statut: "7 - LDM signée" })
+      .update({ mois_signature: today, pipeline_statut: "8 - LDM signée" })
       .eq("id", clientId)
       .then(({ error }) => {
         if (error) throw new Error(error.message);
@@ -321,8 +322,8 @@ export async function setPipelineStatut(
     .select("pipeline_statut, origine, denomination, mrr, arr, mois_signature")
     .eq("id", clientId)
     .single();
-  const wasSigned = before?.pipeline_statut === "7 - LDM signée";
-  const isSigningNow = statut === "7 - LDM signée" && !wasSigned;
+  const wasSigned = before?.pipeline_statut === "8 - LDM signée";
+  const isSigningNow = statut === "8 - LDM signée" && !wasSigned;
 
   const patch: {
     pipeline_statut: PipelineStatut | null;
@@ -355,7 +356,7 @@ export async function setPipelineStatut(
     const { data: signed } = await sb
       .from("clients")
       .select("mrr, arr")
-      .eq("pipeline_statut", "7 - LDM signée");
+      .eq("pipeline_statut", "8 - LDM signée");
     mrrBefore = (signed ?? []).reduce((s, c) => s + (c.mrr ?? 0), 0);
     arrBefore = (signed ?? []).reduce((s, c) => s + (c.arr ?? 0), 0);
   }
@@ -370,7 +371,7 @@ export async function setPipelineStatut(
   // Bascule sur un statut "geree" (LDM signee / Interne / Sous-traitance) :
   // on initialise l'onboarding si ce n'est pas deja fait. Idempotent.
   if (
-    statut === "7 - LDM signée" ||
+    statut === "8 - LDM signée" ||
     statut === "Z - Interne" ||
     statut === "Z - Sous-traitance"
   ) {

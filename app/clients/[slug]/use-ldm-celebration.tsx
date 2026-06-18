@@ -16,7 +16,7 @@ import type { SignatureStats } from "./actions";
  * Usage :
  *   const { celebrate, achievementSlot } = useLdmCelebration();
  *   // dans onPick/onDrag :
- *   const res = await setPipelineStatut(id, "7 - LDM signée");
+ *   const res = await setPipelineStatut(id, "8 - LDM signée");
  *   if (res.signature) celebrate(res.signature);
  *   // rendre <>{achievementSlot}</> dans le JSX
  */

@@ -35,13 +35,14 @@ const ORIGINES = [
   "5 - Sous-traitance",
 ] as const;
 const PIPELINES = [
-  "1 - Tally à envoyer",
-  "2 - Tally à compléter",
-  "3 - PC à préparer",
-  "4 - PC envoyée",
-  "5 - PC acceptée",
-  "6 - LDM envoyée",
-  "7 - LDM signée",
+  "1 - Rencontre prospect",
+  "2 - PC à préparer",
+  "3 - PC envoyée",
+  "4 - PC acceptée",
+  "5 - Guide + Tally envoyé",
+  "6 - LDM à préparer",
+  "7 - LDM envoyée",
+  "8 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
 ] as const;
@@ -128,7 +129,7 @@ export default function NouveauClientForm() {
   // L'email du dossier est aligne sur celui du dirigeant pour eviter la double
   // saisie (cas le plus courant). Si Benjamin a besoin d'un email different
   // sur le dossier, il l'edite via la fiche client apres creation.
-  const [pipeline, setPipeline] = useState<string>("1 - Tally à envoyer");
+  const [pipeline, setPipeline] = useState<string>("1 - Rencontre prospect");
   const [jourCloture, setJourCloture] = useState<string>("");
   const [moisCloture, setMoisCloture] = useState<string>("");
   // Adresse siège - auto-fillée depuis annuaire-entreprises sur sélection

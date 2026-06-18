@@ -21,12 +21,13 @@ export const dynamic = "force-dynamic";
 // Heuristique pipeline
 // ============================================================================
 const STADE_DEF: Record<string, { ponderation: number; delaiJours: number; label: string }> = {
-  "1": { ponderation: 0.05, delaiJours: 120, label: "1 - Tally à envoyer" },
-  "2": { ponderation: 0.15, delaiJours: 90, label: "2 - Tally à compléter" },
-  "3": { ponderation: 0.30, delaiJours: 60, label: "3 - PC à préparer" },
-  "4": { ponderation: 0.50, delaiJours: 45, label: "4 - PC envoyée" },
-  "5": { ponderation: 0.75, delaiJours: 15, label: "5 - PC acceptée" },
-  "6": { ponderation: 0.90, delaiJours: 7, label: "6 - LDM envoyée" },
+  "1": { ponderation: 0.05, delaiJours: 120, label: "1 - Rencontre prospect" },
+  "2": { ponderation: 0.15, delaiJours: 90, label: "2 - PC à préparer" },
+  "3": { ponderation: 0.30, delaiJours: 60, label: "3 - PC envoyée" },
+  "4": { ponderation: 0.55, delaiJours: 30, label: "4 - PC acceptée" },
+  "5": { ponderation: 0.70, delaiJours: 20, label: "5 - Guide + Tally envoyé" },
+  "6": { ponderation: 0.85, delaiJours: 12, label: "6 - LDM à préparer" },
+  "7": { ponderation: 0.92, delaiJours: 7, label: "7 - LDM envoyée" },
 };
 
 function stadePrefix(p: string | null): string | null {

@@ -43,13 +43,14 @@ export type DashboardData = {
 };
 
 const PIPELINE_ORDER = [
-  "1 - Tally à envoyer",
-  "2 - Tally à compléter",
-  "3 - PC à préparer",
-  "4 - PC envoyée",
-  "5 - PC acceptée",
-  "6 - LDM envoyée",
-  "7 - LDM signée",
+  "1 - Rencontre prospect",
+  "2 - PC à préparer",
+  "3 - PC envoyée",
+  "4 - PC acceptée",
+  "5 - Guide + Tally envoyé",
+  "6 - LDM à préparer",
+  "7 - LDM envoyée",
+  "8 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
   "Z - Perdu dans l'espace",
@@ -59,13 +60,14 @@ const PIPELINE_ORDER = [
 
 // Couleurs cohérentes avec PIPELINE_COLORS (palette MOON). Hex pour Recharts.
 const PIPELINE_HEX: Record<string, string> = {
-  "1 - Tally à envoyer": "#a1a1aa",
-  "2 - Tally à compléter": "#71717a",
-  "3 - PC à préparer": "#f59e0b",
-  "4 - PC envoyée": "#3b82f6",
-  "5 - PC acceptée": "#06b6d4",
-  "6 - LDM envoyée": "#8b5cf6",
-  "7 - LDM signée": "#10b981",
+  "1 - Rencontre prospect": "#a1a1aa",
+  "2 - PC à préparer": "#f59e0b",
+  "3 - PC envoyée": "#3b82f6",
+  "4 - PC acceptée": "#06b6d4",
+  "5 - Guide + Tally envoyé": "#14b8a6",
+  "6 - LDM à préparer": "#8b5cf6",
+  "7 - LDM envoyée": "#a855f7",
+  "8 - LDM signée": "#10b981",
   "Z - Interne": "#10b981",
   "Z - Sous-traitance": "#0ea5e9",
   "Z - Perdu dans l'espace": "#6366f1",
@@ -84,14 +86,14 @@ const PIPELINE_HEX: Record<string, string> = {
  * onboarding (cf. isClientBillable dans lib/billable.ts) mais on ne les
  * inclut plus dans les agregats business, qui se voulaient deformes.
  */
-const CLIENTS_LDM = new Set(["7 - LDM signée"]);
+const CLIENTS_LDM = new Set(["8 - LDM signée"]);
 
 /**
  * Dossiers a gerer cote PRODUCTION (obligations, echeances, onboarding).
  * Couvre LDM + Interne + Sous-traitance. Utilise pour productionRisque.
  */
 const DOSSIERS_GERES = new Set([
-  "7 - LDM signée",
+  "8 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
 ]);
@@ -139,7 +141,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   }>;
 
   // --- KPI globaux ---
-  // "Client" = uniquement pipeline_statut = "7 - LDM signée".
+  // "Client" = uniquement pipeline_statut = "8 - LDM signée".
   // Les dossiers Z - Interne (Benjamin + famille) et Z - Sous-traitance ne
   // sont pas des clients : ils n'ont pas signe de LDM commerciale, donc on
   // les sort de toutes les agregations business (nombre, MRR, ARR, panier
@@ -152,7 +154,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const totalArr = actifs.reduce((s, c) => s + (c.arr ?? 0), 0);
   const signaturesCeMois = cs.filter(
     (c) =>
-      c.pipeline_statut === "7 - LDM signée" &&
+      c.pipeline_statut === "8 - LDM signée" &&
       c.mois_signature &&
       c.mois_signature >= startOfMonth
   );
@@ -199,7 +201,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const sigByMonth = new Map<string, { count: number; arr: number }>();
   for (const m of months) sigByMonth.set(m.key, { count: 0, arr: 0 });
   for (const c of cs) {
-    if (c.pipeline_statut !== "7 - LDM signée") continue;
+    if (c.pipeline_statut !== "8 - LDM signée") continue;
     if (!c.mois_signature) continue;
     const key = c.mois_signature.substring(0, 7); // "YYYY-MM"
     const agg = sigByMonth.get(key);

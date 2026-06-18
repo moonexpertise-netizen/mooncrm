@@ -33,7 +33,7 @@ type Categorie = "2G" | "2C" | "2R" | "2T";
 // Critère "facturable" : même règle que isClientBillable (lib/billable.ts).
 // On accepte LDM signée + statuts Z internes / sous-traitance.
 const BILLABLE_PIPELINES = new Set([
-  "7 - LDM signée",
+  "8 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
 ]);

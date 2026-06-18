@@ -18,13 +18,14 @@ export type Origine =
 export type Regime = "IR" | "IS";
 
 export type PipelineStatut =
-  | "1 - Tally à envoyer"
-  | "2 - Tally à compléter"
-  | "3 - PC à préparer"
-  | "4 - PC envoyée"
-  | "5 - PC acceptée"
-  | "6 - LDM envoyée"
-  | "7 - LDM signée"
+  | "1 - Rencontre prospect"
+  | "2 - PC à préparer"
+  | "3 - PC envoyée"
+  | "4 - PC acceptée"
+  | "5 - Guide + Tally envoyé"
+  | "6 - LDM à préparer"
+  | "7 - LDM envoyée"
+  | "8 - LDM signée"
   | "Z - Interne"
   | "Z - Sous-traitance"
   | "Z - Prospect perdu"

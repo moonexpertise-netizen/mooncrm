@@ -21,18 +21,19 @@ import { PappersInpiBadges } from "@/lib/pappers-badges";
 const BUCKET_PIPELINES: Record<Bucket, string[]> = {
   all: [],
   prospects: [
-    "1 - Tally à envoyer",
-    "2 - Tally à compléter",
-    "3 - PC à préparer",
-    "4 - PC envoyée",
-    "5 - PC acceptée",
-    "6 - LDM envoyée",
+    "1 - Rencontre prospect",
+    "2 - PC à préparer",
+    "3 - PC envoyée",
+    "4 - PC acceptée",
+    "5 - Guide + Tally envoyé",
+    "6 - LDM à préparer",
+    "7 - LDM envoyée",
     // Perdus dans l'espace = prospects qui n'ont jamais repondu mais peuvent
     // revenir. Restent listes avec les prospects, distincts des perdus
     // definitifs.
     "Z - Perdu dans l'espace",
   ],
-  clients: ["7 - LDM signée"],
+  clients: ["8 - LDM signée"],
   internes_st: ["Z - Interne", "Z - Sous-traitance"],
   perdus: ["Z - Prospect perdu", "Z - Résiliée"],
 };

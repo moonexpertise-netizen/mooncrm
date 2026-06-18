@@ -166,7 +166,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         pipeline_statut: {
           type: "string",
           description:
-            "Valeur cible exacte parmi : '1 - Tally à envoyer', '2 - Tally à compléter', '3 - PC à préparer', '4 - PC envoyée', '5 - PC acceptée', '6 - LDM envoyée', '7 - LDM signée', 'Z - Interne', 'Z - Sous-traitance', 'Z - Perdu dans l\\'espace', 'Z - Prospect perdu', 'Z - Résiliée'.",
+            "Valeur cible exacte parmi : '1 - Rencontre prospect', '2 - PC à préparer', '3 - PC envoyée', '4 - PC acceptée', '5 - Guide + Tally envoyé', '6 - LDM à préparer', '7 - LDM envoyée', '8 - LDM signée', 'Z - Interne', 'Z - Sous-traitance', 'Z - Perdu dans l\\'espace', 'Z - Prospect perdu', 'Z - Résiliée'.",
         },
       },
       required: ["client_search", "pipeline_statut"],
@@ -236,8 +236,8 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     }
     if (typeof input.bucket === "string") {
       const BUCKETS: Record<string, string[]> = {
-        prospects: ["1 - Tally à envoyer", "2 - Tally à compléter", "3 - PC à préparer", "4 - PC envoyée", "5 - PC acceptée", "6 - LDM envoyée", "Z - Perdu dans l'espace"],
-        clients: ["7 - LDM signée"],
+        prospects: ["1 - Rencontre prospect", "2 - PC à préparer", "3 - PC envoyée", "4 - PC acceptée", "5 - Guide + Tally envoyé", "6 - LDM à préparer", "7 - LDM envoyée", "Z - Perdu dans l'espace"],
+        clients: ["8 - LDM signée"],
         internes_st: ["Z - Interne", "Z - Sous-traitance"],
         perdus: ["Z - Prospect perdu", "Z - Résiliée"],
       };
@@ -284,7 +284,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const { data: clients } = await sb
       .from("clients")
       .select("pipeline_statut, mrr, arr, mois_signature");
-    const signed = (clients ?? []).filter((c) => c.pipeline_statut === "7 - LDM signée");
+    const signed = (clients ?? []).filter((c) => c.pipeline_statut === "8 - LDM signée");
     const mrr = signed.reduce((s, c) => s + (c.mrr ?? 0), 0);
     const arr = signed.reduce((s, c) => s + (c.arr ?? 0), 0);
     const startMonth = new Date();

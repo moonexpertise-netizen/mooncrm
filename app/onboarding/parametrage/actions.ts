@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/auth";
 
 // Critere "facturable" : meme regle que isClientBillable (lib/billable.ts).
 const BILLABLE_PIPELINES = [
-  "7 - LDM signée",
+  "8 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
 ];

@@ -43,13 +43,14 @@ export type PipelineCard = {
 };
 
 const ACTIVE_STAGES: PipelineStatut[] = [
-  "1 - Tally à envoyer",
-  "2 - Tally à compléter",
-  "3 - PC à préparer",
-  "4 - PC envoyée",
-  "5 - PC acceptée",
-  "6 - LDM envoyée",
-  "7 - LDM signée",
+  "1 - Rencontre prospect",
+  "2 - PC à préparer",
+  "3 - PC envoyée",
+  "4 - PC acceptée",
+  "5 - Guide + Tally envoyé",
+  "6 - LDM à préparer",
+  "7 - LDM envoyée",
+  "8 - LDM signée",
 ];
 // "Perdu dans l'espace" n'est plus une colonne classique : elle a sa
 // propre zone "starfield" en bas du kanban (cf. SpaceDropZone). C'est
@@ -66,13 +67,14 @@ const TERMINAL_STAGES: PipelineStatut[] = [
 const SPACE_STATUT: PipelineStatut = "Z - Perdu dans l'espace";
 
 const SHORT_LABEL: Record<PipelineStatut, string> = {
-  "1 - Tally à envoyer": "Tally à envoyer",
-  "2 - Tally à compléter": "Tally à compléter",
-  "3 - PC à préparer": "PC à préparer",
-  "4 - PC envoyée": "PC envoyée",
-  "5 - PC acceptée": "PC acceptée",
-  "6 - LDM envoyée": "LDM envoyée",
-  "7 - LDM signée": "LDM signée",
+  "1 - Rencontre prospect": "Rencontre prospect",
+  "2 - PC à préparer": "PC à préparer",
+  "3 - PC envoyée": "PC envoyée",
+  "4 - PC acceptée": "PC acceptée",
+  "5 - Guide + Tally envoyé": "Guide + Tally envoyé",
+  "6 - LDM à préparer": "LDM à préparer",
+  "7 - LDM envoyée": "LDM envoyée",
+  "8 - LDM signée": "LDM signée",
   "Z - Interne": "Interne",
   "Z - Sous-traitance": "Sous-traitance",
   "Z - Perdu dans l'espace": "Perdu dans l'espace",
@@ -94,7 +96,7 @@ const SHORT_LABEL: Record<PipelineStatut, string> = {
 function sortColumnDesc(a: PipelineCard, b: PipelineCard): number {
   // Les cards d'une meme colonne ont le meme pipeline_statut. On regarde
   // a.pipeline_statut (b.pipeline_statut est garanti egal).
-  if (a.pipeline_statut === "7 - LDM signée") {
+  if (a.pipeline_statut === "8 - LDM signée") {
     const ma = a.mois_signature;
     const mb = b.mois_signature;
     if (ma && mb && ma !== mb) return mb.localeCompare(ma);
@@ -215,7 +217,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
     const nowIso = new Date().toISOString();
     const today = nowIso.substring(0, 10);
     const isSigningNow =
-      newStatut === "7 - LDM signée" && previousStatut !== "7 - LDM signée";
+      newStatut === "8 - LDM signée" && previousStatut !== "8 - LDM signée";
     setLocalCards((s) =>
       s.map((c) =>
         c.id === cardId
@@ -287,7 +289,7 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           }}
         >
-          {ACTIVE_STAGES.slice(0, 6).map((s) => (
+          {ACTIVE_STAGES.slice(0, 7).map((s) => (
             <Column
               key={s}
               statut={s}
@@ -307,8 +309,8 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
         <div className="flex gap-4 items-stretch">
           <div className="w-[620px] shrink-0">
             <Column
-              statut="7 - LDM signée"
-              cards={cardsByStage.get("7 - LDM signée") ?? []}
+              statut="8 - LDM signée"
+              cards={cardsByStage.get("8 - LDM signée") ?? []}
               activeId={activeId}
               columnCount={2}
             />

@@ -11,7 +11,7 @@
  *     (cas typique : ex sous-traitance arrêtée qui garde origine billable
  *     ou ex client LDM signée résilié → on ne veut plus produire d'échéances)
  *   SINON
- *   - pipeline_statut ∈ {"7 - LDM signée", "Z - Interne", "Z - Sous-traitance"}
+ *   - pipeline_statut ∈ {"8 - LDM signée", "Z - Interne", "Z - Sous-traitance"}
  *   OU
  *   - origine ∈ {"5 - Sous-traitance"} (legacy : "Z - Sous-traitance")
  *
@@ -20,7 +20,7 @@
  */
 
 export const BILLABLE_PIPELINE = new Set<string>([
-  "7 - LDM signée",
+  "8 - LDM signée",
   "Z - Interne",
   "Z - Sous-traitance",
 ]);

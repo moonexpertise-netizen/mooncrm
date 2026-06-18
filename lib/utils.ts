@@ -58,13 +58,14 @@ export function statutColorClass(
 }
 
 export const PIPELINE_COLORS: Record<string, string> = {
-  "1 - Tally à envoyer": "bg-amber-100 text-amber-800 border-amber-200",
-  "2 - Tally à compléter": "bg-amber-100 text-amber-800 border-amber-200",
-  "3 - PC à préparer": "bg-sky-100 text-sky-800 border-sky-200",
-  "4 - PC envoyée": "bg-sky-100 text-sky-800 border-sky-200",
-  "5 - PC acceptée": "bg-violet-100 text-violet-800 border-violet-200",
-  "6 - LDM envoyée": "bg-violet-100 text-violet-800 border-violet-200",
-  "7 - LDM signée": "bg-emerald-100 text-emerald-800 border-emerald-200",
+  "1 - Rencontre prospect": "bg-amber-100 text-amber-800 border-amber-200",
+  "2 - PC à préparer": "bg-sky-100 text-sky-800 border-sky-200",
+  "3 - PC envoyée": "bg-sky-100 text-sky-800 border-sky-200",
+  "4 - PC acceptée": "bg-violet-100 text-violet-800 border-violet-200",
+  "5 - Guide + Tally envoyé": "bg-amber-100 text-amber-800 border-amber-200",
+  "6 - LDM à préparer": "bg-violet-100 text-violet-800 border-violet-200",
+  "7 - LDM envoyée": "bg-violet-100 text-violet-800 border-violet-200",
+  "8 - LDM signée": "bg-emerald-100 text-emerald-800 border-emerald-200",
   "Z - Interne": "bg-amber-100 text-amber-800 border-amber-300",
   "Z - Sous-traitance": "bg-sky-100 text-sky-800 border-sky-300",
   // Limbo : propal envoyee, jamais repondu, susceptible de revenir.
