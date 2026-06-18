@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCan } from "@/app/_components/permissions-context";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { createTimeEntry, deleteTimeEntry } from "./actions";
+import { Combobox, type ComboOption } from "./combobox";
 
 export type Entry = {
   id: string;
@@ -67,10 +68,16 @@ function hoursToMinutes(s: string): number | null {
   return Math.round(h * 60);
 }
 function fmtHours(min: number): string {
-  return (min / 60).toLocaleString("fr-FR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }) + " h";
+  return (
+    (min / 60).toLocaleString("fr-FR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + " h"
+  );
+}
+/** Minutes -> chaîne décimale pour pré-remplir le champ durée (90 -> "1,5"). */
+function minutesToDecimal(min: number): string {
+  return (min / 60).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 }
 
 const INPUT_CLS =
@@ -90,6 +97,7 @@ export default function MesTemps({
   const router = useRouter();
   const canSaisir = useCan("saisir_temps");
   const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLDivElement>(null);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDaysIso(weekStart, i)),
@@ -97,6 +105,22 @@ export default function MesTemps({
   );
   const todayIso = useMemo(() => new Date().toISOString().substring(0, 10), []);
   const defaultDay = days.includes(todayIso) ? todayIso : weekStart;
+
+  // Options des champs de recherche assistée.
+  const dossierOptions = useMemo<ComboOption[]>(
+    () => [
+      { value: "__autre", label: "Autre (hors dossier)" },
+      ...clients.map((c) => ({ value: c.id, label: c.denomination })),
+    ],
+    [clients]
+  );
+  const activiteOptions = useMemo<ComboOption[]>(
+    () => activites.map((a) => ({ value: a.id, label: a.libelle })),
+    [activites]
+  );
+
+  // --- Vue : semaine (toutes les journées) ou jour (une seule) ---
+  const [viewMode, setViewMode] = useState<"semaine" | "jour">("semaine");
 
   // --- Formulaire d'ajout rapide ---
   const [dossier, setDossier] = useState<string>(""); // clientId | "__autre" | ""
@@ -106,6 +130,12 @@ export default function MesTemps({
   const [jour, setJour] = useState<string>(defaultDay);
   const [commentaire, setCommentaire] = useState<string>("");
   const [facturable, setFacturable] = useState<boolean>(true);
+
+  // Quand on change de semaine, on recale le jour ciblé dans la semaine.
+  useEffect(() => {
+    setJour((j) => (days.includes(j) ? j : defaultDay));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart]);
 
   const isAutre = dossier === "__autre";
 
@@ -163,14 +193,33 @@ export default function MesTemps({
     });
   }
 
+  /** Recopie une ligne dans le formulaire (bouton dupliquer). */
+  function duplicate(e: Entry) {
+    if (!canSaisir) return;
+    setDossier(e.clientId ?? "__autre");
+    setCategorieAutre(e.categorieAutre ?? AUTRE_CATEGORIES[0]);
+    setActiviteId(e.activiteId ?? "");
+    setDuree(minutesToDecimal(e.dureeMinutes));
+    setCommentaire(e.commentaire ?? "");
+    setFacturable(e.facturable);
+    setJour(e.dateJour);
+    if (viewMode === "jour") setJour(e.dateJour);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    toastSuccess("Copié dans le formulaire — ajuste et valide");
+  }
+
   const weekTotal = entries.reduce((s, e) => s + e.dureeMinutes, 0);
   const prevWeek = addDaysIso(weekStart, -7);
   const nextWeek = addDaysIso(weekStart, 7);
   const thisWeek = mondayOf(todayIso);
 
+  const jourIdx = days.indexOf(jour);
+  // Jours affichés dans la liste selon la vue.
+  const shownDays = viewMode === "jour" ? days.filter((d) => d === jour) : days;
+
   return (
     <div className="space-y-5">
-      {/* Sélecteur de semaine */}
+      {/* Sélecteur de semaine + bascule vue */}
       <div className="flex items-center gap-2 flex-wrap">
         <button
           type="button"
@@ -200,6 +249,26 @@ export default function MesTemps({
             Cette semaine
           </button>
         )}
+
+        {/* Bascule Semaine / Jour */}
+        <div className="inline-flex rounded-md border border-zinc-200 dark:border-white/[0.12] overflow-hidden ml-1">
+          {(["semaine", "jour"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setViewMode(m)}
+              className={cn(
+                "px-3 h-9 text-sm transition-colors",
+                viewMode === m
+                  ? "bg-zinc-900 text-white dark:bg-white/[0.12] dark:text-zinc-50"
+                  : "bg-white dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.08]"
+              )}
+            >
+              {m === "semaine" ? "Semaine" : "Jour"}
+            </button>
+          ))}
+        </div>
+
         <div className="ml-auto flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
           <Clock className="h-4 w-4 text-zinc-400" />
           <span className="tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">{fmtHours(weekTotal)}</span>
@@ -207,22 +276,45 @@ export default function MesTemps({
         </div>
       </div>
 
-      {/* Barre d'ajout rapide */}
-      <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={dossier}
-            onChange={(e) => setDossier(e.target.value)}
-            disabled={!canSaisir}
-            className={cn(INPUT_CLS, "flex-1 min-w-[180px]")}
-            aria-label="Dossier"
+      {/* Sélecteur de jour (vue Jour) */}
+      {viewMode === "jour" && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => jourIdx > 0 && setJour(days[jourIdx - 1])}
+            disabled={jourIdx <= 0}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Jour précédent"
           >
-            <option value="">Dossier…</option>
-            <option value="__autre">Autre (hors dossier)</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.denomination}</option>
-            ))}
-          </select>
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-white/[0.06] text-sm font-medium text-zinc-900 dark:text-zinc-100 min-w-[140px] text-center capitalize">
+            {dayLabel(jour)}
+          </div>
+          <button
+            type="button"
+            onClick={() => jourIdx < 6 && setJour(days[jourIdx + 1])}
+            disabled={jourIdx >= 6}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Jour suivant"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Barre d'ajout rapide */}
+      <div ref={formRef} className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Combobox
+            value={dossier}
+            onChange={setDossier}
+            options={dossierOptions}
+            placeholder="Rechercher un dossier…"
+            disabled={!canSaisir}
+            ariaLabel="Dossier"
+            className="flex-1 min-w-[200px]"
+          />
 
           {isAutre && (
             <select
@@ -238,18 +330,15 @@ export default function MesTemps({
             </select>
           )}
 
-          <select
+          <Combobox
             value={activiteId}
-            onChange={(e) => setActiviteId(e.target.value)}
+            onChange={setActiviteId}
+            options={activiteOptions}
+            placeholder="Activité…"
             disabled={!canSaisir}
-            className={cn(INPUT_CLS, "min-w-[140px]")}
-            aria-label="Activité"
-          >
-            <option value="">Activité…</option>
-            {activites.map((a) => (
-              <option key={a.id} value={a.id}>{a.libelle}</option>
-            ))}
-          </select>
+            ariaLabel="Activité"
+            className="min-w-[150px] w-[180px]"
+          />
 
           <input
             type="text"
@@ -263,23 +352,25 @@ export default function MesTemps({
             aria-label="Durée en heures"
           />
 
-          <select
-            value={jour}
-            onChange={(e) => setJour(e.target.value)}
-            disabled={!canSaisir}
-            className={cn(INPUT_CLS, "min-w-[120px]")}
-            aria-label="Jour"
-          >
-            {days.map((d) => (
-              <option key={d} value={d}>{dayLabel(d)}</option>
-            ))}
-          </select>
+          {viewMode === "semaine" && (
+            <select
+              value={jour}
+              onChange={(e) => setJour(e.target.value)}
+              disabled={!canSaisir}
+              className={cn(INPUT_CLS, "min-w-[120px]")}
+              aria-label="Jour"
+            >
+              {days.map((d) => (
+                <option key={d} value={d}>{dayLabel(d)}</option>
+              ))}
+            </select>
+          )}
 
           <button
             type="button"
             onClick={submit}
             disabled={!canSaisir || isPending}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-zinc-900 dark:bg-[hsl(var(--gold))] text-white dark:text-zinc-900 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-gold text-zinc-900 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" /> Ajouter
           </button>
@@ -297,7 +388,8 @@ export default function MesTemps({
             Facturable
           </label>
           <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            Durée en heures décimales (1,5 = 1 h 30).
+            Durée en heures décimales (1,5 = 1 h 30)
+            {viewMode === "jour" && <> · saisie pour le {dayLabel(jour)}</>}.
           </span>
         </div>
 
@@ -320,9 +412,9 @@ export default function MesTemps({
         )}
       </div>
 
-      {/* Liste par jour */}
+      {/* Liste */}
       <div className="space-y-3">
-        {days.map((d) => {
+        {shownDays.map((d) => {
           const dayEntries = entries.filter((e) => e.dateJour === d);
           if (dayEntries.length === 0) return null;
           const total = dayEntries.reduce((s, e) => s + e.dureeMinutes, 0);
@@ -332,7 +424,7 @@ export default function MesTemps({
               className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-hidden"
             >
               <div className="flex items-center justify-between px-4 py-2 bg-zinc-50/60 dark:bg-white/[0.02] border-b border-zinc-100 dark:border-white/[0.06]">
-                <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{dayLabel(d)}</span>
+                <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100 capitalize">{dayLabel(d)}</span>
                 <span className="text-[13px] tabular-nums text-zinc-600 dark:text-zinc-300">{fmtHours(total)}</span>
               </div>
               <ul className="divide-y divide-zinc-100 dark:divide-white/[0.05]">
@@ -367,10 +459,21 @@ export default function MesTemps({
                     </span>
                     <button
                       type="button"
+                      onClick={() => duplicate(e)}
+                      disabled={!canSaisir}
+                      className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Dupliquer cette saisie"
+                      title="Dupliquer"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => remove(e.id)}
                       disabled={!canSaisir || isPending}
                       className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       aria-label="Supprimer"
+                      title="Supprimer"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -381,18 +484,24 @@ export default function MesTemps({
           );
         })}
 
-        {entries.length === 0 && (
-          <div className="rounded-xl border border-dashed border-zinc-200 dark:border-white/[0.08] py-12 text-center">
-            <Clock className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto" />
-            <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Aucun temps saisi cette semaine.
-            </p>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              Ajoutez votre première ligne ci-dessus.
-            </p>
-          </div>
+        {/* États vides */}
+        {viewMode === "semaine" && entries.length === 0 && (
+          <EmptyState label="Aucun temps saisi cette semaine." />
+        )}
+        {viewMode === "jour" && entries.filter((e) => e.dateJour === jour).length === 0 && (
+          <EmptyState label={`Aucun temps saisi le ${dayLabel(jour)}.`} />
         )}
       </div>
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-zinc-200 dark:border-white/[0.08] py-12 text-center">
+      <Clock className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto" />
+      <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">{label}</p>
+      <p className="text-xs text-zinc-400 dark:text-zinc-500">Ajoutez une ligne ci-dessus.</p>
     </div>
   );
 }

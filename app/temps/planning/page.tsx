@@ -1,14 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { isClientBillable } from "@/lib/billable";
-import MesTemps from "./mes-temps";
+import Planning from "./planning";
 
 export const dynamic = "force-dynamic";
 
-/** Lundi (ISO) de la semaine contenant `dateIso`. Calcul en UTC (dates pures). */
 function mondayOf(dateIso: string): string {
   const d = new Date(dateIso + "T00:00:00Z");
-  const day = d.getUTCDay(); // 0=dim .. 6=sam
-  const diff = (day + 6) % 7; // nb de jours depuis lundi
+  const diff = (d.getUTCDay() + 6) % 7;
   d.setUTCDate(d.getUTCDate() - diff);
   return d.toISOString().substring(0, 10);
 }
@@ -20,8 +18,18 @@ function addDaysIso(iso: string, n: number): string {
 function todayIso(): string {
   return new Date().toISOString().substring(0, 10);
 }
+/** "prenom.nom@x.fr" -> "Prenom Nom" (on n'affiche pas l'email brut). */
+function displayName(email: string | null): string {
+  if (!email) return "Inconnu";
+  const local = email.split("@")[0];
+  return local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
-export default async function TempsPage({
+export default async function PlanningPage({
   searchParams,
 }: {
   searchParams: Promise<{ semaine?: string }>;
@@ -33,34 +41,34 @@ export default async function TempsPage({
   const weekEnd = addDaysIso(weekStart, 6);
 
   const sb = await createClient();
-  const {
-    data: { user },
-  } = await sb.auth.getUser();
 
-  const [entriesRes, activitesRes, clientsRes] = await Promise.all([
-    user
-      ? sb
-          .from("time_entries")
-          .select(
-            "id, client_id, categorie_autre, activite_id, date_jour, duree_minutes, annee, commentaire, facturable, clients(denomination, slug), time_activites(libelle)"
-          )
-          .eq("user_id", user.id)
-          .gte("date_jour", weekStart)
-          .lte("date_jour", weekEnd)
-          .order("date_jour", { ascending: true })
-      : Promise.resolve({ data: [] as unknown[] }),
+  const [entriesRes, profilesRes, activitesRes, clientsRes] = await Promise.all([
+    sb
+      .from("time_entries")
+      .select(
+        "id, user_id, client_id, categorie_autre, activite_id, date_jour, duree_minutes, commentaire, facturable, clients(denomination, slug), time_activites(libelle)"
+      )
+      .gte("date_jour", weekStart)
+      .lte("date_jour", weekEnd)
+      .order("date_jour", { ascending: true }),
+    sb.from("profiles").select("id, email").eq("approved", true),
     sb.from("time_activites").select("id, libelle").eq("actif", true).order("ordre"),
     sb.from("clients").select("id, denomination, pipeline_statut, origine").order("denomination"),
   ]);
 
+  const profMap = new Map<string, string>();
+  for (const p of (profilesRes.data ?? []) as { id: string; email: string | null }[]) {
+    profMap.set(p.id, displayName(p.email));
+  }
+
   type Row = {
     id: string;
+    user_id: string;
     client_id: string | null;
     categorie_autre: string | null;
     activite_id: string | null;
     date_jour: string;
     duree_minutes: number;
-    annee: number;
     commentaire: string | null;
     facturable: boolean;
     clients: { denomination: string; slug: string } | null;
@@ -69,6 +77,8 @@ export default async function TempsPage({
 
   const entries = ((entriesRes.data ?? []) as unknown as Row[]).map((e) => ({
     id: e.id,
+    userId: e.user_id,
+    collaborateur: profMap.get(e.user_id) ?? "Inconnu",
     clientId: e.client_id,
     clientName: e.clients?.denomination ?? null,
     clientSlug: e.clients?.slug ?? null,
@@ -77,14 +87,15 @@ export default async function TempsPage({
     activiteLibelle: e.time_activites?.libelle ?? null,
     dateJour: e.date_jour,
     dureeMinutes: e.duree_minutes,
-    annee: e.annee,
     commentaire: e.commentaire,
     facturable: e.facturable,
   }));
 
-  const activites = ((activitesRes.data ?? []) as { id: string; libelle: string }[]).map(
-    (a) => ({ id: a.id, libelle: a.libelle })
-  );
+  // Collaborateurs présents (pour le filtre) : ceux qui ont des lignes cette
+  // semaine + tous les approuvés (pour pouvoir filtrer même sans saisie).
+  const collaborateurs = [...profMap.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
 
   const clients = ((clientsRes.data ?? []) as {
     id: string;
@@ -95,12 +106,17 @@ export default async function TempsPage({
     .filter((c) => isClientBillable(c))
     .map((c) => ({ id: c.id, denomination: c.denomination }));
 
+  const activites = ((activitesRes.data ?? []) as { id: string; libelle: string }[]).map(
+    (a) => ({ id: a.id, libelle: a.libelle })
+  );
+
   return (
-    <MesTemps
+    <Planning
       weekStart={weekStart}
       entries={entries}
-      activites={activites}
+      collaborateurs={collaborateurs}
       clients={clients}
+      activites={activites}
     />
   );
 }
