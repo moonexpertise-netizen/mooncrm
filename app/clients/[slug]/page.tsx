@@ -47,20 +47,26 @@ export default async function IdentiteTab({
   const { slug } = await params;
   const client = await loadClient(slug);
   if (!client) notFound();
-  const contactsLink = await loadContactsLink(client.id);
-  const dirigeantContact = extractDirigeant(contactsLink);
   const id = client.id;
 
-  // Liste des groupes pour le datalist EditableGroupe
-  const sb = await createClient();
-  const { data: allGroupes } = await sb.from("groupes").select("nom").order("nom");
-  const groupesOptions = (allGroupes ?? []).map((g) => g.nom);
-  const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
-
-  // Etiquettes TVA pour le picker (actives + l'unique tag courant s'il est inactif)
+  // Ces 3 valeurs ne dépendent que de `client` (déjà chargé).
   const currentTvaTagId = (client as unknown as { tva_tag_id: string | null }).tva_tag_id ?? null;
   const currentTvaEcheanceJour = (client as unknown as { tva_echeance_jour: number | null }).tva_echeance_jour ?? null;
-  const tvaTags = await loadActiveTvaTags(currentTvaTagId);
+  const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
+
+  // Les 3 requêtes restantes sont indépendantes entre elles -> on les lance en
+  // parallèle (au lieu de 3 allers-retours séquentiels) :
+  //   - contacts rattachés au client
+  //   - liste des groupes (datalist EditableGroupe)
+  //   - étiquettes TVA actives (+ le tag courant s'il est inactif)
+  const sb = await createClient();
+  const [contactsLink, allGroupesRes, tvaTags] = await Promise.all([
+    loadContactsLink(client.id),
+    sb.from("groupes").select("nom").order("nom"),
+    loadActiveTvaTags(currentTvaTagId),
+  ]);
+  const dirigeantContact = extractDirigeant(contactsLink);
+  const groupesOptions = (allGroupesRes.data ?? []).map((g) => g.nom);
 
   return (
     <div className="space-y-5">

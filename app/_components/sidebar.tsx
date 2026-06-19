@@ -208,6 +208,23 @@ export function Sidebar() {
     caa: 0,
     facturation: 0,
   });
+  // Throttle des badges : on evite de relancer les 9 requetes DB a CHAQUE
+  // navigation (c'etait un gros surcout par clic en prod). On rafraichit au
+  // montage, puis au plus une fois toutes les 15s sur changement de route, et
+  // au retour de focus/onglet. Suffisant pour refleter un changement de statut
+  // sans marteler la DB. `force` court-circuite le throttle (montage / focus).
+  const lastBadgeFetchRef = useRef(0);
+  const refreshBadges = useCallback((force = false) => {
+    const now = Date.now();
+    if (!force && now - lastBadgeFetchRef.current < 15000) return;
+    lastBadgeFetchRef.current = now;
+    loadSidebarBadges()
+      .then((b) => setBadges(b))
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.error("[sidebar-badges] error:", e);
+      });
+  }, []);
   // Ordre custom des nav items (drag-and-drop). Initialise avec l'ordre
   // par defaut puis hydratte depuis localStorage cote client.
   const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((i) => i.href));
@@ -312,26 +329,28 @@ export function Sidebar() {
     if (pathname.startsWith("/obligations")) setProdOpen(true);
   }, [pathname]);
 
-  // Charge les badges "À faire" sur les modules Créations / IR / CAA. Re-fetch
-  // a chaque changement de route pour refleter une action qui aurait modifie
-  // un statut (ex. utilisateur clique sur un dossier en "à faire", change
-  // son statut, revient sur sidebar → compteur a jour).
+  // Badges "À faire" (Créations / IR / CAA / Facturation). Montage = fetch
+  // immédiat ; retour de focus / onglet visible = refresh (throttlé). Voir
+  // refreshBadges pour la logique de throttle.
   useEffect(() => {
-    let cancelled = false;
-    loadSidebarBadges()
-      .then((b) => {
-        if (!cancelled) {
-          setBadges(b);
-        }
-      })
-      .catch((e) => {
-        // eslint-disable-next-line no-console
-        console.error("[sidebar-badges] error:", e);
-      });
-    return () => {
-      cancelled = true;
+    refreshBadges(true);
+    const onFocus = () => refreshBadges();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshBadges();
     };
-  }, [pathname]);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refreshBadges]);
+
+  // Changement de route : refresh throttlé (max 1×/15s) pour refléter un
+  // statut modifié sans relancer 9 requêtes à chaque clic.
+  useEffect(() => {
+    refreshBadges();
+  }, [pathname, refreshBadges]);
 
   // Ouvre automatiquement le sous-bloc qui contient le tracker courant.
   // Le tracker est maintenant identifié par le segment de path /obligations/<slug>.

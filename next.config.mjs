@@ -11,11 +11,13 @@ const nextConfig = {
     // re-visite une page récente, le RSC précédent est ré-affiché instantanément
     // (avant re-fetch async en arrière-plan). Critical pour la fluidité perçue
     // sur cette app : back depuis une fiche client = instantané.
-    // - dynamic: 30s pour les pages force-dynamic (fiche client, tracker,
-    //   paramétrage). Si l'utilisateur revient dans les 30s, instant.
+    // - dynamic: 60s pour les pages force-dynamic (fiche client, tracker,
+    //   paramétrage). Si l'utilisateur revient dans les 60s, instant. Les
+    //   mutations (server actions) font un router.refresh() qui invalide ce
+    //   cache, donc pas de risque de données périmées après une édition.
     // - static: 300s pour le rare contenu cacheable (login, dashboard).
     staleTimes: {
-      dynamic: 30,
+      dynamic: 60,
       static: 300,
     },
     // Tree-shaking aggressif des barrels lourds. Sans cette option, importer
