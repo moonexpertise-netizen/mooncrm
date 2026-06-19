@@ -61,9 +61,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-zinc-50 via-white to-[hsl(var(--gold))]/[0.04] dark:from-[hsl(var(--background))] dark:via-[hsl(var(--surface-muted))] dark:to-[hsl(var(--gold))]/[0.08]">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[hsl(230_35%_9%)] to-[hsl(226_45%_13%)] shadow-modal mb-4">
-            <span className="font-display text-2xl font-semibold text-white italic">M</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/moon-icon.svg"
+            alt="MOON Expertise"
+            width={56}
+            height={56}
+            className="mx-auto mb-4 h-14 w-14 rounded-2xl shadow-modal"
+          />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-zinc-900">
             MoonCRM
           </h1>
