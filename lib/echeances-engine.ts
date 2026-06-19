@@ -231,6 +231,12 @@ export async function getEcheancesPourMois(
         .gte("annee", anneeMin)
         .lte("annee", anneeMax)
         .eq("actif", true)
+        // Tri STABLE obligatoire : sans ORDER BY, Postgres ne garantit pas
+        // l'ordre entre les pages .range() -> des lignes sont sautees ou
+        // dupliquees d'une page a l'autre (et le resultat change a chaque
+        // requete). C'est la cause des fausses echeances qui "disparaissent
+        // au refresh". Cf. bug rapporte 06/2026.
+        .order("id", { ascending: true })
         .range(offset, offset + PAGE - 1);
       if (error) throw error;
       const rows = (data ?? []) as unknown as SubRow[];
@@ -248,6 +254,9 @@ export async function getEcheancesPourMois(
         .select("id, client_id, type, periode, annee, statut_logique, statut_detail")
         .gte("annee", anneeMin)
         .lte("annee", anneeMax)
+        // Tri STABLE obligatoire pour une pagination .range() fiable (sinon des
+        // obligations TERMINE manquent et ressortent en "A faire"). Cf. ci-dessus.
+        .order("id", { ascending: true })
         .range(offset, offset + PAGE - 1);
       if (error) throw error;
       const rows = (data ?? []) as OblRow[];
