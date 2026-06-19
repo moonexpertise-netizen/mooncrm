@@ -67,7 +67,7 @@ export default function LoginPage() {
             alt="MOON Expertise"
             width={56}
             height={56}
-            className="mx-auto mb-4 h-14 w-14 rounded-2xl shadow-modal"
+            className="mx-auto mb-4 h-14 w-14 drop-shadow-lg"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-zinc-900">
             MoonCRM
