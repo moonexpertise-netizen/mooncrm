@@ -276,6 +276,79 @@ export async function createMissionType(label: string, tarif: number = 0) {
   return res.data;
 }
 
+/**
+ * Duplique un type de mission. Copie label (suffixe « (copie) »), tarif et
+ * statut actif. Placé en fin d'ordre (max + 10) ; l'UI peut ensuite le
+ * réordonner. Le slug est régénéré par le trigger DB.
+ */
+export async function duplicateMissionType(typeId: string) {
+  await requirePermission("edit_production");
+  const sb = await createClient();
+
+  // Source : try avec tarif (migration 0067), fallback sans.
+  let src: { label: string; actif: boolean; tarif?: number | null } | null = null;
+  const r1 = await sb
+    .from("mission_exc_types")
+    .select("label, actif, tarif")
+    .eq("id", typeId)
+    .single();
+  if (r1.error && /tarif/i.test(r1.error.message)) {
+    const r2 = await sb
+      .from("mission_exc_types")
+      .select("label, actif")
+      .eq("id", typeId)
+      .single();
+    if (r2.error) throw new Error(r2.error.message);
+    src = { ...(r2.data as { label: string; actif: boolean }), tarif: 0 };
+  } else if (r1.error) {
+    throw new Error(r1.error.message);
+  } else {
+    src = r1.data as { label: string; actif: boolean; tarif: number };
+  }
+  if (!src) throw new Error("Type introuvable");
+
+  const { data: maxRow } = await sb
+    .from("mission_exc_types")
+    .select("ordre")
+    .order("ordre", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const ordre = (maxRow?.ordre ?? 0) + 10;
+  const label = `${src.label} (copie)`;
+
+  let res = await sb
+    .from("mission_exc_types")
+    .insert({ label, ordre, actif: src.actif, tarif: src.tarif ?? 0 })
+    .select("id, slug, label, ordre, actif, tarif")
+    .single();
+  if (res.error && /tarif/i.test(res.error.message)) {
+    res = await sb
+      .from("mission_exc_types")
+      .insert({ label, ordre, actif: src.actif })
+      .select("id, slug, label, ordre, actif")
+      .single();
+  }
+  if (res.error) throw new Error(res.error.message);
+  return res.data;
+}
+
+/**
+ * Réordonne les types de mission. `orderedIds` = liste des ids dans l'ordre
+ * voulu ; on écrit ordre = index * 10 (espacement pour insertions futures).
+ */
+export async function reorderMissionTypes(orderedIds: string[]) {
+  await requirePermission("edit_production");
+  if (!orderedIds?.length) return;
+  const sb = await createClient();
+  const results = await Promise.all(
+    orderedIds.map((id, i) =>
+      sb.from("mission_exc_types").update({ ordre: i * 10 }).eq("id", id)
+    )
+  );
+  const firstErr = results.find((r) => r.error);
+  if (firstErr?.error) throw new Error(firstErr.error.message);
+}
+
 export async function renameMissionType(typeId: string, label: string) {
   await requirePermission("edit_production");
   if (!label?.trim()) throw new Error("Libelle obligatoire");

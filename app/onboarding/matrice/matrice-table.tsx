@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Check, Inbox, Minus, Pencil, X } from "lucide-react";
 import { cn, statutColorClass } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useConfirm } from "@/app/_components/confirm-modal";
 import { useCan } from "@/app/_components/permissions-context";
 import { useHighlightRow } from "@/app/_hooks/use-highlight-row";
 import {
@@ -1299,6 +1300,7 @@ function OptionRow({
   const [draftBucket, setDraftBucket] = useState<StatutLogique>(opt.statut_logique);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // Resync draft si l'option change (resync server)
   useEffect(() => {
@@ -1360,9 +1362,15 @@ function OptionRow({
     setDraftBucket(opt.statut_logique);
   }
 
-  function onDelete() {
+  async function onDelete() {
     if (isPending) return;
-    if (!confirm(`Supprimer le libellé « ${opt.libelle} » ? Les tâches qui l'utilisent reviendront à "À faire".`)) return;
+    const ok = await confirm({
+      title: `Supprimer « ${opt.libelle} » ?`,
+      description: `Les tâches qui l'utilisent reviendront à « À faire ».`,
+      variant: "danger",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     startTransition(async () => {
       try {
         await deleteOnboardingStatusOption(taskKey, opt.libelle);
@@ -1385,6 +1393,7 @@ function OptionRow({
   if (editing) {
     return (
       <div className="px-3 py-1.5 flex flex-col gap-1.5 bg-zinc-50 dark:bg-white/[0.04]">
+        {ConfirmDialog}
         <div className="flex items-center gap-2">
           <input
             ref={inputRef}

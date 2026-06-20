@@ -17,7 +17,27 @@ import {
   ChevronsUpDown,
   ExternalLink,
   MessageSquare,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DraggableAttributes,
+  type DraggableSyntheticListeners,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useConfirm } from "@/app/_components/confirm-modal";
@@ -33,6 +53,8 @@ import {
   deleteMission,
   deleteMissionType,
   duplicateMission,
+  duplicateMissionType,
+  reorderMissionTypes,
   renameMissionType,
   setEtatFacturation,
   setEtatMission,
@@ -2179,6 +2201,45 @@ function TarifInput({
   );
 }
 
+/**
+ * Ligne de type triable (drag-and-drop). Gère le ref/transform du <li> et
+ * expose les props de la poignée via render-prop ; le contenu reste défini
+ * dans TypesManagerModal.
+ */
+function SortableTypeRow({
+  id,
+  inactive,
+  dragDisabled,
+  children,
+}: {
+  id: string;
+  inactive: boolean;
+  dragDisabled: boolean;
+  children: (handle: {
+    attributes: DraggableAttributes;
+    listeners: DraggableSyntheticListeners;
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled: dragDisabled });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : inactive ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: "relative",
+  };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors"
+    >
+      {children({ attributes, listeners })}
+    </li>
+  );
+}
+
 function TypesManagerModal({
   types,
   onTypesChange,
@@ -2200,6 +2261,55 @@ function TypesManagerModal({
   const [editLabel, setEditLabel] = useState("");
   const [, startTransition] = useTransition();
   const { confirm, ConfirmDialog } = useConfirm();
+
+  // Drag-and-drop pour réordonner les types. Distance 4px avant activation =>
+  // un clic simple (édition, toggle, suppression) ne déclenche pas de drag.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function onDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIndex = types.findIndex((t) => t.id === active.id);
+    const newIndex = types.findIndex((t) => t.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(types, oldIndex, newIndex);
+    onTypesChange(next); // optimiste
+    startTransition(async () => {
+      try {
+        await reorderMissionTypes(next.map((t) => t.id));
+      } catch (err) {
+        toastError(err, "Echec réordonnancement");
+      }
+    });
+  }
+
+  function onDuplicateType(t: MissionExcType) {
+    startTransition(async () => {
+      try {
+        const created = await duplicateMissionType(t.id);
+        const dup: MissionExcType = {
+          id: created.id,
+          slug: created.slug,
+          label: created.label,
+          tarif: Number((created as { tarif?: number }).tarif ?? t.tarif),
+          actif: created.actif,
+          ordre: created.ordre,
+        };
+        // Place la copie juste après l'original et persiste ce nouvel ordre.
+        const idx = types.findIndex((x) => x.id === t.id);
+        const next = [...types];
+        next.splice(idx >= 0 ? idx + 1 : next.length, 0, dup);
+        onTypesChange(next);
+        await reorderMissionTypes(next.map((x) => x.id));
+        toastSuccess("Type dupliqué");
+      } catch (err) {
+        toastError(err, "Echec duplication");
+      }
+    });
+  }
 
   function parseTarif(raw: string): number {
     const n = parseFloat(raw.replace(",", "."));
@@ -2355,72 +2465,109 @@ function TypesManagerModal({
             </button>
           </div>
 
-          {/* Liste */}
-          <ul className="space-y-1">
-            {types.map((t) => (
-              <li
-                key={t.id}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors",
-                  !t.actif && "opacity-50"
-                )}
-              >
-                {editingId === t.id ? (
-                  <input
-                    value={editLabel}
-                    onChange={(e) => setEditLabel(e.target.value)}
-                    onBlur={() => commitEdit(t)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitEdit(t);
-                      if (e.key === "Escape") setEditingId(null);
-                    }}
-                    autoFocus
-                    className="flex-1 px-1.5 py-0.5 rounded border border-zinc-300 dark:border-white/[0.16] bg-white dark:bg-white/[0.06] text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => startEdit(t)}
-                    disabled={!canEditProduction}
-                    className="flex-1 text-left text-sm text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:cursor-not-allowed"
+          {/* Liste : glisser-déposer pour réordonner (poignée à gauche) */}
+          <DndContext
+            id="mission-types-dnd"
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={onDragEnd}
+          >
+            <SortableContext
+              items={types.map((t) => t.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <ul className="space-y-1">
+                {types.map((t) => (
+                  <SortableTypeRow
+                    key={t.id}
+                    id={t.id}
+                    inactive={!t.actif}
+                    dragDisabled={!canEditProduction || editingId === t.id}
                   >
-                    {t.label}
-                  </button>
-                )}
-                {/* Tarif : edition inline directe (blur ou Entree -> sauvegarde) */}
-                <TarifInput
-                  initialValue={t.tarif}
-                  onCommit={(raw) => commitTarif(t, raw)}
-                  disabled={!canEditHonoraires}
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleActif(t)}
-                  disabled={!canEditProduction}
-                  className={cn(
-                    "px-2 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                    t.actif
-                      ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
-                      : "bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08]"
-                  )}
-                >
-                  {t.actif ? "Actif" : "Inactif"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeType(t)}
-                  disabled={!canEditProduction}
-                  className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label={`Supprimer ${t.label}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
+                    {({ attributes, listeners }) => (
+                      <>
+                        <button
+                          type="button"
+                          {...attributes}
+                          {...listeners}
+                          disabled={!canEditProduction}
+                          className="shrink-0 -ml-1 p-0.5 rounded text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 cursor-grab active:cursor-grabbing touch-none disabled:opacity-30 disabled:cursor-not-allowed"
+                          aria-label={`Réordonner ${t.label}`}
+                          title="Glisser pour réordonner"
+                        >
+                          <GripVertical className="h-3.5 w-3.5" />
+                        </button>
+                        {editingId === t.id ? (
+                          <input
+                            value={editLabel}
+                            onChange={(e) => setEditLabel(e.target.value)}
+                            onBlur={() => commitEdit(t)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitEdit(t);
+                              if (e.key === "Escape") setEditingId(null);
+                            }}
+                            autoFocus
+                            className="flex-1 px-1.5 py-0.5 rounded border border-zinc-300 dark:border-white/[0.16] bg-white dark:bg-white/[0.06] text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startEdit(t)}
+                            disabled={!canEditProduction}
+                            className="flex-1 text-left text-sm text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:cursor-not-allowed"
+                          >
+                            {t.label}
+                          </button>
+                        )}
+                        {/* Tarif : edition inline directe (blur ou Entree -> sauvegarde) */}
+                        <TarifInput
+                          initialValue={t.tarif}
+                          onCommit={(raw) => commitTarif(t, raw)}
+                          disabled={!canEditHonoraires}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleActif(t)}
+                          disabled={!canEditProduction}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                            t.actif
+                              ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+                              : "bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08]"
+                          )}
+                        >
+                          {t.actif ? "Actif" : "Inactif"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDuplicateType(t)}
+                          disabled={!canEditProduction}
+                          className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label={`Dupliquer ${t.label}`}
+                          title="Dupliquer"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeType(t)}
+                          disabled={!canEditProduction}
+                          className="p-1 rounded text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label={`Supprimer ${t.label}`}
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </SortableTypeRow>
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
 
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            Astuce : passe un type en « Inactif » pour le masquer des nouveaux choix tout en gardant l&apos;historique des missions qui l&apos;utilisent.
+            Astuce : glisse un type par la poignée pour le réordonner. Passe-le en « Inactif » pour le masquer des nouveaux choix tout en gardant l&apos;historique des missions qui l&apos;utilisent.
           </p>
         </div>
 

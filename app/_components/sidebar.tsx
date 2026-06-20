@@ -903,7 +903,7 @@ function ConditionalDndWrapper({
 }) {
   if (!enabled) return <>{children}</>;
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+    <DndContext id="sidebar-nav-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={navOrder} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, Check, X, Pencil, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { useConfirm } from "@/app/_components/confirm-modal";
 import {
   createTimeActivite,
   renameTimeActivite,
@@ -19,6 +20,7 @@ export default function ActivitesManager({ items }: { items: TimeActivite[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   function run(fn: () => Promise<unknown>, okMsg?: string) {
     startTransition(async () => {
@@ -53,13 +55,15 @@ export default function ActivitesManager({ items }: { items: TimeActivite[] }) {
     }, "Activité renommée");
   }
 
-  function remove(id: string, libelle: string) {
-    if (
-      !window.confirm(
-        `Supprimer l'activité « ${libelle} » ? Les saisies passées la perdront (mais ne seront pas supprimées). Astuce : « Masquer » la retire des propositions sans rien perdre.`
-      )
-    )
-      return;
+  async function remove(id: string, libelle: string) {
+    const ok = await confirm({
+      title: `Supprimer « ${libelle} » ?`,
+      description:
+        "Les saisies passées la perdront (mais ne seront pas supprimées). Astuce : « Masquer » la retire des propositions sans rien perdre.",
+      variant: "danger",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     run(async () => {
       await deleteTimeActivite(id);
     }, "Activité supprimée");
@@ -67,6 +71,7 @@ export default function ActivitesManager({ items }: { items: TimeActivite[] }) {
 
   return (
     <div className="space-y-4">
+      {ConfirmDialog}
       {/* Ajout */}
       <div className="flex items-center gap-2">
         <input

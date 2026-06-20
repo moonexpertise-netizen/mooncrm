@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, Copy, Search, X, Pencil, Check, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCan } from "@/app/_components/permissions-context";
+import { useConfirm } from "@/app/_components/confirm-modal";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { createTimeEntry, updateTimeEntry, deleteTimeEntry, deleteTimeEntries } from "./actions";
 import { Combobox, type ComboOption } from "./combobox";
@@ -130,6 +131,7 @@ export default function MesTemps({
   const router = useRouter();
   const canSaisir = useCan("saisir_temps");
   const [isPending, startTransition] = useTransition();
+  const { confirm, ConfirmDialog } = useConfirm();
   const formRef = useRef<HTMLDivElement>(null);
 
   const days = useMemo(
@@ -325,10 +327,16 @@ export default function MesTemps({
     const rows = displayed.filter((e) => selected.has(e.id));
     if (rows.length > 0) exportCsv(rows, weekStart);
   }
-  function deleteSelected() {
+  async function deleteSelected() {
     const ids = displayed.filter((e) => selected.has(e.id)).map((e) => e.id);
     if (ids.length === 0) return;
-    if (!window.confirm(`Supprimer ${ids.length} saisie${ids.length > 1 ? "s" : ""} ? Action irréversible.`)) return;
+    const ok = await confirm({
+      title: `Supprimer ${ids.length} saisie${ids.length > 1 ? "s" : ""} ?`,
+      description: "Cette action est irréversible.",
+      variant: "danger",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await deleteTimeEntries(ids);
       if (!res.ok) {
@@ -352,6 +360,7 @@ export default function MesTemps({
 
   return (
     <div className="space-y-5">
+      {ConfirmDialog}
       {/* Sélecteur de semaine + bascule vue */}
       <div className="flex items-center gap-2 flex-wrap">
         <button
