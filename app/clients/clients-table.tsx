@@ -552,34 +552,48 @@ export default function ClientsTable({ rows }: { rows: ClientRow[] }) {
             const qs = navParams.toString();
             const href = `/clients/${r.slug}${qs ? `?${qs}` : ""}`;
             return (
-              <Link
+              // "Stretched link" : le lien de navigation est un OVERLAY absolu
+              // (frère du contenu, pas un ancêtre) -> les badges Pappers/INPI
+              // restent de vrais <a> sans être imbriqués dans un <a> (ce qui
+              // causait une erreur d'hydratation React). Le contenu est en
+              // pointer-events-none pour que le clic traverse vers l'overlay ;
+              // les badges réactivent pointer-events pour rester cliquables.
+              <div
                 key={r.id}
                 id={`client-${r.slug}`}
-                href={href}
-                className="block rounded-lg border border-zinc-200/70 bg-white px-3 py-3 active:bg-zinc-50 transition-all"
+                className="relative rounded-lg border border-zinc-200/70 bg-white px-3 py-3 active:bg-zinc-50 transition-all"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-medium text-sm truncate">{r.denomination}</span>
-                      <PappersInpiBadges siren={r.siren} size="xs" />
+                <Link
+                  href={href}
+                  aria-label={r.denomination}
+                  className="absolute inset-0 z-0 rounded-lg"
+                />
+                <div className="relative z-10 pointer-events-none">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-sm truncate">{r.denomination}</span>
+                        <span className="pointer-events-auto">
+                          <PappersInpiBadges siren={r.siren} size="xs" />
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
+                        {r.siren && <span className="tabular-nums">{r.siren}</span>}
+                        {r.forme && <span><span className="text-zinc-300 dark:text-zinc-600 mr-2" aria-hidden>|</span>{r.forme}</span>}
+                        {r.groupe_nom && <span><span className="text-zinc-300 dark:text-zinc-600 mr-2" aria-hidden>|</span>{r.groupe_nom}</span>}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
-                      {r.siren && <span className="tabular-nums">{r.siren}</span>}
-                      {r.forme && <span><span className="text-zinc-300 dark:text-zinc-600 mr-2" aria-hidden>|</span>{r.forme}</span>}
-                      {r.groupe_nom && <span><span className="text-zinc-300 dark:text-zinc-600 mr-2" aria-hidden>|</span>{r.groupe_nom}</span>}
+                    <div className="text-sm font-medium tabular-nums shrink-0">
+                      {fmtEuro(r.arr ?? 0)}
                     </div>
                   </div>
-                  <div className="text-sm font-medium tabular-nums shrink-0">
-                    {fmtEuro(r.arr ?? 0)}
-                  </div>
+                  {r.pipeline_statut && (
+                    <div className="mt-2">
+                      <Badge text={r.pipeline_statut} color={PIPELINE_COLORS[r.pipeline_statut]} />
+                    </div>
+                  )}
                 </div>
-                {r.pipeline_statut && (
-                  <div className="mt-2">
-                    <Badge text={r.pipeline_statut} color={PIPELINE_COLORS[r.pipeline_statut]} />
-                  </div>
-                )}
-              </Link>
+              </div>
             );
           })
         )}

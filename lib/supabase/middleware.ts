@@ -122,7 +122,31 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Perf : éviter l'aller-retour réseau `getUser()` à CHAQUE navigation (c'est
+  // la principale latence résiduelle en prod). On lit la session en LOCAL
+  // (cookies, sans réseau) et on ne valide/rafraîchit via `getUser()` (réseau)
+  // que s'il n'y a pas de session OU que le token approche de l'expiration
+  // (< 5 min) -> le refresh se fait juste avant l'expiration, pas à chaque clic.
+  //
+  // Sécurité : c'est la couche de ROUTAGE (couche 1). Les données restent
+  // protégées par les RLS Supabase (le JWT envoyé à PostgREST est validé côté
+  // base) + les server actions (requirePermission). Un token altéré ne donne
+  // accès à aucune donnée.
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const now = Math.floor(Date.now() / 1000);
+    if (session?.user && (session.expires_at ?? 0) - now > 300) {
+      user = session.user;
+    } else {
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    }
+  } catch {
+    // Repli sûr : comportement d'origine (validation réseau systématique).
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  }
 
   const path = request.nextUrl.pathname;
   const isPublic =

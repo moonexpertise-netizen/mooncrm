@@ -12,6 +12,7 @@ import {
 import { ClientSwitcher } from "./client-switcher";
 import CommandPalette from "./command-palette";
 import ChatBubble from "./chat-bubble";
+import { NavigationProgress } from "./navigation-progress";
 import { ThemeToggle } from "./theme-toggle";
 import { TRACKERS } from "@/app/obligations/trackers";
 
@@ -111,6 +112,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      {/* Barre de progression instantanée au clic (remplace les squelettes) */}
+      <NavigationProgress />
       {/* Cmd+K / Ctrl+K : palette globale de navigation (clients + routes) */}
       <CommandPalette />
       <Suspense fallback={null}>
