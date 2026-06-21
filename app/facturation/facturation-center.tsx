@@ -10,6 +10,29 @@ import { toastError } from "@/lib/toast-helpers";
 import { useCan } from "@/app/_components/permissions-context";
 import { setFacturationFromCentral } from "./actions";
 
+// URL d'édition d'une nouvelle facture client dans Pennylane (société MOON).
+// Ouvre une facture VIERGE : Pennylane n'accepte pas de préremplissage par URL.
+// Pour un brouillon pré-rempli (client + montant), il faudrait l'API Pennylane.
+const PENNYLANE_NEW_INVOICE_URL =
+  "https://app.pennylane.com/companies/22223348/clients/customer_invoices/new";
+
+/** Petit logo Pennylane (mark « P » vert sur squircle sombre). */
+function PennylaneIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true" focusable="false">
+      <rect width="32" height="32" rx="9" fill="#11141A" />
+      <path
+        d="M11.6 23.2 V10.8 H17.4 C20.3 10.8 22.4 12.7 22.4 15.2 C22.4 17.7 20.3 19.6 17.4 19.6 H11.6"
+        fill="none"
+        stroke="#3DDC97"
+        strokeWidth="2.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export type FactSource = "caa" | "ir" | "ago" | "bilan" | "mission_exc" | "creation";
 
 export type FactItem = {
@@ -218,12 +241,29 @@ export default function FacturationCenter({
                   <td className="align-middle px-3 py-2.5 text-center">
                     <FactPicker value={it.etat_facturation} onChange={(v) => onSetFact(it, v)} disabled={!canEditFacturation} />
                   </td>
-                  <td className="align-middle px-2 py-2.5 text-right">
-                    {it.clientHref && (
-                      <Link href={it.clientHref} className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label={`Ouvrir ${it.clientName}`} title="Ouvrir la page source">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    )}
+                  <td className="align-middle px-2 py-2.5">
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Pennylane : visible uniquement sur les lignes "à facturer".
+                          Ouvre une nouvelle facture (vierge) dans Pennylane. */}
+                      {canEditFacturation &&
+                        (it.etat_facturation ?? "a_facturer") === "a_facturer" && (
+                          <a
+                            href={PENNYLANE_NEW_INVOICE_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                            aria-label={`Créer la facture de ${it.clientName} dans Pennylane`}
+                            title="Créer une facture dans Pennylane (nouvel onglet)"
+                          >
+                            <PennylaneIcon className="h-4 w-4" />
+                          </a>
+                        )}
+                      {it.clientHref && (
+                        <Link href={it.clientHref} className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label={`Ouvrir ${it.clientName}`} title="Ouvrir la page source">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
