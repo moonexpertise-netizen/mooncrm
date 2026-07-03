@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { extractRueOnly } from "@/lib/adresse";
 import { libelleFromNaf } from "@/lib/naf-libelles";
 import { formeFromNatureJuridique, type FormeJuridique } from "@/lib/nature-to-forme";
 import { toastError } from "@/lib/toast-helpers";
@@ -52,27 +53,6 @@ function toTitleCase(s: string): string {
     .split(/(\s|-)/)
     .map((p) => (p.match(/[\s-]/) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
     .join("");
-}
-
-/**
- * L'API annuaire renvoie `siege.adresse` qui contient toute l'adresse
- * concaténée : "122 RUE JEAN DE LA FONTAINE 75016 PARIS".
- * Pour le champ "Adresse ligne 1" du CRM, on veut UNIQUEMENT la rue,
- * sans le code postal ni la ville. On les enlève en fin de chaîne.
- */
-function extractRueOnly(
-  adresseComplete: string,
-  codePostal: string | null,
-  ville: string | null
-): string {
-  let s = adresseComplete;
-  if (codePostal) {
-    s = s.replace(new RegExp("\\s*" + codePostal + "\\s*", "g"), " ");
-  }
-  if (ville) {
-    s = s.replace(new RegExp("\\s*" + ville + "\\s*", "gi"), " ");
-  }
-  return s.replace(/\s+/g, " ").trim();
 }
 
 export default function AnnuaireButton({

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { extractRueOnly } from "@/lib/adresse";
 import { libelleFromNaf } from "@/lib/naf-libelles";
 import { formeFromNatureJuridique, defaultClotureForForme } from "@/lib/nature-to-forme";
 import { useCan } from "@/app/_components/permissions-context";
@@ -279,10 +280,15 @@ export default function NouveauClientForm() {
       setDirigeantQualite("");
     }
 
-    // Adresse du siège (depuis annuaire-entreprises)
-    if (s.siege?.adresse) setAdresseSiege(s.siege.adresse);
-    if (s.siege?.code_postal) setCodePostal(s.siege.code_postal);
-    if (s.siege?.libelle_commune) setVille(s.siege.libelle_commune);
+    // Adresse du siège (depuis annuaire-entreprises). L'API renvoie l'adresse
+    // COMPLÈTE (rue + CP + ville) ; on isole la rue pour "Adresse ligne 1" via
+    // extractRueOnly (CP et ville ont leurs propres champs). Même logique que
+    // le rechargement annuaire sur la fiche client.
+    const cp = s.siege?.code_postal?.trim() || null;
+    const villeSiege = s.siege?.libelle_commune?.trim() || null;
+    if (s.siege?.adresse) setAdresseSiege(extractRueOnly(s.siege.adresse, cp, villeSiege));
+    if (cp) setCodePostal(cp);
+    if (villeSiege) setVille(villeSiege);
 
     setSearch("");
     setSuggestions([]);
