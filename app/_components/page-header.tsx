@@ -30,7 +30,9 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "flex items-start justify-between gap-3 flex-wrap",
+        // animate-slide-up-fade : le titre "atterrit" en douceur à chaque
+        // navigation (160ms, ease-out premium) — cohérent sur tout le site.
+        "flex items-start justify-between gap-3 flex-wrap animate-slide-up-fade",
         className
       )}
     >

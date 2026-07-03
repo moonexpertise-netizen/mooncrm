@@ -112,6 +112,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      {/* Aurore spatiale (thème navy) : nappes de lumière qui dérivent derrière
+          le contenu. Purement décoratif : fixed, -z-10, pointer-events-none. */}
+      <div aria-hidden className="navy-aurora pointer-events-none fixed inset-0 -z-10" />
       {/* Barre de progression instantanée au clic (remplace les squelettes) */}
       <NavigationProgress />
       {/* Cmd+K / Ctrl+K : palette globale de navigation (clients + routes) */}

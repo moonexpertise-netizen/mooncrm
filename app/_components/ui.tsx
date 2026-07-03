@@ -199,7 +199,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/70 dark:border-white/[0.08] shadow-card",
+        "rounded-xl bg-white dark:bg-[hsl(var(--card))] border border-zinc-200/70 dark:border-white/[0.08] shadow-card transition-shadow duration-base hover:shadow-card-hover",
         className
       )}
       {...rest}
@@ -259,7 +259,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card px-6 py-10 flex flex-col items-center text-center",
+        "rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card px-6 py-10 flex flex-col items-center text-center animate-slide-up-fade",
         className
       )}
     >

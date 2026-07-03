@@ -602,7 +602,15 @@ export function Sidebar() {
                     )}
                     title={showCollapsed ? item.label : undefined}
                   >
-                    <Icon className={cn("shrink-0", showCollapsed ? "h-[18px] w-[18px]" : "h-4 w-4")} />
+                    {/* Icône : dorée sur l'item actif (rappel discret de la barre
+                        gold), transition douce au changement de page. */}
+                    <Icon
+                      className={cn(
+                        "shrink-0 transition-colors duration-base",
+                        showCollapsed ? "h-[18px] w-[18px]" : "h-4 w-4",
+                        active && "text-[hsl(var(--gold))]"
+                      )}
+                    />
                     {!showCollapsed && <span className="truncate flex-1">{item.label}</span>}
                     {/* Badge "A faire" : rouge avec count, visible des qu'il y en a au moins 1 */}
                     {item.badgeKey && badges[item.badgeKey] > 0 && (

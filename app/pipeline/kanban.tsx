@@ -1048,6 +1048,9 @@ const Card = memo(function Card({
         "group rounded-lg border border-zinc-200/70 bg-white px-2 py-1.5 select-none shadow-card",
         "flex items-center gap-2",
         !isDragging && !isOverlay && "hover:border-zinc-300 hover:shadow-card-hover hover:-translate-y-px transition-all duration-150",
+        // Pendant le drag : la carte d'origine devient un "fantôme" en
+        // pointillés — l'overlay (copie gold) est ce que l'on déplace.
+        isDragging && !isOverlay && "opacity-35 border-dashed",
         muted && "opacity-30",
         isOverlay && "shadow-modal ring-2 ring-[hsl(var(--gold))]/50 cursor-grabbing scale-[1.02]"
       )}

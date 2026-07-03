@@ -78,7 +78,7 @@ export default function DashboardCharts({ data }: { data: DashboardData }) {
 
 function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger-in">
       <KpiCard
         label="Clients"
         value={kpi.clientsActifs.toString()}
@@ -178,7 +178,7 @@ function KpiCard({
     </>
   );
   const base =
-    "block rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card p-4 md:p-5 transition-all";
+    "block rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card hover:shadow-card-hover p-4 md:p-5 transition-all";
   if (href) {
     return (
       <Link
@@ -449,7 +449,7 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
         </div>
       ) : (
         <ul className="space-y-1.5">
-          {topClients.map((c) => {
+          {topClients.map((c, i) => {
             const pct = ((c.arr ?? 0) / max) * 100;
             return (
               <li key={c.id}>
@@ -471,8 +471,8 @@ function TopClients({ topClients }: { topClients: DashboardData["topClients"] })
                     {/* Barre tres discrete en dark (la row du #1 fait 100pct
                         de width, donc une barre pleine ecraserait le texte). */}
                     <div
-                      className="h-full bg-[hsl(var(--gold))]/70 dark:bg-[hsl(var(--gold))]/35 group-hover/row:bg-[hsl(var(--gold))]/85 dark:group-hover/row:bg-[hsl(var(--gold))]/50 transition-colors"
-                      style={{ width: `${pct}%` }}
+                      className="h-full bg-[hsl(var(--gold))]/70 dark:bg-[hsl(var(--gold))]/35 group-hover/row:bg-[hsl(var(--gold))]/85 dark:group-hover/row:bg-[hsl(var(--gold))]/50 transition-colors animate-bar-grow"
+                      style={{ width: `${pct}%`, animationDelay: `${i * 45}ms` }}
                     />
                   </div>
                 </Link>
@@ -551,10 +551,10 @@ function MixActivite({ mixActivite }: { mixActivite: DashboardData["mixActivite"
                   <div className="h-1 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden">
                     <div
                       className={cn(
-                        "h-full opacity-70 dark:opacity-55 group-hover/row:opacity-95 dark:group-hover/row:opacity-80 transition-opacity",
+                        "h-full opacity-70 dark:opacity-55 group-hover/row:opacity-95 dark:group-hover/row:opacity-80 transition-opacity animate-bar-grow",
                         barColor
                       )}
-                      style={{ width: `${pct}%` }}
+                      style={{ width: `${pct}%`, animationDelay: `${i * 45}ms` }}
                     />
                   </div>
                 </Link>

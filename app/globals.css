@@ -169,8 +169,10 @@
        elevation. Premium minimalisme. */
     --shadow-sm: 0 1px 0 0 rgba(0, 0, 0, 0.30);
     --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.40), 0 1px 2px -1px rgba(0, 0, 0, 0.30);
-    --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.55), 0 3px 6px -3px rgba(0, 0, 0, 0.35);
-    --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.70);
+    /* Surfaces élevées (popovers/modales) : halo doré MOON très subtil en plus
+       de l'ombre noire, pour une profondeur premium signée. */
+    --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.55), 0 3px 6px -3px rgba(0, 0, 0, 0.35), 0 0 24px -6px hsl(var(--gold) / 0.07);
+    --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.70), 0 0 34px -8px hsl(var(--gold) / 0.09);
 
     /* Focus ring dark : gris clair lisible sur fond sombre */
     --ring: 0 0% 75%;
@@ -251,11 +253,13 @@
        sombre saturé, on a besoin d'aider la profondeur ---------------- */
     --shadow-sm: 0 1px 0 0 rgba(0, 0, 0, 0.35);
     --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.45), 0 1px 2px -1px rgba(0, 0, 0, 0.35);
-    --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.60), 0 3px 6px -3px rgba(0, 0, 0, 0.40);
-    --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.75);
+    /* Halo doré MOON subtil sur les surfaces élevées (cf. .dark ci-dessus). */
+    --shadow-lg: 0 8px 20px -8px rgba(0, 0, 0, 0.60), 0 3px 6px -3px rgba(0, 0, 0, 0.40), 0 0 26px -6px hsl(var(--gold) / 0.08);
+    --shadow-xl: 0 20px 50px -10px rgba(0, 0, 0, 0.75), 0 0 36px -8px hsl(var(--gold) / 0.10);
 
-    /* Focus ring navy : bleu clair MOON, visible sur fond marine */
-    --ring: 226 60% 70%;
+    /* Focus ring navy : GOLD MOON — signature identitaire sur fond marine
+       (contraste fort, rappelle la barre active de la sidebar). */
+    --ring: 38 55% 68%;
   }
 
   /* ---- Override gradients body / hero pour navy ------------------- */
@@ -859,6 +863,11 @@ h3 { font-weight: 600; }
   .navy .ring-zinc-900\/\[0\.07\] { --tw-ring-color: hsl(226 60% 80% / 0.18); }
   .navy .focus\:ring-zinc-900\/\[0\.07\]:focus { --tw-ring-color: hsl(226 60% 80% / 0.18); }
   .navy .focus\:bg-white:focus { background-color: hsl(var(--muted)); }
+
+  /* --- Backdrops de modales : voile "espace profond" bleuté (au lieu du
+         gris zinc) -> l'arrière-plan reste dans l'ambiance navy. --- */
+  .navy .bg-zinc-900\/50 { background-color: hsl(226 85% 3% / 0.60) !important; }
+  .navy .bg-black\/40 { background-color: hsl(226 85% 3% / 0.55) !important; }
 }
 
 /* Animations utilitaires ---------------------------------------------- */
@@ -885,6 +894,68 @@ h3 { font-weight: 600; }
   to   { opacity: 1; transform: translateX(0); }
 }
 .animate-slide-in-right { animation: slide-in-right 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* ============================================================================
+ *  Refonte visuelle express — micro-interactions & entrées premium
+ *  ============================================================================ */
+
+/* Entrée en cascade : sur un conteneur `.stagger-in`, les enfants directs
+   montent en fondu avec un léger décalage successif (effet Linear/Attio).
+   `backwards` = l'état initial (opacity 0) s'applique avant le delay. */
+@keyframes rise-fade {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-in > * { animation: rise-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.stagger-in > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-in > *:nth-child(2) { animation-delay: 55ms; }
+.stagger-in > *:nth-child(3) { animation-delay: 110ms; }
+.stagger-in > *:nth-child(4) { animation-delay: 165ms; }
+.stagger-in > *:nth-child(5) { animation-delay: 210ms; }
+.stagger-in > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-in > *:nth-child(7) { animation-delay: 285ms; }
+.stagger-in > *:nth-child(8) { animation-delay: 315ms; }
+
+/* Barres de progression : se déploient de gauche à droite au chargement
+   (dashboard Top clients / Mix activité). Stagger via animation-delay inline. */
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.animate-bar-grow {
+  transform-origin: left;
+  animation: bar-grow 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Élévation opt-in au survol (cards cliquables) : ascenseur + ombre. */
+.hover-lift {
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+.hover-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+
+/* Micro-interaction "appui" universelle : tout <button> s'enfonce d'un
+   demi-pixel au clic. Spécificité volontairement basse (button:active) pour
+   que les boutons déclarant déjà leur propre transform (ex. active:scale des
+   primitives) gardent le leur. */
+button:active { transform: translateY(0.5px); }
+
+/* Aurore spatiale (thème navy uniquement) : 2 nappes de lumière qui dérivent
+   très lentement DERRIÈRE le contenu (cf. .navy-aurora dans app-shell, posée
+   en fixed + z-index négatif + pointer-events-none => jamais d'interception). */
+@keyframes aurora-drift {
+  0%   { transform: translate3d(-4%, -3%, 0) scale(1);   opacity: 0.7; }
+  50%  { transform: translate3d(4%, 2%, 0) scale(1.08);  opacity: 1; }
+  100% { transform: translate3d(-4%, -3%, 0) scale(1);   opacity: 0.7; }
+}
+.navy-aurora { display: none; }
+.navy .navy-aurora {
+  display: block;
+  background:
+    radial-gradient(38% 40% at 80% 10%, hsl(226 80% 34% / 0.20) 0%, transparent 70%),
+    radial-gradient(34% 38% at 15% 85%, hsl(255 58% 42% / 0.16) 0%, transparent 70%);
+  animation: aurora-drift 26s ease-in-out infinite;
+  will-change: transform, opacity;
+}
 
 /* Achievement card : pop "jeu video" depuis le bas avec petit overshoot
    (bounce subtil) puis settle. Sur mobile : meme behavior mais translate
