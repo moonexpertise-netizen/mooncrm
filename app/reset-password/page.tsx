@@ -66,7 +66,9 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-zinc-50 via-white to-[hsl(var(--gold))]/[0.04] dark:from-[hsl(var(--background))] dark:via-[hsl(var(--surface-muted))] dark:to-[hsl(var(--gold))]/[0.08]">
-      <div className="w-full max-w-sm space-y-8">
+      {/* Aurore spatiale (thème navy) — même ambiance que le login. */}
+      <div aria-hidden className="navy-aurora pointer-events-none fixed inset-0 -z-10" />
+      <div className="w-full max-w-sm space-y-8 animate-slide-up-fade">
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -74,7 +76,7 @@ export default function ResetPasswordPage() {
             alt="MOON Expertise"
             width={56}
             height={56}
-            className="mx-auto mb-4 h-14 w-14 drop-shadow-lg"
+            className="mx-auto mb-4 h-14 w-14 drop-shadow-lg animate-float"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Nouveau mot de passe

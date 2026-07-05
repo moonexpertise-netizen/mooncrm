@@ -264,7 +264,7 @@ export function EmptyState({
       )}
     >
       {icon && (
-        <div className="mb-3 text-zinc-300 dark:text-zinc-600 [&>svg]:h-8 [&>svg]:w-8">
+        <div className="mb-3 text-zinc-300 dark:text-zinc-600 [&>svg]:h-8 [&>svg]:w-8 animate-float">
           {icon}
         </div>
       )}

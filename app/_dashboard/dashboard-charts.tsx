@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -76,12 +76,47 @@ export default function DashboardCharts({ data }: { data: DashboardData }) {
 //  KPI Cards
 // ============================================================================
 
+/**
+ * Compteur animé : la valeur monte de 0 à sa cible en ~800ms (ease-out cubic)
+ * au premier affichage. Respecte prefers-reduced-motion (valeur finale
+ * directe). SSR-safe : le serveur rend la valeur finale (pas de mismatch),
+ * l'animation ne démarre qu'au mount côté client — le départ à 0 est masqué
+ * par l'entrée en cascade des cards (stagger-in).
+ */
+function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+  const [display, setDisplay] = useState(value);
+  const animated = useRef(false);
+  useEffect(() => {
+    if (animated.current) {
+      setDisplay(value); // valeur mise à jour après coup (refresh) : pas de re-animation
+      return;
+    }
+    animated.current = true;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || value === 0) {
+      setDisplay(value);
+      return;
+    }
+    const DUR = 800;
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / DUR);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(value * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{format(Math.round(display))}</>;
+}
+
 function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger-in">
       <KpiCard
         label="Clients"
-        value={kpi.clientsActifs.toString()}
+        value={<CountUp value={kpi.clientsActifs} format={(n) => n.toString()} />}
         sub="LDM signée uniquement"
         icon={<Users className="h-5 w-5" />}
         href="/clients?bucket=clients"
@@ -89,14 +124,14 @@ function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
       />
       <KpiCard
         label="MRR"
-        value={fmtEuro(kpi.mrr)}
+        value={<CountUp value={kpi.mrr} format={(n) => fmtEuro(n) ?? "-"} />}
         sub={`ARR ${fmtEuro(kpi.arr)}`}
         icon={<TrendingUp className="h-5 w-5" />}
         tone="gold"
       />
       <KpiCard
         label="Signatures du mois"
-        value={kpi.signaturesCeMois.toString()}
+        value={<CountUp value={kpi.signaturesCeMois} format={(n) => n.toString()} />}
         sub={`${fmtEuro(kpi.arrSigneCeMois)} ARR signé`}
         icon={<CalendarClock className="h-5 w-5" />}
         tone="emerald"
@@ -104,9 +139,14 @@ function KpiCards({ kpi }: { kpi: DashboardData["kpi"] }) {
       <KpiCard
         label="Panier moyen"
         value={
-          kpi.clientsActifs > 0
-            ? fmtEuro(Math.round(kpi.arr / kpi.clientsActifs))
-            : "-"
+          kpi.clientsActifs > 0 ? (
+            <CountUp
+              value={Math.round(kpi.arr / kpi.clientsActifs)}
+              format={(n) => fmtEuro(n) ?? "-"}
+            />
+          ) : (
+            "-"
+          )
         }
         sub="ARR moyen par client (LDM signée)"
         icon={<TrendingUp className="h-5 w-5" />}
@@ -147,7 +187,7 @@ function KpiCard({
   tone = "neutral",
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   sub?: string;
   icon: React.ReactNode;
   href?: string;

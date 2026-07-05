@@ -161,7 +161,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-screen-2xl px-4 md:px-8 py-5 md:py-7">
+        {/* key={pathname} : remonte le wrapper à chaque changement de route ->
+            l'animation page-in rejoue (transition de page douce). Les
+            changements de query params seuls (filtres) ne re-déclenchent pas. */}
+        <div
+          key={pathname}
+          className="mx-auto w-full max-w-screen-2xl px-4 md:px-8 py-5 md:py-7 animate-page-in"
+        >
           {children}
         </div>
       </main>

@@ -916,6 +916,25 @@ h3 { font-weight: 600; }
 .stagger-in > *:nth-child(7) { animation-delay: 285ms; }
 .stagger-in > *:nth-child(8) { animation-delay: 315ms; }
 
+/* Transition de page : le contenu de la nouvelle route monte en fondu court
+   (280ms). Appliquée par l'app-shell avec key={pathname} -> rejoue à chaque
+   navigation, pas quand seuls les query params changent (filtres). */
+.animate-page-in { animation: rise-fade 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Lévitation douce : icônes d'états vides + lune du login. Ambiance "espace"
+   discrète (±5px sur 5.5s), jamais sur du texte. */
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+.animate-float { animation: float-soft 5.5s ease-in-out infinite; }
+
+/* Scroll fluide pour les ancres / scrollIntoView (désactivé si l'utilisateur
+   préfère réduire les animations, cf. media query en bas de fichier). */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
 /* Barres de progression : se déploient de gauche à droite au chargement
    (dashboard Top clients / Mix activité). Stagger via animation-delay inline. */
 @keyframes bar-grow {

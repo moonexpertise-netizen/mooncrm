@@ -272,7 +272,11 @@ function Section({
             <div key={g.slug}>
               {/* Sous-header par tracker : nom + compteur */}
               <div className="flex items-baseline justify-between gap-3 px-4 py-2 bg-zinc-50/60 dark:bg-white/[0.02] border-b border-zinc-100 dark:border-white/[0.04]">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span
+                    aria-hidden
+                    className="inline-block w-1 h-1 rounded-full bg-[hsl(var(--gold))]/70 shrink-0"
+                  />
                   {g.title}
                 </h3>
                 <span className="text-[10px] tabular-nums text-muted-foreground">
