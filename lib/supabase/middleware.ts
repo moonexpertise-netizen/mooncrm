@@ -206,8 +206,10 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
-    // Non-approuvé : seule la page /en-attente lui est accessible.
-    if (!approved && path !== "/en-attente") {
+    // Non-approuvé : seules /en-attente et /reset-password (lien e-mail de
+    // récupération : l'utilisateur doit pouvoir changer son mot de passe même
+    // en attente d'approbation) lui sont accessibles.
+    if (!approved && path !== "/en-attente" && path !== "/reset-password") {
       const url = request.nextUrl.clone();
       url.pathname = "/en-attente";
       return NextResponse.redirect(url);

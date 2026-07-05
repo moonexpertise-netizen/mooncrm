@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "forgot";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("signin");
@@ -28,6 +28,19 @@ export default function LoginPage() {
     }
 
     const supabase = createClient();
+    if (mode === "forgot") {
+      // Réinitialisation par e-mail (même dispositif que MoonViz). Le lien
+      // signé passe par /auth/callback puis /reset-password. Message neutre
+      // dans tous les cas : ne révèle pas si un compte existe (anti-énumération).
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+      setLoading(false);
+      setInfo(
+        "Si un compte existe avec cet e-mail, un lien de réinitialisation vient d'être envoyé. Pense à vérifier les spams."
+      );
+      return;
+    }
     if (mode === "signin") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
@@ -75,7 +88,9 @@ export default function LoginPage() {
           <p className="text-sm text-zinc-500 mt-1.5">
             {mode === "signin"
               ? "Connecte-toi avec ton email et ton mot de passe."
-              : "Crée un compte pour accéder au CRM."}
+              : mode === "signup"
+              ? "Crée un compte pour accéder au CRM."
+              : "Entre ton e-mail, on t'envoie un lien de réinitialisation."}
           </p>
         </div>
 
@@ -90,16 +105,18 @@ export default function LoginPage() {
               placeholder="Adresse mail"
               className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 px-3 py-2.5 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all hover:border-zinc-300 dark:hover:border-white/[0.16] focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]"
             />
-            <input
-              type="password"
-              required
-              minLength={6}
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === "signin" ? "Mot de passe" : "Choisir un mot de passe (6+ caractères)"}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 px-3 py-2.5 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all hover:border-zinc-300 dark:hover:border-white/[0.16] focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]"
-            />
+            {mode !== "forgot" && (
+              <input
+                type="password"
+                required
+                minLength={6}
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={mode === "signin" ? "Mot de passe" : "Choisir un mot de passe (6+ caractères)"}
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 px-3 py-2.5 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all hover:border-zinc-300 dark:hover:border-white/[0.16] focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus:ring-4 focus:ring-zinc-900/[0.07] dark:focus:ring-white/[0.10]"
+              />
+            )}
             <button
               type="submit"
               disabled={loading}
@@ -109,8 +126,21 @@ export default function LoginPage() {
                 ? "…"
                 : mode === "signin"
                 ? "Se connecter"
-                : "Créer mon compte"}
+                : mode === "signup"
+                ? "Créer mon compte"
+                : "Envoyer le lien"}
             </button>
+            {mode === "signin" && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => { setMode("forgot"); setError(null); setInfo(null); setPassword(""); }}
+                  className="text-xs text-zinc-500 hover:text-[hsl(var(--gold-dark))] dark:hover:text-[hsl(var(--gold))] underline underline-offset-2 transition-colors"
+                >
+                  Mot de passe oublié ?
+                </button>
+              </div>
+            )}
             {error && (
               <p className="text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-lg px-3 py-2">
                 {error}
@@ -134,6 +164,17 @@ export default function LoginPage() {
                 className="text-zinc-700 hover:text-[hsl(var(--gold-dark))] underline underline-offset-2 font-medium"
               >
                 Créer un compte
+              </button>
+            </>
+          ) : mode === "forgot" ? (
+            <>
+              Retrouvé ton mot de passe ?{" "}
+              <button
+                type="button"
+                onClick={() => { setMode("signin"); setError(null); setInfo(null); }}
+                className="text-zinc-700 hover:text-[hsl(var(--gold-dark))] underline underline-offset-2 font-medium"
+              >
+                Se connecter
               </button>
             </>
           ) : (
