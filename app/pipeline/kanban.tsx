@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GripVertical, ArrowRightLeft, ChevronDown, Check, Inbox, Rocket } from "lucide-react";
@@ -355,19 +356,28 @@ export default function PipelineKanban({ cards }: { cards: PipelineCard[] }) {
       </div>
 
       {/* Overlay visuel pendant le drag : version "ghost" légère de la card,
-          sans Link interne (pas besoin de naviguer pendant un drag). */}
-      <DragOverlay dropAnimation={null}>
-        {activeCard ? (
-          <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--surface-elevated))] px-2 py-1.5 shadow-modal ring-2 ring-[hsl(var(--gold))]/40 flex items-center gap-2 cursor-grabbing">
-            <span className="font-medium text-xs truncate text-zinc-900 dark:text-zinc-50">
-              {activeCard.denomination}
-            </span>
-            <span className="text-[11px] tabular-nums text-zinc-700 dark:text-zinc-200 font-semibold shrink-0 ml-auto">
-              {fmtEuro(activeCard.arr ?? 0)}
-            </span>
-          </div>
-        ) : null}
-      </DragOverlay>
+          sans Link interne (pas besoin de naviguer pendant un drag).
+          PORTAL vers document.body : l'overlay est en position:fixed — si un
+          ancêtre porte un transform (ex. animation de transition de page sur
+          le wrapper de contenu), il deviendrait son containing block et
+          l'overlay se décalerait de la marge sidebar (bug "carte à droite de
+          la souris"). Dans body, le référentiel est toujours le viewport. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <DragOverlay dropAnimation={null}>
+            {activeCard ? (
+              <div className="rounded-lg border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--surface-elevated))] px-2 py-1.5 shadow-modal ring-2 ring-[hsl(var(--gold))]/40 flex items-center gap-2 cursor-grabbing">
+                <span className="font-medium text-xs truncate text-zinc-900 dark:text-zinc-50">
+                  {activeCard.denomination}
+                </span>
+                <span className="text-[11px] tabular-nums text-zinc-700 dark:text-zinc-200 font-semibold shrink-0 ml-auto">
+                  {fmtEuro(activeCard.arr ?? 0)}
+                </span>
+              </div>
+            ) : null}
+          </DragOverlay>,
+          document.body
+        )}
     </DndContext>
     </>
   );

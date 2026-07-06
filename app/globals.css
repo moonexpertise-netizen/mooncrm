@@ -918,8 +918,13 @@ h3 { font-weight: 600; }
 
 /* Transition de page : le contenu de la nouvelle route monte en fondu court
    (280ms). Appliquée par l'app-shell avec key={pathname} -> rejoue à chaque
-   navigation, pas quand seuls les query params changent (filtres). */
-.animate-page-in { animation: rise-fade 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+   navigation, pas quand seuls les query params changent (filtres).
+   IMPORTANT : fill-mode `backwards` (PAS `both`/`forwards`) — un transform
+   résiduel sur ce wrapper créerait un containing block pour les descendants
+   en position:fixed (DragOverlay du kanban, popovers non-portalés) qui se
+   retrouveraient décalés de la marge sidebar. `backwards` retire le transform
+   à la fin de l'animation. */
+.animate-page-in { animation: rise-fade 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
 
 /* Lévitation douce : icônes d'états vides + lune du login. Ambiance "espace"
    discrète (±5px sur 5.5s), jamais sur du texte. */
