@@ -4,7 +4,6 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Coins } from "lucide-react";
 import { cn, fmtEuro } from "@/lib/utils";
-import { isClientBillable } from "@/lib/billable";
 import { toastError } from "@/lib/toast-helpers";
 import { useCan } from "@/app/_components/permissions-context";
 import { EmptyState } from "@/app/_components/ui";
@@ -40,16 +39,19 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
   const canEdit = useCan("edit_honoraires");
   const [localRows, setLocalRows] = useState(rows);
   const [search, setSearch] = useState("");
-  const [scope, setScope] = useState<"facturables" | "tous">("facturables");
+  const [scope, setScope] = useState<"ldm" | "tous">("ldm");
   const [sortKey, setSortKey] = useState<SortKey>("denomination");
   const [sortAsc, setSortAsc] = useState(true);
   const [, startTransition] = useTransition();
 
   // ---- Filtrage (périmètre + recherche) ------------------------------------
+  // Périmètre par défaut : CLIENTS uniquement (pipeline "8 - LDM signée").
+  // Les dossiers internes / sous-traitance / prospects sont exclus de la
+  // grille des honoraires (demande Benjamin) ; "Tous" reste dispo en toggle.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return localRows.filter((r) => {
-      if (scope === "facturables" && !isClientBillable(r)) return false;
+      if (scope === "ldm" && r.pipeline_statut !== "8 - LDM signée") return false;
       if (q && !r.denomination.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -153,7 +155,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
           className="h-9 w-full sm:w-64 px-3 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
         />
         <div className="flex items-center gap-1">
-          {(["facturables", "tous"] as const).map((s) => (
+          {(["ldm", "tous"] as const).map((s) => (
             <button
               key={s}
               type="button"
@@ -165,7 +167,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                   : "bg-white dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-white/[0.08]"
               )}
             >
-              {s === "facturables" ? "Dossiers facturables" : "Tous les dossiers"}
+              {s === "ldm" ? "Clients (LDM signée)" : "Tous les dossiers"}
             </button>
           ))}
         </div>
