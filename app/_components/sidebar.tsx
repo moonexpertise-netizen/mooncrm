@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronDown,
   ClipboardList,
+  Coins,
   GaugeCircle,
   GitBranch,
   GripVertical,
@@ -57,6 +58,7 @@ const NAV_PERMISSION: Record<string, Permission> = {
   "/facturation": "view_facturation",
   "/parametrage": "edit_parametrage",
   "/temps": "saisir_temps",
+  "/honoraires": "view_honoraires",
 };
 
 export const SIDEBAR_STORAGE_KEY = "moon.sidebar.collapsed";
@@ -139,6 +141,9 @@ const NAV_ITEMS: NavItem[] = [
   // badgeKey : compteur de factures a etablir (etat_facturation = 'a_facturer')
   // cumule sur les 5 sources (obligations / CAA / IR / missions exc / creations).
   { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation", badgeKey: "facturation" },
+  // Grille des honoraires : suivi transverse des forfaits (compta / bilan /
+  // pilotage / juridique) par dossier. Gated view_honoraires (middleware).
+  { href: "/honoraires", label: "Honoraires", icon: Coins, matchPrefix: "/honoraires" },
   { href: "/finance", label: "Finance", icon: LineChart, matchPrefix: "/finance" },
 ];
 

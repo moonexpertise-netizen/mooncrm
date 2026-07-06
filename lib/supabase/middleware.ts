@@ -226,7 +226,7 @@ export async function updateSession(request: NextRequest) {
     // Droits EFFECTIFS lus en base (role_permissions, éditable via /admin/roles),
     // fallback code. L'admin a tout → on ne requête même pas. On ne charge la
     // matrice que sur les routes sensibles (perf).
-    const GATED = ["/admin", "/finance", "/facturation", "/parametrage"];
+    const GATED = ["/admin", "/finance", "/facturation", "/parametrage", "/honoraires"];
     const onGated = GATED.some((p) => path.startsWith(p));
     if (approved && role !== "admin" && (onGated || path === "/")) {
       const { data: rows } = await supabase
@@ -238,7 +238,8 @@ export async function updateSession(request: NextRequest) {
         (path.startsWith("/admin") && !perms.has("manage_users")) ||
         (path.startsWith("/finance") && !perms.has("view_finance")) ||
         (path.startsWith("/facturation") && !perms.has("view_facturation")) ||
-        (path.startsWith("/parametrage") && !perms.has("edit_parametrage"));
+        (path.startsWith("/parametrage") && !perms.has("edit_parametrage")) ||
+        (path.startsWith("/honoraires") && !perms.has("view_honoraires"));
 
       // Externe : pas de dashboard financier d'accueil.
       if (denied || (role === "externe" && path === "/")) {
