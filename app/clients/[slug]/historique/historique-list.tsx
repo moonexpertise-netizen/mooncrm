@@ -65,6 +65,29 @@ function formatValue(raw: string | null, fmt: "money" | "raw" | "boolean" | "dat
   return raw;
 }
 
+/**
+ * Variation intelligente d'un montant : delta € + delta % (le % seulement si
+ * l'ancienne valeur était > 0 ; sinon c'est un nouveau forfait -> juste le €).
+ * Renvoie null si pas de variation chiffrable.
+ */
+function moneyDelta(
+  oldRaw: string | null,
+  newRaw: string | null
+): { euro: string; pct: string | null; positive: boolean } | null {
+  const o = oldRaw == null || oldRaw === "" ? 0 : parseFloat(oldRaw);
+  const n = newRaw == null || newRaw === "" ? 0 : parseFloat(newRaw);
+  if (!Number.isFinite(o) || !Number.isFinite(n)) return null;
+  const diff = Math.round((n - o) * 100) / 100;
+  if (diff === 0) return null;
+  const positive = diff > 0;
+  const sign = positive ? "+" : "−";
+  return {
+    euro: `${sign}${fmtEuro(Math.abs(diff))}`,
+    pct: o > 0 ? `${sign}${Math.round((Math.abs(diff) / o) * 100)} %` : "nouveau",
+    positive,
+  };
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return new Intl.DateTimeFormat("fr-FR", {
@@ -207,6 +230,24 @@ function Entry({ entry }: { entry: AuditEntry }) {
           <span className="px-1.5 py-0.5 rounded text-xs bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-medium">
             {newFmt}
           </span>
+          {meta.format === "money" && (() => {
+            const d = moneyDelta(entry.old_value, entry.new_value);
+            if (!d) return null;
+            return (
+              <span
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[11px] font-semibold tabular-nums",
+                  d.positive
+                    ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                    : "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                )}
+                title="Variation par rapport à l'ancien montant"
+              >
+                {d.euro}
+                {d.pct && <span className="opacity-70"> · {d.pct}</span>}
+              </span>
+            );
+          })()}
         </div>
         {entry.motif && (
           <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 italic">
