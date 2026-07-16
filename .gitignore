@@ -51,3 +51,8 @@ tmp
 .netlify
 
 .vercel
+
+# Secrets / tokens (ne jamais committer)
+TOKEN_*.txt
+*token*.txt
+*.token
