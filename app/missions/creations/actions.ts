@@ -84,10 +84,24 @@ export async function setCreationStatut(
 ) {
   await requirePermission("edit_production");
   const sb = await createClient();
-  const { error } = await sb
-    .from("clients")
-    .update({ creation_statut: statut })
-    .eq("id", clientId);
+
+  // Auto-année : poser un statut sur un dossier sans année de création lui
+  // coche l'année courante (sinon il resterait invisible en vue par exercice).
+  const patch: { creation_statut: CreationStatut | null; creation_annee?: number } = {
+    creation_statut: statut,
+  };
+  if (statut !== null) {
+    const { data: cur } = await sb
+      .from("clients")
+      .select("creation_annee")
+      .eq("id", clientId)
+      .maybeSingle();
+    if ((cur as { creation_annee: number | null } | null)?.creation_annee == null) {
+      patch.creation_annee = new Date().getFullYear();
+    }
+  }
+
+  const { error } = await sb.from("clients").update(patch).eq("id", clientId);
   if (error) throw new Error(error.message);
   revalidatePath("/missions/creations");
   revalidateFinanceViews();
@@ -110,6 +124,15 @@ export async function bulkSetCreationStatut(
     .update({ creation_statut: statut })
     .in("id", clientIds);
   if (error) throw new Error(error.message);
+  // Auto-année : les dossiers sans année reçoivent l'année courante quand on
+  // leur pose un statut (sinon invisibles en vue par exercice).
+  if (statut !== null) {
+    await sb
+      .from("clients")
+      .update({ creation_annee: new Date().getFullYear() })
+      .in("id", clientIds)
+      .is("creation_annee", null);
+  }
   revalidatePath("/missions/creations");
   revalidateFinanceViews();
   return { updated: clientIds.length };

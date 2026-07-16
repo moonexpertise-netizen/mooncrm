@@ -898,6 +898,25 @@ export async function updateClient(
     }
   }
 
+  // Auto-inscription Créations : passer un dossier en origine "1 - Création"
+  // lui coche l'année courante (+ statut 'a_traiter') s'il n'a pas encore
+  // d'année de création -> il apparaît immédiatement dans la vue par exercice
+  // du module Créations (sinon il ne serait visible qu'en vue d'ensemble).
+  if (patch.origine === "1 - Création") {
+    const { data: cur } = await sb
+      .from("clients")
+      .select("creation_annee")
+      .eq("id", clientId)
+      .maybeSingle();
+    if ((cur as { creation_annee: number | null } | null)?.creation_annee == null) {
+      await sb
+        .from("clients")
+        .update({ creation_annee: new Date().getFullYear(), creation_statut: "a_traiter" })
+        .eq("id", clientId);
+      revalidatePath("/missions/creations");
+    }
+  }
+
   // Perf : pas de revalidatePath. Les pages sont force-dynamic + l'UI applique
   // déjà un optimistic update (useSaver). Revalider 3 paths à chaque keystroke
   // ralentissait massivement la saisie.

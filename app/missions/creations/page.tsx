@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { LOST_PIPELINE } from "@/lib/billable";
 import { PageHeader } from "@/app/_components/page-header";
 import CreationsTable, {
   type CreationRow,
@@ -59,10 +60,13 @@ export default async function CreationsPage({
   const fallbackSel = "id, slug, denomination, forme, pipeline_statut";
 
   let dataRaw: ClientRaw[] = [];
+  // Tri par AJOUT RÉCENT (created_at desc) : les derniers dossiers créés en
+  // haut. Secondaire denomination pour un ordre stable en cas d'égalité.
   const r1 = await sb
     .from("clients")
     .select(fullSel)
     .eq("origine", "1 - Création")
+    .order("created_at", { ascending: false })
     .order("denomination", { ascending: true });
   if (r1.error) {
     // eslint-disable-next-line no-console
@@ -71,6 +75,7 @@ export default async function CreationsPage({
       .from("clients")
       .select(fallbackSel)
       .eq("origine", "1 - Création")
+      .order("created_at", { ascending: false })
       .order("denomination", { ascending: true });
     if (r2.error) {
       // eslint-disable-next-line no-console
@@ -87,7 +92,11 @@ export default async function CreationsPage({
     dataRaw = (r1.data ?? []) as ClientRaw[];
   }
 
-  const rows: CreationRow[] = dataRaw.map((c) => ({
+  const rows: CreationRow[] = dataRaw
+    // Les dossiers "fin de partie" (prospect perdu, perdu dans l'espace,
+    // résilié) disparaissent du suivi des créations.
+    .filter((c) => !LOST_PIPELINE.has(c.pipeline_statut ?? ""))
+    .map((c) => ({
     id: c.id,
     slug: c.slug,
     denomination: c.denomination,
