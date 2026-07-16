@@ -158,6 +158,64 @@ export async function toggleCaaSubscription(
 }
 
 /**
+ * Définit l'année CAA d'un client en MONO-valeur (liste déroulante).
+ * Un client a AU PLUS une CAA :
+ *   - annee = null  → supprime toute souscription CAA du client.
+ *   - annee donnée  → supprime les AUTRES années puis garde/crée l'année
+ *     choisie (statut 'A_FAIRE' par défaut si elle n'existait pas).
+ * Note : passer d'une année à une autre supprime la ligne de l'ancienne année
+ * (et son statut) — c'est voulu (une seule CAA par dossier).
+ */
+export async function setCaaAnnee(clientCaaId: string, annee: number | null): Promise<void> {
+  await requirePermission("edit_production");
+  const sb = await createClient();
+
+  if (annee === null) {
+    const { error } = await sb
+      .from("caa_obligations")
+      .delete()
+      .eq("client_caa_id", clientCaaId);
+    if (error) throw new Error(error.message);
+    revalidateFinanceViews();
+    return;
+  }
+
+  // Supprime les autres années (mono-année).
+  const { error: delErr } = await sb
+    .from("caa_obligations")
+    .delete()
+    .eq("client_caa_id", clientCaaId)
+    .neq("annee", annee);
+  if (delErr) throw new Error(delErr.message);
+
+  // Garde l'année choisie si elle existe déjà, sinon crée-la.
+  const { data: existing } = await sb
+    .from("caa_obligations")
+    .select("id")
+    .eq("client_caa_id", clientCaaId)
+    .eq("annee", annee)
+    .maybeSingle();
+  if (!existing) {
+    const { data: defOpt } = await sb
+      .from("status_options")
+      .select("libelle")
+      .eq("scope", "caa")
+      .eq("type_code", "CAA_ANNEE")
+      .eq("statut_logique", "A_FAIRE")
+      .limit(1)
+      .maybeSingle();
+    const { error } = await sb.from("caa_obligations").insert({
+      client_caa_id: clientCaaId,
+      annee,
+      statut_logique: "A_FAIRE",
+      statut_detail: defOpt?.libelle ?? "À préparer",
+    });
+    if (error) throw new Error(error.message);
+  }
+  revalidateFinanceViews();
+}
+
+/**
  * Set le statut facturation CAA pour une annee donnee. La ligne caa_obligations
  * doit exister (le client doit etre souscrit a l'annee).
  * etat = null : reset.

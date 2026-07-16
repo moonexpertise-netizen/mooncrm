@@ -14,11 +14,12 @@ import {
   setCaaFacturation,
   setCaaForfait,
   setCaaObligationStatut,
-  toggleCaaSubscription,
+  setCaaAnnee,
   updateClientCaa,
   type EtatFacturation,
   type StatutLogique,
 } from "./actions";
+import { YearSelect } from "@/app/_components/year-select";
 import { useConfirm } from "@/app/_components/confirm-modal";
 import { useColumnSelection } from "@/app/_components/use-column-selection";
 import { toggleFilterKey } from "@/app/_components/filter-multi-select";
@@ -386,25 +387,36 @@ export default function CaaTable({
     });
   }
 
-  function onToggleSubscription(clientCaaId: string, annee: number) {
+  function onSetAnnee(clientCaaId: string, annee: number | null) {
+    // Mono-année : la liste déroulante remplace TOUTE souscription CAA par
+    // l'année choisie (ou vide si "— Aucune —").
     setLocalRows((prev) =>
       prev.map((r) => {
         if (r.id !== clientCaaId) return r;
+        // Clone puis clear -> conserve le type Map<number, Cell> exact.
         const newMap = new Map(r.obligations);
-        if (newMap.has(annee)) {
-          newMap.delete(annee);
-        } else {
-          newMap.set(annee, { annee, libelle: "À préparer", statut_logique: "A_FAIRE", etat_facturation: null, forfait: null });
+        newMap.clear();
+        if (annee !== null) {
+          newMap.set(
+            annee,
+            r.obligations.get(annee) ?? {
+              annee,
+              libelle: "À préparer",
+              statut_logique: "A_FAIRE",
+              etat_facturation: null,
+              forfait: null,
+            }
+          );
         }
         return { ...r, obligations: newMap };
       })
     );
     startTransition(async () => {
       try {
-        await toggleCaaSubscription(clientCaaId, annee);
+        await setCaaAnnee(clientCaaId, annee);
         router.refresh();
       } catch (e) {
-        toastError(e, "Echec toggle souscription");
+        toastError(e, "Echec sauvegarde année CAA");
         router.refresh();
       }
     });
@@ -800,10 +812,10 @@ export default function CaaTable({
                         />
                       </td>
                       <td className="px-3 py-2.5">
-                        <YearPills
+                        <YearSelect
                           years={pillYears ?? years}
-                          subscribedYears={new Set(r.obligations.keys())}
-                          onToggle={(year) => onToggleSubscription(r.id, year)}
+                          value={[...r.obligations.keys()].sort((a, b) => b - a)[0] ?? null}
+                          onChange={(year) => onSetAnnee(r.id, year)}
                           disabled={!canEditProduction}
                         />
                       </td>
@@ -953,10 +965,6 @@ export default function CaaTable({
 }
 
 // ============================================================================
-//  YearPills (idem IR)
-// ============================================================================
-
-// ============================================================================
 //  CaaRecapLine - ligne de stats pour le sommaire par annee.
 // ============================================================================
 
@@ -995,45 +1003,6 @@ function CaaRecapLine({
   );
 }
 
-function YearPills({
-  years,
-  subscribedYears,
-  onToggle,
-  disabled = false,
-}: {
-  years: number[];
-  subscribedYears: Set<number>;
-  onToggle: (year: number) => void;
-  /** Désactive les pastilles (droit edit_production manquant). */
-  disabled?: boolean;
-}) {
-  // Grid 3 colonnes compact -> ~6 ans tiennent sur 2 lignes.
-  return (
-    <div className="inline-grid grid-cols-3 gap-1 max-w-[160px]">
-      {years.map((y) => {
-        const subscribed = subscribedYears.has(y);
-        return (
-          <button
-            key={y}
-            type="button"
-            onClick={() => onToggle(y)}
-            disabled={disabled}
-            aria-pressed={subscribed}
-            title={subscribed ? `Souscrit ${y}, clic pour retirer` : `Non souscrit ${y}, clic pour ajouter`}
-            className={cn(
-              "px-1.5 py-0.5 rounded text-[10px] tabular-nums font-medium border transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed",
-              subscribed
-                ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))] font-semibold"
-                : "bg-transparent text-zinc-400 dark:text-zinc-500 border-dashed border-zinc-300 dark:border-white/[0.10] hover:text-zinc-700 dark:hover:text-zinc-300"
-            )}
-          >
-            {y}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // ============================================================================
 //  EditClientCaaModal - modifie un dossier CAA existant

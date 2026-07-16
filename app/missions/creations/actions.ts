@@ -71,6 +71,42 @@ export async function toggleCreationSubscription(
 }
 
 /**
+ * Définit l'année de création (mono-valeur) via la liste déroulante.
+ *   - annee = null  → désinscrit (creation_annee = null, creation_statut = null)
+ *   - annee donnée  → l'affecte (statut 'a_traiter' si aucun statut courant).
+ * Un dossier a AU PLUS une année de création.
+ */
+export async function setCreationAnnee(clientId: string, annee: number | null) {
+  await requirePermission("edit_production");
+  const sb = await createClient();
+
+  if (annee === null) {
+    const { error } = await sb
+      .from("clients")
+      .update({ creation_annee: null, creation_statut: null })
+      .eq("id", clientId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/missions/creations");
+    revalidateFinanceViews();
+    return;
+  }
+
+  const { data: cur } = await sb
+    .from("clients")
+    .select("creation_statut")
+    .eq("id", clientId)
+    .maybeSingle();
+  const patch: { creation_annee: number; creation_statut?: string } = { creation_annee: annee };
+  if ((cur as { creation_statut: string | null } | null)?.creation_statut == null) {
+    patch.creation_statut = "a_traiter";
+  }
+  const { error } = await sb.from("clients").update(patch).eq("id", clientId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/missions/creations");
+  revalidateFinanceViews();
+}
+
+/**
  * Set le statut creation pour un dossier. Le dossier doit etre souscrit (avoir
  * une creation_annee non null). Si statut = null, reset.
  *

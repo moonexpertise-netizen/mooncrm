@@ -17,12 +17,13 @@ import {
   bulkSetCreationStatut,
   setCreationFacturation,
   setCreationStatut,
-  toggleCreationSubscription,
+  setCreationAnnee,
   type CreationFacturation,
   type CreationStatut,
 } from "./actions";
 import { StatusFilterChip } from "@/app/_components/status-filter-chip";
 import { MobileFilterSelect } from "@/app/_components/mobile-filter-select";
+import { YearSelect } from "@/app/_components/year-select";
 
 export type { CreationStatut, CreationFacturation };
 
@@ -314,24 +315,18 @@ export default function CreationsTable({
   // Actions
   // ============================================================================
 
-  function onToggleSubscription(clientId: string, annee: number) {
-    // Optimistic : on bascule l'annee (1 max par client)
+  function onSetAnnee(clientId: string, annee: number | null) {
+    // Mono-année : la liste déroulante affecte OU désinscrit (— Aucune —).
     setLocalRows((prev) =>
       prev.map((r) => {
         if (r.id !== clientId) return r;
-        if (r.creation_annee === annee) {
-          return { ...r, creation_annee: null, creation_statut: null };
-        }
-        return {
-          ...r,
-          creation_annee: annee,
-          creation_statut: r.creation_statut ?? "a_traiter",
-        };
+        if (annee === null) return { ...r, creation_annee: null, creation_statut: null };
+        return { ...r, creation_annee: annee, creation_statut: r.creation_statut ?? "a_traiter" };
       })
     );
     startTransition(async () => {
       try {
-        await toggleCreationSubscription(clientId, annee);
+        await setCreationAnnee(clientId, annee);
         router.refresh();
       } catch (e) {
         toastError(e, "Echec sauvegarde");
@@ -683,10 +678,10 @@ export default function CreationsTable({
                   </td>
                   {mode === "base" ? (
                     <td className="px-3 py-2.5">
-                      <YearPills
+                      <YearSelect
                         years={pillYears ?? years}
-                        activeYear={r.creation_annee}
-                        onToggle={(year) => onToggleSubscription(r.id, year)}
+                        value={r.creation_annee}
+                        onChange={(year) => onSetAnnee(r.id, year)}
                         disabled={!canEditProduction}
                       />
                     </td>
@@ -810,52 +805,6 @@ export default function CreationsTable({
         }
         onApply={onBulkApply}
       />
-    </div>
-  );
-}
-
-// ============================================================================
-// YearPills : 1 seule annee active max (radio behavior)
-// ============================================================================
-
-function YearPills({
-  years,
-  activeYear,
-  onToggle,
-  disabled = false,
-}: {
-  years: number[];
-  activeYear: number | null;
-  onToggle: (year: number) => void;
-  disabled?: boolean;
-}) {
-  // Grid 3 colonnes compact -> ~6 ans tiennent sur 2 lignes.
-  return (
-    <div className="inline-grid grid-cols-3 gap-1 max-w-[160px]">
-      {years.map((y) => {
-        const isActive = activeYear === y;
-        return (
-          <button
-            key={y}
-            type="button"
-            onClick={() => onToggle(y)}
-            disabled={disabled}
-            className={cn(
-              "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all tabular-nums disabled:opacity-50 disabled:cursor-not-allowed",
-              isActive
-                ? "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))] font-semibold"
-                : "bg-white dark:bg-white/[0.02] text-zinc-600 dark:text-zinc-400 border-dashed border-zinc-300 dark:border-white/[0.10] hover:border-zinc-400 dark:hover:border-white/[0.20] hover:text-zinc-900 dark:hover:text-zinc-100"
-            )}
-          >
-            {y}
-          </button>
-        );
-      })}
-      {activeYear !== null && !years.includes(activeYear) && (
-        <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-semibold border tabular-nums bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))]">
-          {activeYear}
-        </span>
-      )}
     </div>
   );
 }
