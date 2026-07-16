@@ -28,18 +28,61 @@ export type LDMContext = {
   honoraires_creation: number;    // one-shot
   forfait_pilotage: number;       // mensuel (calculé)
   honos_mensuels: number;         // = compta + pilotage (mensuel)
+  // Forfait de début d'activité (tarif réduit 1ère année). Impact LDM seul.
+  forfait_debut_montant: number;
+  forfait_debut_date_debut: string | null;   // YYYY-MM-DD
+  forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
+  forfait_debut_nb_mois: number | null;
+  forfait_debut_date_fin: string | null;      // YYYY-MM-DD
+  forfait_debut_termine: boolean;
+  bilan_premier_offert: boolean;              // 1er bilan offert
 };
 
 const eur = (n: number) =>
   new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n));
 
+/** YYYY-MM-DD -> DD/MM/YYYY (pour la LDM). Renvoie "" si null/invalide. */
+function fmtDateFr(iso: string | null): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/**
+ * Forfait de début d'activité : phrase ajoutée à la fin du bullet conformité.
+ * Actif = montant > 0 ET condition définie ET pas encore terminé.
+ *   · "à compter du {date}" si date de début renseignée
+ *   · fin selon la condition : jusqu'au {date_fin} | pendant {N} mois |
+ *     jusqu'au début de votre facturation
+ */
+export function phraseForfaitDebut(ctx: LDMContext): string {
+  if (ctx.forfait_debut_montant <= 0 || !ctx.forfait_debut_condition || ctx.forfait_debut_termine) {
+    return "";
+  }
+  const debut = fmtDateFr(ctx.forfait_debut_date_debut);
+  const start = debut ? ` à compter du ${debut}` : "";
+  let end = "";
+  if (ctx.forfait_debut_condition === "Date") {
+    const fin = fmtDateFr(ctx.forfait_debut_date_fin);
+    end = fin ? ` et jusqu'au ${fin}` : "";
+  } else if (ctx.forfait_debut_condition === "Nombre de mois" && ctx.forfait_debut_nb_mois) {
+    end = `, pendant ${ctx.forfait_debut_nb_mois} mois`;
+  } else if (ctx.forfait_debut_condition === "Début de facturation") {
+    end = " et jusqu'au début de votre facturation";
+  }
+  return ` À titre exceptionnel, les honoraires sont ramenés à ${eur(ctx.forfait_debut_montant)} € HT/mois${start}${end}.`;
+}
+
 /**
  * Bullet "Forfait conformité (comptabilité et fiscalité)" - toujours présent.
  *   ${compta_mois} € HT par mois à traiter, soit ${compta_an} € HT pour une année de 12 mois.
  */
-export function phraseConformite(compta: number): string {
+export function phraseConformite(compta: number, ctx?: LDMContext): string {
   const an = compta * 12;
-  return `${eur(compta)} € HT par mois à traiter, soit ${eur(an)} € HT pour une année de 12 mois.`;
+  const base = `${eur(compta)} € HT par mois à traiter, soit ${eur(an)} € HT pour une année de 12 mois.`;
+  // Forfait de début d'activité éventuel (ajouté à la fin du bullet).
+  return ctx ? base + phraseForfaitDebut(ctx) : base;
 }
 
 /**
@@ -54,7 +97,10 @@ export function phraseHonosBilan(ctx: LDMContext): string {
   // Facturés : on utilise le montant saisi directement (et non plus la formule
   // honos_mensuels × 2 qui ne reflétait pas la saisie utilisateur).
   if (ctx.forfait_bilan <= 0) return "";
-  return `Les travaux de bilans seront facturés ${eur(ctx.forfait_bilan)} € HT chaque année.`;
+  const offert = ctx.bilan_premier_offert
+    ? " À titre exceptionnel, le premier bilan est offert !"
+    : "";
+  return `Les travaux de bilans seront facturés ${eur(ctx.forfait_bilan)} € HT chaque année.${offert}`;
 }
 
 /**

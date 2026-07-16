@@ -833,6 +833,7 @@ const NUMERIC_NOT_NULL = new Set([
   "honoraires_jur",
   "tdb_honos_periode",
   "oss_honos_trimestre",
+  "forfait_debut_montant",
   "honoraires_reprise",
   "honoraires_creation",
   "exceptionnel",
@@ -963,5 +964,63 @@ export async function setClientGroupe(clientId: string, nom: string | null) {
     .update({ groupe_id: groupeId })
     .eq("id", clientId);
   if (e2) throw new Error(e2.message);
+}
+
+/**
+ * "1er bilan offert" : met à jour le flag client (impact LDM) ET relie
+ * automatiquement le statut de facturation du PREMIER bilan (LIASSE_PLAQUETTE
+ * de l'année la plus ancienne du dossier) :
+ *   · offert = true  → ce bilan passe en etat_facturation 'offert'
+ *     (sauf s'il est déjà 'facturee' : on ne réécrit pas une facture émise).
+ *   · offert = false → si ce bilan était 'offert', on le remet à 'a_facturer'.
+ * S'il n'existe pas encore de bilan pour le dossier, seul le flag est posé
+ * (le statut se réglera à la main quand le bilan apparaîtra).
+ */
+export async function setBilanPremierOffert(clientId: string, offert: boolean) {
+  await requirePermission("edit_honoraires");
+  const sb = await createClient();
+
+  const { error } = await sb
+    .from("clients")
+    .update({ bilan_premier_offert: offert })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+
+  // Premier bilan du dossier (année la plus ancienne).
+  const { data: premier } = await sb
+    .from("obligations")
+    .select("id, etat_facturation")
+    .eq("client_id", clientId)
+    .eq("type", "LIASSE_PLAQUETTE")
+    .order("annee", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (premier) {
+    if (offert && premier.etat_facturation !== "facturee") {
+      await sb.from("obligations").update({ etat_facturation: "offert" }).eq("id", premier.id);
+    } else if (!offert && premier.etat_facturation === "offert") {
+      await sb.from("obligations").update({ etat_facturation: "a_facturer" }).eq("id", premier.id);
+    }
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidateFinanceViews();
+}
+
+/**
+ * Clôt le forfait de début d'activité (bouton "Rythme de croisière atteint").
+ * Le dossier sort du suivi et la LDM ne mentionne plus le tarif réduit.
+ */
+export async function finirForfaitDebut(clientId: string) {
+  await requirePermission("edit_honoraires");
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({ forfait_debut_termine: true })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/honoraires");
 }
 

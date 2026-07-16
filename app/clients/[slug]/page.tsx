@@ -12,7 +12,7 @@ import {
   EditableSelect,
   EditableText,
 } from "./editable";
-import { ClotureSplit, EditableGestionTns, EditableTextArea } from "./editable-extras";
+import { ClotureSplit, EditableBilanOffert, EditableGestionTns, EditableTextArea } from "./editable-extras";
 import { Card, FieldReadonly, SectionTitle } from "./_components";
 import { loadClient, loadContactsLink, loadActiveTvaTags, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
@@ -132,7 +132,12 @@ export default async function IdentiteTab({
         <div className="border-t pt-2 mt-1">
           <EditableSelect clientId={id} field="type_honos_bilans" value={client.type_honos_bilans} label="Forfait bilan" options={["Facturés", "Inclus"]} permission="edit_honoraires" />
           {client.type_honos_bilans === "Facturés" && (
-            <EditableNumber clientId={id} field="forfait_bilan" value={client.forfait_bilan} label="↳ Montant" unit="eur" permission="edit_honoraires" />
+            <>
+              <EditableNumber clientId={id} field="forfait_bilan" value={client.forfait_bilan} label="↳ Montant" unit="eur" permission="edit_honoraires" />
+              {/* 1er bilan offert : flag LDM + passe auto le 1er bilan facturable
+                  en statut de facturation "Offert" (cf. setBilanPremierOffert). */}
+              <EditableBilanOffert clientId={id} value={client.bilan_premier_offert === true} label="↳ 1ᵉʳ bilan offert" />
+            </>
           )}
         </div>
         <div className="border-t pt-2 mt-1">
@@ -178,6 +183,27 @@ export default async function IdentiteTab({
                 label="↳ Équivalent mensuel"
                 value={fmtEuro(client.forfait_oss ?? 0) ?? "-"}
               />
+            </>
+          )}
+        </div>
+        <div className="border-t pt-2 mt-1">
+          {/* Forfait de début d'activité : tarif mensuel réduit la 1ère année
+              jusqu'à une condition. Impact = lettre de mission uniquement
+              (n'entre PAS dans le MRR, qui reste au tarif de croisière). */}
+          <EditableNumber clientId={id} field="forfait_debut_montant" value={client.forfait_debut_montant} label="Forfait de début (€/mois)" unit="eur" permission="edit_honoraires" placeholder="0 = aucun" />
+          {client.forfait_debut_montant > 0 && (
+            <>
+              <EditableDate clientId={id} field="forfait_debut_date_debut" value={client.forfait_debut_date_debut} label="↳ À compter du" permission="edit_honoraires" />
+              <EditableSelect clientId={id} field="forfait_debut_condition" value={client.forfait_debut_condition} label="↳ Fin du forfait" options={["Début de facturation", "Nombre de mois", "Date"]} permission="edit_honoraires" />
+              {client.forfait_debut_condition === "Nombre de mois" && (
+                <EditableNumber clientId={id} field="forfait_debut_nb_mois" value={client.forfait_debut_nb_mois} label="↳ Nombre de mois" unit="plain" permission="edit_honoraires" />
+              )}
+              {client.forfait_debut_condition === "Date" && (
+                <EditableDate clientId={id} field="forfait_debut_date_fin" value={client.forfait_debut_date_fin} label="↳ Jusqu'au" permission="edit_honoraires" />
+              )}
+              {client.forfait_debut_termine === true && (
+                <FieldReadonly label="↳ Statut" value="Terminé (rythme de croisière)" />
+              )}
             </>
           )}
         </div>

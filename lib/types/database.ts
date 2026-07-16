@@ -93,6 +93,15 @@ export interface Client {
   oss_periode: "Trimestriel" | "Non souscrit" | null;
   oss_honos_trimestre: number;  // montant par trimestre (saisi)
   forfait_oss: number;          // GENERATED · équivalent mensuel (= /3 si Trimestriel)
+  // Forfait de début d'activité (1ère année, tarif réduit). Cf. migration 0087.
+  // Impact = LDM uniquement (pas le MRR).
+  forfait_debut_montant: number;                 // €/mois réduit (0 = pas de forfait début)
+  forfait_debut_date_debut: string | null;       // "à compter du" (YYYY-MM-DD)
+  forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
+  forfait_debut_nb_mois: number | null;          // si condition = "Nombre de mois"
+  forfait_debut_date_fin: string | null;         // si condition = "Date" (YYYY-MM-DD)
+  forfait_debut_termine: boolean;                // bouton "rythme de croisière"
+  bilan_premier_offert: boolean;                 // 1er bilan offert (LDM + statut facturation)
   mrr: number;                 // GENERATED · compta + pilotage + oss + (bilan + jur)/12
   arr: number;                 // GENERATED · (compta + pilotage + oss) * 12 + bilan + jur
   created_at: string;

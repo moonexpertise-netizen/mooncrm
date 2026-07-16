@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast-helpers";
 import { useCan } from "@/app/_components/permissions-context";
-import { updateClient } from "./actions";
+import { updateClient, setBilanPremierOffert } from "./actions";
 import { initializeOnboardingForClient } from "@/app/onboarding/actions";
 
 /**
@@ -193,6 +193,77 @@ export function EditableTextArea({
             : "bg-amber-50/40 border-amber-200/80 text-zinc-900 placeholder:text-amber-700/50"
         )}
       />
+    </div>
+  );
+}
+
+/**
+ * "1er bilan offert" (booléen) : coche/décoche via un select Oui/Non.
+ * Passe par setBilanPremierOffert qui, en plus du flag LDM, relie le statut
+ * de facturation "Offert" au premier bilan du dossier. router.refresh() pour
+ * refléter l'éventuel changement de statut côté suivi/facturation.
+ */
+export function EditableBilanOffert({
+  clientId,
+  value,
+  label,
+}: {
+  clientId: string;
+  value: boolean;
+  label: string;
+}) {
+  const canEdit = useCan("edit_honoraires");
+  const router = useRouter();
+  const [display, setDisplay] = useState<boolean>(value);
+  const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setDisplay(value), [value]);
+
+  function onChange(v: string) {
+    const next = v === "true";
+    if (next === display) return;
+    const prev = display;
+    setDisplay(next);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await setBilanPremierOffert(clientId, next);
+        router.refresh();
+      } catch (e) {
+        setDisplay(prev);
+        setError(e instanceof Error ? e.message : String(e));
+        toastError(e, "Echec de la sauvegarde (bilan offert)");
+      }
+    });
+  }
+
+  const selectClass = cn(
+    "w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-[34px] rounded-md border text-base sm:text-sm transition-colors hover:border-zinc-300 dark:hover:border-white/[0.16]",
+    "focus:outline-none focus:ring-2 focus:ring-zinc-400/40 dark:focus:ring-white/[0.10] focus:border-zinc-400",
+    display
+      ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/25 text-zinc-900 dark:text-zinc-100"
+      : "bg-white dark:bg-white/[0.04] border-zinc-200 dark:border-white/[0.08] text-zinc-900 dark:text-zinc-100"
+  );
+
+  return (
+    <div className="py-1.5 sm:py-1 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,360px)] gap-1 sm:gap-2 sm:items-center">
+        <div className="text-xs sm:text-sm text-muted-foreground">{label}</div>
+        <div className="min-w-0">
+          {canEdit ? (
+            <select value={display ? "true" : "false"} onChange={(e) => onChange(e.target.value)} className={selectClass}>
+              <option value="false">Non</option>
+              <option value="true">Oui — 1ᵉʳ bilan offert</option>
+            </select>
+          ) : (
+            <div className="w-full px-3 py-2 sm:px-2 sm:py-1 min-h-[44px] sm:min-h-[34px] rounded-md border border-zinc-100 dark:border-white/[0.06] bg-zinc-50/60 dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-300 flex items-center">
+              {display ? "Oui — 1ᵉʳ bilan offert" : "Non"}
+            </div>
+          )}
+        </div>
+      </div>
+      {error && <div className="text-[11px] text-rose-600 mt-0.5 sm:ml-[148px]">{error}</div>}
     </div>
   );
 }

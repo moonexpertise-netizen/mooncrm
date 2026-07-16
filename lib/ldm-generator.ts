@@ -58,6 +58,14 @@ export type LDMClientData = {
   tdb_honos_periode: number;
   oss_periode: "Trimestriel" | "Non souscrit" | null;   // Guichet unique - OSS
   oss_honos_trimestre: number;                           // montant par trimestre
+  // Forfait de début d'activité + bilan 1ère année offert (impact LDM).
+  forfait_debut_montant: number;
+  forfait_debut_date_debut: string | null;
+  forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
+  forfait_debut_nb_mois: number | null;
+  forfait_debut_date_fin: string | null;
+  forfait_debut_termine: boolean;
+  bilan_premier_offert: boolean;
 };
 
 export type LDMDirigeantData = {
@@ -91,6 +99,13 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     tdb_honos_periode: client.tdb_honos_periode,
     oss_periode: client.oss_periode,
     oss_honos_trimestre: client.oss_honos_trimestre,
+    forfait_debut_montant: client.forfait_debut_montant,
+    forfait_debut_date_debut: client.forfait_debut_date_debut,
+    forfait_debut_condition: client.forfait_debut_condition,
+    forfait_debut_nb_mois: client.forfait_debut_nb_mois,
+    forfait_debut_date_fin: client.forfait_debut_date_fin,
+    forfait_debut_termine: client.forfait_debut_termine,
+    bilan_premier_offert: client.bilan_premier_offert,
     forfait_bilan: client.forfait_bilan,
     honoraires_jur: client.honoraires_jur,
     honoraires_reprise: client.honoraires_reprise,
@@ -134,7 +149,7 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     // est en dur dans le template.
     Honos_mensuels: fmtNumFr(client.honoraires_compta),
     Honos_annuels: fmtNumFr(client.honoraires_compta * 12),
-    Phrase_conformite: phraseConformite(client.honoraires_compta),
+    Phrase_conformite: phraseConformite(client.honoraires_compta, ctx),
     Phrase_honos_bilan: phraseHonosBilan(ctx),
     Phrase_honos_creation: phraseHonosCreation(ctx),
     Phrase_juridique: phraseJuridique(ctx),

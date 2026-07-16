@@ -34,6 +34,13 @@ async function main() {
       tdb_honos_periode: 225,
       oss_periode: "Trimestriel",
       oss_honos_trimestre: 150,
+      forfait_debut_montant: 0,
+      forfait_debut_date_debut: null,
+      forfait_debut_condition: null,
+      forfait_debut_nb_mois: null,
+      forfait_debut_date_fin: null,
+      forfait_debut_termine: false,
+      bilan_premier_offert: false,
     },
     { civilite: "M.", prenom: "Benjamin", nom: "PEREZ" }
   );

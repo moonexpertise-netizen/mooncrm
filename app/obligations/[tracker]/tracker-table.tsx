@@ -37,7 +37,7 @@ export type StatusOption = {
 const EMPTY_OPTIONS: StatusOption[] = [];
 
 /** Etats facturation : aligne sur missions exc/IR/CAA. */
-export type EtatFacturation = "a_facturer" | "facturee" | "sans_facture";
+export type EtatFacturation = "a_facturer" | "facturee" | "sans_facture" | "offert";
 
 export type TrackerCell = {
   colKey: string;
@@ -2182,9 +2182,11 @@ const BILLABLE_STATUT_DETAILS: Record<string, string[]> = {
   LIASSE_PLAQUETTE: ["4 - Plaquette transmise"],
 };
 
-const FACT_PILL_OPTIONS: Array<{ key: EtatFacturation; label: string; color: string }> = [
+const FACT_PILL_OPTIONS: Array<{ key: EtatFacturation; label: string; color: string; onlyType?: string }> = [
   { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
   { key: "facturee", label: "Facturée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },
+  // "Offert" : bilans (LIASSE_PLAQUETTE) uniquement — cf. 1er bilan offert.
+  { key: "offert", label: "Offert", color: "bg-[hsl(var(--gold))]/15 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))]/30", onlyType: "LIASSE_PLAQUETTE" },
   { key: "sans_facture", label: "Sans facture", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },
 ];
 
@@ -2607,6 +2609,7 @@ function FacturationOnlyCell({
       value={cell.etat_facturation}
       isReadyForBilling={isReady}
       canEdit={canEdit}
+      cellType={cell.type}
       onChange={(v) => onSetFacturation(cell.obligationId!, v)}
     />
   );
@@ -2616,6 +2619,7 @@ function FacturationMiniPill({
   value,
   isReadyForBilling,
   canEdit,
+  cellType,
   onChange,
 }: {
   value: EtatFacturation | null;
@@ -2624,8 +2628,12 @@ function FacturationMiniPill({
   isReadyForBilling: boolean;
   /** Droit edit_production : sans lui, la pastille est grisee. */
   canEdit: boolean;
+  /** Type d'obligation de la cellule (filtre les options : "Offert" = bilan). */
+  cellType: string;
   onChange: (v: EtatFacturation | null) => void;
 }) {
+  // Options visibles selon le type (ex. "Offert" réservé aux bilans).
+  const opts = FACT_PILL_OPTIONS.filter((o) => !o.onlyType || o.onlyType === cellType);
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -2642,7 +2650,7 @@ function FacturationMiniPill({
       return;
     }
     const rect = btnRef.current.getBoundingClientRect();
-    const POPOVER_HEIGHT = FACT_PILL_OPTIONS.length * 32 + 50;
+    const POPOVER_HEIGHT = opts.length * 32 + 50;
     const POPOVER_WIDTH = 200;
     const MARGIN = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -2717,7 +2725,7 @@ function FacturationMiniPill({
             <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b dark:border-white/[0.06]">
               Facturation juridique
             </div>
-            {FACT_PILL_OPTIONS.map((o) => (
+            {opts.map((o) => (
               <button
                 key={o.key}
                 type="button"

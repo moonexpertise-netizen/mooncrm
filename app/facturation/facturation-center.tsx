@@ -50,7 +50,7 @@ export type FactItem = {
   sousDetail: string | null;
   /** Montant indicatif si disponible (€). */
   montant: number | null;
-  etat_facturation: "a_facturer" | "facturee" | "sans_facture" | null;
+  etat_facturation: "a_facturer" | "facturee" | "sans_facture" | "offert" | null;
 };
 
 const SOURCE_LABEL: Record<FactSource, string> = {
@@ -76,18 +76,22 @@ const SOURCE_COLOR: Record<FactSource, string> = {
 };
 
 const FACT_OPTIONS: Array<{
-  key: "a_facturer" | "facturee" | "sans_facture";
+  key: "a_facturer" | "facturee" | "sans_facture" | "offert";
   label: string;
   color: string;
+  /** Réservé à certaines sources (ex. "offert" = bilans uniquement). */
+  onlySources?: FactSource[];
 }> = [
   { key: "a_facturer", label: "À facturer", color: "bg-amber-50 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/50" },
   { key: "facturee", label: "Facturée", color: "bg-emerald-50 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-500/50" },
+  { key: "offert", label: "Offert", color: "bg-[hsl(var(--gold))]/15 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))] border-[hsl(var(--gold))]/30", onlySources: ["bilan"] },
   { key: "sans_facture", label: "Sans facture", color: "bg-zinc-50 dark:bg-white/[0.05] text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]" },
 ];
 
-const ETAT_FILTERS: Array<{ key: "all" | "a_facturer" | "facturee" | "sans_facture"; label: string }> = [
+const ETAT_FILTERS: Array<{ key: "all" | "a_facturer" | "facturee" | "sans_facture" | "offert"; label: string }> = [
   { key: "a_facturer", label: "À facturer" },
   { key: "facturee", label: "Facturées" },
+  { key: "offert", label: "Offert" },
   { key: "sans_facture", label: "Sans facture" },
   { key: "all", label: "Toutes" },
 ];
@@ -115,7 +119,7 @@ export default function FacturationCenter({
 }: {
   items: FactItem[];
   totalCount: number;
-  filterEtat: "all" | "a_facturer" | "facturee" | "sans_facture";
+  filterEtat: "all" | "a_facturer" | "facturee" | "sans_facture" | "offert";
   filterSource: "all" | FactSource;
 }) {
   const router = useRouter();
@@ -239,7 +243,7 @@ export default function FacturationCenter({
                     {it.montant ? formatEUR(it.montant) : <span className="text-zinc-300 dark:text-zinc-600">-</span>}
                   </td>
                   <td className="align-middle px-3 py-2.5 text-center">
-                    <FactPicker value={it.etat_facturation} onChange={(v) => onSetFact(it, v)} disabled={!canEditFacturation} />
+                    <FactPicker value={it.etat_facturation} onChange={(v) => onSetFact(it, v)} disabled={!canEditFacturation} source={it.source} />
                   </td>
                   <td className="align-middle px-2 py-2.5">
                     <div className="flex items-center justify-end gap-1">
@@ -352,15 +356,19 @@ function FactPicker({
   value,
   onChange,
   disabled = false,
+  source,
 }: {
   value: FactItem["etat_facturation"];
   onChange: (v: FactItem["etat_facturation"]) => void;
   disabled?: boolean;
+  source: FactSource;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; openUp: boolean } | null>(null);
+  // Options visibles pour cette source (ex. "Offert" = bilans uniquement).
+  const opts = FACT_OPTIONS.filter((o) => !o.onlySources || o.onlySources.includes(source));
   const current = value ? FACT_OPTIONS.find((o) => o.key === value) : null;
 
   useEffect(() => {
@@ -369,7 +377,7 @@ function FactPicker({
       return;
     }
     const rect = btnRef.current.getBoundingClientRect();
-    const POPOVER_HEIGHT = FACT_OPTIONS.length * 32 + 50;
+    const POPOVER_HEIGHT = opts.length * 32 + 50;
     const POPOVER_WIDTH = 200;
     const MARGIN = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -431,7 +439,7 @@ function FactPicker({
             }}
             className="min-w-[200px] bg-white dark:bg-[hsl(var(--surface-elevated))] border border-zinc-200 dark:border-white/[0.08] rounded-lg shadow-pop overflow-hidden animate-slide-up-fade"
           >
-            {FACT_OPTIONS.map((o) => (
+            {opts.map((o) => (
               <button
                 key={o.key}
                 type="button"

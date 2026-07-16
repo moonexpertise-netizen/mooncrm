@@ -332,9 +332,11 @@ export async function updateObligationNote(obligationId: string, note: string | 
  * pour le suivi facturation juridique (AGO_DEPOT principalement).
  * etat = null : réinitialise.
  */
+// 'offert' : réservé aux bilans (LIASSE_PLAQUETTE) ; autorisé par la contrainte
+// DB sur obligations (cf. migration 0087).
 export async function setObligationFacturation(
   obligationId: string,
-  etat: "a_facturer" | "facturee" | "sans_facture" | null
+  etat: "a_facturer" | "facturee" | "sans_facture" | "offert" | null
 ) {
   await requirePermission("edit_facturation");
   const sb = await createClient();

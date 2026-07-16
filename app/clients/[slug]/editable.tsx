@@ -85,6 +85,8 @@ const DERIVED_TRIGGER_FIELDS = new Set([
   "forfait_pilotage",
   "oss_periode",         // affiche/masque le bloc montant + recalcule forfait_oss
   "oss_honos_trimestre", // recalcule forfait_oss (équiv. mensuel) + MRR/ARR
+  "forfait_debut_montant",   // révèle le bloc forfait de début quand > 0
+  "forfait_debut_condition", // révèle nb_mois OU date_fin selon la condition
   "type_honos_creation",
   "honoraires_creation",
   "type_honos_reprise",

@@ -10,7 +10,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 export const CLIENT_SELECT =
-  "id, denomination, siren, slug, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, gestion_tns, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, oss_periode, oss_honos_trimestre, forfait_oss, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, tva_tag_id, tva_echeance_jour, groupes(nom)";
+  "id, denomination, siren, slug, forme, activite, regime, pipeline_statut, mrr, arr, email, fin_mission_date, adresse_siege, code_postal, ville, jour_cloture, mois_cloture, debut_obligations, mois_signature, origine, gestion_tns, honoraires_compta, type_honos_bilans, forfait_bilan, type_honos_jur, honoraires_jur, tdb_periode, tdb_honos_periode, forfait_pilotage, oss_periode, oss_honos_trimestre, forfait_oss, forfait_debut_montant, forfait_debut_date_debut, forfait_debut_condition, forfait_debut_nb_mois, forfait_debut_date_fin, forfait_debut_termine, bilan_premier_offert, type_honos_creation, honoraires_creation, type_honos_reprise, honoraires_reprise, exceptionnel, note_pdc, ldm_social, tva_tag_id, tva_echeance_jour, groupes(nom)";
 
 export const loadClient = cache(async (slug: string) => {
   const sb = await createClient();

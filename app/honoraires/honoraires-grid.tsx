@@ -2,12 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Coins } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Coins, Rocket, Check } from "lucide-react";
 import { cn, fmtEuro } from "@/lib/utils";
-import { toastError } from "@/lib/toast-helpers";
+import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useCan } from "@/app/_components/permissions-context";
 import { EmptyState } from "@/app/_components/ui";
-import { updateClient } from "@/app/clients/[slug]/actions";
+import { updateClient, finirForfaitDebut } from "@/app/clients/[slug]/actions";
 
 export type HonoRow = {
   id: string;
@@ -34,6 +35,13 @@ export type HonoRow = {
   type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
   /** Forfait juridique ANNUEL (pertinent si type = Facturés). */
   honoraires_jur: number;
+  // Forfait de début d'activité (impact LDM seul ; suivi ici).
+  forfait_debut_montant: number;
+  forfait_debut_date_debut: string | null;
+  forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
+  forfait_debut_nb_mois: number | null;
+  forfait_debut_date_fin: string | null;
+  forfait_debut_termine: boolean;
   mrr: number;
   arr: number;
 };
@@ -149,6 +157,9 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Forfaits de début d'activité en cours (indépendant du filtre/périmètre) */}
+      <ForfaitsDebutPanel rows={localRows} canEdit={canEdit} />
+
       {/* KPI : totaux par nature, sur le périmètre affiché */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 stagger-in">
         <Kpi label="Compta" value={`${fmtEuro(Math.round(totals.compta))} /mois`} sub={`${fmtEuro(Math.round(totals.compta * 12))} /an`} />
@@ -456,5 +467,103 @@ function CellEuro({
     >
       {display}
     </button>
+  );
+}
+
+// ============================================================================
+//  Panneau "Forfaits de début en cours"
+// ============================================================================
+
+function fmtDateFr(iso: string | null): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+function forfaitDebutSummary(r: HonoRow): string {
+  const parts: string[] = [];
+  if (r.forfait_debut_date_debut) parts.push(`dès le ${fmtDateFr(r.forfait_debut_date_debut)}`);
+  if (r.forfait_debut_condition === "Date" && r.forfait_debut_date_fin) {
+    parts.push(`jusqu'au ${fmtDateFr(r.forfait_debut_date_fin)}`);
+  } else if (r.forfait_debut_condition === "Nombre de mois" && r.forfait_debut_nb_mois) {
+    parts.push(`pendant ${r.forfait_debut_nb_mois} mois`);
+  } else if (r.forfait_debut_condition === "Début de facturation") {
+    parts.push("jusqu'au début de facturation");
+  }
+  return parts.join(" · ");
+}
+
+function ForfaitsDebutPanel({ rows, canEdit }: { rows: HonoRow[]; canEdit: boolean }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [done, setDone] = useState<Set<string>>(new Set());
+  const active = rows.filter(
+    (r) => r.forfait_debut_montant > 0 && !r.forfait_debut_termine && !done.has(r.id)
+  );
+  if (active.length === 0) return null;
+
+  function terminer(r: HonoRow) {
+    setDone((prev) => new Set(prev).add(r.id)); // retrait optimiste
+    startTransition(async () => {
+      try {
+        await finirForfaitDebut(r.id);
+        toastSuccess(`${r.denomination} : forfait de début clôturé`);
+        router.refresh();
+      } catch (e) {
+        setDone((prev) => {
+          const n = new Set(prev);
+          n.delete(r.id);
+          return n;
+        });
+        toastError(e, "Echec de la clôture du forfait de début");
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-xl border border-[hsl(var(--gold))]/25 bg-[hsl(var(--gold))]/[0.05] dark:bg-[hsl(var(--gold))]/[0.06] p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Rocket className="h-4 w-4 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))]" />
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          Forfaits de début en cours
+        </h2>
+        <span className="text-xs text-muted-foreground">({active.length})</span>
+      </div>
+      <ul className="space-y-1.5">
+        {active.map((r) => (
+          <li
+            key={r.id}
+            className="flex items-center gap-3 flex-wrap rounded-lg bg-white dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/[0.08] px-3 py-2"
+          >
+            <Link
+              href={`/clients/${r.slug}`}
+              className="font-medium text-sm text-zinc-900 dark:text-zinc-100 hover:underline underline-offset-2 min-w-0 truncate"
+            >
+              {r.denomination}
+            </Link>
+            <span className="text-xs tabular-nums text-zinc-700 dark:text-zinc-300 shrink-0">
+              {fmtEuro(r.forfait_debut_montant)} /mois
+            </span>
+            <span className="text-[11px] text-muted-foreground min-w-0 truncate">
+              {forfaitDebutSummary(r)}
+            </span>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => terminer(r)}
+                className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors"
+                title="Clôturer le forfait de début (rythme de croisière atteint)"
+              >
+                <Check className="h-3.5 w-3.5" /> Rythme de croisière
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-muted-foreground mt-2">
+        « Rythme de croisière » clôt le forfait de début : le dossier sort de cette liste et la
+        lettre de mission ne mentionne plus le tarif réduit.
+      </p>
+    </div>
   );
 }

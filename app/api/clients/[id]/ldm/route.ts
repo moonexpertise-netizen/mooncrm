@@ -27,7 +27,7 @@ export async function GET(
   const { data: client, error: cliErr } = await sb
     .from("clients")
     .select(
-      "denomination, activite, origine, adresse_siege, code_postal, ville, fin_mission_date, honoraires_compta, forfait_pilotage, forfait_bilan, honoraires_jur, honoraires_reprise, honoraires_creation, type_honos_bilans, type_honos_jur, type_honos_creation, type_honos_reprise, tdb_periode, tdb_honos_periode, oss_periode, oss_honos_trimestre"
+      "denomination, activite, origine, adresse_siege, code_postal, ville, fin_mission_date, honoraires_compta, forfait_pilotage, forfait_bilan, honoraires_jur, honoraires_reprise, honoraires_creation, type_honos_bilans, type_honos_jur, type_honos_creation, type_honos_reprise, tdb_periode, tdb_honos_periode, oss_periode, oss_honos_trimestre, forfait_debut_montant, forfait_debut_date_debut, forfait_debut_condition, forfait_debut_nb_mois, forfait_debut_date_fin, forfait_debut_termine, bilan_premier_offert"
     )
     .eq("id", id)
     .single();
@@ -78,6 +78,13 @@ export async function GET(
     tdb_honos_periode: Number(client.tdb_honos_periode ?? 0),
     oss_periode: (client.oss_periode ?? null) as "Trimestriel" | "Non souscrit" | null,
     oss_honos_trimestre: Number(client.oss_honos_trimestre ?? 0),
+    forfait_debut_montant: Number(client.forfait_debut_montant ?? 0),
+    forfait_debut_date_debut: (client.forfait_debut_date_debut ?? null) as string | null,
+    forfait_debut_condition: (client.forfait_debut_condition ?? null) as "Début de facturation" | "Nombre de mois" | "Date" | null,
+    forfait_debut_nb_mois: client.forfait_debut_nb_mois == null ? null : Number(client.forfait_debut_nb_mois),
+    forfait_debut_date_fin: (client.forfait_debut_date_fin ?? null) as string | null,
+    forfait_debut_termine: client.forfait_debut_termine === true,
+    bilan_premier_offert: client.bilan_premier_offert === true,
   };
 
   try {

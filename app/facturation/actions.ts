@@ -9,7 +9,10 @@ import { requirePermission } from "@/lib/auth";
  * 4 endpoints generiques qui pointent vers la bonne table selon la source.
  */
 
-export type EtatFacturation = "a_facturer" | "facturee" | "sans_facture";
+// 'offert' : réservé aux bilans (1ère année offerte). La contrainte DB ne
+// l'autorise que sur la table obligations (cf. migration 0087) ; l'UI ne le
+// propose que pour la source "bilan".
+export type EtatFacturation = "a_facturer" | "facturee" | "sans_facture" | "offert";
 
 export type FactSource =
   | "caa"
