@@ -6,16 +6,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * Bouton "Générer LDM" avec menu déroulant.
- * Quatre options : Présentation/BNC × DOCX/PDF.
- *  - DOCX : route /api/clients/:id/ldm (template Word docxtemplater)
- *  - PDF  : route /api/clients/:id/ldm-pdf (DOCX → PDF via ConvertAPI)
+ * Deux options : Présentation / BNC, au format Word (.docx éditable).
+ *  - route /api/clients/:id/ldm (template Word docxtemplater)
  *
  * Bloqué tant qu'un dirigeant complet (civilité + prénom + nom) n'est pas
  * rattaché - sans ces infos la salutation et l'identification ne peuvent pas
  * être correctement remplies dans la LDM.
- *
- * L'email + téléphone sont nécessaires pour la signature électronique
- * JeSignExpert (autre bouton) mais ne bloquent pas la génération du fichier.
  */
 export default function LDMButton({
   clientId,
@@ -32,9 +28,8 @@ export default function LDMButton({
 }) {
   const [open, setOpen] = useState(false);
 
-  function generate(tpl: "presentation" | "bnc", format: "docx" | "pdf") {
-    const endpoint = format === "pdf" ? "ldm-pdf" : "ldm";
-    window.location.href = `/api/clients/${clientId}/${endpoint}?template=${tpl}`;
+  function generate(tpl: "presentation" | "bnc") {
+    window.location.href = `/api/clients/${clientId}/ldm?template=${tpl}`;
     setOpen(false);
   }
 
@@ -95,21 +90,12 @@ export default function LDMButton({
           </div>
           <button
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => generate("presentation", "docx")}
+            onClick={() => generate("presentation")}
             className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--gold))]/10 transition-colors flex items-center gap-2"
           >
             <FileType2 className="h-3.5 w-3.5 text-blue-600" />
             <span className="flex-1">Word (.docx)</span>
             <span className="text-[10px] text-zinc-400">éditable</span>
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => generate("presentation", "pdf")}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--gold))]/10 transition-colors flex items-center gap-2 border-t"
-          >
-            <FileType2 className="h-3.5 w-3.5 text-rose-600" />
-            <span className="flex-1">PDF</span>
-            <span className="text-[10px] text-zinc-400">pour signature</span>
           </button>
 
           {/* BNC */}
@@ -118,21 +104,12 @@ export default function LDMButton({
           </div>
           <button
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => generate("bnc", "docx")}
+            onClick={() => generate("bnc")}
             className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--gold))]/10 transition-colors flex items-center gap-2"
           >
             <FileType2 className="h-3.5 w-3.5 text-blue-600" />
             <span className="flex-1">Word (.docx)</span>
             <span className="text-[10px] text-zinc-400">éditable</span>
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => generate("bnc", "pdf")}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--gold))]/10 transition-colors flex items-center gap-2 border-t"
-          >
-            <FileType2 className="h-3.5 w-3.5 text-rose-600" />
-            <span className="flex-1">PDF</span>
-            <span className="text-[10px] text-zinc-400">pour signature</span>
           </button>
         </div>
       )}

@@ -11,7 +11,6 @@ import BackButton from "./back-button";
 import DeleteClientButton from "./delete-button";
 import LDMButton from "./ldm-button";
 import NavButtons from "./nav-buttons";
-import SignatureButton from "./signature-button";
 import TallyButton from "./tally-button";
 import FicheTabs from "./fiche-tabs";
 import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
@@ -278,22 +277,6 @@ export default async function ClientLayout({
               />
               <LDMButton
                 clientId={client.id}
-                dirigeant={
-                  dirigeantContact
-                    ? {
-                        civilite: dirigeantContact.civilite,
-                        prenom: dirigeantContact.prenom,
-                        nom: dirigeantContact.nom,
-                        email: dirigeantContact.email,
-                        telephone: dirigeantContact.telephone,
-                      }
-                    : null
-                }
-              />
-              <SignatureButton
-                clientId={client.id}
-                denomination={client.denomination}
-                finMissionDate={client.fin_mission_date}
                 dirigeant={
                   dirigeantContact
                     ? {
