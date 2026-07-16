@@ -832,6 +832,7 @@ const NUMERIC_NOT_NULL = new Set([
   "forfait_bilan",
   "honoraires_jur",
   "tdb_honos_periode",
+  "oss_honos_trimestre",
   "honoraires_reprise",
   "honoraires_creation",
   "exceptionnel",

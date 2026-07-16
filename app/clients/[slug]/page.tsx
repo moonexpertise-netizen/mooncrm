@@ -160,6 +160,27 @@ export default async function IdentiteTab({
             </>
           )}
         </div>
+        <div className="border-t pt-2 mt-1">
+          {/* Guichet unique - OSS : calqué sur le pilotage mais toujours
+              trimestriel (déclaration OSS trimestrielle). */}
+          <EditableSelect clientId={id} field="oss_periode" value={client.oss_periode} label="Guichet unique - OSS" options={["Trimestriel", "Non souscrit"]} permission="edit_honoraires" />
+          {client.oss_periode === "Trimestriel" && (
+            <>
+              <EditableNumber
+                clientId={id}
+                field="oss_honos_trimestre"
+                value={client.oss_honos_trimestre}
+                label="↳ Montant / trimestre"
+                unit="eur"
+                permission="edit_honoraires"
+              />
+              <FieldReadonly
+                label="↳ Équivalent mensuel"
+                value={fmtEuro(client.forfait_oss ?? 0) ?? "-"}
+              />
+            </>
+          )}
+        </div>
         <div className="border-t pt-2 mt-2 space-y-0.5">
           <FieldReadonly label="MRR" value={fmtEuro(client.mrr ?? 0) ?? "-"} />
           <FieldReadonly label="ARR" value={fmtEuro(client.arr ?? 0) ?? "-"} />

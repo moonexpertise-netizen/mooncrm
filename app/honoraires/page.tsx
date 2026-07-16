@@ -23,7 +23,7 @@ export default async function HonorairesPage() {
   const { data, error } = await sb
     .from("clients")
     .select(
-      "id, slug, denomination, pipeline_statut, origine, honoraires_compta, type_honos_bilans, forfait_bilan, tdb_periode, tdb_honos_periode, forfait_pilotage, type_honos_jur, honoraires_jur, mrr, arr"
+      "id, slug, denomination, pipeline_statut, origine, honoraires_compta, type_honos_bilans, forfait_bilan, tdb_periode, tdb_honos_periode, forfait_pilotage, oss_periode, oss_honos_trimestre, forfait_oss, type_honos_jur, honoraires_jur, mrr, arr"
     )
     .order("denomination", { ascending: true });
 
@@ -47,6 +47,9 @@ export default async function HonorairesPage() {
     tdb_periode: c.tdb_periode,
     tdb_honos_periode: Number(c.tdb_honos_periode ?? 0),
     forfait_pilotage: Number(c.forfait_pilotage ?? 0),
+    oss_periode: c.oss_periode,
+    oss_honos_trimestre: Number(c.oss_honos_trimestre ?? 0),
+    forfait_oss: Number(c.forfait_oss ?? 0),
     type_honos_jur: c.type_honos_jur,
     honoraires_jur: Number(c.honoraires_jur ?? 0),
     mrr: Number(c.mrr ?? 0),

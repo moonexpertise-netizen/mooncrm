@@ -20,6 +20,8 @@ export type LDMContext = {
   type_honos_reprise: "Facturés" | "Non souscrit" | null;
   tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;      // montant par période
+  oss_periode: "Trimestriel" | "Non souscrit" | null;  // Guichet unique - OSS
+  oss_honos_trimestre: number;    // montant par trimestre (saisi)
   forfait_bilan: number;          // annuel (saisi)
   honoraires_jur: number;         // annuel
   honoraires_reprise: number;     // one-shot
@@ -99,6 +101,18 @@ export function phraseTdb(ctx: LDMContext): string {
   }
   const periodeLower = ctx.tdb_periode.toLowerCase(); // "mensuel" | "trimestriel"
   return `Souscription du forfait pilotage, avec présentation d'un tableau de bord ${periodeLower}. Chaque période de restitution sera facturée ${eur(ctx.tdb_honos_periode)} € HT.`;
+}
+
+/**
+ * Guichet unique - OSS (toujours trimestriel). Calqué sur phraseTdb.
+ *   · oss_periode = null OU "Non souscrit" → "Non souscrit."
+ *   · "Trimestriel" → phrase de souscription avec montant par trimestre.
+ */
+export function phraseOss(ctx: LDMContext): string {
+  if (ctx.oss_periode !== "Trimestriel" || ctx.oss_honos_trimestre <= 0) {
+    return "Non souscrit.";
+  }
+  return `Souscription du forfait de gestion du guichet unique (OSS), avec déclarations trimestrielles. Chaque déclaration trimestrielle sera facturée ${eur(ctx.oss_honos_trimestre)} € HT.`;
 }
 
 /**

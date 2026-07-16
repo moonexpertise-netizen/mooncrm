@@ -32,6 +32,8 @@ async function main() {
       type_honos_reprise: "Facturés",
       tdb_periode: "Trimestriel",
       tdb_honos_periode: 225,
+      oss_periode: "Trimestriel",
+      oss_honos_trimestre: 150,
     },
     { civilite: "M.", prenom: "Benjamin", nom: "PEREZ" }
   );

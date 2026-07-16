@@ -14,6 +14,7 @@ import {
   phraseJuridique,
   phraseReprise,
   phraseTdb,
+  phraseOss,
   type LDMContext,
 } from "./ldm-phrases";
 
@@ -55,6 +56,8 @@ export type LDMClientData = {
   type_honos_reprise: "Facturés" | "Non souscrit" | null;
   tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;
+  oss_periode: "Trimestriel" | "Non souscrit" | null;   // Guichet unique - OSS
+  oss_honos_trimestre: number;                           // montant par trimestre
 };
 
 export type LDMDirigeantData = {
@@ -86,6 +89,8 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     type_honos_reprise: client.type_honos_reprise,
     tdb_periode: client.tdb_periode,
     tdb_honos_periode: client.tdb_honos_periode,
+    oss_periode: client.oss_periode,
+    oss_honos_trimestre: client.oss_honos_trimestre,
     forfait_bilan: client.forfait_bilan,
     honoraires_jur: client.honoraires_jur,
     honoraires_reprise: client.honoraires_reprise,
@@ -135,6 +140,7 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     Phrase_juridique: phraseJuridique(ctx),
     Phrase_reprise: phraseReprise(ctx),
     Phrase_tdb: phraseTdb(ctx),
+    Phrase_oss: phraseOss(ctx),
   };
 }
 

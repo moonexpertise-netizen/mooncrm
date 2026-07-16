@@ -25,6 +25,12 @@ export type HonoRow = {
   tdb_honos_periode: number;
   /** Équivalent MENSUEL du pilotage (calculé côté DB). */
   forfait_pilotage: number;
+  /** Guichet unique - OSS (toujours trimestriel). */
+  oss_periode: "Trimestriel" | "Non souscrit" | null;
+  /** Montant OSS PAR TRIMESTRE (source de vérité). */
+  oss_honos_trimestre: number;
+  /** Équivalent MENSUEL de l'OSS (calculé côté DB). */
+  forfait_oss: number;
   type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
   /** Forfait juridique ANNUEL (pertinent si type = Facturés). */
   honoraires_jur: number;
@@ -32,8 +38,8 @@ export type HonoRow = {
   arr: number;
 };
 
-type SortKey = "denomination" | "compta" | "bilan" | "pilotage" | "jur" | "mrr";
-type EditableField = "honoraires_compta" | "forfait_bilan" | "tdb_honos_periode" | "honoraires_jur";
+type SortKey = "denomination" | "compta" | "bilan" | "pilotage" | "oss" | "jur" | "mrr";
+type EditableField = "honoraires_compta" | "forfait_bilan" | "tdb_honos_periode" | "oss_honos_trimestre" | "honoraires_jur";
 
 export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
   const canEdit = useCan("edit_honoraires");
@@ -64,6 +70,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
         case "compta": return r.honoraires_compta;
         case "bilan": return r.type_honos_bilans === "Facturés" ? r.forfait_bilan : -1;
         case "pilotage": return r.tdb_periode === "Mensuel" || r.tdb_periode === "Trimestriel" ? r.forfait_pilotage : -1;
+        case "oss": return r.oss_periode === "Trimestriel" ? r.forfait_oss : -1;
         case "jur": return r.type_honos_jur === "Facturés" ? r.honoraires_jur : -1;
         case "mrr": return r.mrr;
         default: return r.denomination;
@@ -91,14 +98,15 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
 
   // ---- Totaux (sur le périmètre filtré) --------------------------------------
   const totals = useMemo(() => {
-    let compta = 0, bilan = 0, pilotage = 0, jur = 0;
+    let compta = 0, bilan = 0, pilotage = 0, oss = 0, jur = 0;
     for (const r of filtered) {
       compta += r.honoraires_compta;
       if (r.type_honos_bilans === "Facturés") bilan += r.forfait_bilan;
       if (r.tdb_periode === "Mensuel" || r.tdb_periode === "Trimestriel") pilotage += r.forfait_pilotage;
+      if (r.oss_periode === "Trimestriel") oss += r.forfait_oss;
       if (r.type_honos_jur === "Facturés") jur += r.honoraires_jur;
     }
-    return { compta, bilan, pilotage, jur };
+    return { compta, bilan, pilotage, oss, jur };
   }, [filtered]);
 
   // ---- Édition inline ---------------------------------------------------------
@@ -112,6 +120,10 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
         if (field === "tdb_honos_periode") {
           next.forfait_pilotage =
             r.tdb_periode === "Trimestriel" ? Math.round((value / 3) * 100) / 100 : value;
+        }
+        if (field === "oss_honos_trimestre") {
+          // OSS toujours trimestriel -> équivalent mensuel = montant / 3
+          next.forfait_oss = Math.round((value / 3) * 100) / 100;
         }
         return next;
       })
@@ -138,10 +150,11 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
   return (
     <div className="space-y-4">
       {/* KPI : totaux par nature, sur le périmètre affiché */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger-in">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 stagger-in">
         <Kpi label="Compta" value={`${fmtEuro(Math.round(totals.compta))} /mois`} sub={`${fmtEuro(Math.round(totals.compta * 12))} /an`} />
         <Kpi label="Bilans facturés" value={`${fmtEuro(Math.round(totals.bilan))} /an`} sub="type_honos_bilans = Facturés" />
         <Kpi label="Pilotage" value={`${fmtEuro(Math.round(totals.pilotage))} /mois`} sub={`${fmtEuro(Math.round(totals.pilotage * 12))} /an`} />
+        <Kpi label="Guichet OSS" value={`${fmtEuro(Math.round(totals.oss))} /mois`} sub={`${fmtEuro(Math.round(totals.oss * 12))} /an`} />
         <Kpi label="Juridique facturé" value={`${fmtEuro(Math.round(totals.jur))} /an`} sub="type_honos_jur = Facturés" />
       </div>
 
@@ -185,7 +198,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
         />
       ) : (
         <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-x-auto">
-          <table className="w-full text-sm min-w-[860px]">
+          <table className="w-full text-sm min-w-[960px]">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground border-b border-zinc-100 dark:border-white/[0.06] bg-zinc-50/60 dark:bg-white/[0.02]">
                 <th className="px-3 py-2.5 font-medium">
@@ -206,6 +219,11 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                 <th className="px-3 py-2.5 font-medium text-right">
                   <button type="button" onClick={() => toggleSort("pilotage")} className={thBtn}>
                     Pilotage <SortIcon col="pilotage" />
+                  </button>
+                </th>
+                <th className="px-3 py-2.5 font-medium text-right">
+                  <button type="button" onClick={() => toggleSort("oss")} className={thBtn}>
+                    Guichet OSS <SortIcon col="oss" />
                   </button>
                 </th>
                 <th className="px-3 py-2.5 font-medium text-right">
@@ -272,6 +290,24 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                       <TypeBadge label="—" />
                     )}
                   </td>
+                  {/* Guichet OSS : toujours trimestriel ; montant/trim + équiv mensuel */}
+                  <td className="px-3 py-2 text-right">
+                    {r.oss_periode === "Trimestriel" ? (
+                      <div className="inline-flex flex-col items-end">
+                        <CellEuro
+                          value={r.oss_honos_trimestre}
+                          canEdit={canEdit}
+                          suffix="/trim"
+                          onCommit={(v) => commit(r, "oss_honos_trimestre", v)}
+                        />
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          = {fmtEuro(Math.round(r.forfait_oss))} /mois
+                        </span>
+                      </div>
+                    ) : (
+                      <TypeBadge label="—" />
+                    )}
+                  </td>
                   {/* Juridique : montant si Facturés, badge sinon */}
                   <td className="px-3 py-2 text-right">
                     {r.type_honos_jur === "Facturés" ? (
@@ -300,6 +336,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtEuro(Math.round(totals.compta))}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtEuro(Math.round(totals.bilan))}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtEuro(Math.round(totals.pilotage))}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{fmtEuro(Math.round(totals.oss))}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtEuro(Math.round(totals.jur))}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">
                   {fmtEuro(Math.round(filtered.reduce((s, r) => s + r.mrr, 0)))}
@@ -314,9 +351,9 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        Les colonnes Bilan / Pilotage / Juridique n&apos;affichent un montant que si le forfait est
-        facturé (sinon « Inclus » ou « — »). Pour changer un type Facturés / Inclus / Non souscrit,
-        ouvre la fiche du dossier.
+        Les colonnes Bilan / Pilotage / Guichet OSS / Juridique n&apos;affichent un montant que si le
+        forfait est souscrit / facturé (sinon « Inclus » ou « — »). Le Guichet OSS est toujours
+        trimestriel. Pour changer un type Facturés / Inclus / Non souscrit, ouvre la fiche du dossier.
       </p>
     </div>
   );

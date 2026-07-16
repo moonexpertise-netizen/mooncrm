@@ -89,8 +89,12 @@ export interface Client {
   type_honos_reprise: "Facturés" | "Non souscrit" | null;
   tdb_periode: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
   tdb_honos_periode: number;
-  mrr: number;                 // GENERATED · compta + pilotage + (bilan + jur)/12
-  arr: number;                 // GENERATED · (compta + pilotage) * 12 + bilan + jur
+  // Guichet unique - OSS (toujours trimestriel). Cf. migration 0086.
+  oss_periode: "Trimestriel" | "Non souscrit" | null;
+  oss_honos_trimestre: number;  // montant par trimestre (saisi)
+  forfait_oss: number;          // GENERATED · équivalent mensuel (= /3 si Trimestriel)
+  mrr: number;                 // GENERATED · compta + pilotage + oss + (bilan + jur)/12
+  arr: number;                 // GENERATED · (compta + pilotage + oss) * 12 + bilan + jur
   created_at: string;
   updated_at: string;
 }
