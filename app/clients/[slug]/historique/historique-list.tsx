@@ -16,6 +16,7 @@ type AuditEntry = {
   changed_at: string;
   changed_by_email: string | null;
   source: string;
+  motif: string | null;
 };
 
 /** Categorie d'affichage des champs - pour les filtres pills en haut. */
@@ -27,6 +28,8 @@ const FIELD_META: Record<string, { label: string; category: Category; format: "m
   honoraires_compta: { label: "Honoraires compta", category: "honoraires", format: "money" },
   forfait_bilan: { label: "Forfait bilan", category: "honoraires", format: "money" },
   honoraires_jur: { label: "Honoraires juridique", category: "honoraires", format: "money" },
+  tdb_honos_periode: { label: "Honoraires pilotage", category: "honoraires", format: "money" },
+  oss_honos_trimestre: { label: "Honoraires OSS", category: "honoraires", format: "money" },
   honoraires_creation: { label: "Honoraires création", category: "honoraires", format: "money" },
   honoraires_reprise: { label: "Honoraires reprise", category: "honoraires", format: "money" },
   type_honos_bilans: { label: "Type honos bilans", category: "honoraires", format: "raw" },
@@ -205,6 +208,11 @@ function Entry({ entry }: { entry: AuditEntry }) {
             {newFmt}
           </span>
         </div>
+        {entry.motif && (
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 italic">
+            Motif : {entry.motif}
+          </div>
+        )}
       </div>
       {/* Col 3 : auteur + source */}
       <div className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 shrink-0">

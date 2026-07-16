@@ -20,6 +20,8 @@ export const TRACKED_AUDIT_FIELDS = [
   "honoraires_compta",
   "forfait_bilan",
   "honoraires_jur",
+  "tdb_honos_periode",
+  "oss_honos_trimestre",
   "honoraires_creation",
   "honoraires_reprise",
   "mrr_conditionne",
@@ -55,7 +57,8 @@ export async function logClientChanges(
   clientId: string,
   before: Record<string, unknown> | null | undefined,
   after: Record<string, unknown>,
-  source: AuditSource = "manuel"
+  source: AuditSource = "manuel",
+  motif: string | null = null
 ): Promise<void> {
   if (!before) return;
 
@@ -74,6 +77,7 @@ export async function logClientChanges(
     changed_by: string | null;
     changed_by_email: string | null;
     source: AuditSource;
+    motif: string | null;
   };
   const rows: Row[] = [];
 
@@ -97,6 +101,7 @@ export async function logClientChanges(
       changed_by: userId,
       changed_by_email: email,
       source,
+      motif,
     });
   }
 

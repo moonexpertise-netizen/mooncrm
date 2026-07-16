@@ -8,7 +8,8 @@ import { cn, fmtEuro } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useCan } from "@/app/_components/permissions-context";
 import { EmptyState } from "@/app/_components/ui";
-import { updateClient, finirForfaitDebut } from "@/app/clients/[slug]/actions";
+import { finirForfaitDebut } from "@/app/clients/[slug]/actions";
+import AdjustHonorairesModal from "@/app/clients/[slug]/adjust-honoraires-modal";
 
 export type HonoRow = {
   id: string;
@@ -42,21 +43,20 @@ export type HonoRow = {
   forfait_debut_nb_mois: number | null;
   forfait_debut_date_fin: string | null;
   forfait_debut_termine: boolean;
+  forfait_debut_termine_at: string | null;
   mrr: number;
   arr: number;
 };
 
 type SortKey = "denomination" | "compta" | "bilan" | "pilotage" | "oss" | "jur" | "mrr";
-type EditableField = "honoraires_compta" | "forfait_bilan" | "tdb_honos_periode" | "oss_honos_trimestre" | "honoraires_jur";
 
 export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
   const canEdit = useCan("edit_honoraires");
-  const [localRows, setLocalRows] = useState(rows);
+  const [localRows] = useState(rows);
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState<"ldm" | "tous">("ldm");
   const [sortKey, setSortKey] = useState<SortKey>("denomination");
   const [sortAsc, setSortAsc] = useState(true);
-  const [, startTransition] = useTransition();
 
   // ---- Filtrage (périmètre + recherche) ------------------------------------
   // Périmètre par défaut : CLIENTS uniquement (pipeline "8 - LDM signée").
@@ -116,36 +116,6 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
     }
     return { compta, bilan, pilotage, oss, jur };
   }, [filtered]);
-
-  // ---- Édition inline ---------------------------------------------------------
-  function commit(row: HonoRow, field: EditableField, value: number) {
-    // Optimiste : maj locale immédiate. Pour le pilotage, on recalcule aussi
-    // l'équivalent mensuel local (la DB le fait de son côté).
-    setLocalRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== row.id) return r;
-        const next = { ...r, [field]: value };
-        if (field === "tdb_honos_periode") {
-          next.forfait_pilotage =
-            r.tdb_periode === "Trimestriel" ? Math.round((value / 3) * 100) / 100 : value;
-        }
-        if (field === "oss_honos_trimestre") {
-          // OSS toujours trimestriel -> équivalent mensuel = montant / 3
-          next.forfait_oss = Math.round((value / 3) * 100) / 100;
-        }
-        return next;
-      })
-    );
-    startTransition(async () => {
-      try {
-        await updateClient(row.id, { [field]: value });
-      } catch (e) {
-        toastError(e, "Echec de la sauvegarde");
-        // Retour à la valeur serveur d'origine
-        setLocalRows((prev) => prev.map((r) => (r.id === row.id ? row : r)));
-      }
-    });
-  }
 
   const thBtn =
     "inline-flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors";
@@ -248,6 +218,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                   </button>
                 </th>
                 <th className="px-3 py-2.5 font-medium text-right">ARR</th>
+                <th className="px-2 py-2.5 font-medium text-right w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
@@ -261,22 +232,14 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                       {r.denomination}
                     </Link>
                   </td>
-                  {/* Compta : toujours éditable */}
+                  {/* Montants : LECTURE SEULE (édition via "Ajuster" -> motif). */}
                   <td className="px-3 py-2 text-right">
-                    <CellEuro
-                      value={r.honoraires_compta}
-                      canEdit={canEdit}
-                      onCommit={(v) => commit(r, "honoraires_compta", v)}
-                    />
+                    <CellEuro value={r.honoraires_compta} canEdit={false} />
                   </td>
                   {/* Bilan : montant si Facturés, badge sinon */}
                   <td className="px-3 py-2 text-right">
                     {r.type_honos_bilans === "Facturés" ? (
-                      <CellEuro
-                        value={r.forfait_bilan}
-                        canEdit={canEdit}
-                        onCommit={(v) => commit(r, "forfait_bilan", v)}
-                      />
+                      <CellEuro value={r.forfait_bilan} canEdit={false} />
                     ) : (
                       <TypeBadge label={r.type_honos_bilans ?? "—"} />
                     )}
@@ -285,12 +248,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                   <td className="px-3 py-2 text-right">
                     {r.tdb_periode === "Mensuel" || r.tdb_periode === "Trimestriel" ? (
                       <div className="inline-flex flex-col items-end">
-                        <CellEuro
-                          value={r.tdb_honos_periode}
-                          canEdit={canEdit}
-                          suffix={r.tdb_periode === "Mensuel" ? "/mois" : "/trim"}
-                          onCommit={(v) => commit(r, "tdb_honos_periode", v)}
-                        />
+                        <CellEuro value={r.tdb_honos_periode} canEdit={false} suffix={r.tdb_periode === "Mensuel" ? "/mois" : "/trim"} />
                         {r.tdb_periode === "Trimestriel" && (
                           <span className="text-[10px] text-muted-foreground tabular-nums">
                             = {fmtEuro(Math.round(r.forfait_pilotage))} /mois
@@ -305,12 +263,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                   <td className="px-3 py-2 text-right">
                     {r.oss_periode === "Trimestriel" ? (
                       <div className="inline-flex flex-col items-end">
-                        <CellEuro
-                          value={r.oss_honos_trimestre}
-                          canEdit={canEdit}
-                          suffix="/trim"
-                          onCommit={(v) => commit(r, "oss_honos_trimestre", v)}
-                        />
+                        <CellEuro value={r.oss_honos_trimestre} canEdit={false} suffix="/trim" />
                         <span className="text-[10px] text-muted-foreground tabular-nums">
                           = {fmtEuro(Math.round(r.forfait_oss))} /mois
                         </span>
@@ -322,11 +275,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                   {/* Juridique : montant si Facturés, badge sinon */}
                   <td className="px-3 py-2 text-right">
                     {r.type_honos_jur === "Facturés" ? (
-                      <CellEuro
-                        value={r.honoraires_jur}
-                        canEdit={canEdit}
-                        onCommit={(v) => commit(r, "honoraires_jur", v)}
-                      />
+                      <CellEuro value={r.honoraires_jur} canEdit={false} />
                     ) : (
                       <TypeBadge label={r.type_honos_jur ?? "—"} />
                     )}
@@ -336,6 +285,21 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {fmtEuro(Math.round(r.arr))}
+                  </td>
+                  <td className="px-2 py-2 text-right">
+                    <AdjustHonorairesModal
+                      compact
+                      clientId={r.id}
+                      compta={r.honoraires_compta}
+                      typeBilan={r.type_honos_bilans}
+                      forfaitBilan={r.forfait_bilan}
+                      typeJur={r.type_honos_jur}
+                      honosJur={r.honoraires_jur}
+                      tdbPeriode={r.tdb_periode}
+                      tdbHonosPeriode={r.tdb_honos_periode}
+                      ossPeriode={r.oss_periode}
+                      ossHonosTrimestre={r.oss_honos_trimestre}
+                    />
                   </td>
                 </tr>
               ))}
@@ -355,6 +319,7 @@ export default function HonorairesGrid({ rows }: { rows: HonoRow[] }) {
                 <td className="px-3 py-2.5 text-right tabular-nums">
                   {fmtEuro(Math.round(filtered.reduce((s, r) => s + r.arr, 0)))}
                 </td>
+                <td className="px-2 py-2.5" />
               </tr>
             </tfoot>
           </table>
@@ -410,7 +375,7 @@ function CellEuro({
   value: number;
   canEdit: boolean;
   suffix?: string;
-  onCommit: (v: number) => void;
+  onCommit?: (v: number) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -419,7 +384,7 @@ function CellEuro({
     setEditing(false);
     const n = parseFloat(draft.replace(",", "."));
     if (!Number.isFinite(n) || n < 0 || n === value) return;
-    onCommit(Math.round(n * 100) / 100);
+    onCommit?.(Math.round(n * 100) / 100);
   }
 
   if (editing) {
@@ -497,13 +462,17 @@ function ForfaitsDebutPanel({ rows, canEdit }: { rows: HonoRow[]; canEdit: boole
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [done, setDone] = useState<Set<string>>(new Set());
-  const active = rows.filter(
-    (r) => r.forfait_debut_montant > 0 && !r.forfait_debut_termine && !done.has(r.id)
-  );
-  if (active.length === 0) return null;
+  const [tab, setTab] = useState<"en_cours" | "archives">("en_cours");
+
+  const withForfait = rows.filter((r) => r.forfait_debut_montant > 0);
+  const active = withForfait.filter((r) => !r.forfait_debut_termine && !done.has(r.id));
+  const archived = withForfait.filter((r) => r.forfait_debut_termine || done.has(r.id));
+  if (withForfait.length === 0) return null;
+
+  const shown = tab === "en_cours" ? active : archived;
 
   function terminer(r: HonoRow) {
-    setDone((prev) => new Set(prev).add(r.id)); // retrait optimiste
+    setDone((prev) => new Set(prev).add(r.id)); // retrait optimiste de "en cours"
     startTransition(async () => {
       try {
         await finirForfaitDebut(r.id);
@@ -522,47 +491,78 @@ function ForfaitsDebutPanel({ rows, canEdit }: { rows: HonoRow[]; canEdit: boole
 
   return (
     <div className="rounded-xl border border-[hsl(var(--gold))]/25 bg-[hsl(var(--gold))]/[0.05] dark:bg-[hsl(var(--gold))]/[0.06] p-4">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <Rocket className="h-4 w-4 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))]" />
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          Forfaits de début en cours
-        </h2>
-        <span className="text-xs text-muted-foreground">({active.length})</span>
-      </div>
-      <ul className="space-y-1.5">
-        {active.map((r) => (
-          <li
-            key={r.id}
-            className="flex items-center gap-3 flex-wrap rounded-lg bg-white dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/[0.08] px-3 py-2"
-          >
-            <Link
-              href={`/clients/${r.slug}`}
-              className="font-medium text-sm text-zinc-900 dark:text-zinc-100 hover:underline underline-offset-2 min-w-0 truncate"
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Forfaits de début</h2>
+        <div className="ml-auto inline-flex items-center gap-1 p-0.5 rounded-lg bg-white/60 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
+          {([["en_cours", `En cours (${active.length})`], ["archives", `Archivés (${archived.length})`]] as const).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className={cn(
+                "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                tab === k
+                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 shadow-card"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              )}
             >
-              {r.denomination}
-            </Link>
-            <span className="text-xs tabular-nums text-zinc-700 dark:text-zinc-300 shrink-0">
-              {fmtEuro(r.forfait_debut_montant)} /mois
-            </span>
-            <span className="text-[11px] text-muted-foreground min-w-0 truncate">
-              {forfaitDebutSummary(r)}
-            </span>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => terminer(r)}
-                className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors"
-                title="Clôturer le forfait de début (rythme de croisière atteint)"
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {shown.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-2">
+          {tab === "en_cours" ? "Aucun forfait de début en cours." : "Aucun forfait de début archivé."}
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {shown.map((r) => (
+            <li
+              key={r.id}
+              className={cn(
+                "flex items-center gap-3 flex-wrap rounded-lg bg-white dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/[0.08] px-3 py-2",
+                tab === "archives" && "opacity-75"
+              )}
+            >
+              <Link
+                href={`/clients/${r.slug}`}
+                className="font-medium text-sm text-zinc-900 dark:text-zinc-100 hover:underline underline-offset-2 min-w-0 truncate"
               >
-                <Check className="h-3.5 w-3.5" /> Rythme de croisière
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+                {r.denomination}
+              </Link>
+              <span className="text-xs tabular-nums text-zinc-700 dark:text-zinc-300 shrink-0">
+                {fmtEuro(r.forfait_debut_montant)} /mois
+              </span>
+              <span className="text-[11px] text-muted-foreground min-w-0 truncate">
+                {forfaitDebutSummary(r)}
+              </span>
+              {tab === "archives" ? (
+                <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                  {r.forfait_debut_termine_at ? `Clôturé le ${fmtDateFr(r.forfait_debut_termine_at)}` : "Clôturé"}
+                </span>
+              ) : (
+                canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => terminer(r)}
+                    className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors"
+                    title="Clôturer le forfait de début (rythme de croisière atteint)"
+                  >
+                    <Check className="h-3.5 w-3.5" /> Rythme de croisière
+                  </button>
+                )
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <p className="text-[11px] text-muted-foreground mt-2">
-        « Rythme de croisière » clôt le forfait de début : le dossier sort de cette liste et la
-        lettre de mission ne mentionne plus le tarif réduit.
+        « Rythme de croisière » clôt le forfait de début (il passe dans « Archivés » et la lettre de
+        mission ne mentionne plus le tarif réduit). L'historique des remises accordées est conservé.
       </p>
     </div>
   );

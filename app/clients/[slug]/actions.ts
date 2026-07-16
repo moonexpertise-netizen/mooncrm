@@ -858,14 +858,18 @@ export async function updateClient(
   // payer un select inutile sur chaque keystroke (l'edition inline peut
   // declencher updateClient a chaque blur).
   const patchKeys = Object.keys(patch);
-  const touchesTracked = patchKeys.some((k) =>
+  // On ne lit QUE les colonnes trackées effectivement présentes dans le patch
+  // (toutes réelles, puisqu'on est en train de les updater). Éviter de
+  // select tout TRACKED_AUDIT_FIELDS protège d'un champ tracké sans colonne
+  // réelle (qui ferait échouer le select et perdre tout l'audit).
+  const trackedKeys = patchKeys.filter((k) =>
     (TRACKED_AUDIT_FIELDS as readonly string[]).includes(k)
   );
   let before: Record<string, unknown> | null = null;
-  if (touchesTracked) {
+  if (trackedKeys.length > 0) {
     const { data } = await sb
       .from("clients")
-      .select(TRACKED_AUDIT_FIELDS.join(", "))
+      .select(trackedKeys.join(", "))
       .eq("id", clientId)
       .maybeSingle();
     before = (data as unknown as Record<string, unknown>) ?? null;
@@ -1017,10 +1021,73 @@ export async function finirForfaitDebut(clientId: string) {
   const sb = await createClient();
   const { error } = await sb
     .from("clients")
-    .update({ forfait_debut_termine: true })
+    .update({ forfait_debut_termine: true, forfait_debut_termine_at: new Date().toISOString() })
     .eq("id", clientId);
   if (error) throw new Error(error.message);
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/honoraires");
+}
+
+/**
+ * Révision des honoraires récurrents avec MOTIF obligatoire. Seul point
+ * d'entrée pour modifier les montants (compta / bilan / juridique / pilotage /
+ * OSS) : chaque changement est journalisé dans client_audit_log avec le motif
+ * saisi. `patch` ne peut contenir que ces champs (whitelist).
+ */
+const HONOS_MONTANTS = new Set([
+  "honoraires_compta",
+  "forfait_bilan",
+  "honoraires_jur",
+  "tdb_honos_periode",
+  "oss_honos_trimestre",
+]);
+
+export async function reviseHonoraires(
+  clientId: string,
+  patch: Record<string, number>,
+  motif: string
+) {
+  await requirePermission("edit_honoraires");
+  const trimmed = (motif ?? "").trim();
+  if (!trimmed) throw new Error("Motif obligatoire pour une révision d'honoraires.");
+
+  // Whitelist stricte : uniquement les montants d'honoraires récurrents.
+  const clean: Record<string, number> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (!HONOS_MONTANTS.has(k)) continue;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) continue;
+    clean[k] = Math.round(n * 100) / 100;
+  }
+  if (Object.keys(clean).length === 0) {
+    throw new Error("Aucun montant valide à réviser.");
+  }
+
+  const sb = await createClient();
+
+  // Snapshot AVANT : on ne lit QUE les colonnes réellement modifiées (toutes
+  // réelles) — pas tout TRACKED_AUDIT_FIELDS (qui peut contenir un champ sans
+  // colonne, ce qui ferait échouer le select et perdre l'audit + le motif).
+  const { data: before } = await sb
+    .from("clients")
+    .select(Object.keys(clean).join(", "))
+    .eq("id", clientId)
+    .maybeSingle();
+
+  const { error } = await sb.from("clients").update(clean).eq("id", clientId);
+  if (error) throw new Error(error.message);
+
+  await logClientChanges(
+    sb,
+    clientId,
+    (before as unknown as Record<string, unknown>) ?? null,
+    clean,
+    "manuel",
+    trimmed
+  );
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/honoraires");
+  revalidateFinanceViews();
 }
 

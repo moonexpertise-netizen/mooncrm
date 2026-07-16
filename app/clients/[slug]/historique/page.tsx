@@ -29,7 +29,7 @@ export default async function HistoriquePage({
 
   const { data: entries } = await sb
     .from("client_audit_log")
-    .select("id, field, old_value, new_value, changed_at, changed_by_email, source")
+    .select("id, field, old_value, new_value, changed_at, changed_by_email, source, motif")
     .eq("client_id", client.id)
     .order("changed_at", { ascending: false })
     .limit(500);

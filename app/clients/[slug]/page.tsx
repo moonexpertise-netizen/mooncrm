@@ -13,6 +13,7 @@ import {
   EditableText,
 } from "./editable";
 import { ClotureSplit, EditableBilanOffert, EditableGestionTns, EditableTextArea } from "./editable-extras";
+import AdjustHonorairesModal from "./adjust-honoraires-modal";
 import { Card, FieldReadonly, SectionTitle } from "./_components";
 import { loadClient, loadContactsLink, loadActiveTvaTags, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
@@ -128,12 +129,30 @@ export default async function IdentiteTab({
         sub="Forfaits qui alimentent la lettre de mission"
       />
       <Card title="Forfaits récurrents">
-        <EditableNumber clientId={id} field="honoraires_compta" value={client.honoraires_compta} label="Forfait comptable" unit="eur" permission="edit_honoraires" />
+        {/* Les MONTANTS sont en lecture seule : ils se modifient uniquement via
+            "Ajuster les honoraires" (motif obligatoire, journalisé dans
+            l'Historique). Les TYPES (Facturés/Inclus, périodicité) restent
+            modifiables directement. */}
+        <div className="flex justify-end -mt-1 mb-1">
+          <AdjustHonorairesModal
+            clientId={id}
+            compta={client.honoraires_compta ?? 0}
+            typeBilan={client.type_honos_bilans}
+            forfaitBilan={client.forfait_bilan ?? 0}
+            typeJur={client.type_honos_jur}
+            honosJur={client.honoraires_jur ?? 0}
+            tdbPeriode={client.tdb_periode}
+            tdbHonosPeriode={client.tdb_honos_periode ?? 0}
+            ossPeriode={client.oss_periode}
+            ossHonosTrimestre={client.oss_honos_trimestre ?? 0}
+          />
+        </div>
+        <FieldReadonly label="Forfait comptable" value={`${fmtEuro(client.honoraires_compta ?? 0) ?? "0 €"} /mois`} />
         <div className="border-t pt-2 mt-1">
           <EditableSelect clientId={id} field="type_honos_bilans" value={client.type_honos_bilans} label="Forfait bilan" options={["Facturés", "Inclus"]} permission="edit_honoraires" />
           {client.type_honos_bilans === "Facturés" && (
             <>
-              <EditableNumber clientId={id} field="forfait_bilan" value={client.forfait_bilan} label="↳ Montant" unit="eur" permission="edit_honoraires" />
+              <FieldReadonly label="↳ Montant / an" value={fmtEuro(client.forfait_bilan ?? 0) ?? "0 €"} />
               {/* 1er bilan offert : flag LDM + passe auto le 1er bilan facturable
                   en statut de facturation "Offert" (cf. setBilanPremierOffert). */}
               <EditableBilanOffert clientId={id} value={client.bilan_premier_offert === true} label="↳ 1ᵉʳ bilan offert" />
@@ -143,20 +162,16 @@ export default async function IdentiteTab({
         <div className="border-t pt-2 mt-1">
           <EditableSelect clientId={id} field="type_honos_jur" value={client.type_honos_jur} label="Forfait juridique" options={["Facturés", "Inclus", "Non souscrit"]} permission="edit_honoraires" />
           {client.type_honos_jur === "Facturés" && (
-            <EditableNumber clientId={id} field="honoraires_jur" value={client.honoraires_jur} label="↳ Montant" unit="eur" permission="edit_honoraires" />
+            <FieldReadonly label="↳ Montant / an" value={fmtEuro(client.honoraires_jur ?? 0) ?? "0 €"} />
           )}
         </div>
         <div className="border-t pt-2 mt-1">
           <EditableSelect clientId={id} field="tdb_periode" value={client.tdb_periode} label="Forfait pilotage" options={["Mensuel", "Trimestriel", "Non souscrit"]} permission="edit_honoraires" />
           {(client.tdb_periode === "Mensuel" || client.tdb_periode === "Trimestriel") && (
             <>
-              <EditableNumber
-                clientId={id}
-                field="tdb_honos_periode"
-                value={client.tdb_honos_periode}
+              <FieldReadonly
                 label={`↳ Montant / ${client.tdb_periode === "Mensuel" ? "mois" : "trimestre"}`}
-                unit="eur"
-                permission="edit_honoraires"
+                value={fmtEuro(client.tdb_honos_periode ?? 0) ?? "0 €"}
               />
               <FieldReadonly
                 label="↳ Équivalent mensuel"
@@ -171,14 +186,7 @@ export default async function IdentiteTab({
           <EditableSelect clientId={id} field="oss_periode" value={client.oss_periode} label="Guichet unique - OSS" options={["Trimestriel", "Non souscrit"]} permission="edit_honoraires" />
           {client.oss_periode === "Trimestriel" && (
             <>
-              <EditableNumber
-                clientId={id}
-                field="oss_honos_trimestre"
-                value={client.oss_honos_trimestre}
-                label="↳ Montant / trimestre"
-                unit="eur"
-                permission="edit_honoraires"
-              />
+              <FieldReadonly label="↳ Montant / trimestre" value={fmtEuro(client.oss_honos_trimestre ?? 0) ?? "0 €"} />
               <FieldReadonly
                 label="↳ Équivalent mensuel"
                 value={fmtEuro(client.forfait_oss ?? 0) ?? "-"}
