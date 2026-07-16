@@ -83,6 +83,8 @@ const DERIVED_TRIGGER_FIELDS = new Set([
   "tdb_periode",
   "tdb_honos_periode",
   "forfait_pilotage",
+  "oss_periode",         // affiche/masque le bloc montant + recalcule forfait_oss
+  "oss_honos_trimestre", // recalcule forfait_oss (équiv. mensuel) + MRR/ARR
   "type_honos_creation",
   "honoraires_creation",
   "type_honos_reprise",
