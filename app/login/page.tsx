@@ -27,9 +27,13 @@ export default function LoginPage() {
     const sp = new URLSearchParams(window.location.search);
     if (sp.has("secours")) setRescue(true);
     // Erreur remontée par /auth/callback (échange de code SSO échoué, domaine
-    // refusé par le trigger DB, etc.).
+    // refusé par le trigger DB, etc.). Message volontairement générique : la
+    // cause peut être technique (redirection) OU un email hors domaine — on
+    // n'affirme pas l'un plutôt que l'autre.
     if (sp.get("error") === "auth_failed") {
-      setError("Échec de la connexion. Un compte @moonexpertise.fr est requis.");
+      setError(
+        "La connexion Microsoft a échoué. Vérifie que tu utilises bien ton compte @moonexpertise.fr, puis réessaie."
+      );
     }
   }, []);
   const showPassword = !SSO_ENABLED || rescue;
