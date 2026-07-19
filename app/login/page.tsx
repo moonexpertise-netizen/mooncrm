@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup" | "forgot";
+
+// SSO Microsoft Entra activé côté app ? Piloté par une variable d'env publique
+// (NEXT_PUBLIC_SSO_ENABLED="true"). Tant qu'elle n'est pas posée, la page reste
+// EXACTEMENT en mode e-mail/mot de passe actuel → aucune régression. Le vrai
+// branchement (Client ID/Secret/tenant) se configure côté Supabase + Azure.
+const SSO_ENABLED = process.env.NEXT_PUBLIC_SSO_ENABLED === "true";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("signin");
@@ -12,6 +18,40 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Accès de secours par mot de passe : caché en usage normal quand le SSO est
+  // actif, révélé uniquement via l'URL ...?secours (anti-verrouillage total si
+  // Microsoft tombe). Sans SSO, le formulaire reste le mode nominal.
+  const [rescue, setRescue] = useState(false);
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.has("secours")) setRescue(true);
+    // Erreur remontée par /auth/callback (échange de code SSO échoué, domaine
+    // refusé par le trigger DB, etc.).
+    if (sp.get("error") === "auth_failed") {
+      setError("Échec de la connexion. Un compte @moonexpertise.fr est requis.");
+    }
+  }, []);
+  const showPassword = !SSO_ENABLED || rescue;
+
+  async function onSSO() {
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "azure",
+      options: {
+        scopes: "openid profile email",
+        redirectTo: `${window.location.origin}/auth/callback?next=/`,
+      },
+    });
+    // En cas de succès, supabase-js redirige le navigateur vers Microsoft :
+    // on n'atteint ce point que si l'appel a échoué.
+    if (error) {
+      setLoading(false);
+      setError("Impossible de lancer la connexion Microsoft. Réessaie.");
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,15 +128,47 @@ export default function LoginPage() {
             MoonCRM
           </h1>
           <p className="text-sm text-zinc-500 mt-1.5">
-            {mode === "signin"
-              ? "Connecte-toi avec ton email et ton mot de passe."
+            {mode === "forgot"
+              ? "Entre ton e-mail, on t'envoie un lien de réinitialisation."
               : mode === "signup"
               ? "Crée un compte pour accéder au CRM."
-              : "Entre ton e-mail, on t'envoie un lien de réinitialisation."}
+              : SSO_ENABLED && !rescue
+              ? "Connecte-toi avec ton compte Microsoft MOON Expertise."
+              : "Connecte-toi avec ton email et ton mot de passe."}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-6">
+        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-card p-6 space-y-4">
+          {/* Bouton SSO Microsoft (mode connexion uniquement). */}
+          {SSO_ENABLED && mode === "signin" && (
+            <button
+              type="button"
+              onClick={onSSO}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2.5 rounded-lg border border-zinc-200 dark:border-white/[0.10] bg-white dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 px-4 py-2.5 text-sm font-medium shadow-card hover:bg-zinc-50 dark:hover:bg-white/[0.08] hover:shadow-card-hover transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+            >
+              <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
+              Se connecter avec Microsoft
+            </button>
+          )}
+
+          {/* Séparateur "accès de secours" quand le SSO est actif ET que le
+              formulaire mot de passe est révélé (?secours). */}
+          {SSO_ENABLED && mode === "signin" && showPassword && (
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-zinc-200 dark:bg-white/[0.10]" />
+              <span className="text-xs text-zinc-400">accès de secours</span>
+              <span className="h-px flex-1 bg-zinc-200 dark:bg-white/[0.10]" />
+            </div>
+          )}
+
+          {/* Formulaire e-mail/mot de passe : masqué en mode SSO nominal. */}
+          {(showPassword || mode === "forgot") && (
           <form onSubmit={onSubmit} className="space-y-3">
             <input
               type="email"
@@ -143,19 +215,24 @@ export default function LoginPage() {
                 </button>
               </div>
             )}
-            {error && (
-              <p className="text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
-            {info && (
-              <p className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg px-3 py-2">
-                {info}
-              </p>
-            )}
           </form>
+          )}
+
+          {/* Erreur / info : hors du formulaire pour rester visibles même en
+              mode SSO (bouton masqué). */}
+          {error && (
+            <p className="text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+          {info && (
+            <p className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg px-3 py-2">
+              {info}
+            </p>
+          )}
         </div>
 
+        {!(SSO_ENABLED && !rescue && mode === "signin") && (
         <div className="text-xs text-center text-zinc-500">
           {mode === "signin" ? (
             <>
@@ -192,6 +269,7 @@ export default function LoginPage() {
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );
