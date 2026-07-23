@@ -18,11 +18,15 @@ import {
   type LDMContext,
 } from "./ldm-phrases";
 
-export type LDMTemplateKey = "presentation" | "bnc";
+export type LDMTemplateKey = "presentation" | "bnc" | "sociale";
 
 const TEMPLATE_FILES: Record<LDMTemplateKey, string> = {
   presentation: "ldm-presentation.docx",
   bnc: "ldm-bnc.docx",
+  // LDM sociale (gestion de la paie) : seuls l'identité et l'adresse sont
+  // personnalisées ({Cher}/{Titre}/{Prenom}/{Nom}/{Societe}/{Adresse_Siege}/
+  // {Code_postal}/{Ville}) — les honoraires du tableau restent fixes.
+  sociale: "ldm-sociale.docx",
 };
 
 const MONTHS_FR = [

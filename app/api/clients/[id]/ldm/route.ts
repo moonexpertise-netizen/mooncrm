@@ -17,7 +17,7 @@ export async function GET(
 ) {
   const { id } = await params;
   const tpl = (request.nextUrl.searchParams.get("template") ?? "presentation") as LDMTemplateKey;
-  if (tpl !== "presentation" && tpl !== "bnc") {
+  if (tpl !== "presentation" && tpl !== "bnc" && tpl !== "sociale") {
     return NextResponse.json({ error: "template invalide" }, { status: 400 });
   }
 
@@ -94,7 +94,7 @@ export async function GET(
     // L'année est tirée de fin_mission_date (clôture 1ère mission), sinon
     // année courante en fallback.
     const denomClean = client.denomination.replace(/[\/\\:*?"<>|]/g, "").trim();
-    const tplLabel = tpl === "presentation" ? "PRESENTATION" : "BNC";
+    const tplLabel = tpl === "presentation" ? "PRESENTATION" : tpl === "bnc" ? "BNC" : "SOCIALE";
     const annee = client.fin_mission_date
       ? new Date(client.fin_mission_date).getFullYear()
       : new Date().getFullYear();

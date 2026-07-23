@@ -28,7 +28,7 @@ export default function LDMButton({
 }) {
   const [open, setOpen] = useState(false);
 
-  function generate(tpl: "presentation" | "bnc") {
+  function generate(tpl: "presentation" | "bnc" | "sociale") {
     window.location.href = `/api/clients/${clientId}/ldm?template=${tpl}`;
     setOpen(false);
   }
@@ -105,6 +105,21 @@ export default function LDMButton({
           <button
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => generate("bnc")}
+            className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--gold))]/10 transition-colors flex items-center gap-2"
+          >
+            <FileType2 className="h-3.5 w-3.5 text-blue-600" />
+            <span className="flex-1">Word (.docx)</span>
+            <span className="text-[10px] text-zinc-400">éditable</span>
+          </button>
+
+          {/* Sociale (gestion de la paie) : seuls identité + adresse sont
+              personnalisées, le reste du modèle est fixe. */}
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 bg-zinc-50/60 border-y">
+            Sociale (paie)
+          </div>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => generate("sociale")}
             className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--gold))]/10 transition-colors flex items-center gap-2"
           >
             <FileType2 className="h-3.5 w-3.5 text-blue-600" />
