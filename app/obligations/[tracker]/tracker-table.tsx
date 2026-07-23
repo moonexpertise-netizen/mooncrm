@@ -10,6 +10,7 @@ import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useCan } from "@/app/_components/permissions-context";
 import {
   bulkUpdateObligationStatus,
+  setEcheanceStatus,
   setObligationFacturation,
   updateObligationStatus,
 } from "../actions";
@@ -92,6 +93,7 @@ type StatutFilter = "A_FAIRE" | "EN_COURS" | "TERMINE" | "NON_APPLICABLE";
 export default function TrackerTable({
   rows,
   cols,
+  year,
   statusOptions,
   focus,
   initialCommentCounts,
@@ -100,6 +102,9 @@ export default function TrackerTable({
   tvaTags,
 }: {
   rows: TrackerRow[];
+  /** Exercice affiché : nécessaire pour créer une obligation absente
+   *  (cellule "-") directement depuis le tracker. */
+  year: number;
   cols: Array<{
     key: string;
     label: string;
@@ -286,6 +291,25 @@ export default function TrackerTable({
       }))
     );
   }, []);
+
+  /**
+   * Patch d'une cellule identifiée par (client, colonne) et non par
+   * obligationId : indispensable pour les cellules VIDES ("-"), qui n'ont
+   * pas encore de ligne en base. Sert aussi à injecter l'obligationId
+   * fraîchement créé une fois l'insert revenu du serveur.
+   */
+  const applyCellPatch = useCallback(
+    (clientId: string, colKey: string, patch: Partial<TrackerCell>) => {
+      setLocalRows((state) =>
+        state.map((r) =>
+          r.clientId !== clientId
+            ? r
+            : { ...r, cells: r.cells.map((c) => (c.colKey === colKey ? { ...c, ...patch } : c)) }
+        )
+      );
+    },
+    []
+  );
 
   // Résolution du focus (`clientId_TYPE_periode`) -> cellId (`clientId|colKey`)
   useEffect(() => {
@@ -1087,9 +1111,37 @@ export default function TrackerTable({
   // pas inutilement. Ils prennent obligationId/type en paramètres au lieu
   // d'être créés en closure à chaque cellule.
   const onPick = useCallback(
-    (obligationId: string, libelle: string, type: string) => {
+    (obligationId: string | null, libelle: string, type: string, clientId: string, colKey: string) => {
       if (!canEditProduction) {
         toastError("Droit d'édition requis pour modifier ce statut.");
+        return;
+      }
+      // Cellule VIDE ("-") : aucune ligne en base. On la crée à la volée avec
+      // le statut choisi (même mécanique que les échéances virtuelles de
+      // /obligations), puis on récupère l'id retourné pour que les clics
+      // suivants passent par un simple update.
+      if (!obligationId) {
+        const meta = colByKey.get(colKey);
+        if (!meta) return;
+        const optNew = (statusOptions[type] ?? []).find((o) => o.libelle === libelle);
+        applyCellPatch(clientId, colKey, {
+          statut_logique: (optNew?.statut_logique as StatutLogique) ?? "A_FAIRE",
+          statut_detail: libelle,
+        });
+        setOpenCellId(null);
+        startTransition(async () => {
+          try {
+            const { obligationId: newId } = await setEcheanceStatus(
+              { obligationId: null, clientId, type, periode: meta.periode, annee: year },
+              libelle
+            );
+            applyCellPatch(clientId, colKey, { obligationId: newId });
+          } catch (e) {
+            toastError(e, "Échec de création de l'obligation");
+          } finally {
+            router.refresh();
+          }
+        });
         return;
       }
       const opts = statusOptions[type] ?? [];
@@ -1129,7 +1181,7 @@ export default function TrackerTable({
         }
       });
     },
-    [statusOptions, applyPatch, router, filtered, visibleCols, canEditProduction]
+    [statusOptions, applyPatch, applyCellPatch, colByKey, year, router, filtered, visibleCols, canEditProduction]
   );
 
   const onReset = useCallback(
@@ -1843,6 +1895,7 @@ export default function TrackerTable({
                           rowLabel={`${r.denomination}, ${col?.label ?? c.type}`}
                           typeHonosBilans={r.type_honos_bilans}
                           canEdit={canEditProduction}
+                          clientId={r.clientId}
                           onOpen={handleOpen}
                           onClose={handleClose}
                           onPick={onPick}
@@ -2203,6 +2256,7 @@ const StatusCell = memo(function StatusCell({
   rowLabel,
   typeHonosBilans,
   canEdit,
+  clientId,
   onPick,
   onReset,
   onOpenComments,
@@ -2226,7 +2280,16 @@ const StatusCell = memo(function StatusCell({
   /** Droit edit_production : sans lui, la pastille de statut est grisee et
    *  n'ouvre pas le picker (la lecture des commentaires reste possible). */
   canEdit: boolean;
-  onPick: (obligationId: string, libelle: string, type: string) => void;
+  /** Id du client de la ligne : requis pour créer l'obligation quand la
+   *  cellule est vide (pas encore d'obligationId). */
+  clientId: string;
+  onPick: (
+    obligationId: string | null,
+    libelle: string,
+    type: string,
+    clientId: string,
+    colKey: string
+  ) => void;
   onReset: (obligationId: string) => void;
   onOpenComments: (
     obligationId: string,
@@ -2297,9 +2360,10 @@ const StatusCell = memo(function StatusCell({
     return groups;
   }, [options]);
 
-  if (!cell.obligationId) {
-    return <span className="text-zinc-300 text-xs">-</span>;
-  }
+  // Cellule VIDE : aucune ligne en base. On la rend quand même cliquable —
+  // choisir un statut créera l'obligation à la volée (cf. onPick). Plus de
+  // "-" mort sur lequel on ne peut rien faire.
+  const isEmpty = !cell.obligationId;
 
   const matchedOption = options.find((o) => o.libelle === cell.statut_detail);
   const colorClass = statutColorClass(cell.statut_logique, matchedOption?.color);
@@ -2362,17 +2426,23 @@ const StatusCell = memo(function StatusCell({
         className={cn(
           "relative inline-block px-2 py-1 rounded-md text-[11px] font-medium border max-w-[110px] truncate transition-all focus-visible:ring-2 focus-visible:ring-[hsl(var(--gold))] focus-visible:ring-offset-1",
           canEdit ? "hover:opacity-80 hover:shadow-sm" : "opacity-50 cursor-not-allowed",
-          colorClass
+          // Vide : bordure pointillée discrète, se révèle au survol pour
+          // signaler qu'elle est activable.
+          isEmpty
+            ? "border-dashed border-zinc-200 dark:border-white/[0.12] text-zinc-300 dark:text-zinc-600 bg-transparent hover:text-zinc-500 dark:hover:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/[0.20]"
+            : colorClass
         )}
         title={
           !canEdit
             ? "Droit d'édition requis"
+            : isEmpty
+            ? "Aucune obligation enregistrée, cliquer pour la créer avec un statut"
             : cell.echeance
             ? `Échéance : ${fmtDateFr(cell.echeance)}`
             : undefined
         }
       >
-        {cell.statut_detail ?? defaultLibelle}
+        {isEmpty ? "-" : cell.statut_detail ?? defaultLibelle}
       </button>
 
 
@@ -2473,7 +2543,7 @@ const StatusCell = memo(function StatusCell({
                     {groupOpts.map((opt) => (
                       <button
                         key={opt.libelle}
-                        onClick={() => cell.obligationId && onPick(cell.obligationId, opt.libelle, cell.type)}
+                        onClick={() => onPick(cell.obligationId, opt.libelle, cell.type, clientId, cell.colKey)}
                         className={cn(
                           "w-full text-left px-3 py-1 text-xs hover:bg-zinc-100 flex items-center gap-2 transition-colors",
                           cell.statut_detail === opt.libelle && "bg-zinc-50"

@@ -213,6 +213,7 @@ export default async function ObligationsPage({
       <TrackerTable
         rows={rows}
         cols={cols}
+        year={year}
         statusOptions={statusOptions}
         focus={focus}
         initialCommentCounts={commentCounts}
