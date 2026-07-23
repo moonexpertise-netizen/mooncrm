@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 export default function LDMButton({
   clientId,
   dirigeant,
+  missingFields = [],
 }: {
   clientId: string;
   dirigeant: {
@@ -25,6 +26,9 @@ export default function LDMButton({
     email: string | null;
     telephone: string | null;
   } | null;
+  /** Champs obligatoires LDM encore vides. On AVERTIT sans bloquer : Benjamin
+   *  garde la possibilité de sortir un brouillon à relire. */
+  missingFields?: string[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -84,6 +88,17 @@ export default function LDMButton({
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-lg border bg-white shadow-xl overflow-hidden animate-slide-up-fade">
+          {/* Avertissement de complétude : la LDM reste générable (brouillon),
+              mais on annonce clairement ce qui sortira vide. */}
+          {missingFields.length > 0 && (
+            <div className="px-3 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-900">
+              <div className="flex items-center gap-1 font-medium">
+                <AlertTriangle className="h-3 w-3" />
+                {missingFields.length} champ{missingFields.length > 1 ? "s" : ""} manquant{missingFields.length > 1 ? "s" : ""}
+              </div>
+              <div className="mt-0.5 text-amber-800">{missingFields.join(", ")}</div>
+            </div>
+          )}
           {/* Présentation */}
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 bg-zinc-50/60 border-b">
             Présentation

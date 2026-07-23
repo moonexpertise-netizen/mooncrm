@@ -18,10 +18,12 @@ export default function FicheTabs({ slug }: { slug: string }) {
   const base = `/clients/${slug}`;
 
   const tabs = [
-    { href: base, label: "Identité", match: (p: string) => p === base },
-    { href: `${base}/exercice`, label: "Échéances", match: (p: string) => p.startsWith(`${base}/exercice`) },
+    { href: base, label: "Informations", match: (p: string) => p === base },
+    { href: `${base}/honoraires`, label: "Honoraires", match: (p: string) => p.startsWith(`${base}/honoraires`) },
     { href: `${base}/obligations`, label: "Obligations", match: (p: string) => p.startsWith(`${base}/obligations`) },
     { href: `${base}/onboarding`, label: "Onboarding", match: (p: string) => p.startsWith(`${base}/onboarding`) },
+    { href: `${base}/exercice`, label: "Échéances", match: (p: string) => p.startsWith(`${base}/exercice`) },
+    { href: `${base}/temps`, label: "Temps", match: (p: string) => p.startsWith(`${base}/temps`) },
     { href: `${base}/historique`, label: "Historique", match: (p: string) => p.startsWith(`${base}/historique`) },
   ];
 

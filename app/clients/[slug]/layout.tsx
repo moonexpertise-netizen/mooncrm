@@ -13,6 +13,8 @@ import LDMButton from "./ldm-button";
 import NavButtons from "./nav-buttons";
 import TallyButton from "./tally-button";
 import FicheTabs from "./fiche-tabs";
+import PipelineMetro from "./pipeline-metro";
+import { missingLdmFields } from "./ldm-checklist";
 import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
 
@@ -277,6 +279,18 @@ export default async function ClientLayout({
               />
               <LDMButton
                 clientId={client.id}
+                missingFields={missingLdmFields({
+                  denomination: client.denomination,
+                  adresse: client.adresse_siege,
+                  codePostal: client.code_postal,
+                  ville: client.ville,
+                  activite: client.activite,
+                  moisCloture: client.mois_cloture,
+                  finMission: client.fin_mission_date,
+                  civilite: dirigeantContact?.civilite ?? null,
+                  prenom: dirigeantContact?.prenom ?? null,
+                  nom: dirigeantContact?.nom ?? null,
+                })}
                 dirigeant={
                   dirigeantContact
                     ? {
@@ -294,6 +308,13 @@ export default async function ClientLayout({
           </div>
         </div>
       </div>
+
+      {/* PIPELINE - ligne de métro, au-dessus des onglets : le parcours
+          commercial reste visible quel que soit l'onglet consulté. */}
+      <PipelineMetro
+        clientId={client.id}
+        current={(client.pipeline_statut as PipelineStatut | null) ?? null}
+      />
 
       {/* TABS - vrais Link Next vers les sous-routes */}
       <FicheTabs slug={slug} />

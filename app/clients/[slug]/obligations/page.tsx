@@ -4,8 +4,11 @@ import ObligationsMatrix, {
   type Sub as MatrixSub,
   type YearConfig as MatrixYC,
 } from "../obligations-matrix";
-import { loadClient } from "../_data";
+import { loadClient, loadActiveTvaTags } from "../_data";
 import PilotageCard, { type PilotageActiveMap } from "../pilotage-card";
+import TvaFieldsCard from "../tva-fields-card";
+import { EditableGestionTns } from "../editable-extras";
+import { Card } from "../_components";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +28,15 @@ export default async function ObligationsTab({
   if (!client) notFound();
   const id = client.id;
 
+  const currentTvaTagId = (client as unknown as { tva_tag_id: string | null }).tva_tag_id ?? null;
+  const currentTvaEcheanceJour =
+    (client as unknown as { tva_echeance_jour: number | null }).tva_echeance_jour ?? null;
+
   const sb = await createClient();
-  const [{ data: allSubs }, { data: yearConfigs }] = await Promise.all([
+  const [{ data: allSubs }, { data: yearConfigs }, tvaTags] = await Promise.all([
     sb.from("obligation_subscriptions").select("type, annee, actif").eq("client_id", id),
     sb.from("client_year_config").select("annee, regime").eq("client_id", id),
+    loadActiveTvaTags(currentTvaTagId),
   ]);
 
   const subYears = new Set<number>((allSubs ?? []).map((s) => s.annee));
@@ -108,6 +116,23 @@ export default async function ObligationsTab({
         debutObligations={client.debut_obligations}
       />
       <PilotageCard clientId={id} years={yearsList} active={pilotageActive} />
+
+      {/* Paramétrage rattaché aux obligations (rapatrié de l'onglet Identité) :
+          la gestion TNS et les réglages TVA pilotent de la production, pas de
+          l'identité du dossier. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card title="Gestion TNS">
+          <EditableGestionTns clientId={id} value={client.gestion_tns} label="Gestion TNS" />
+        </Card>
+        <Card title="TVA mensuelle">
+          <TvaFieldsCard
+            clientId={id}
+            initialTagId={currentTvaTagId}
+            initialEcheanceJour={currentTvaEcheanceJour}
+            tags={tvaTags}
+          />
+        </Card>
+      </div>
     </div>
   );
 }
