@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoonCRM → impots.gouv (bouton T)
 // @namespace    mooncrm
-// @version      1.1
+// @version      1.2
 // @description  Depuis le bouton T du CRM : préremplit l'email sur la mire de connexion pro, puis une fois connecté ouvre "Choisir un dossier", saisit le SIREN et valide. Le captcha et le mot de passe restent gérés par l'humain / le navigateur.
 // @match        https://cfspro-idp.impots.gouv.fr/*
 // @match        https://cfspro.impots.gouv.fr/*
@@ -84,9 +84,34 @@
     const siren = pendingSiren();
     if (!siren) return;
 
-    // 3a. Si un champ SIREN est présent sur la page (page "Changer de
-    //     dossier"), on le remplit et on valide. Repli : tout champ texte
-    //     visible limité à 9 caractères (formulaire SIREN classique DGFiP).
+    const fire = (el) => {
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      el.dispatchEvent(new Event("keyup", { bubbles: true }));
+    };
+    const clickValider = (scope) => {
+      const all = [...(scope || document).querySelectorAll('a, button, input[type="submit"], input[type="button"], input[type="image"]')];
+      const v = all.find((el) => /valider/i.test(el.textContent || el.value || el.alt || ""));
+      if (v) { v.click(); return true; }
+      return false;
+    };
+
+    // 3a-1. Page "Changer de dossier" : le SIREN se saisit dans 9 cases
+    //       d'un caractère chacune -> on distribue chiffre par chiffre.
+    const boxes = [...document.querySelectorAll('input[maxlength="1"]')]
+      .filter((el) => el.offsetParent !== null);
+    if (boxes.length >= 9) {
+      siren.split("").forEach((d, k) => {
+        boxes[k].value = d;
+        fire(boxes[k]);
+      });
+      clearPending();
+      banner("MoonCRM : SIREN " + siren + " saisi.");
+      if (!clickValider(boxes[0].closest("form"))) clickValider(document);
+      return;
+    }
+
+    // 3a-2. Variante : un champ SIREN unique (9 caractères).
     const sirenInput =
       document.querySelector(
         'input[name="siren"], input[id*="siren" i], input[name*="siren" i]'
@@ -95,16 +120,17 @@
         .find((el) => el.offsetParent !== null);
     if (sirenInput) {
       sirenInput.value = siren;
-      sirenInput.dispatchEvent(new Event("input", { bubbles: true }));
-      sirenInput.dispatchEvent(new Event("change", { bubbles: true }));
+      fire(sirenInput);
       clearPending();
-      const form = sirenInput.closest("form");
-      const submit =
-        (form && form.querySelector('button[type="submit"], input[type="submit"]')) ||
-        document.querySelector('button[type="submit"], input[type="submit"]');
       banner("MoonCRM : SIREN " + siren + " saisi.");
-      if (submit) submit.click();
-      else if (form) form.submit();
+      const form = sirenInput.closest("form");
+      if (!clickValider(form) && !clickValider(document)) {
+        const submit =
+          (form && form.querySelector('button[type="submit"], input[type="submit"]')) ||
+          document.querySelector('button[type="submit"], input[type="submit"]');
+        if (submit) submit.click();
+        else if (form) form.submit();
+      }
       return;
     }
 
