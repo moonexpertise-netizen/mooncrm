@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoonCRM → impots.gouv (bouton T)
 // @namespace    mooncrm
-// @version      1.0
+// @version      1.1
 // @description  Depuis le bouton T du CRM : préremplit l'email sur la mire de connexion pro, puis une fois connecté ouvre "Choisir un dossier", saisit le SIREN et valide. Le captcha et le mot de passe restent gérés par l'humain / le navigateur.
 // @match        https://cfspro-idp.impots.gouv.fr/*
 // @match        https://cfspro.impots.gouv.fr/*
@@ -84,11 +84,15 @@
     const siren = pendingSiren();
     if (!siren) return;
 
-    // 3a. Si un champ SIREN est présent sur la page (page "Choisir un
-    //     dossier"), on le remplit et on valide.
-    const sirenInput = document.querySelector(
-      'input[name="siren"], input[id*="siren" i], input[name*="siren" i]'
-    );
+    // 3a. Si un champ SIREN est présent sur la page (page "Changer de
+    //     dossier"), on le remplit et on valide. Repli : tout champ texte
+    //     visible limité à 9 caractères (formulaire SIREN classique DGFiP).
+    const sirenInput =
+      document.querySelector(
+        'input[name="siren"], input[id*="siren" i], input[name*="siren" i]'
+      ) ||
+      [...document.querySelectorAll('input[type="text"][maxlength="9"], input:not([type])[maxlength="9"]')]
+        .find((el) => el.offsetParent !== null);
     if (sirenInput) {
       sirenInput.value = siren;
       sirenInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -104,16 +108,19 @@
       return;
     }
 
-    // 3b. Sinon, on cherche le lien "Choisir un dossier" et on clique.
+    // 3b. Sinon, on cherche le lien "Changer de dossier" (libellé de la mire
+    //     accueil.do) ou "Choisir un dossier" et on clique.
     const links = [...document.querySelectorAll("a, button")];
-    const target = links.find((a) => /choisir\s+un\s+dossier/i.test(a.textContent || ""));
+    const target = links.find((a) =>
+      /(changer|choisir)\s+(de|un)\s+dossier/i.test(a.textContent || "")
+    );
     if (target) {
-      banner("MoonCRM : navigation vers Choisir un dossier…");
+      banner("MoonCRM : navigation vers le choix de dossier…");
       target.click();
       return;
     }
 
     // 3c. Repli : on signale que le SIREN est dans le presse-papiers.
-    banner("MoonCRM : SIREN " + siren + " copié — ouvre Dossier > Choisir un dossier puis Ctrl+V.");
+    banner("MoonCRM : SIREN " + siren + " copié — ouvre Dossier > Changer de dossier puis Ctrl+V.");
   }
 })();
