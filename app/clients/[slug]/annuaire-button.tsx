@@ -19,8 +19,9 @@ import { fetchInpiCloture, importFromAnnuaire } from "./actions";
  *  3. Pré-coche les champs qui diffèrent
  *  4. L'utilisateur valide la sélection → importFromAnnuaire écrase
  *
- * Pour l'instant : adresse, code postal, ville, dirigeant (prénom + nom).
- * D'autres champs à venir (forme juridique, activité NAF…).
+ * Champs couverts : adresse, code postal, ville, activité (libellé NAF INSEE),
+ * forme juridique, clôture d'exercice (via l'API INPI RNE) et dirigeant
+ * (civilité conservée, prénom + nom). Soit tout ce dont la LDM a besoin.
  */
 
 type AnnuaireData = {

@@ -330,6 +330,54 @@ export default function NouveauClientForm() {
     return Number.isNaN(n) ? null : n;
   }
 
+  /**
+   * Création éclair : dès qu'une entreprise est sélectionnée dans l'annuaire,
+   * on crée le dossier avec ce qu'on a scrapé et on file sur la fiche. Le
+   * bandeau "LDM incomplète" y liste ce qu'il reste à compléter — plus besoin
+   * de dérouler tout le formulaire pour créer un dossier.
+   *
+   * On rattache le dirigeant même sans civilité (l'annuaire ne la donne pas) :
+   * elle se choisit en un clic sur la fiche.
+   */
+  function quickCreate() {
+    if (!canEdit || !denomination.trim()) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        const { slug } = await createClientFromSiren({
+          denomination: denomination.trim(),
+          siren: siren.trim() || null,
+          forme: forme || null,
+          activite: activite || null,
+          origine: origine || null,
+          email: dirigeantEmail.trim() || null,
+          pipeline_statut: pipeline,
+          jour_cloture: jourCloture ? parseInt(jourCloture, 10) : null,
+          mois_cloture: moisCloture ? parseInt(moisCloture, 10) : null,
+          debut_obligations: debutDate || null,
+          fin_mission_date: clotureMission || null,
+          adresse_siege: adresseSiege.trim() || null,
+          code_postal: codePostal.trim() || null,
+          ville: ville.trim() || null,
+          interlocuteur: dirigeantNomFamille.trim()
+            ? {
+                civilite: dirigeantCivilite || null,
+                prenom: dirigeantPrenom.trim() || null,
+                nom: dirigeantNomFamille.trim(),
+                qualite: dirigeantQualite || null,
+                email: dirigeantEmail.trim() || null,
+                telephone: dirigeantTelephone.trim() || null,
+              }
+            : null,
+        });
+        router.push(`/clients/${slug}`);
+      } catch (e) {
+        setError((e as Error).message);
+        toastError(e, "Echec de la creation du client");
+      }
+    });
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
@@ -500,6 +548,31 @@ export default function NouveauClientForm() {
           Données publiques annuaire-entreprises.data.gouv.fr, les champs ci-dessous sont pré-remplis sur sélection.
         </div>
       </div>
+
+      {/* Création éclair : proposée dès qu'une entreprise a été sélectionnée
+          (ou le nom saisi). Évite de dérouler tout le formulaire pour ouvrir
+          un dossier — le reste se complète sur la fiche, guidé par le bandeau
+          de complétude LDM. */}
+      {denomination.trim() && (
+        <div className="rounded-lg border border-[hsl(var(--gold))]/40 bg-[hsl(var(--gold))]/[0.07] px-3.5 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-zinc-900">
+              Créer « {denomination.trim()} » tout de suite
+            </div>
+            <div className="text-[11px] text-zinc-600 mt-0.5">
+              Le dossier s&apos;ouvre avec ce qu&apos;on a récupéré, tu complètes le reste sur la fiche.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={quickCreate}
+            disabled={isPending || !canEdit}
+            className="shrink-0 px-3.5 py-2 rounded-md bg-[#0D1122] text-white text-sm font-medium hover:bg-[#0D1122]/85 transition-colors disabled:opacity-50"
+          >
+            {isPending ? "Création…" : "Créer et ouvrir la fiche"}
+          </button>
+        </div>
+      )}
 
       {/* ====================================================================
           SECTION 1 - INFOS DE BASE (pour la lettre de mission)
