@@ -203,6 +203,11 @@ export default async function IdentiteTab({
             <>
               <EditableDate clientId={id} field="forfait_debut_date_debut" value={client.forfait_debut_date_debut} label="↳ À compter du" permission="edit_honoraires" />
               <EditableSelect clientId={id} field="forfait_debut_condition" value={client.forfait_debut_condition} label="↳ Fin du forfait" options={["Début de facturation", "Nombre de mois", "Date"]} permission="edit_honoraires" />
+              {client.forfait_debut_condition === "Début de facturation" && (
+                /* Borne LDM : "(N échéances maximum)". Select 1..6 — la valeur
+                   string est castée en integer par PostgREST. */
+                <EditableSelect clientId={id} field="forfait_debut_nb_echeances" value={client.forfait_debut_nb_echeances == null ? null : String(client.forfait_debut_nb_echeances)} label="↳ Échéances maximum" options={["1", "2", "3", "4", "5", "6"]} permission="edit_honoraires" />
+              )}
               {client.forfait_debut_condition === "Nombre de mois" && (
                 <EditableNumber clientId={id} field="forfait_debut_nb_mois" value={client.forfait_debut_nb_mois} label="↳ Nombre de mois" unit="plain" permission="edit_honoraires" />
               )}

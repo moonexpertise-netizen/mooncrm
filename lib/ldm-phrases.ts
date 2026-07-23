@@ -33,6 +33,7 @@ export type LDMContext = {
   forfait_debut_date_debut: string | null;   // YYYY-MM-DD
   forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
   forfait_debut_nb_mois: number | null;
+  forfait_debut_nb_echeances: number | null;  // borne "(N échéances maximum)" si condition = Début de facturation
   forfait_debut_date_fin: string | null;      // YYYY-MM-DD
   forfait_debut_termine: boolean;
   bilan_premier_offert: boolean;              // 1er bilan offert
@@ -70,6 +71,10 @@ export function phraseForfaitDebut(ctx: LDMContext): string {
     end = `, pendant ${ctx.forfait_debut_nb_mois} mois`;
   } else if (ctx.forfait_debut_condition === "Début de facturation") {
     end = " et jusqu'au début de votre facturation";
+    const nb = ctx.forfait_debut_nb_echeances;
+    if (nb != null && nb > 0) {
+      end += ` (${nb} échéance${nb > 1 ? "s" : ""} maximum)`;
+    }
   }
   return ` À titre exceptionnel, les honoraires sont ramenés à ${eur(ctx.forfait_debut_montant)} € HT/mois${start}${end}.`;
 }

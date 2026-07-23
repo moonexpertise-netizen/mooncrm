@@ -40,6 +40,7 @@ export type HonoRow = {
   forfait_debut_montant: number;
   forfait_debut_date_debut: string | null;
   forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
+  forfait_debut_nb_echeances: number | null;
   forfait_debut_nb_mois: number | null;
   forfait_debut_date_fin: string | null;
   forfait_debut_termine: boolean;
@@ -453,7 +454,11 @@ function forfaitDebutSummary(r: HonoRow): string {
   } else if (r.forfait_debut_condition === "Nombre de mois" && r.forfait_debut_nb_mois) {
     parts.push(`pendant ${r.forfait_debut_nb_mois} mois`);
   } else if (r.forfait_debut_condition === "Début de facturation") {
-    parts.push("jusqu'au début de facturation");
+    parts.push(
+      r.forfait_debut_nb_echeances
+        ? `jusqu'au début de facturation (${r.forfait_debut_nb_echeances} échéance${r.forfait_debut_nb_echeances > 1 ? "s" : ""} max)`
+        : "jusqu'au début de facturation"
+    );
   }
   return parts.join(" · ");
 }

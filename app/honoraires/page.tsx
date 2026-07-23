@@ -23,7 +23,7 @@ export default async function HonorairesPage() {
   const { data, error } = await sb
     .from("clients")
     .select(
-      "id, slug, denomination, pipeline_statut, origine, honoraires_compta, type_honos_bilans, forfait_bilan, tdb_periode, tdb_honos_periode, forfait_pilotage, oss_periode, oss_honos_trimestre, forfait_oss, type_honos_jur, honoraires_jur, forfait_debut_montant, forfait_debut_date_debut, forfait_debut_condition, forfait_debut_nb_mois, forfait_debut_date_fin, forfait_debut_termine, forfait_debut_termine_at, mrr, arr"
+      "id, slug, denomination, pipeline_statut, origine, honoraires_compta, type_honos_bilans, forfait_bilan, tdb_periode, tdb_honos_periode, forfait_pilotage, oss_periode, oss_honos_trimestre, forfait_oss, type_honos_jur, honoraires_jur, forfait_debut_montant, forfait_debut_date_debut, forfait_debut_condition, forfait_debut_nb_mois, forfait_debut_nb_echeances, forfait_debut_date_fin, forfait_debut_termine, forfait_debut_termine_at, mrr, arr"
     )
     .order("denomination", { ascending: true });
 
@@ -56,6 +56,7 @@ export default async function HonorairesPage() {
     forfait_debut_date_debut: c.forfait_debut_date_debut ?? null,
     forfait_debut_condition: c.forfait_debut_condition ?? null,
     forfait_debut_nb_mois: c.forfait_debut_nb_mois == null ? null : Number(c.forfait_debut_nb_mois),
+    forfait_debut_nb_echeances: c.forfait_debut_nb_echeances == null ? null : Number(c.forfait_debut_nb_echeances),
     forfait_debut_date_fin: c.forfait_debut_date_fin ?? null,
     forfait_debut_termine: c.forfait_debut_termine === true,
     forfait_debut_termine_at: c.forfait_debut_termine_at ?? null,

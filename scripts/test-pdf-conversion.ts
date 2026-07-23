@@ -38,6 +38,7 @@ async function main() {
       forfait_debut_date_debut: null,
       forfait_debut_condition: null,
       forfait_debut_nb_mois: null,
+      forfait_debut_nb_echeances: null,
       forfait_debut_date_fin: null,
       forfait_debut_termine: false,
       bilan_premier_offert: false,

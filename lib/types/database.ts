@@ -99,6 +99,7 @@ export interface Client {
   forfait_debut_date_debut: string | null;       // "à compter du" (YYYY-MM-DD)
   forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
   forfait_debut_nb_mois: number | null;          // si condition = "Nombre de mois"
+  forfait_debut_nb_echeances: number | null;     // si condition = "Début de facturation" (1..6, borne LDM)
   forfait_debut_date_fin: string | null;         // si condition = "Date" (YYYY-MM-DD)
   forfait_debut_termine: boolean;                // bouton "rythme de croisière"
   bilan_premier_offert: boolean;                 // 1er bilan offert (LDM + statut facturation)

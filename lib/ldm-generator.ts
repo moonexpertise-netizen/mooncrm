@@ -63,6 +63,7 @@ export type LDMClientData = {
   forfait_debut_date_debut: string | null;
   forfait_debut_condition: "Début de facturation" | "Nombre de mois" | "Date" | null;
   forfait_debut_nb_mois: number | null;
+  forfait_debut_nb_echeances: number | null;
   forfait_debut_date_fin: string | null;
   forfait_debut_termine: boolean;
   bilan_premier_offert: boolean;
@@ -103,6 +104,7 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
     forfait_debut_date_debut: client.forfait_debut_date_debut,
     forfait_debut_condition: client.forfait_debut_condition,
     forfait_debut_nb_mois: client.forfait_debut_nb_mois,
+    forfait_debut_nb_echeances: client.forfait_debut_nb_echeances,
     forfait_debut_date_fin: client.forfait_debut_date_fin,
     forfait_debut_termine: client.forfait_debut_termine,
     bilan_premier_offert: client.bilan_premier_offert,
