@@ -1109,3 +1109,65 @@ export async function reviseHonoraires(
   revalidateFinanceViews();
 }
 
+
+// ---------------------------------------------------------------------------
+// PLAN D'HONORAIRES · verrouillage / nouveau plan
+// ---------------------------------------------------------------------------
+
+/**
+ * Verrouille le plan d'honoraires : les montants passent en lecture seule.
+ * Geste unique de fin de saisie — on ne verrouille pas champ par champ.
+ */
+export async function verrouillerPlanHonoraires(clientId: string) {
+  await requirePermission("edit_honoraires");
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({
+      honoraires_verrouille: true,
+      honoraires_verrouille_at: new Date().toISOString(),
+    })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+
+  await logClientChanges(
+    sb,
+    clientId,
+    { honoraires_verrouille: false },
+    { honoraires_verrouille: true },
+    "manuel",
+    "Plan d'honoraires verrouillé"
+  );
+  revalidatePath(`/clients/${clientId}`);
+  revalidateFinanceViews();
+}
+
+/**
+ * Ouvre un NOUVEAU plan d'honoraires : déverrouille TOUS les montants d'un
+ * coup, contre une justification unique. C'est ici qu'on capture le motif —
+ * plus besoin d'en redemander un à chaque montant modifié ensuite.
+ */
+export async function ouvrirNouveauPlanHonoraires(clientId: string, motif: string) {
+  await requirePermission("edit_honoraires");
+  const trimmed = (motif ?? "").trim();
+  if (!trimmed) {
+    throw new Error("Motif obligatoire pour ouvrir un nouveau plan d'honoraires.");
+  }
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({ honoraires_verrouille: false })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+
+  await logClientChanges(
+    sb,
+    clientId,
+    { honoraires_verrouille: true },
+    { honoraires_verrouille: false },
+    "manuel",
+    `Nouveau plan d'honoraires : ${trimmed}`
+  );
+  revalidatePath(`/clients/${clientId}`);
+  revalidateFinanceViews();
+}
