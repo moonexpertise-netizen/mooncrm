@@ -166,6 +166,16 @@ export default function NouveauClientForm() {
   const [honosJur, setHonosJur] = useState<string>("");
   const [tdbPeriode, setTdbPeriode] = useState<"" | "Mensuel" | "Trimestriel" | "Non souscrit">("");
   const [tdbHonosPeriode, setTdbHonosPeriode] = useState<string>("");
+  // Guichet unique - OSS : calqué sur le pilotage mais toujours trimestriel.
+  const [ossPeriode, setOssPeriode] = useState<"" | "Trimestriel" | "Non souscrit">("");
+  const [ossHonosTrimestre, setOssHonosTrimestre] = useState<string>("");
+  // Forfait de début d'activité (tarif réduit 1ère année, impact LDM seul)
+  const [forfaitDebutMontant, setForfaitDebutMontant] = useState<string>("");
+  const [forfaitDebutDateDebut, setForfaitDebutDateDebut] = useState<string>("");
+  const [forfaitDebutCondition, setForfaitDebutCondition] = useState<"" | "Début de facturation" | "Nombre de mois" | "Date">("");
+  const [forfaitDebutNbEcheances, setForfaitDebutNbEcheances] = useState<string>("");
+  const [forfaitDebutNbMois, setForfaitDebutNbMois] = useState<string>("");
+  const [forfaitDebutDateFin, setForfaitDebutDateFin] = useState<string>("");
   // Honoraires one-shot (création + reprise) - saisies à la création
   const [typeHonosCreation, setTypeHonosCreation] = useState<"" | "Facturés" | "Non souscrit">("");
   const [honosCreation, setHonosCreation] = useState<string>("");
@@ -353,6 +363,11 @@ export default function NouveauClientForm() {
       typeHonosReprise === "Facturés" ? parseMontant(honosReprise) ?? 0 : 0;
     const isSouscritTdb = tdbPeriode === "Mensuel" || tdbPeriode === "Trimestriel";
     const finalTdb = isSouscritTdb ? parseMontant(tdbHonosPeriode) ?? 0 : 0;
+    const finalOss = ossPeriode === "Trimestriel" ? parseMontant(ossHonosTrimestre) ?? 0 : 0;
+    // Forfait de début : les sous-champs ne partent que si le montant > 0, et
+    // seuls ceux correspondant à la condition choisie sont conservés.
+    const fdMontant = parseMontant(forfaitDebutMontant) ?? 0;
+    const fdCondition = fdMontant > 0 && forfaitDebutCondition ? forfaitDebutCondition : null;
 
     startTransition(async () => {
       try {
@@ -382,6 +397,18 @@ export default function NouveauClientForm() {
           type_honos_creation: typeHonosCreation || null,
           type_honos_reprise: typeHonosReprise || null,
           tdb_periode: tdbPeriode || null,
+          oss_periode: ossPeriode || null,
+          oss_honos_trimestre: finalOss,
+          forfait_debut_montant: fdMontant,
+          forfait_debut_date_debut: fdMontant > 0 ? forfaitDebutDateDebut || null : null,
+          forfait_debut_condition: fdCondition,
+          forfait_debut_nb_echeances:
+            fdCondition === "Début de facturation" && forfaitDebutNbEcheances
+              ? parseInt(forfaitDebutNbEcheances, 10)
+              : null,
+          forfait_debut_nb_mois:
+            fdCondition === "Nombre de mois" ? parseMontant(forfaitDebutNbMois) : null,
+          forfait_debut_date_fin: fdCondition === "Date" ? forfaitDebutDateFin || null : null,
           interlocuteur:
             addDirigeantAsContact && dirigeantNomFamille.trim()
               ? {
@@ -752,6 +779,101 @@ export default function NouveauClientForm() {
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">
               € HT / {tdbPeriode === "Mensuel" ? "mois" : "trimestre"}
             </span>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Guichet unique - OSS</span>
+        <RadioChips
+          options={["Trimestriel", "Non souscrit"]}
+          value={ossPeriode}
+          onChange={(v) => setOssPeriode(v as "" | "Trimestriel" | "Non souscrit")}
+        />
+        {ossPeriode === "Trimestriel" && (
+          <div className="mt-2 relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={ossHonosTrimestre}
+              onChange={(e) => setOssHonosTrimestre(e.target.value)}
+              placeholder="0"
+              className={cn("w-full pl-3 pr-28 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(ossHonosTrimestre))}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">€ HT / trimestre</span>
+          </div>
+        )}
+      </div>
+
+      {/* Forfait de début d'activité : tarif mensuel réduit la 1ère année
+          jusqu'à une condition. Impact = lettre de mission uniquement. */}
+      <div>
+        <span className="text-xs font-medium text-zinc-700 mb-1 block">Forfait de début d&apos;activité <span className="text-zinc-400 font-normal">(tarif réduit, LDM uniquement)</span></span>
+        <div className="relative">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={forfaitDebutMontant}
+            onChange={(e) => setForfaitDebutMontant(e.target.value)}
+            placeholder="0 = aucun"
+            className={cn("w-full pl-3 pr-20 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(forfaitDebutMontant))}
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">€ HT / mois</span>
+        </div>
+        {(parseFloat(forfaitDebutMontant.replace(",", ".")) || 0) > 0 && (
+          <div className="mt-2 space-y-2">
+            <Field label="↳ À compter du">
+              <input
+                type="date"
+                value={forfaitDebutDateDebut}
+                onChange={(e) => setForfaitDebutDateDebut(e.target.value)}
+                className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(forfaitDebutDateDebut))}
+              />
+            </Field>
+            <div>
+              <span className="text-xs font-medium text-zinc-700 mb-1 block">↳ Fin du forfait</span>
+              <RadioChips
+                options={["Début de facturation", "Nombre de mois", "Date"]}
+                value={forfaitDebutCondition}
+                onChange={(v) => setForfaitDebutCondition(v as "" | "Début de facturation" | "Nombre de mois" | "Date")}
+              />
+            </div>
+            {forfaitDebutCondition === "Début de facturation" && (
+              <Field label="↳ Échéances maximum">
+                <select
+                  value={forfaitDebutNbEcheances}
+                  onChange={(e) => setForfaitDebutNbEcheances(e.target.value)}
+                  className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(forfaitDebutNbEcheances))}
+                >
+                  <option value="">À renseigner</option>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            {forfaitDebutCondition === "Nombre de mois" && (
+              <Field label="↳ Nombre de mois">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={forfaitDebutNbMois}
+                  onChange={(e) => setForfaitDebutNbMois(e.target.value.replace(/\D/g, ""))}
+                  placeholder="ex. 6"
+                  className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(forfaitDebutNbMois))}
+                />
+              </Field>
+            )}
+            {forfaitDebutCondition === "Date" && (
+              <Field label="↳ Jusqu'au">
+                <input
+                  type="date"
+                  value={forfaitDebutDateFin}
+                  onChange={(e) => setForfaitDebutDateFin(e.target.value)}
+                  className={cn("w-full px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--gold))]/30 tabular-nums", inputFill(forfaitDebutDateFin))}
+                />
+              </Field>
+            )}
           </div>
         )}
       </div>

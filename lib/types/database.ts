@@ -82,7 +82,8 @@ export interface Client {
   honoraires_jur: number;      // Forfait juridique (annuel)
   honoraires_reprise: number;  // One-shot reprise
   honoraires_creation: number; // One-shot création
-  exceptionnel: number;
+  /** Colonne DB conservée mais plus exposée en UI (poste libre jamais utilisé). */
+  exceptionnel?: number;
   type_honos_bilans: "Inclus" | "Facturés" | null;
   type_honos_jur: "Facturés" | "Inclus" | "Non souscrit" | null;
   type_honos_creation: "Facturés" | "Non souscrit" | null;

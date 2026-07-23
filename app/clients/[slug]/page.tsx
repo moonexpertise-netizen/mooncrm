@@ -239,9 +239,6 @@ export default async function IdentiteTab({
             <EditableNumber clientId={id} field="honoraires_reprise" value={client.honoraires_reprise} label="↳ Montant" unit="eur" permission="edit_honoraires" />
           )}
         </div>
-        <div className="border-t pt-2 mt-1">
-          <EditableNumber clientId={id} field="exceptionnel" value={client.exceptionnel} label="Honos exceptionnels" unit="eur" permission="edit_honoraires" />
-        </div>
       </Card>
 
       <TempsCard clientId={id} honorairesCompta={client.honoraires_compta} />

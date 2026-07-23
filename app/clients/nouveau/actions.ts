@@ -31,6 +31,15 @@ type Payload = {
   type_honos_creation?: "Facturés" | "Non souscrit" | null;
   type_honos_reprise?: "Facturés" | "Non souscrit" | null;
   tdb_periode?: "Mensuel" | "Trimestriel" | "Non souscrit" | null;
+  oss_periode?: "Trimestriel" | "Non souscrit" | null;
+  oss_honos_trimestre?: number | null;
+  // Forfait de début d'activité (tarif réduit 1ère année, impact LDM seul)
+  forfait_debut_montant?: number | null;
+  forfait_debut_date_debut?: string | null;
+  forfait_debut_condition?: "Début de facturation" | "Nombre de mois" | "Date" | null;
+  forfait_debut_nb_mois?: number | null;
+  forfait_debut_nb_echeances?: number | null;
+  forfait_debut_date_fin?: string | null;
   /**
    * Dirigeant à rattacher comme contact. `prenom` et `nom` sont stockés
    * séparément en DB depuis la migration 0027. `civilite` requise pour la LDM.
@@ -120,6 +129,16 @@ export async function createClientFromSiren(payload: Payload) {
       ...(payload.type_honos_creation && { type_honos_creation: payload.type_honos_creation }),
       ...(payload.type_honos_reprise && { type_honos_reprise: payload.type_honos_reprise }),
       ...(payload.tdb_periode && { tdb_periode: payload.tdb_periode }),
+      ...(payload.oss_periode && { oss_periode: payload.oss_periode }),
+      ...(payload.oss_honos_trimestre != null && { oss_honos_trimestre: payload.oss_honos_trimestre }),
+      // Forfait de début : les champs conditionnels arrivent déjà filtrés par
+      // le formulaire (null si la condition ne les concerne pas).
+      ...(payload.forfait_debut_montant != null && { forfait_debut_montant: payload.forfait_debut_montant }),
+      ...(payload.forfait_debut_date_debut && { forfait_debut_date_debut: payload.forfait_debut_date_debut }),
+      ...(payload.forfait_debut_condition && { forfait_debut_condition: payload.forfait_debut_condition }),
+      ...(payload.forfait_debut_nb_mois != null && { forfait_debut_nb_mois: payload.forfait_debut_nb_mois }),
+      ...(payload.forfait_debut_nb_echeances != null && { forfait_debut_nb_echeances: payload.forfait_debut_nb_echeances }),
+      ...(payload.forfait_debut_date_fin && { forfait_debut_date_fin: payload.forfait_debut_date_fin }),
     })
     .select("id, slug")
     .single();

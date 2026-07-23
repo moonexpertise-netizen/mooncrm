@@ -836,7 +836,6 @@ const NUMERIC_NOT_NULL = new Set([
   "forfait_debut_montant",
   "honoraires_reprise",
   "honoraires_creation",
-  "exceptionnel",
 ]);
 
 export async function updateClient(

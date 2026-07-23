@@ -91,7 +91,6 @@ const DERIVED_TRIGGER_FIELDS = new Set([
   "honoraires_creation",
   "type_honos_reprise",
   "honoraires_reprise",
-  "exceptionnel",
   "pipeline_statut", // change le bucket clients/prospects, impacte aussi le hero badge
   "regime", // IR/IS impacte les obligations affichees
   "origine",
