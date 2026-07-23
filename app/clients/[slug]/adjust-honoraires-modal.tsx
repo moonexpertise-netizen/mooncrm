@@ -19,12 +19,16 @@ import { reviseHonoraires } from "./actions";
 type Line = { field: string; label: string; value: number; suffix: string };
 
 const MOTIF_CHIPS = [
+  "Début de mission",
   "Augmentation annuelle",
   "Nouveau service",
   "Remise commerciale",
   "Ajustement",
   "Correction erreur",
 ];
+
+/** Motif journalisé automatiquement lors de la toute première saisie. */
+const MOTIF_INITIAL = "Début de mission (saisie initiale)";
 
 export default function AdjustHonorairesModal({
   clientId,
@@ -98,14 +102,27 @@ export default function AdjustHonorairesModal({
   }, [drafts, lines]);
 
   const nbChanges = Object.keys(patch).length;
-  const canSave = nbChanges > 0 && motif.trim().length > 0;
+
+  /**
+   * Première saisie : aucun montant n'a jamais été renseigné. Demander un
+   * "motif de révision" n'a alors aucun sens (il n'y a rien à réviser). On
+   * n'exige pas de motif et on journalise automatiquement MOTIF_INITIAL —
+   * l'historique reste complet sans question inutile.
+   */
+  const isPremiereSaisie = useMemo(() => lines.every((ln) => ln.value === 0), [lines]);
+
+  const canSave = nbChanges > 0 && (isPremiereSaisie || motif.trim().length > 0);
 
   function save() {
     if (!canSave) return;
     setError(null);
     startTransition(async () => {
       try {
-        await reviseHonoraires(clientId, patch, motif.trim());
+        await reviseHonoraires(
+          clientId,
+          patch,
+          motif.trim() || MOTIF_INITIAL
+        );
         toastSuccess(`Honoraires révisés (${nbChanges} champ${nbChanges > 1 ? "s" : ""})`);
         setOpen(false);
         router.refresh();
@@ -148,7 +165,9 @@ export default function AdjustHonorairesModal({
             <div className="absolute inset-0 bg-zinc-900/50 dark:bg-[hsl(226_85%_3%_/_0.6)] backdrop-blur-md" onClick={() => setOpen(false)} aria-hidden />
             <div className="relative w-full max-w-md rounded-xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
               <div className="px-5 py-4 border-b border-zinc-200 dark:border-white/[0.06] bg-zinc-50 dark:bg-white/[0.03] flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Ajuster les honoraires</h3>
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  {isPremiereSaisie ? "Saisie initiale des honoraires" : "Ajuster les honoraires"}
+                </h3>
                 <button type="button" onClick={() => setOpen(false)} className="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label="Fermer">
                   <X className="h-4 w-4" />
                 </button>
@@ -174,7 +193,17 @@ export default function AdjustHonorairesModal({
                 ))}
 
                 <div className="pt-2 border-t border-zinc-100 dark:border-white/[0.06]">
-                  <label className="text-xs text-muted-foreground">Motif de la révision (obligatoire)</label>
+                  <label className="text-xs text-muted-foreground">
+                    {isPremiereSaisie
+                      ? "Motif (facultatif pour une première saisie)"
+                      : "Motif de la révision (obligatoire)"}
+                  </label>
+                  {isPremiereSaisie && (
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      Aucun honoraire n&apos;était renseigné : l&apos;historique enregistrera
+                      « Début de mission ».
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-1 mt-1.5 mb-2">
                     {MOTIF_CHIPS.map((c) => (
                       <button key={c} type="button" onClick={() => setMotif(c)} className={cn("px-2 py-0.5 rounded-full text-[11px] border transition-colors", motif === c ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/40 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))]" : "bg-zinc-50 dark:bg-white/[0.04] border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.08]")}>
