@@ -11,7 +11,7 @@ import {
 import { ClotureSplit, EditableTextArea } from "./editable-extras";
 import { Card, FieldReadonly } from "./_components";
 import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
-import LdmChecklist from "./ldm-checklist";
+import LdmChecklist, { honorairesOf } from "./ldm-checklist";
 import AddDirigeantButton from "./add-dirigeant-button";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +74,7 @@ export default async function InformationsTab({
         civilite={dirigeantContact?.civilite ?? null}
         prenom={dirigeantContact?.prenom ?? null}
         nom={dirigeantContact?.nom ?? null}
+        honoraires={honorairesOf(client)}
       />
 
       <Card title="Société">

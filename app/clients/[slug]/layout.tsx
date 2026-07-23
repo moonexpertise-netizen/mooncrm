@@ -14,7 +14,7 @@ import NavButtons from "./nav-buttons";
 import TallyButton from "./tally-button";
 import FicheTabs from "./fiche-tabs";
 import PipelineMetro from "./pipeline-metro";
-import { missingLdmFields } from "./ldm-checklist";
+import { missingLdmFields, honorairesOf } from "./ldm-checklist";
 import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
 import type { PipelineStatut } from "./actions";
 
@@ -290,6 +290,7 @@ export default async function ClientLayout({
                   civilite: dirigeantContact?.civilite ?? null,
                   prenom: dirigeantContact?.prenom ?? null,
                   nom: dirigeantContact?.nom ?? null,
+                  honoraires: honorairesOf(client),
                 })}
                 dirigeant={
                   dirigeantContact

@@ -23,6 +23,9 @@ export function missingLdmFields(c: {
   civilite?: string | null;
   prenom?: string | null;
   nom?: string | null;
+  /** Montants qui alimentent le paragraphe honoraires de la LDM. Si tout est
+   *  à 0, la lettre sortirait sans aucun tarif : on le signale. */
+  honoraires?: Array<number | null | undefined>;
 }): string[] {
   const miss: string[] = [];
   const empty = (v: string | null | undefined) => !v || !String(v).trim();
@@ -36,7 +39,31 @@ export function missingLdmFields(c: {
   if (empty(c.civilite)) miss.push("Civilité dirigeant");
   if (empty(c.nom)) miss.push("Nom dirigeant");
   if (empty(c.prenom)) miss.push("Prénom dirigeant");
+  if (c.honoraires && !c.honoraires.some((h) => (h ?? 0) > 0)) {
+    miss.push("Honoraires");
+  }
   return miss;
+}
+
+/** Montants à passer à `missingLdmFields` depuis une fiche client. */
+export function honorairesOf(client: {
+  honoraires_compta?: number | null;
+  forfait_bilan?: number | null;
+  honoraires_jur?: number | null;
+  tdb_honos_periode?: number | null;
+  oss_honos_trimestre?: number | null;
+  honoraires_creation?: number | null;
+  honoraires_reprise?: number | null;
+}): Array<number | null | undefined> {
+  return [
+    client.honoraires_compta,
+    client.forfait_bilan,
+    client.honoraires_jur,
+    client.tdb_honos_periode,
+    client.oss_honos_trimestre,
+    client.honoraires_creation,
+    client.honoraires_reprise,
+  ];
 }
 
 export default function LdmChecklist(props: {
@@ -50,8 +77,10 @@ export default function LdmChecklist(props: {
   civilite: string | null;
   prenom: string | null;
   nom: string | null;
+  honoraires?: Array<number | null | undefined>;
 }) {
   const missing = missingLdmFields(props);
+  const honosManquants = missing.includes("Honoraires");
 
   if (missing.length === 0) {
     return (
@@ -80,6 +109,12 @@ export default function LdmChecklist(props: {
               </span>
             ))}
           </div>
+          {honosManquants && (
+            <div className="mt-1.5 text-[11px] text-amber-800 dark:text-amber-300">
+              Aucun honoraire renseigné : la lettre sortirait sans tarif.{" "}
+              <span className="font-medium">Renseigne-les dans l&apos;onglet Honoraires.</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
