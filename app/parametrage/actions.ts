@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { filterByDebut, generateInstancesForType } from "@/lib/obligations-engine";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -396,4 +397,52 @@ export async function bulkReconduire(
   // Perf : la reconduction touche l'année N+1, l'utilisateur la verra au
   // prochain switch d'année (force-dynamic). Pas de revalidatePath.
   return { created: total, deactivated: toDeactivateIds.length };
+}
+
+/**
+ * Rattrapage : régénère les instances d'obligations manquantes pour TOUTES
+ * les subs actives d'une année.
+ *
+ * Utile après une correction du moteur de génération : les subs existent mais
+ * certaines instances n'ont jamais été créées (ex. obligations annuelles
+ * écartées à tort par le filtre `debut_obligations` sur une reprise en cours
+ * d'année) -> la cellule du tracker restait bloquée sur "-".
+ *
+ * Idempotent : ne touche ni aux statuts ni aux instances déjà présentes.
+ */
+export async function backfillObligationsForYear(annee: number) {
+  await requirePermission("edit_parametrage");
+  const sb = await createClient();
+
+  const { data: subs, error } = await sb
+    .from("obligation_subscriptions")
+    .select("client_id, type")
+    .eq("annee", annee)
+    .eq("actif", true);
+  if (error) throw new Error(error.message);
+
+  const before = await countObligations(sb, annee);
+  // Séquentiel par paquets : évite d'ouvrir des centaines de connexions.
+  const CHUNK = 20;
+  const list = subs ?? [];
+  for (let i = 0; i < list.length; i += CHUNK) {
+    await Promise.all(
+      list
+        .slice(i, i + CHUNK)
+        .map((s) => regenForSub(sb, s.client_id, s.type as TypeObligation, annee))
+    );
+  }
+  const after = await countObligations(sb, annee);
+
+  revalidatePath("/parametrage");
+  revalidatePath("/obligations");
+  return { subs: list.length, created: Math.max(0, after - before) };
+}
+
+async function countObligations(sb: SupabaseClient, annee: number): Promise<number> {
+  const { count } = await sb
+    .from("obligations")
+    .select("id", { count: "exact", head: true })
+    .eq("annee", annee);
+  return count ?? 0;
 }

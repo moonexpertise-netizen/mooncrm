@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isClientBillable } from "@/lib/billable";
 import { PageHeader } from "@/app/_components/page-header";
 import ParametrageGrid, { type Row } from "./grid";
+import BackfillButton from "./backfill-button";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,7 @@ export default async function ParametragePage({
         description="Matrice clients × obligations, édition rapide"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            <BackfillButton year={year} />
             <Link
               href="/parametrage/tva-tags"
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 border border-zinc-200 dark:border-white/[0.10] hover:bg-zinc-50 dark:hover:bg-white/[0.06] transition-colors"

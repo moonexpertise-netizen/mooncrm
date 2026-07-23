@@ -49,13 +49,25 @@ function instancePeriodStart(periode: string): string | null {
   return null;
 }
 
-/** Filtre les instances dont la période commence avant `debut`. */
+/**
+ * Filtre les instances dont la période commence avant `debut`.
+ *
+ * Cas particulier des obligations ANNUELLES (période = "YYYY" : liasse, AGO,
+ * DAS2, IFU...) : elles portent sur l'exercice ENTIER et se déposent APRÈS sa
+ * clôture. Une prise en charge en cours d'année n'exclut donc pas l'exercice
+ * (reprise en juin 2026 -> on fait bien la liasse 2026, déposée en mai 2027).
+ * On compare l'échéance de dépôt, pas le 1er janvier — sinon la ligne
+ * d'obligation n'est jamais créée et la cellule reste bloquée sur "-".
+ */
 export function filterByDebut(
   instances: GeneratedInstance[],
   debut: string | null | undefined
 ): GeneratedInstance[] {
   if (!debut) return instances;
   return instances.filter((i) => {
+    if (/^\d{4}$/.test(i.periode)) {
+      return i.echeance ? i.echeance >= debut : true;
+    }
     const start = instancePeriodStart(i.periode);
     if (!start) return true;
     return start >= debut;
