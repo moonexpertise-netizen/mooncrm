@@ -18,6 +18,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isClientBillable } from "@/lib/billable";
 import { computeEcheance } from "@/lib/echeances";
+import { isCoveredByDebut } from "@/lib/obligations-engine";
 import {
   TRACKERS,
   slugForType,
@@ -144,6 +145,7 @@ type SubRow = {
     origine: string | null;
     jour_cloture: number | null;
     mois_cloture: number | null;
+    debut_obligations: string | null;
   };
 };
 
@@ -226,7 +228,7 @@ export async function getEcheancesPourMois(
       const { data, error } = await sb
         .from("obligation_subscriptions")
         .select(
-          "client_id, type, annee, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, jour_cloture, mois_cloture)",
+          "client_id, type, annee, clients!inner(id, slug, denomination, siren, pipeline_statut, origine, jour_cloture, mois_cloture, debut_obligations)",
         )
         .gte("annee", anneeMin)
         .lte("annee", anneeMax)
@@ -352,6 +354,17 @@ export async function getEcheancesPourMois(
       // Lookup obligation DB : cle SANS annee (cf. commentaire ci-dessus).
       const oblKey = `${s.client_id}|${s.type}|${col.periode}`;
       const obl = oblByKey.get(oblKey);
+
+      // Prise en charge du cabinet : meme regle que le moteur de generation
+      // des lignes `obligations` (isCoveredByDebut). Sans ca, un dossier
+      // repris en cours d'annee (ou une societe en cours de creation) fait
+      // remonter des echeances FANTOMES "en retard" pour les mois anterieurs,
+      // alors que le tracker affiche un "-" non cliquable pour ces cellules.
+      // On ne masque que les cellules VIRTUELLES : si une obligation existe
+      // deja en DB, elle reste visible (saisie manuelle, import, exception).
+      if (!obl && !isCoveredByDebut(col.periode, dueIso, s.clients.debut_obligations)) {
+        continue;
+      }
       const statut: StatutLogique | null = obl ? obl.statut_logique : null;
       const isDone =
         statut === "TERMINE" || statut === "NON_APPLICABLE";

@@ -50,28 +50,41 @@ function instancePeriodStart(periode: string): string | null {
 }
 
 /**
- * Filtre les instances dont la période commence avant `debut`.
+ * Une instance est-elle couverte par la prise en charge du cabinet ?
  *
- * Cas particulier des obligations ANNUELLES (période = "YYYY" : liasse, AGO,
- * DAS2, IFU...) : elles portent sur l'exercice ENTIER et se déposent APRÈS sa
- * clôture. Une prise en charge en cours d'année n'exclut donc pas l'exercice
- * (reprise en juin 2026 -> on fait bien la liasse 2026, déposée en mai 2027).
- * On compare l'échéance de dépôt, pas le 1er janvier — sinon la ligne
- * d'obligation n'est jamais créée et la cellule reste bloquée sur "-".
+ * Règle unique, partagée par le moteur de génération (création des lignes
+ * `obligations`) ET par le moteur d'échéances (todo-list mensuelle) — sinon
+ * les deux vues divergent : une échéance "à faire" côté /obligations alors
+ * que la cellule du tracker reste un "-" non cliquable.
+ *
+ * · Obligations PÉRIODIQUES (mois, trimestre, acompte) : on compare le début
+ *   de la période. Une TVA de janvier n'est pas la nôtre si on reprend en juin.
+ * · Obligations ANNUELLES (période "YYYY" : liasse, AGO, DAS2, IFU...) : elles
+ *   portent sur l'exercice ENTIER et se déposent APRÈS sa clôture. Une reprise
+ *   en cours d'année ne les exclut donc pas (reprise juin 2026 -> liasse 2026
+ *   déposée en mai 2027). On compare l'échéance de dépôt.
  */
+export function isCoveredByDebut(
+  periode: string,
+  echeance: string | null,
+  debut: string | null | undefined
+): boolean {
+  if (!debut) return true;
+  if (/^\d{4}$/.test(periode)) {
+    return echeance ? echeance >= debut : true;
+  }
+  const start = instancePeriodStart(periode);
+  if (!start) return true;
+  return start >= debut;
+}
+
+/** Filtre les instances non couvertes par `debut` (cf. isCoveredByDebut). */
 export function filterByDebut(
   instances: GeneratedInstance[],
   debut: string | null | undefined
 ): GeneratedInstance[] {
   if (!debut) return instances;
-  return instances.filter((i) => {
-    if (/^\d{4}$/.test(i.periode)) {
-      return i.echeance ? i.echeance >= debut : true;
-    }
-    const start = instancePeriodStart(i.periode);
-    if (!start) return true;
-    return start >= debut;
-  });
+  return instances.filter((i) => isCoveredByDebut(i.periode, i.echeance, debut));
 }
 
 // ---------------------------------------------------------------------------
