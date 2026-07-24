@@ -127,10 +127,10 @@ export default function LDMButton({
             <span className="text-[10px] text-zinc-400">éditable</span>
           </button>
 
-          {/* Sociale (gestion de la paie) : seuls identité + adresse sont
+          {/* PAIE (gestion de la paie) : seuls identité + adresse sont
               personnalisées, le reste du modèle est fixe. */}
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 bg-zinc-50/60 border-y">
-            Sociale (paie)
+            PAIE
           </div>
           <button
             onMouseDown={(e) => e.preventDefault()}

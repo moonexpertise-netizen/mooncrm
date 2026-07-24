@@ -94,7 +94,7 @@ export async function GET(
     // L'année est tirée de fin_mission_date (clôture 1ère mission), sinon
     // année courante en fallback.
     const denomClean = client.denomination.replace(/[\/\\:*?"<>|]/g, "").trim();
-    const tplLabel = tpl === "presentation" ? "PRESENTATION" : tpl === "bnc" ? "BNC" : "SOCIALE";
+    const tplLabel = tpl === "presentation" ? "PRESENTATION" : tpl === "bnc" ? "BNC" : "PAIE";
     const annee = client.fin_mission_date
       ? new Date(client.fin_mission_date).getFullYear()
       : new Date().getFullYear();
