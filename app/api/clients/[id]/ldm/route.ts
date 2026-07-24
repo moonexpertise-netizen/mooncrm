@@ -5,10 +5,12 @@ import {
   type LDMTemplateKey,
   type LDMClientData,
   type LDMDirigeantData,
+  type AttestationExtra,
 } from "@/lib/ldm-generator";
 
 /**
- * GET /api/clients/:id/ldm?template=presentation|bnc
+ * GET /api/clients/:id/ldm?template=presentation|bnc|sociale|attestation
+ * Pour attestation : &type_attestation=..&portant_sur=..&tarif=..
  * Génère la LDM, retourne le .docx en téléchargement.
  */
 export async function GET(
@@ -17,9 +19,20 @@ export async function GET(
 ) {
   const { id } = await params;
   const tpl = (request.nextUrl.searchParams.get("template") ?? "presentation") as LDMTemplateKey;
-  if (tpl !== "presentation" && tpl !== "bnc" && tpl !== "sociale") {
+  if (tpl !== "presentation" && tpl !== "bnc" && tpl !== "sociale" && tpl !== "attestation") {
     return NextResponse.json({ error: "template invalide" }, { status: 400 });
   }
+
+  // Champs saisis dans la boîte de dialogue (attestation uniquement).
+  const sp = request.nextUrl.searchParams;
+  const attestationExtra: AttestationExtra | undefined =
+    tpl === "attestation"
+      ? {
+          type_attestation: (sp.get("type_attestation") ?? "").trim(),
+          portant_sur: (sp.get("portant_sur") ?? "").trim(),
+          tarif: (sp.get("tarif") ?? "").trim(),
+        }
+      : undefined;
 
   const sb = await createClient();
 
@@ -89,12 +102,13 @@ export async function GET(
   };
 
   try {
-    const buffer = generateLDM(tpl, clientData, dirigeant);
+    const buffer = generateLDM(tpl, clientData, dirigeant, attestationExtra);
     // Format : "ADELEX CONSULTING - LDM PRESENTATION 2026 Draft.docx"
     // L'année est tirée de fin_mission_date (clôture 1ère mission), sinon
     // année courante en fallback.
     const denomClean = client.denomination.replace(/[\/\\:*?"<>|]/g, "").trim();
-    const tplLabel = tpl === "presentation" ? "PRESENTATION" : tpl === "bnc" ? "BNC" : "PAIE";
+    const tplLabel =
+      tpl === "presentation" ? "PRESENTATION" : tpl === "bnc" ? "BNC" : tpl === "sociale" ? "PAIE" : "ATTESTATION";
     const annee = client.fin_mission_date
       ? new Date(client.fin_mission_date).getFullYear()
       : new Date().getFullYear();

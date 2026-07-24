@@ -18,7 +18,7 @@ import {
   type LDMContext,
 } from "./ldm-phrases";
 
-export type LDMTemplateKey = "presentation" | "bnc" | "sociale";
+export type LDMTemplateKey = "presentation" | "bnc" | "sociale" | "attestation";
 
 const TEMPLATE_FILES: Record<LDMTemplateKey, string> = {
   presentation: "ldm-presentation.docx",
@@ -27,6 +27,17 @@ const TEMPLATE_FILES: Record<LDMTemplateKey, string> = {
   // personnalisées ({Cher}/{Titre}/{Prenom}/{Nom}/{Societe}/{Adresse_Siege}/
   // {Code_postal}/{Ville}) — les honoraires du tableau restent fixes.
   sociale: "ldm-sociale.docx",
+  // LDM attestation : identité + adresse comme les autres, PLUS 3 champs
+  // saisis dans une boîte de dialogue avant génération ({Type_attestation},
+  // {Portant_sur}, {Tarif}). Cf. AttestationExtra.
+  attestation: "ldm-attestation.docx",
+};
+
+/** Champs propres à la LDM attestation, saisis avant génération. */
+export type AttestationExtra = {
+  type_attestation: string; // "directe" | "indirecte" | "de concordance"
+  portant_sur: string;      // ex. "le Chiffre d'affaires" (article inclus)
+  tarif: string;            // montant HT, nombre en texte (le "€ HT" est dans le modèle)
 };
 
 const MONTHS_FR = [
@@ -169,7 +180,8 @@ function buildPayload(client: LDMClientData, dirigeant: LDMDirigeantData) {
 export function generateLDM(
   templateKey: LDMTemplateKey,
   client: LDMClientData,
-  dirigeant: LDMDirigeantData
+  dirigeant: LDMDirigeantData,
+  extra?: AttestationExtra
 ): Buffer {
   const templatePath = resolve(
     process.cwd(),
@@ -183,7 +195,14 @@ export function generateLDM(
     linebreaks: true,
   });
 
-  const payload = buildPayload(client, dirigeant);
+  const payload = {
+    ...buildPayload(client, dirigeant),
+    // Champs attestation (ignorés par les autres modèles qui n'ont pas ces
+    // balises). "" par défaut pour éviter un placeholder brut si absent.
+    Type_attestation: extra?.type_attestation ?? "",
+    Portant_sur: extra?.portant_sur ?? "",
+    Tarif: extra?.tarif ?? "",
+  };
   doc.render(payload);
 
   return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
