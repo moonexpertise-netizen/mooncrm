@@ -38,6 +38,32 @@ export type PipelineStatut =
  * aux statuts ou aux échéances des instances déjà présentes (`ignoreDuplicates`
  * sur le couple `(subscription_id, periode)`).
  */
+/**
+ * Libellé A_FAIRE par défaut (1er par ordre, ex. "Pas commencé") pour chaque
+ * type d'obligation. Utilisé pour écrire un statut_detail explicite à la
+ * création plutôt que de laisser null (qui dépendait de l'affichage).
+ */
+async function defaultADetailByType(
+  sb: Awaited<ReturnType<typeof createClient>>,
+  types: string[]
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (types.length === 0) return map;
+  const { data } = await sb
+    .from("status_options")
+    .select("type_code, libelle, ordre")
+    .eq("scope", "obligation")
+    .eq("statut_logique", "A_FAIRE")
+    .eq("actif", true)
+    .in("type_code", types)
+    .order("ordre", { ascending: true });
+  for (const row of data ?? []) {
+    // Le 1er (plus petit ordre) par type gagne : on ne remplace pas si déjà vu.
+    if (!map.has(row.type_code)) map.set(row.type_code, row.libelle);
+  }
+  return map;
+}
+
 export async function regenerateObligationsForYear(clientId: string, annee: number) {
   await requirePermission("edit_production");
   const sb = await createClient();
@@ -53,10 +79,18 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
 
   // 1. Une seule requête pour TOUS les obligations existantes des subs concernées
   const subIds = subs.map((s) => s.id);
-  const { data: existing } = await sb
-    .from("obligations")
-    .select("id, subscription_id, periode, echeance")
-    .in("subscription_id", subIds);
+  const distinctTypes = [...new Set(subs.map((s) => s.type))];
+  const [{ data: existing }, defaultDetailByType] = await Promise.all([
+    sb
+      .from("obligations")
+      .select("id, subscription_id, periode, echeance")
+      .in("subscription_id", subIds),
+    // Statut_detail par défaut par type (le 1er A_FAIRE par ordre, ex.
+    // "Pas commencé"). On l'écrit EXPLICITEMENT à la création pour ne pas
+    // dépendre de l'affichage du tracker (cf. bug 0092 : sans détail, le
+    // tracker montrait le mauvais A_FAIRE).
+    defaultADetailByType(sb, distinctTypes),
+  ]);
   const existingMap = new Map<string, { id: string; periode: string; echeance: string | null }>();
   for (const e of existing ?? []) existingMap.set(`${e.subscription_id}|${e.periode}`, e);
 
@@ -86,6 +120,7 @@ export async function regenerateObligationsForYear(clientId: string, annee: numb
           periode: i.periode,
           annee: i.annee,
           echeance: i.echeance,
+          statut_detail: defaultDetailByType.get(sub.type) ?? null,
         });
       }
     }

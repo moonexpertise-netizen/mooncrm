@@ -52,10 +52,22 @@ async function regenForSub(
   );
   if (!instances.length) return;
 
-  const { data: existing } = await sb
-    .from("obligations")
-    .select("id, periode, echeance")
-    .eq("subscription_id", sub.id);
+  const [{ data: existing }, { data: defOpt }] = await Promise.all([
+    sb.from("obligations").select("id, periode, echeance").eq("subscription_id", sub.id),
+    // Statut A_FAIRE par défaut (1er par ordre, ex. "Pas commencé") : écrit
+    // explicitement à la création. Cf. bug 0092.
+    sb
+      .from("status_options")
+      .select("libelle")
+      .eq("scope", "obligation")
+      .eq("type_code", type)
+      .eq("statut_logique", "A_FAIRE")
+      .eq("actif", true)
+      .order("ordre", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const defaultDetail = defOpt?.libelle ?? null;
   const existingMap = new Map((existing ?? []).map((r) => [r.periode, r]));
 
   const toInsert: Record<string, unknown>[] = [];
@@ -72,6 +84,7 @@ async function regenForSub(
         periode: i.periode,
         annee: i.annee,
         echeance: i.echeance,
+        statut_detail: defaultDetail,
       });
     }
   }
