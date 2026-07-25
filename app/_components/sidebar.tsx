@@ -22,6 +22,7 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
+  HandCoins,
   Stamp,
   Users,
   Wallet,
@@ -83,7 +84,7 @@ type NavItem = {
   matchPrefix?: string;
   children?: ChildItem[];
   /** Clef pour mapper avec les badges "À faire" (cf. loadSidebarBadges). */
-  badgeKey?: "creations" | "ir" | "caa" | "facturation";
+  badgeKey?: "creations" | "ir" | "caa" | "facturation" | "apports";
 };
 
 // Construit la liste des enfants Production en intercalant un header par groupe.
@@ -141,6 +142,9 @@ const NAV_ITEMS: NavItem[] = [
   // badgeKey : compteur de factures a etablir (etat_facturation = 'a_facturer')
   // cumule sur les 5 sources (obligations / CAA / IR / missions exc / creations).
   { href: "/facturation", label: "Facturation", icon: Wallet, matchPrefix: "/facturation", badgeKey: "facturation" },
+  // Apports d'affaires : commissions dues aux apporteurs (gated view_finance).
+  // badgeKey : nombre d'apports à régler.
+  { href: "/apports", label: "Apports", icon: HandCoins, matchPrefix: "/apports", badgeKey: "apports" },
   // Grille des honoraires : suivi transverse des forfaits (compta / bilan /
   // pilotage / juridique) par dossier. Gated view_honoraires (middleware).
   { href: "/honoraires", label: "Honoraires", icon: Coins, matchPrefix: "/honoraires" },
@@ -207,11 +211,13 @@ export function Sidebar() {
     ir: number;
     caa: number;
     facturation: number;
+    apports: number;
   }>({
     creations: 0,
     ir: 0,
     caa: 0,
     facturation: 0,
+    apports: 0,
   });
   // Throttle des badges : on evite de relancer les 9 requetes DB a CHAQUE
   // navigation (c'etait un gros surcout par clic en prod). On rafraichit au

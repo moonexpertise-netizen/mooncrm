@@ -25,6 +25,7 @@ export async function loadSidebarBadges(): Promise<{
   ir: number;
   caa: number;
   facturation: number;
+  apports: number;
 }> {
   const sb = await createClient();
 
@@ -32,6 +33,7 @@ export async function loadSidebarBadges(): Promise<{
     creationsRes,
     irRes,
     caaRes,
+    apportsRes,
     // Facturation : 6 sources cumulees (AGO et LIASSE separes pour les filtres
     // metier specifiques cf. page /facturation)
     factAgoRes,
@@ -57,6 +59,11 @@ export async function loadSidebarBadges(): Promise<{
       .from("caa_obligations")
       .select("id", { count: "exact", head: true })
       .eq("statut_logique", "A_FAIRE"),
+    // Apports d'affaires à régler.
+    sb
+      .from("apports_affaires")
+      .select("id", { count: "exact", head: true })
+      .eq("regle", false),
     // ============================================================
     // Facturation : on filtre comme la page /facturation pour eviter
     // les fantomes. Une ligne n'est REELLEMENT a facturer que si :
@@ -169,10 +176,16 @@ export async function loadSidebarBadges(): Promise<{
     );
   }
 
+  if (apportsRes.error) {
+    // eslint-disable-next-line no-console
+    console.error("[sidebar-badges] apports:", apportsRes.error.message);
+  }
+
   return {
     creations: creationsRes.error ? 0 : creationsRes.count ?? 0,
     ir: irCount,
     caa: caaRes.error ? 0 : caaRes.count ?? 0,
     facturation,
+    apports: apportsRes.error ? 0 : apportsRes.count ?? 0,
   };
 }

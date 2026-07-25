@@ -10,9 +10,10 @@ import {
 } from "./editable";
 import { ClotureSplit, EditableTextArea } from "./editable-extras";
 import { Card, FieldReadonly } from "./_components";
-import { loadClient, loadContactsLink, extractDirigeant } from "./_data";
+import { loadClient, loadContactsLink, extractDirigeant, loadApports, loadApporteurs } from "./_data";
 import LdmChecklist, { honorairesOf } from "./ldm-checklist";
 import AddDirigeantButton from "./add-dirigeant-button";
+import ApportsCard, { type ApportRow } from "./apports-card";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +53,15 @@ export default async function InformationsTab({
   const groupeNom = (client.groupes as unknown as { nom: string } | null)?.nom ?? null;
 
   const sb = await createClient();
-  const [contactsLink, allGroupesRes] = await Promise.all([
+  const [contactsLink, allGroupesRes, apports, apporteurs] = await Promise.all([
     loadContactsLink(client.id),
     sb.from("groupes").select("nom").order("nom"),
+    loadApports(client.id),
+    loadApporteurs(),
   ]);
   const dirigeantContact = extractDirigeant(contactsLink);
   const groupesOptions = (allGroupesRes.data ?? []).map((g) => g.nom);
+  const signed = client.pipeline_statut === "8 - LDM signée";
 
   return (
     <div className="space-y-5">
@@ -137,6 +141,13 @@ export default async function InformationsTab({
         {/* Renseignée automatiquement au passage du pipeline en "LDM signée". */}
         <EditableDate clientId={id} field="mois_signature" value={client.mois_signature} label="Date signature LDM" />
       </Card>
+
+      <ApportsCard
+        clientId={id}
+        apports={apports as ApportRow[]}
+        apporteurs={apporteurs}
+        signed={signed}
+      />
 
       <Card title="Notes">
         <EditableTextArea clientId={id} field="note_pdc" value={client.note_pdc} label="Note PDC" />

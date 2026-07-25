@@ -31,6 +31,29 @@ export const loadContactsLink = cache(async (clientId: string) => {
   return data ?? [];
 });
 
+/** Apports d'affaires du dossier (commissions dues aux apporteurs). */
+export const loadApports = cache(async (clientId: string) => {
+  const sb = await createClient();
+  const { data } = await sb
+    .from("apports_affaires")
+    .select("id, apporteur, montant, mode, regle, regle_at, note, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+});
+
+/** Noms d'apporteurs déjà saisis, pour l'autocomplétion. */
+export const loadApporteurs = cache(async () => {
+  const sb = await createClient();
+  const { data } = await sb
+    .from("apports_affaires")
+    .select("apporteur")
+    .order("apporteur");
+  const set = new Set<string>();
+  for (const r of data ?? []) if (r.apporteur) set.add(r.apporteur);
+  return [...set];
+});
+
 export const loadAllStatusOpts = cache(async () => {
   const sb = await createClient();
   const { data } = await sb
