@@ -261,7 +261,7 @@ export default function PipelineMetro({
                     className={cn(
                       "relative z-10 rounded-full flex items-center justify-center font-semibold transition-all",
                       isCurrent
-                        ? "w-8 h-8 text-[13px] bg-[hsl(var(--gold))] text-white ring-4 ring-[hsl(var(--gold))]/25 shadow-md cursor-grab active:cursor-grabbing"
+                        ? "w-9 h-9 text-sm bg-zinc-900 dark:bg-[hsl(var(--background))] text-white border-2 border-[hsl(var(--gold))] ring-4 ring-[hsl(var(--gold))]/30 shadow-lg cursor-grab active:cursor-grabbing"
                         : done
                         ? "w-7 h-7 mt-0.5 text-[11px] bg-[hsl(var(--gold))] text-white"
                         : "w-7 h-7 mt-0.5 text-[11px] bg-white dark:bg-[hsl(var(--card))] text-zinc-400 dark:text-zinc-500 border-2 border-zinc-200 dark:border-white/[0.14]",
