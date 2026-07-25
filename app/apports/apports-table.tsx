@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Gift, FileText, Check, Trash2 } from "lucide-react";
+import { Gift, FileText, Check, Trash2, Plus, X } from "lucide-react";
 import { cn, fmtEuro } from "@/lib/utils";
 import { useCan } from "@/app/_components/permissions-context";
 import { toastError } from "@/lib/toast-helpers";
-import { setApportRegle, deleteApport } from "./actions";
+import { setApportRegle, deleteApport, createApport, type ApportMode } from "./actions";
 
 export type ApportListRow = {
   id: string;
@@ -31,12 +32,21 @@ function fmtDate(iso: string | null): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 }
 
-export default function ApportsTable({ rows }: { rows: ApportListRow[] }) {
+export default function ApportsTable({
+  rows,
+  clients,
+  apporteurs,
+}: {
+  rows: ApportListRow[];
+  clients: { id: string; denomination: string }[];
+  apporteurs: string[];
+}) {
   const canEdit = useCan("edit_facturation");
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [statut, setStatut] = useState<StatutFilter>("a_regler");
   const [mode, setMode] = useState<ModeFilter>("tous");
+  const [addOpen, setAddOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -90,7 +100,7 @@ export default function ApportsTable({ rows }: { rows: ApportListRow[] }) {
         <StatTile label="Via carte cadeau" value={fmtEuro(totaux.aReglerCarte)} icon="carte" />
       </div>
 
-      {/* Filtres */}
+      {/* Filtres + ajout */}
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
           value={statut}
@@ -110,7 +120,29 @@ export default function ApportsTable({ rows }: { rows: ApportListRow[] }) {
             { value: "carte_cadeau", label: "Carte cadeau" },
           ]}
         />
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 text-xs font-medium hover:bg-zinc-800 dark:hover:bg-white transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Ajouter un apport
+          </button>
+        )}
       </div>
+
+      {addOpen && (
+        <AddApportModal
+          clients={clients}
+          apporteurs={apporteurs}
+          onClose={() => setAddOpen(false)}
+          onDone={() => {
+            setAddOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Table */}
       <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-x-auto">
@@ -226,6 +258,175 @@ function StatTile({
       </div>
       <div className="text-xl font-semibold tabular-nums mt-0.5">{value ?? "0 €"}</div>
     </div>
+  );
+}
+
+/** Modale d'ajout d'un apport : on choisit le dossier (combobox), l'apporteur
+ *  (autocomplétion), le montant et le mode. */
+function AddApportModal({
+  clients,
+  apporteurs,
+  onClose,
+  onDone,
+}: {
+  clients: { id: string; denomination: string }[];
+  apporteurs: string[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const [apporteur, setApporteur] = useState("");
+  const [montant, setMontant] = useState("");
+  const [mode, setMode] = useState<ApportMode>("facture");
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const matches = useMemo(() => {
+    const q = clientQuery.trim().toLowerCase();
+    if (!q) return clients.slice(0, 8);
+    return clients.filter((c) => c.denomination.toLowerCase().includes(q)).slice(0, 8);
+  }, [clientQuery, clients]);
+
+  function selectClient(c: { id: string; denomination: string }) {
+    setClientId(c.id);
+    setClientQuery(c.denomination);
+    setListOpen(false);
+  }
+
+  function submit() {
+    if (!clientId) return toastError("Choisis un dossier.");
+    const m = parseFloat(montant.replace(",", "."));
+    if (!apporteur.trim()) return toastError("Nom de l'apporteur obligatoire.");
+    if (!Number.isFinite(m) || m < 0) return toastError("Montant invalide.");
+    startTransition(async () => {
+      try {
+        await createApport({ clientId, apporteur: apporteur.trim(), montant: m, mode });
+        onDone();
+      } catch (e) {
+        toastError(e, "Echec de l'ajout de l'apport");
+      }
+    });
+  }
+
+  const inputCls =
+    "w-full px-2.5 py-1.5 rounded-md border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]";
+  const labelCls = "text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1 block";
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-fade-in" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-zinc-900/50 dark:bg-[hsl(226_85%_3%_/_0.6)] backdrop-blur-md" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-md rounded-xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
+        <div className="px-5 py-4 border-b border-zinc-200 dark:border-white/[0.06] bg-zinc-50 dark:bg-white/[0.03] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Ajouter un apport d&apos;affaires</h3>
+          <button type="button" onClick={onClose} className="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label="Fermer">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          {/* Combobox dossier */}
+          <div className="relative" ref={boxRef}>
+            <label className={labelCls}>Dossier</label>
+            <input
+              value={clientQuery}
+              onChange={(e) => { setClientQuery(e.target.value); setClientId(null); setListOpen(true); }}
+              onFocus={() => setListOpen(true)}
+              onBlur={() => setTimeout(() => setListOpen(false), 150)}
+              placeholder="Rechercher un dossier…"
+              className={cn(inputCls, clientId ? "border-emerald-300 dark:border-emerald-500/40" : "")}
+            />
+            {listOpen && matches.length > 0 && (
+              <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white dark:bg-[hsl(var(--card))] border border-zinc-200 dark:border-white/[0.10] rounded-lg shadow-xl max-h-56 overflow-auto py-1">
+                {matches.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectClient(c)}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-white/[0.06] transition-colors truncate"
+                  >
+                    {c.denomination}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Apporteur</label>
+            <input
+              list="apporteurs-list-modal"
+              value={apporteur}
+              onChange={(e) => setApporteur(e.target.value)}
+              placeholder="Nom de l'apporteur"
+              className={inputCls}
+            />
+            <datalist id="apporteurs-list-modal">
+              {apporteurs.map((a) => <option key={a} value={a} />)}
+            </datalist>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <label className={labelCls}>Montant</label>
+              <input
+                inputMode="decimal"
+                value={montant}
+                onChange={(e) => setMontant(e.target.value)}
+                placeholder="0"
+                className={cn(inputCls, "pr-6 tabular-nums")}
+              />
+              <span className="absolute right-2 top-[30px] text-xs text-zinc-400">€</span>
+            </div>
+            <div>
+              <label className={labelCls}>Mode</label>
+              <div className="flex gap-1">
+                {(["facture", "carte_cadeau"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={cn(
+                      "px-2 py-1.5 rounded-md text-xs border transition inline-flex items-center gap-1",
+                      mode === m
+                        ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))]"
+                        : "bg-white dark:bg-white/[0.04] border-zinc-200 dark:border-white/[0.10] text-zinc-600 dark:text-zinc-300"
+                    )}
+                  >
+                    {m === "facture" ? <FileText className="h-3 w-3" /> : <Gift className="h-3 w-3" />}
+                    {m === "facture" ? "Facture" : "Carte"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-3 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-200 dark:border-white/[0.06] flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={pending || !clientId || !apporteur.trim() || !montant.trim()}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+              !pending && clientId && apporteur.trim() && montant.trim()
+                ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white"
+                : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+            )}
+          >
+            Ajouter
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 

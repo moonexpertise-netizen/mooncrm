@@ -10,11 +10,21 @@ export const dynamic = "force-dynamic";
  */
 export default async function ApportsPage() {
   const sb = await createClient();
-  const { data, error } = await sb
-    .from("apports_affaires")
-    .select("id, apporteur, montant, mode, regle, regle_at, note, created_at, clients!inner(denomination, slug)")
-    .order("regle", { ascending: true })
-    .order("created_at", { ascending: false });
+  const [{ data, error }, clientsRes] = await Promise.all([
+    sb
+      .from("apports_affaires")
+      .select("id, apporteur, montant, mode, regle, regle_at, note, created_at, clients!inner(denomination, slug)")
+      .order("regle", { ascending: true })
+      .order("created_at", { ascending: false }),
+    sb.from("clients").select("id, denomination").order("denomination"),
+  ]);
+
+  // Dossiers pour le sélecteur "Ajouter un apport" + apporteurs déjà saisis
+  // pour l'autocomplétion.
+  const clients = (clientsRes.data ?? []).map((c) => ({ id: c.id, denomination: c.denomination }));
+  const apporteurs = [
+    ...new Set((data ?? []).map((r) => r.apporteur).filter(Boolean) as string[]),
+  ].sort((a, b) => a.localeCompare(b, "fr"));
 
   if (error) {
     return (
@@ -46,7 +56,7 @@ export default async function ApportsPage() {
         title="Apports d'affaires"
         description="Commissions dues aux apporteurs, suivi des règlements"
       />
-      <ApportsTable rows={rows} />
+      <ApportsTable rows={rows} clients={clients} apporteurs={apporteurs} />
     </div>
   );
 }
