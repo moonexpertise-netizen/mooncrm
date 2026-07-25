@@ -903,8 +903,8 @@ function Badge({ text }: { text: string; color?: string }) {
 function pipelineDotColor(statut: string): string {
   if (statut.startsWith("1 -") || statut.startsWith("2 -") || statut.startsWith("3 -")) return "bg-amber-500";
   if (statut.startsWith("4 -") || statut.startsWith("5 -")) return "bg-sky-500";
-  if (statut.startsWith("6 -")) return "bg-violet-500";
-  if (statut.startsWith("7 -")) return "bg-emerald-500";
+  if (statut.startsWith("6 -") || statut.startsWith("7 -")) return "bg-violet-500";
+  if (statut.startsWith("8 -")) return "bg-emerald-500"; // LDM signée = actif (vert)
   if (statut === "Z - Interne") return "bg-emerald-500";
   if (statut === "Z - Sous-traitance") return "bg-sky-500";
   if (statut === "Z - Perdu dans l'espace") return "bg-indigo-500";
