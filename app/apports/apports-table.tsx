@@ -57,15 +57,28 @@ export default function ApportsTable({
     });
   }, [rows, statut, mode]);
 
-  // Totaux calculés sur les apports À RÉGLER (le pilotage utile).
-  const totaux = useMemo(() => {
-    const aRegler = rows.filter((r) => !r.regle);
-    const sum = (arr: ApportListRow[]) => arr.reduce((s, r) => s + r.montant, 0);
+  // Matrice de totalisation : statut (à régler / réglé) × mode (facture /
+  // carte cadeau), avec totaux de lignes et de colonnes. Calculée sur TOUS
+  // les apports (indépendante des filtres) pour rester un tableau de bord stable.
+  const M = useMemo(() => {
+    const g = {
+      aRegler: { facture: 0, carte: 0, n: 0 },
+      regle: { facture: 0, carte: 0, n: 0 },
+    };
+    for (const r of rows) {
+      const b = r.regle ? g.regle : g.aRegler;
+      b.n += 1;
+      if (r.mode === "facture") b.facture += r.montant;
+      else b.carte += r.montant;
+    }
+    const rowTot = (b: { facture: number; carte: number }) => b.facture + b.carte;
     return {
-      aReglerTotal: sum(aRegler),
-      aReglerFacture: sum(aRegler.filter((r) => r.mode === "facture")),
-      aReglerCarte: sum(aRegler.filter((r) => r.mode === "carte_cadeau")),
-      nbARegler: aRegler.length,
+      g,
+      aReglerTot: rowTot(g.aRegler),
+      regleTot: rowTot(g.regle),
+      colFacture: g.aRegler.facture + g.regle.facture,
+      colCarte: g.aRegler.carte + g.regle.carte,
+      grand: rowTot(g.aRegler) + rowTot(g.regle),
     };
   }, [rows]);
 
@@ -93,11 +106,50 @@ export default function ApportsTable({
 
   return (
     <div className="space-y-4">
-      {/* Totaux à régler */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatTile label={`À régler (${totaux.nbARegler})`} value={fmtEuro(totaux.aReglerTotal)} accent="amber" />
-        <StatTile label="Via facture" value={fmtEuro(totaux.aReglerFacture)} icon="facture" />
-        <StatTile label="Via carte cadeau" value={fmtEuro(totaux.aReglerCarte)} icon="carte" />
+      {/* Matrice de totalisation : statut × mode */}
+      <div className="rounded-xl border border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))] shadow-card overflow-x-auto">
+        <table className="w-full text-sm min-w-[420px]">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wide text-zinc-400 border-b border-zinc-100 dark:border-white/[0.06]">
+              <th className="px-4 py-2.5 text-left font-medium">Statut</th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3 text-blue-500" />Facture</span>
+              </th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                <span className="inline-flex items-center gap-1"><Gift className="h-3 w-3 text-pink-500" />Carte cadeau</span>
+              </th>
+              <th className="px-4 py-2.5 text-right font-semibold text-zinc-500 dark:text-zinc-300">Total</th>
+            </tr>
+          </thead>
+          <tbody className="tabular-nums">
+            <tr className="border-b border-zinc-50 dark:border-white/[0.04] bg-amber-50/40 dark:bg-amber-500/[0.06]">
+              <td className="px-4 py-2.5">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+                  À régler ({M.g.aRegler.n})
+                </span>
+              </td>
+              <td className="px-4 py-2.5 text-right">{fmtEuro(M.g.aRegler.facture)}</td>
+              <td className="px-4 py-2.5 text-right">{fmtEuro(M.g.aRegler.carte)}</td>
+              <td className="px-4 py-2.5 text-right font-semibold text-amber-800 dark:text-amber-200">{fmtEuro(M.aReglerTot)}</td>
+            </tr>
+            <tr className="border-b border-zinc-50 dark:border-white/[0.04]">
+              <td className="px-4 py-2.5">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                  Réglé ({M.g.regle.n})
+                </span>
+              </td>
+              <td className="px-4 py-2.5 text-right text-zinc-500 dark:text-zinc-400">{fmtEuro(M.g.regle.facture)}</td>
+              <td className="px-4 py-2.5 text-right text-zinc-500 dark:text-zinc-400">{fmtEuro(M.g.regle.carte)}</td>
+              <td className="px-4 py-2.5 text-right font-medium text-zinc-600 dark:text-zinc-300">{fmtEuro(M.regleTot)}</td>
+            </tr>
+            <tr className="border-t border-zinc-200 dark:border-white/[0.10] font-semibold">
+              <td className="px-4 py-2.5 text-zinc-500 dark:text-zinc-300">Total</td>
+              <td className="px-4 py-2.5 text-right">{fmtEuro(M.colFacture)}</td>
+              <td className="px-4 py-2.5 text-right">{fmtEuro(M.colCarte)}</td>
+              <td className="px-4 py-2.5 text-right">{fmtEuro(M.grand)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {/* Filtres + ajout */}
@@ -229,34 +281,6 @@ export default function ApportsTable({
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  accent,
-  icon,
-}: {
-  label: string;
-  value: string | null;
-  accent?: "amber";
-  icon?: "facture" | "carte";
-}) {
-  return (
-    <div className={cn(
-      "rounded-xl border px-4 py-3 shadow-card",
-      accent === "amber"
-        ? "border-amber-200 dark:border-amber-500/25 bg-amber-50/60 dark:bg-amber-500/[0.08]"
-        : "border-zinc-200/70 dark:border-white/[0.08] bg-white dark:bg-[hsl(var(--card))]"
-    )}>
-      <div className="text-[11px] uppercase tracking-wide text-zinc-400 flex items-center gap-1.5">
-        {icon === "facture" && <FileText className="h-3 w-3 text-blue-500" />}
-        {icon === "carte" && <Gift className="h-3 w-3 text-pink-500" />}
-        {label}
-      </div>
-      <div className="text-xl font-semibold tabular-nums mt-0.5">{value ?? "0 €"}</div>
     </div>
   );
 }
