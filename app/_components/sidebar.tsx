@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Sparkles,
   HandCoins,
+  Files,
   Stamp,
   Users,
   Wallet,
@@ -111,6 +112,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users, matchPrefix: "/clients" },
   { href: "/pipeline", label: "Pipeline", icon: GitBranch, matchPrefix: "/pipeline" },
+  // Génération en masse de LDM (Présentation / BNC / PAIE) -> ZIP.
+  { href: "/documents", label: "Documents", icon: Files, matchPrefix: "/documents" },
   { href: "/onboarding", label: "Onboarding", icon: Workflow, matchPrefix: "/onboarding" },
   { href: "/parametrage", label: "Paramétrage", icon: Settings2, matchPrefix: "/parametrage" },
   // Missions ponctuelles : transferts de siege, evaluations, attestations, AG
