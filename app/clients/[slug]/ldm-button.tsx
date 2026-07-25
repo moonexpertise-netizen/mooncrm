@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { FileText, ChevronDown, AlertTriangle, FileType2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import RepriseDialog from "./reprise-dialog";
 
 const TYPES_ATTESTATION = ["directe", "indirecte", "de concordance"] as const;
 
@@ -48,6 +49,9 @@ export default function LDMButton({
   missingFields?: string[];
 }) {
   const [open, setOpen] = useState(false);
+
+  // Boîte de dialogue lettre de reprise (destinataire = cabinet sortant).
+  const [repriseOpen, setRepriseOpen] = useState(false);
 
   // Boîte de dialogue attestation (3 champs saisis avant génération).
   const [attOpen, setAttOpen] = useState(false);
@@ -201,8 +205,28 @@ export default function LDMButton({
             <span className="flex-1">Word (.docx)</span>
             <span className="text-[10px] text-zinc-400">à paramétrer…</span>
           </button>
+
+          {/* REPRISE (confrère) : destinataire = cabinet sortant. Ouvre une
+              boîte de dialogue (cabinet, expert, adresse, mission, dates). */}
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-zinc-500 bg-zinc-50/60 border-y">
+            Reprise (confrère)
+          </div>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setOpen(false);
+              setRepriseOpen(true);
+            }}
+            className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--gold))]/10 transition-colors flex items-center gap-2"
+          >
+            <FileType2 className="h-3.5 w-3.5 text-blue-600" />
+            <span className="flex-1">Word (.docx)</span>
+            <span className="text-[10px] text-zinc-400">à paramétrer…</span>
+          </button>
         </div>
       )}
+
+      <RepriseDialog clientId={clientId} open={repriseOpen} onClose={() => setRepriseOpen(false)} />
 
       {attOpen &&
         typeof document !== "undefined" &&

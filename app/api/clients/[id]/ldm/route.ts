@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   generateLDM,
+  generateLettreReprise,
   type LDMTemplateKey,
   type LDMClientData,
   type LDMDirigeantData,
@@ -19,7 +20,13 @@ export async function GET(
 ) {
   const { id } = await params;
   const tpl = (request.nextUrl.searchParams.get("template") ?? "presentation") as LDMTemplateKey;
-  if (tpl !== "presentation" && tpl !== "bnc" && tpl !== "sociale" && tpl !== "attestation") {
+  if (
+    tpl !== "presentation" &&
+    tpl !== "bnc" &&
+    tpl !== "sociale" &&
+    tpl !== "attestation" &&
+    tpl !== "reprise"
+  ) {
     return NextResponse.json({ error: "template invalide" }, { status: 400 });
   }
 
@@ -102,17 +109,42 @@ export async function GET(
   };
 
   try {
-    const buffer = generateLDM(tpl, clientData, dirigeant, attestationExtra);
+    // Lettre de reprise : générateur + jeu de balises distincts (destinataire
+    // = cabinet sortant, pas le dirigeant). On la traite à part.
+    const buffer =
+      tpl === "reprise"
+        ? generateLettreReprise(
+            { denomination: client.denomination, fin_mission_date: clientData.fin_mission_date },
+            {
+              cabinet: (sp.get("cabinet") ?? "").trim(),
+              expert: (sp.get("expert") ?? "").trim(),
+              adresse: (sp.get("adresse") ?? "").trim(),
+              code_postal: (sp.get("code_postal") ?? "").trim(),
+              ville: (sp.get("ville") ?? "").trim(),
+              interlocuteur: (sp.get("interlocuteur") ?? "Confrère").trim(),
+              type_mission: (sp.get("type_mission") ?? "").trim(),
+              date_debut: (sp.get("date_debut") ?? "").trim(),
+              date_reprise: (sp.get("date_reprise") ?? "").trim(),
+            }
+          )
+        : generateLDM(tpl, clientData, dirigeant, attestationExtra);
     // Format : "ADELEX CONSULTING - LDM PRESENTATION 2026 Draft.docx"
     // L'année est tirée de fin_mission_date (clôture 1ère mission), sinon
     // année courante en fallback.
     const denomClean = client.denomination.replace(/[\/\\:*?"<>|]/g, "").trim();
     const tplLabel =
-      tpl === "presentation" ? "PRESENTATION" : tpl === "bnc" ? "BNC" : tpl === "sociale" ? "PAIE" : "ATTESTATION";
+      tpl === "presentation" ? "PRESENTATION"
+      : tpl === "bnc" ? "BNC"
+      : tpl === "sociale" ? "PAIE"
+      : tpl === "attestation" ? "ATTESTATION"
+      : "REPRISE";
     const annee = client.fin_mission_date
       ? new Date(client.fin_mission_date).getFullYear()
       : new Date().getFullYear();
-    const filename = `${denomClean} - LDM ${tplLabel} ${annee} Draft.docx`;
+    const filename =
+      tpl === "reprise"
+        ? `${denomClean} - Lettre de reprise ${annee} Draft.docx`
+        : `${denomClean} - LDM ${tplLabel} ${annee} Draft.docx`;
     const encoded = encodeURIComponent(filename);
 
     return new NextResponse(buffer as unknown as BodyInit, {

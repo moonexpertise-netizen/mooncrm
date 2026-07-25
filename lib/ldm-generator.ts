@@ -18,7 +18,12 @@ import {
   type LDMContext,
 } from "./ldm-phrases";
 
-export type LDMTemplateKey = "presentation" | "bnc" | "sociale" | "attestation";
+export type LDMTemplateKey =
+  | "presentation"
+  | "bnc"
+  | "sociale"
+  | "attestation"
+  | "reprise";
 
 const TEMPLATE_FILES: Record<LDMTemplateKey, string> = {
   presentation: "ldm-presentation.docx",
@@ -31,6 +36,11 @@ const TEMPLATE_FILES: Record<LDMTemplateKey, string> = {
   // saisis dans une boîte de dialogue avant génération ({Type_attestation},
   // {Portant_sur}, {Tarif}). Cf. AttestationExtra.
   attestation: "ldm-attestation.docx",
+  // Lettre de reprise au confrère : le destinataire est le CABINET sortant
+  // (pas le dirigeant). Tous les champs sauf {Societe} (dénomination du
+  // dossier) et {Cloture} (fin de mission) sont saisis en boîte de dialogue.
+  // Cf. RepriseExtra.
+  reprise: "lettre-reprise.docx",
 };
 
 /** Champs propres à la LDM attestation, saisis avant génération. */
@@ -39,6 +49,26 @@ export type AttestationExtra = {
   portant_sur: string;      // ex. "le Chiffre d'affaires" (article inclus)
   tarif: string;            // montant HT, nombre en texte (le "€ HT" est dans le modèle)
 };
+
+/** Champs propres à la lettre de reprise au confrère, saisis avant génération. */
+export type RepriseExtra = {
+  cabinet: string;       // nom du cabinet comptable sortant
+  expert: string;        // NOM Prénom de l'expert-comptable
+  adresse: string;       // adresse ligne 1 du cabinet
+  code_postal: string;
+  ville: string;
+  interlocuteur: string; // "Confrère" | "Consœur" -> pilote Cher/Chère
+  type_mission: string;  // "de présentation" | "d'assistance aux obligations déclaratives"
+  date_debut: string;    // JJ/MM/AAAA
+  date_reprise: string;  // JJ/MM/AAAA
+};
+
+/** JJ/MM/AAAA depuis une date ISO (YYYY-MM-DD) ; renvoie tel quel sinon. */
+function frDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso);
+}
 
 const MONTHS_FR = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -204,6 +234,42 @@ export function generateLDM(
     Tarif: extra?.tarif ?? "",
   };
   doc.render(payload);
+
+  return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
+/**
+ * Génère la lettre de reprise au confrère. Modèle et jeu de balises distincts
+ * des LDM : le destinataire est le cabinet sortant, pas le dirigeant du dossier.
+ * Seuls {Societe} et {Cloture} viennent du dossier, le reste de la boîte de
+ * dialogue (RepriseExtra).
+ */
+export function generateLettreReprise(
+  client: Pick<LDMClientData, "denomination" | "fin_mission_date">,
+  extra: RepriseExtra
+): Buffer {
+  const templatePath = resolve(process.cwd(), "lib/templates", TEMPLATE_FILES.reprise);
+  const zip = new PizZip(readFileSync(templatePath));
+  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+
+  const cherMaj = extra.interlocuteur === "Consœur" ? "Chère" : "Cher";
+  const cherMin = extra.interlocuteur === "Consœur" ? "chère" : "cher";
+
+  doc.render({
+    Cabinet: extra.cabinet,
+    Expert: extra.expert,
+    Adresse: extra.adresse,
+    Code_postal: extra.code_postal,
+    Ville: extra.ville,
+    Interlocuteur: extra.interlocuteur,
+    Cher: cherMaj,
+    cher_min: cherMin,
+    Type_mission: extra.type_mission,
+    Date_debut: extra.date_debut,
+    Date_reprise: extra.date_reprise,
+    Societe: client.denomination,
+    Cloture: frDate(client.fin_mission_date),
+  });
 
   return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
 }
