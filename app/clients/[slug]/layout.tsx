@@ -10,6 +10,7 @@ import AnnuaireButton from "./annuaire-button";
 import BackButton from "./back-button";
 import DeleteClientButton from "./delete-button";
 import LDMButton from "./ldm-button";
+import AttestationButton from "./attestation-button";
 import NavButtons from "./nav-buttons";
 import TallyButton from "./tally-button";
 import FicheTabs from "./fiche-tabs";
@@ -305,6 +306,7 @@ export default async function ClientLayout({
                     : null
                 }
               />
+              <AttestationButton clientId={client.id} />
               <DeleteClientButton clientId={client.id} denomination={client.denomination} />
             </div>
           </div>
