@@ -23,6 +23,7 @@ const TYPES_MISSION = [
 type Dirigeant = {
   nom?: string | null;
   prenoms?: string | null;
+  qualite?: string | null;
   type_dirigeant?: string | null;
 };
 
@@ -41,10 +42,29 @@ function cleanName(s: Suggestion): string {
   return (i === -1 ? s.nom_complet : s.nom_complet.substring(0, i)).trim();
 }
 
-/** "Prénom NOM" du premier dirigeant personne physique, sinon "". */
+/**
+ * Rang de priorité d'un dirigeant selon sa qualité, pour la lettre de reprise :
+ * Président ou Gérant d'abord, puis Directeur Général, sinon tout le reste.
+ * (Plus le rang est bas, plus c'est prioritaire.)
+ */
+function rangQualite(q: string | null | undefined): number {
+  const s = (q ?? "").toLowerCase();
+  if (s.includes("président") || s.includes("gérant") || s.includes("gerant")) return 0;
+  if (s.includes("directeur général") || s.includes("directeur general")) return 1;
+  return 2;
+}
+
+/**
+ * "Prénom NOM" du dirigeant à retenir : personne physique la mieux placée
+ * (Président / Gérant > Directeur Général > autre). "" si aucun.
+ */
 function dirigeantName(s: Suggestion): string {
-  const d = (s.dirigeants ?? []).find((x) => x.type_dirigeant === "personne physique");
-  if (!d) return "";
+  const physiques = (s.dirigeants ?? []).filter((x) => x.type_dirigeant === "personne physique");
+  if (!physiques.length) return "";
+  // Tri stable par rang de qualité ; le 1er reste 1er à rang égal.
+  const d = physiques
+    .map((x, i) => ({ x, i, r: rangQualite(x.qualite) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)[0].x;
   const nom = (d.nom ?? "").trim().toUpperCase();
   const prenomBrut = (d.prenoms ?? "").trim().split(/\s+/)[0] ?? "";
   const prenom = prenomBrut
