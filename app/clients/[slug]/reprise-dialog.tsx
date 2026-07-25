@@ -20,10 +20,17 @@ const TYPES_MISSION = [
   { label: "Assistance aux obligations déclaratives", value: "d'assistance aux obligations déclaratives" },
 ];
 
+type Dirigeant = {
+  nom?: string | null;
+  prenoms?: string | null;
+  type_dirigeant?: string | null;
+};
+
 type Suggestion = {
   siren: string;
   nom_complet: string;
   nom_raison_sociale?: string | null;
+  dirigeants?: Dirigeant[];
   siege?: { code_postal?: string | null; libelle_commune?: string | null; adresse?: string | null } | null;
 };
 
@@ -34,14 +41,29 @@ function cleanName(s: Suggestion): string {
   return (i === -1 ? s.nom_complet : s.nom_complet.substring(0, i)).trim();
 }
 
+/** "Prénom NOM" du premier dirigeant personne physique, sinon "". */
+function dirigeantName(s: Suggestion): string {
+  const d = (s.dirigeants ?? []).find((x) => x.type_dirigeant === "personne physique");
+  if (!d) return "";
+  const nom = (d.nom ?? "").trim().toUpperCase();
+  const prenomBrut = (d.prenoms ?? "").trim().split(/\s+/)[0] ?? "";
+  const prenom = prenomBrut
+    ? prenomBrut.charAt(0).toUpperCase() + prenomBrut.slice(1).toLowerCase()
+    : "";
+  return [prenom, nom].filter(Boolean).join(" ");
+}
+
 export default function RepriseDialog({
   clientId,
   open,
   onClose,
+  defaultCloture,
 }: {
   clientId: string;
   open: boolean;
   onClose: () => void;
+  /** fin_mission_date du dossier (ISO), pour pré-remplir la clôture. */
+  defaultCloture?: string | null;
 }) {
   const [cabinet, setCabinet] = useState("");
   const [expert, setExpert] = useState("");
@@ -50,8 +72,14 @@ export default function RepriseDialog({
   const [ville, setVille] = useState("");
   const [interlocuteur, setInterlocuteur] = useState<"Confrère" | "Consœur">("Confrère");
   const [typeMission, setTypeMission] = useState(TYPES_MISSION[0].value);
+  const [cloture, setCloture] = useState(defaultCloture ?? "");
   const [dateDebut, setDateDebut] = useState("");
   const [dateReprise, setDateReprise] = useState("");
+
+  // Pré-remplit la clôture avec la date du dossier à l'ouverture.
+  useEffect(() => {
+    if (open) setCloture(defaultCloture ?? "");
+  }, [open, defaultCloture]);
 
   // Autocomplete annuaire
   const [search, setSearch] = useState("");
@@ -94,6 +122,9 @@ export default function RepriseDialog({
 
   function pick(s: Suggestion) {
     setCabinet(cleanName(s));
+    // Pré-remplit l'expert avec le dirigeant du cabinet (personne physique).
+    const dir = dirigeantName(s);
+    if (dir) setExpert(dir);
     const cp = s.siege?.code_postal?.trim() || null;
     const v = s.siege?.libelle_commune?.trim() || null;
     if (s.siege?.adresse) setAdresse(extractRueOnly(s.siege.adresse, cp, v));
@@ -120,6 +151,7 @@ export default function RepriseDialog({
       ville: ville.trim(),
       interlocuteur,
       type_mission: typeMission,
+      cloture: frOf(cloture),
       date_debut: frOf(dateDebut),
       date_reprise: frOf(dateReprise),
     });
@@ -127,7 +159,7 @@ export default function RepriseDialog({
     onClose();
   }
 
-  const valid = cabinet.trim() && expert.trim() && dateDebut && dateReprise;
+  const valid = cabinet.trim() && expert.trim() && cloture && dateDebut && dateReprise;
 
   if (!open || typeof document === "undefined") return null;
 
@@ -230,6 +262,14 @@ export default function RepriseDialog({
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Date de clôture de l&apos;exercice repris</label>
+            <input type="date" value={cloture} onChange={(e) => setCloture(e.target.value)} className={cn(inputCls, "tabular-nums")} />
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+              «&nbsp;pour l&apos;exercice se clôturant le …&nbsp;». Pré-rempli avec la clôture du dossier.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">

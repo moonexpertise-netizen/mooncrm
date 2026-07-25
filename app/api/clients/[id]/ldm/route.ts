@@ -114,7 +114,7 @@ export async function GET(
     const buffer =
       tpl === "reprise"
         ? generateLettreReprise(
-            { denomination: client.denomination, fin_mission_date: clientData.fin_mission_date },
+            { denomination: client.denomination },
             {
               cabinet: (sp.get("cabinet") ?? "").trim(),
               expert: (sp.get("expert") ?? "").trim(),
@@ -123,6 +123,7 @@ export async function GET(
               ville: (sp.get("ville") ?? "").trim(),
               interlocuteur: (sp.get("interlocuteur") ?? "Confrère").trim(),
               type_mission: (sp.get("type_mission") ?? "").trim(),
+              cloture: (sp.get("cloture") ?? "").trim(),
               date_debut: (sp.get("date_debut") ?? "").trim(),
               date_reprise: (sp.get("date_reprise") ?? "").trim(),
             }

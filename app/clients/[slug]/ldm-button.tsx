@@ -35,6 +35,7 @@ export default function LDMButton({
   clientId,
   dirigeant,
   missingFields = [],
+  finMission = null,
 }: {
   clientId: string;
   dirigeant: {
@@ -47,6 +48,9 @@ export default function LDMButton({
   /** Champs obligatoires LDM encore vides. On AVERTIT sans bloquer : Benjamin
    *  garde la possibilité de sortir un brouillon à relire. */
   missingFields?: string[];
+  /** fin_mission_date du dossier (ISO), pour pré-remplir la clôture de la
+   *  lettre de reprise. */
+  finMission?: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -226,7 +230,7 @@ export default function LDMButton({
         </div>
       )}
 
-      <RepriseDialog clientId={clientId} open={repriseOpen} onClose={() => setRepriseOpen(false)} />
+      <RepriseDialog clientId={clientId} open={repriseOpen} onClose={() => setRepriseOpen(false)} defaultCloture={finMission} />
 
       {attOpen &&
         typeof document !== "undefined" &&

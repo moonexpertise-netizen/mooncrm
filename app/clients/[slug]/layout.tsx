@@ -292,6 +292,7 @@ export default async function ClientLayout({
                   nom: dirigeantContact?.nom ?? null,
                   honoraires: honorairesOf(client),
                 })}
+                finMission={client.fin_mission_date}
                 dirigeant={
                   dirigeantContact
                     ? {

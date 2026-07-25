@@ -59,16 +59,11 @@ export type RepriseExtra = {
   ville: string;
   interlocuteur: string; // "Confrère" | "Consœur" -> pilote Cher/Chère
   type_mission: string;  // "de présentation" | "d'assistance aux obligations déclaratives"
+  cloture: string;       // clôture de l'exercice repris, JJ/MM/AAAA
   date_debut: string;    // JJ/MM/AAAA
   date_reprise: string;  // JJ/MM/AAAA
 };
 
-/** JJ/MM/AAAA depuis une date ISO (YYYY-MM-DD) ; renvoie tel quel sinon. */
-function frDate(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso);
-}
 
 const MONTHS_FR = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -241,11 +236,12 @@ export function generateLDM(
 /**
  * Génère la lettre de reprise au confrère. Modèle et jeu de balises distincts
  * des LDM : le destinataire est le cabinet sortant, pas le dirigeant du dossier.
- * Seuls {Societe} et {Cloture} viennent du dossier, le reste de la boîte de
- * dialogue (RepriseExtra).
+ * Seule {Societe} vient du dossier ; la clôture et le reste sont saisis dans
+ * la boîte de dialogue (RepriseExtra) — la clôture y est pré-remplie avec
+ * fin_mission_date du dossier mais reste modifiable.
  */
 export function generateLettreReprise(
-  client: Pick<LDMClientData, "denomination" | "fin_mission_date">,
+  client: Pick<LDMClientData, "denomination">,
   extra: RepriseExtra
 ): Buffer {
   const templatePath = resolve(process.cwd(), "lib/templates", TEMPLATE_FILES.reprise);
@@ -268,7 +264,7 @@ export function generateLettreReprise(
     Date_debut: extra.date_debut,
     Date_reprise: extra.date_reprise,
     Societe: client.denomination,
-    Cloture: frDate(client.fin_mission_date),
+    Cloture: extra.cloture,
   });
 
   return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
