@@ -132,6 +132,11 @@ export default function CreationsTable({
     (k): k is StatusGroup => k === "a_faire" || k === "en_cours" || k === "termine",
   );
   useEffect(() => setLocalRows(rows), [rows]);
+  // Vue Base : par défaut on masque les dossiers déjà traités (année affectée
+  // + statut terminé) pour n'y garder que le "à traiter" (à affecter, à faire,
+  // en cours). Toggle pour les réafficher — rien n'est perdu, ils restent dans
+  // les vues par année.
+  const [showTraitesBase, setShowTraitesBase] = useState(false);
 
   // Vue Annee : on n'affiche QUE les dossiers souscrits a l'annee selectionnee,
   // puis on applique le filtre par groupe de statut (a faire / en cours / fait).
@@ -144,10 +149,27 @@ export default function CreationsTable({
     [localRows, mode, selectedYear]
   );
 
+  // Nombre de dossiers "traités" masqués en vue Base (pour le toggle).
+  const baseHiddenCount = useMemo(() => {
+    if (mode !== "base") return 0;
+    return localRows.filter(
+      (r) => r.creation_annee !== null && defFor(r.creation_statut).group === "termine"
+    ).length;
+  }, [localRows, mode]);
+
   const visibleRows = useMemo(() => {
-    if (mode !== "year" || filter.size === 0) return yearRows;
-    return yearRows.filter((r) => filter.has(defFor(r.creation_statut).group as StatusGroup));
-  }, [yearRows, mode, filter]);
+    if (mode === "year") {
+      if (filter.size === 0) return yearRows;
+      return yearRows.filter((r) => filter.has(defFor(r.creation_statut).group as StatusGroup));
+    }
+    // Base : vue "à traiter". On garde les dossiers à affecter (sans année) et
+    // ceux non terminés ; on masque les traités sauf si l'utilisateur les
+    // réaffiche via le toggle.
+    if (showTraitesBase) return yearRows;
+    return yearRows.filter(
+      (r) => r.creation_annee === null || defFor(r.creation_statut).group !== "termine"
+    );
+  }, [yearRows, mode, filter, showTraitesBase]);
 
   // Compteurs par groupe pour les chips
   const yearCounts = useMemo(() => {
@@ -545,6 +567,19 @@ export default function CreationsTable({
               />
             </div>
           </>
+        )}
+
+        {/* Vue Base : toggle des dossiers traités (masqués par défaut). */}
+        {mode === "base" && baseHiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowTraitesBase((v) => !v)}
+            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-2 transition-colors"
+          >
+            {showTraitesBase
+              ? `Masquer les ${baseHiddenCount} traités`
+              : `${baseHiddenCount} dossier${baseHiddenCount > 1 ? "s" : ""} traité${baseHiddenCount > 1 ? "s" : ""} masqué${baseHiddenCount > 1 ? "s" : ""} · afficher`}
+          </button>
         )}
       </div>
 

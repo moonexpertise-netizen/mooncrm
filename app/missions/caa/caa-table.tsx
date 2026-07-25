@@ -110,6 +110,9 @@ export default function CaaTable({
   );
   useEffect(() => setLocalRows(rows), [rows]);
   const { confirm, ConfirmDialog } = useConfirm();
+  // Vue Base : masque par défaut les dossiers déjà traités (année affectée +
+  // statut terminé). Toggle pour les réafficher.
+  const [showTraitesBase, setShowTraitesBase] = useState(false);
 
   // Map statut_logique DB -> groupe filtre
   function statutGroup(sl: StatutLogique | null | undefined): "a_faire" | "en_cours" | "termine" | "na" {
@@ -117,6 +120,15 @@ export default function CaaTable({
     if (sl === "EN_COURS") return "en_cours";
     if (sl === "NON_APPLICABLE") return "na";
     return "a_faire";
+  }
+
+  // Base : "à traiter" = aucune année affectée (à affecter) OU au moins une
+  // obligation non terminée. "traité" = a une (ou des) obligation(s) toutes
+  // terminées -> masqué par défaut.
+  function isBaseTodo(r: CaaRow): boolean {
+    const cells = [...r.obligations.values()];
+    if (cells.length === 0) return true;
+    return cells.some((c) => statutGroup(c.statut_logique) !== "termine");
   }
 
   // Vue annee : on n'affiche QUE les clients souscrits a la CAA pour l'annee
@@ -129,14 +141,27 @@ export default function CaaTable({
     [localRows, mode, selectedYear]
   );
 
+  const baseHiddenCount = useMemo(
+    () => (mode === "base" ? localRows.filter((r) => !isBaseTodo(r)).length : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [localRows, mode]
+  );
+
   const visibleRows = useMemo(() => {
-    if (mode !== "year" || filter.size === 0) return yearRows;
-    return yearRows.filter((r) => {
-      const cell = r.obligations.get(selectedYear);
-      const g = statutGroup(cell?.statut_logique);
-      return g !== "na" && filter.has(g as StatusGroup);
-    });
-  }, [yearRows, mode, filter, selectedYear]);
+    if (mode === "year") {
+      if (filter.size === 0) return yearRows;
+      return yearRows.filter((r) => {
+        const cell = r.obligations.get(selectedYear);
+        const g = statutGroup(cell?.statut_logique);
+        return g !== "na" && filter.has(g as StatusGroup);
+      });
+    }
+    // Base : vue "à traiter" (à affecter / non terminés) ; traités masqués
+    // sauf toggle.
+    if (showTraitesBase) return yearRows;
+    return yearRows.filter(isBaseTodo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearRows, mode, filter, selectedYear, showTraitesBase]);
 
   // Compteurs par groupe pour les chips
   const yearCounts = useMemo(() => {
@@ -651,6 +676,19 @@ export default function CaaTable({
               />
             </div>
           </>
+        )}
+
+        {/* Vue Base : toggle des dossiers traités (masqués par défaut). */}
+        {mode === "base" && baseHiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowTraitesBase((v) => !v)}
+            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-2 transition-colors"
+          >
+            {showTraitesBase
+              ? `Masquer les ${baseHiddenCount} traités`
+              : `${baseHiddenCount} dossier${baseHiddenCount > 1 ? "s" : ""} traité${baseHiddenCount > 1 ? "s" : ""} masqué${baseHiddenCount > 1 ? "s" : ""} · afficher`}
+          </button>
         )}
 
         {!adding && (
