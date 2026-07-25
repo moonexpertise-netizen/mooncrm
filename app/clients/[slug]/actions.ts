@@ -1047,6 +1047,23 @@ export async function finirForfaitDebut(clientId: string) {
 }
 
 /**
+ * Annule le passage en rythme de croisière : réactive le forfait de début
+ * (retour en arrière). Le dossier revient dans le suivi et la LDM re-mentionne
+ * le tarif réduit.
+ */
+export async function reactiverForfaitDebut(clientId: string) {
+  await requirePermission("edit_honoraires");
+  const sb = await createClient();
+  const { error } = await sb
+    .from("clients")
+    .update({ forfait_debut_termine: false, forfait_debut_termine_at: null })
+    .eq("id", clientId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/honoraires");
+}
+
+/**
  * Révision des honoraires récurrents avec MOTIF obligatoire. Seul point
  * d'entrée pour modifier les montants (compta / bilan / juridique / pilotage /
  * OSS) : chaque changement est journalisé dans client_audit_log avec le motif

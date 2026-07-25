@@ -3,12 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Coins, Rocket, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Coins, Rocket, Check, RotateCcw } from "lucide-react";
 import { cn, fmtEuro } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import { useCan } from "@/app/_components/permissions-context";
 import { EmptyState } from "@/app/_components/ui";
-import { finirForfaitDebut } from "@/app/clients/[slug]/actions";
+import { finirForfaitDebut, reactiverForfaitDebut } from "@/app/clients/[slug]/actions";
 import AdjustHonorairesModal from "@/app/clients/[slug]/adjust-honoraires-modal";
 
 export type HonoRow = {
@@ -466,17 +466,23 @@ function forfaitDebutSummary(r: HonoRow): string {
 function ForfaitsDebutPanel({ rows, canEdit }: { rows: HonoRow[]; canEdit: boolean }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  // done : clôtures optimistes (en cours -> archivés).
+  // undone : réactivations optimistes (archivés -> en cours).
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [undone, setUndone] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"en_cours" | "archives">("en_cours");
 
   const withForfait = rows.filter((r) => r.forfait_debut_montant > 0);
-  const active = withForfait.filter((r) => !r.forfait_debut_termine && !done.has(r.id));
-  const archived = withForfait.filter((r) => r.forfait_debut_termine || done.has(r.id));
+  const isArchived = (r: HonoRow) =>
+    (r.forfait_debut_termine || done.has(r.id)) && !undone.has(r.id);
+  const active = withForfait.filter((r) => !isArchived(r));
+  const archived = withForfait.filter(isArchived);
   if (withForfait.length === 0) return null;
 
   const shown = tab === "en_cours" ? active : archived;
 
   function terminer(r: HonoRow) {
+    setUndone((prev) => { const n = new Set(prev); n.delete(r.id); return n; });
     setDone((prev) => new Set(prev).add(r.id)); // retrait optimiste de "en cours"
     startTransition(async () => {
       try {
@@ -490,6 +496,25 @@ function ForfaitsDebutPanel({ rows, canEdit }: { rows: HonoRow[]; canEdit: boole
           return n;
         });
         toastError(e, "Echec de la clôture du forfait de début");
+      }
+    });
+  }
+
+  function reactiver(r: HonoRow) {
+    setDone((prev) => { const n = new Set(prev); n.delete(r.id); return n; });
+    setUndone((prev) => new Set(prev).add(r.id)); // repasse optimiste en "en cours"
+    startTransition(async () => {
+      try {
+        await reactiverForfaitDebut(r.id);
+        toastSuccess(`${r.denomination} : forfait de début réactivé`);
+        router.refresh();
+      } catch (e) {
+        setUndone((prev) => {
+          const n = new Set(prev);
+          n.delete(r.id);
+          return n;
+        });
+        toastError(e, "Echec de la réactivation du forfait de début");
       }
     });
   }
@@ -545,9 +570,21 @@ function ForfaitsDebutPanel({ rows, canEdit }: { rows: HonoRow[]; canEdit: boole
                 {forfaitDebutSummary(r)}
               </span>
               {tab === "archives" ? (
-                <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-                  {r.forfait_debut_termine_at ? `Clôturé le ${fmtDateFr(r.forfait_debut_termine_at)}` : "Clôturé"}
-                </span>
+                <div className="ml-auto shrink-0 flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    {r.forfait_debut_termine_at ? `Clôturé le ${fmtDateFr(r.forfait_debut_termine_at)}` : "Clôturé"}
+                  </span>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => reactiver(r)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-zinc-200 dark:border-white/[0.12] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.06] transition-colors"
+                      title="Réactiver le forfait de début (annuler le passage en rythme de croisière)"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Réactiver
+                    </button>
+                  )}
+                </div>
               ) : (
                 canEdit && (
                   <button
