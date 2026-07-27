@@ -45,6 +45,16 @@ function echappeHtml(s: string): string {
 const PUCE = /^\s*[-•*]\s+(.*)$/;
 
 /**
+ * Police et couleur du corps, répétées sur CHAQUE élément de texte.
+ *
+ * Un style porté par <body> seul ne suffit pas : à l'ouverture d'un brouillon,
+ * Outlook renormalise le HTML et retombe sur la couleur par défaut de son
+ * éditeur (un gris foncé, pas du noir). La couleur doit donc être inline sur
+ * les <p> et les <li> pour survivre.
+ */
+const STYLE_TEXTE = "font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000000";
+
+/**
  * Texte brut -> HTML : lignes vides = nouveau paragraphe, sauts simples = <br>.
  * Un paragraphe entièrement composé de puces devient une vraie liste <ul> :
  * les modèles qui énumèrent des pièces à fournir sortent proprement dans
@@ -59,14 +69,14 @@ function texteVersHtml(corps: string): string {
       const puces = lignes.map((l) => l.match(PUCE)).filter(Boolean);
       if (lignes.length > 0 && puces.length === lignes.length) {
         const items = puces
-          .map((m) => `<li style="margin:0 0 4px 0">${echappeHtml(m![1])}</li>`)
+          .map((m) => `<li style="${STYLE_TEXTE};margin:0 0 4px 0">${echappeHtml(m![1])}</li>`)
           .join("");
-        return `<ul style="margin:0 0 12px 0;padding-left:22px">${items}</ul>`;
+        return `<ul style="${STYLE_TEXTE};margin:0 0 12px 0;padding-left:22px">${items}</ul>`;
       }
-      return `<p style="margin:0 0 12px 0">${echappeHtml(p).replace(/\n/g, "<br>")}</p>`;
+      return `<p style="${STYLE_TEXTE};margin:0 0 12px 0">${echappeHtml(p).replace(/\n/g, "<br>")}</p>`;
     })
     .join("");
-  return `<html><body style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000">${paragraphes}</body></html>`;
+  return `<html><body style="${STYLE_TEXTE}"><div style="${STYLE_TEXTE}">${paragraphes}</div></body></html>`;
 }
 
 export type EmlInput = {
