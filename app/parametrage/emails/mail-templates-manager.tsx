@@ -422,7 +422,7 @@ function Editeur({
           disabled={lectureSeule}
           onFocus={() => (dernierChamp.current = "objet")}
           onChange={(e) => setObjet(e.target.value)}
-          placeholder="ex. {denomination} — pièces manquantes pour le bilan {annee}"
+          placeholder="ex. {denomination} - pièces manquantes pour le bilan {annee}"
           className={inputCls}
         />
       </label>

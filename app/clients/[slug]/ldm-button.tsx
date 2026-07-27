@@ -35,12 +35,15 @@ export default function LDMButton({
   clientId,
   denomination,
   dirigeant,
+  mailReprise = null,
   missingFields = [],
   finMission = null,
 }: {
   clientId: string;
   /** Nom du dossier, cité dans le mail de reprise au confrère. */
   denomination: string;
+  /** Modèle `mail_reprise` paramétré ; null = défaut du code. */
+  mailReprise?: { subject: string; body: string } | null;
   dirigeant: {
     civilite: "M." | "Mme" | "Mlle" | null;
     prenom: string | null;
@@ -237,6 +240,7 @@ export default function LDMButton({
         clientId={clientId}
         denomination={denomination}
         dirigeant={dirigeant ? { prenom: dirigeant.prenom, nom: dirigeant.nom } : null}
+        mailTemplate={mailReprise}
         open={repriseOpen}
         onClose={() => setRepriseOpen(false)}
         defaultCloture={finMission}

@@ -8,14 +8,16 @@ import { requirePermission } from "@/lib/auth";
  * Enregistre un modèle d'e-mail (guide création / reprise). Réservé
  * edit_parametrage. Upsert sur la clé. Cf. migration 0085.
  */
+const CLES_SYSTEME = new Set(["guide_creation", "guide_reprise", "mail_reprise"]);
+
 export async function setEmailTemplate(
-  key: "guide_creation" | "guide_reprise",
+  key: "guide_creation" | "guide_reprise" | "mail_reprise",
   subject: string,
   body: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await requirePermission("edit_parametrage");
-    if (key !== "guide_creation" && key !== "guide_reprise") {
+    if (!CLES_SYSTEME.has(key)) {
       throw new Error("Modèle inconnu.");
     }
     const s = subject.trim();
@@ -32,6 +34,8 @@ export async function setEmailTemplate(
       );
     if (error) throw new Error(error.message);
     revalidatePath("/parametrage/emails");
+    // Le mail de reprise est lu par la fiche client (bouton Générer LDM).
+    if (key === "mail_reprise") revalidatePath("/clients", "layout");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

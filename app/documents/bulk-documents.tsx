@@ -216,7 +216,7 @@ export default function BulkDocuments({
           >
             {mailTemplates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.categorie ? `${t.categorie} — ${t.nom}` : t.nom}
+                {t.categorie ? `${t.categorie} : ${t.nom}` : t.nom}
               </option>
             ))}
           </select>
@@ -333,7 +333,7 @@ export default function BulkDocuments({
         {mode === "ldm" ? (
           <>
             <FileType2 className="h-3 w-3" />
-            Les documents sortent en brouillon (.docx). Les champs manquants apparaîtront vides —
+            Les documents sortent en brouillon (.docx). Les champs manquants apparaîtront vides,
             complète les dossiers signalés avant.
           </>
         ) : (

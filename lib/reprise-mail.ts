@@ -1,14 +1,23 @@
 /**
- * Brouillon du mail de reprise adressé au CONFRÈRE sortant, préparé en même
- * temps que la lettre de reprise déontologique (bouton « Générer LDM » →
- * « Reprise (confrère) »).
+ * Mail de reprise adressé au CONFRÈRE sortant, ouvert DIRECTEMENT dans Outlook
+ * (lien mailto) au moment de générer la lettre de reprise déontologique.
  *
- * Le texte ci-dessous est le modèle de cabinet : il est calculé à partir des
- * champs déjà saisis pour la lettre (interlocuteur, expert, dates, clôture),
- * puis présenté DANS LA MODALE où il reste entièrement modifiable avant
- * téléchargement du .eml. Les exercices demandés (N, N-1, N-2) se déduisent de
- * la date de clôture de l'exercice repris.
+ * Le texte n'est plus figé dans le code : c'est le modèle système
+ * `mail_reprise` de /parametrage/emails (table email_templates, migration
+ * 0094), avec repli sur DEFAULT_EMAIL_TEMPLATES. Ce module calcule les
+ * variables propres à la reprise (civilité du confrère, nom de famille de
+ * l'expert, exercices déduits de la clôture) puis les substitue.
+ *
+ * Contrainte à connaître : un mailto transite par l'URL, plafonnée autour de
+ * 2000 caractères sous Windows/Outlook. Le modèle par défaut produit ~1465
+ * caractères encodés — cf. `longueurMailto` pour alerter si un modèle
+ * retouché venait à déborder.
  */
+
+import {
+  DEFAULT_EMAIL_TEMPLATES,
+  type EmailTemplate,
+} from "@/lib/email-templates-defaults";
 
 export type RepriseMailInput = {
   /** Dénomination du dossier repris. */
@@ -26,6 +35,21 @@ export type RepriseMailInput = {
   /** Personne à qui le confrère doit envoyer les pièces ("Prénom NOM"). */
   destinatairePieces: string;
 };
+
+/** Catalogue des variables du modèle, affiché dans /parametrage/emails. */
+export const REPRISE_VARIABLES: { cle: string; libelle: string }[] = [
+  { cle: "civilite_confrere", libelle: "Monsieur / Madame, selon Confrère ou Consœur" },
+  { cle: "nom_expert", libelle: "Nom de famille de l'expert-comptable sortant" },
+  { cle: "denomination", libelle: "Nom du dossier repris" },
+  { cle: "date_debut", libelle: "Date de début de mission" },
+  { cle: "date_reprise", libelle: "Date de reprise des travaux" },
+  { cle: "destinataire_pieces", libelle: "Personne à qui envoyer les pièces" },
+  { cle: "cloture", libelle: "Date de clôture de l'exercice repris (31/12/2025)" },
+  { cle: "exercices", libelle: "Les 3 exercices demandés (2025, 2024, 2023)" },
+  { cle: "exercice_n", libelle: "Exercice repris (2025)" },
+];
+
+const CLES = new Set(REPRISE_VARIABLES.map((v) => v.cle));
 
 /** ISO YYYY-MM-DD -> JJ/MM/AAAA. Renvoie la valeur telle quelle si non ISO. */
 function fr(iso: string): string {
@@ -51,39 +75,61 @@ export function nomDeFamille(expert: string): string {
   return majuscules.length > 0 ? majuscules.join(" ") : tokens[tokens.length - 1];
 }
 
-export function buildRepriseMail(input: RepriseMailInput): { subject: string; body: string } {
-  const civilite = input.interlocuteur === "Consœur" ? "Madame" : "Monsieur";
-  const nom = nomDeFamille(input.expert);
-  const appel = [civilite, nom].filter(Boolean).join(" ");
-
-  const clotureFr = fr(input.cloture);
+/** Valeurs de substitution du modèle de reprise. */
+export function buildRepriseVars(input: RepriseMailInput): Record<string, string> {
   const n = annee(input.cloture);
-  // Exercices demandés : N (celui repris), N-1, N-2. Sans clôture valide on
-  // laisse les repères N/N-1/N-2, à compléter à la main.
-  const exercices = n ? `${n}, ${n - 1}, ${n - 2}` : "N, N-1, N-2";
-  const exerciceN = n ? String(n) : "N";
+  return {
+    civilite_confrere: input.interlocuteur === "Consœur" ? "Madame" : "Monsieur",
+    nom_expert: nomDeFamille(input.expert),
+    denomination: input.denomination,
+    date_debut: fr(input.dateDebut),
+    date_reprise: fr(input.dateReprise),
+    destinataire_pieces: input.destinatairePieces,
+    cloture: fr(input.cloture),
+    // Exercices demandés : N (celui repris), N-1, N-2. Sans clôture valide on
+    // laisse les repères N/N-1/N-2, à compléter à la main.
+    exercices: n ? `${n}, ${n - 1}, ${n - 2}` : "N, N-1, N-2",
+    exercice_n: n ? String(n) : "N",
+  };
+}
 
-  const subject = `Lettre de reprise — ${input.denomination}`;
+/** Substitue les {variables} connues ; les inconnues restent visibles. */
+export function fillReprise(texte: string, vars: Record<string, string>): string {
+  return texte.replace(/\{([a-z_]+)\}/g, (brut, cle: string) =>
+    CLES.has(cle) ? vars[cle] ?? "" : brut
+  );
+}
 
-  const body = `Bonjour ${appel},
+/**
+ * Objet + corps prêts à partir, à partir du modèle paramétré (ou du défaut).
+ */
+export function buildRepriseMail(
+  input: RepriseMailInput,
+  modele?: EmailTemplate | null
+): { subject: string; body: string } {
+  const tpl = modele ?? DEFAULT_EMAIL_TEMPLATES.mail_reprise;
+  const vars = buildRepriseVars(input);
+  return {
+    subject: fillReprise(tpl.subject, vars),
+    body: fillReprise(tpl.body, vars),
+  };
+}
 
-Je vous prie de trouver en pièce jointe ma lettre de reprise concernant le dossier ${input.denomination}.
+/** Construit le lien mailto ouvrant le brouillon dans Outlook. */
+export function lienMailto(to: string, subject: string, body: string): string {
+  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(
+    subject
+  )}&body=${encodeURIComponent(body)}`;
+}
 
-Si rien ne s'oppose à notre entrée sur le dossier, les travaux du cabinet MOON Expertise démarreront au ${fr(input.dateDebut)} avec une date de reprise des travaux au ${fr(input.dateReprise)}.
+/**
+ * Limite pratique d'un mailto sous Windows/Outlook. Au-delà, le corps est
+ * silencieusement tronqué : l'éditeur de /parametrage/emails s'en sert pour
+ * alerter AVANT que le mail parte amputé.
+ */
+export const MAILTO_LIMITE = 2000;
 
-Je vous prie aussi, dès que possible, de bien vouloir transmettre à ${input.destinatairePieces} les éléments suivants :
-
-- Plaquette (Comptes annuels + Liasse fiscale) des comptes ${exercices} ;
-- FEC définitifs des exercices N-2, N-1, N (${exerciceN}) et provisoire N+1 ;
-- Dossier de travail complet (si possible) au ${clotureFr} ;
-- Liste exhaustive des immobilisations au ${clotureFr} ;
-- État des dotations et amortissements au ${clotureFr}.
-
-Je vais également vous adresser une demande de transfert de dossier via Pennylane une fois vos travaux terminés.
-
-En vous remerciant pour votre collaboration,
-
-Respectueusement,`;
-
-  return { subject, body };
+/** Longueur encodée du mailto qui serait produit — pour l'alerte de longueur. */
+export function longueurMailto(subject: string, body: string): number {
+  return lienMailto("prenom.nom@cabinet-exemple.fr", subject, body).length;
 }

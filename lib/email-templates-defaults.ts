@@ -11,9 +11,37 @@
  */
 
 export type EmailTemplate = { subject: string; body: string };
-export type EmailTemplateKey = "guide_creation" | "guide_reprise";
+export type EmailTemplateKey = "guide_creation" | "guide_reprise" | "mail_reprise";
 
 export const DEFAULT_EMAIL_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {
+  /**
+   * Mail au CONFRÈRE sortant, ouvert dans Outlook au moment de générer la
+   * lettre de reprise déontologique. Ses variables sont propres à la reprise
+   * (dates de mission, exercices demandés) : cf. REPRISE_VARIABLES dans
+   * lib/reprise-mail.ts.
+   */
+  mail_reprise: {
+    subject: "{denomination} - Reprise déontologique",
+    body: `Bonjour {civilite_confrere} {nom_expert},
+
+Je vous prie de trouver en pièce jointe ma lettre de reprise concernant le dossier {denomination}.
+
+Si rien ne s'oppose à notre entrée sur le dossier, les travaux du cabinet MOON Expertise démarreront au {date_debut} avec une date de reprise des travaux au {date_reprise}.
+
+Je vous prie aussi, dès que possible, de bien vouloir transmettre à {destinataire_pieces} les éléments suivants :
+
+• Plaquette (Comptes annuels + Liasse fiscale) des comptes {exercices} ;
+• FEC définitifs des exercices N-2, N-1, N ({exercice_n}) et provisoire N+1 ;
+• Dossier de travail complet (si possible) au {cloture} ;
+• Liste exhaustive des immobilisations au {cloture} ;
+• État des dotations et amortissements au {cloture}.
+
+Je vais également vous adresser une demande de transfert de dossier via Pennylane une fois vos travaux terminés.
+
+En vous remerciant pour votre collaboration,
+
+Respectueusement,`,
+  },
   guide_creation: {
     subject: "Votre guide de création — MOON Expertise",
     body: `Bonjour,

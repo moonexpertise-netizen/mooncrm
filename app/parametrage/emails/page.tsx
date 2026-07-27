@@ -101,11 +101,15 @@ export default async function EmailsParametragePage() {
             Modèles système
           </h2>
           <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Le message envoyé via le bouton « Envoyer le guide » sur une fiche, selon l&apos;origine
-            du dossier (création ou reprise).
+            Les messages rattachés à un bouton précis de l&apos;application : envoi du guide selon
+            l&apos;origine du dossier, et mail au confrère lors d&apos;une reprise déontologique.
           </p>
         </div>
-        <EmailsManager creation={resolve("guide_creation")} reprise={resolve("guide_reprise")} />
+        <EmailsManager
+          creation={resolve("guide_creation")}
+          reprise={resolve("guide_reprise")}
+          mailReprise={resolve("mail_reprise")}
+        />
       </section>
     </div>
   );

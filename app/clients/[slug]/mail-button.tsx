@@ -197,7 +197,7 @@ function MailDialog({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toastSuccess("Mail généré — ouvre le fichier pour le retrouver dans Outlook");
+      toastSuccess("Mail généré, ouvre le fichier pour le retrouver dans Outlook");
       onClose();
     } catch (e) {
       toastError(e, "Échec de la génération du mail");
@@ -208,7 +208,7 @@ function MailDialog({
 
   return (
     <FormModal
-      title={`Générer un mail — ${template.nom}`}
+      title={`Générer un mail : ${template.nom}`}
       onClose={onClose}
       onSubmit={generer}
       submitLabel={busy ? "Génération…" : "Ouvrir dans Outlook"}
