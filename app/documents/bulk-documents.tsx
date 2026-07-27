@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileType2, Download, AlertTriangle, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { FileType2, Download, AlertTriangle, Loader2, MailPlus, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCan } from "@/app/_components/permissions-context";
-import { toastError, toastSuccess } from "@/lib/toast-helpers";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast-helpers";
+import type { MailTemplate } from "@/lib/mail-templates";
 
 export type DocClient = {
   id: string;
@@ -13,6 +15,8 @@ export type DocClient = {
   pipeline_statut: string | null;
   /** Champs cœur manquants pour la LDM (avertissement, non bloquant). */
   missing: string[];
+  /** Destinataire du mail : dirigeant, sinon adresse du dossier. */
+  email: string | null;
 };
 
 type Template = "presentation" | "bnc" | "sociale";
@@ -22,9 +26,19 @@ const TEMPLATES: { value: Template; label: string }[] = [
   { value: "sociale", label: "PAIE" },
 ];
 
-export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
+type Mode = "ldm" | "mail";
+
+export default function BulkDocuments({
+  rows,
+  mailTemplates,
+}: {
+  rows: DocClient[];
+  mailTemplates: MailTemplate[];
+}) {
   const canEdit = useCan("edit_clients");
+  const [mode, setMode] = useState<Mode>("ldm");
   const [template, setTemplate] = useState<Template>("presentation");
+  const [mailTemplateId, setMailTemplateId] = useState<string>(mailTemplates[0]?.id ?? "");
   const [search, setSearch] = useState("");
   const [signedOnly, setSignedOnly] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -40,6 +54,13 @@ export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
   }, [rows, search, signedOnly]);
 
   const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
+
+  /** Changer de mode : le filtre « LDM signée » n'a de sens que pour les LDM —
+   *  une relance par mail s'adresse à tout le portefeuille. */
+  function changeMode(m: Mode) {
+    setMode(m);
+    if (m === "mail") setSignedOnly(false);
+  }
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -58,32 +79,55 @@ export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
     });
   }
 
+  /** Télécharge le blob renvoyé par une route de génération. */
+  function telecharge(blob: Blob, contentDisposition: string, defaut: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = contentDisposition.match(/filename="([^"]+)"/)?.[1] ?? defaut;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function generate() {
     const ids = [...selected];
     if (ids.length === 0) return toastError("Sélectionne au moins un dossier.");
+    if (mode === "mail" && !mailTemplateId) return toastError("Choisis un modèle de mail.");
+
     setBusy(true);
     try {
-      const res = await fetch("/api/documents/bulk", {
+      const res = await fetch(mode === "ldm" ? "/api/documents/bulk" : "/api/documents/mails", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template, clientIds: ids }),
+        body: JSON.stringify(
+          mode === "ldm"
+            ? { template, clientIds: ids }
+            : { templateId: mailTemplateId, clientIds: ids }
+        ),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error ?? `Erreur ${res.status}`);
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const cd = res.headers.get("Content-Disposition") ?? "";
-      const m = cd.match(/filename="([^"]+)"/);
-      a.download = m?.[1] ?? "documents.zip";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toastSuccess(`${ids.length} document${ids.length > 1 ? "s" : ""} généré${ids.length > 1 ? "s" : ""}`);
+      telecharge(
+        blob,
+        res.headers.get("Content-Disposition") ?? "",
+        mode === "ldm" ? "documents.zip" : "mails.zip"
+      );
+
+      const pluriel = ids.length > 1 ? "s" : "";
+      if (mode === "ldm") {
+        toastSuccess(`${ids.length} document${pluriel} généré${pluriel}`);
+      } else {
+        toastSuccess(`${ids.length} mail${pluriel} généré${pluriel}`);
+        // Un .eml sans destinataire s'ouvre quand même : on prévient plutôt
+        // que de bloquer, le champ « À » sera simplement à compléter.
+        const sans = decodeURIComponent(res.headers.get("X-Sans-Destinataire") ?? "");
+        if (sans) toastInfo(`Sans adresse e-mail : ${sans}`);
+      }
     } catch (e) {
       toastError(e, "Echec de la génération");
     } finally {
@@ -92,30 +136,97 @@ export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
   }
 
   const selCount = selected.size;
+  const modeleMail = mailTemplates.find((t) => t.id === mailTemplateId) ?? null;
+  const pretAGenerer = mode === "ldm" || Boolean(mailTemplateId);
+
+  const onglet =
+    "px-3 py-1 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]";
+  const ongletActif =
+    "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-medium";
+  const ongletInactif =
+    "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent";
 
   return (
     <div className="space-y-4">
-      {/* Type de document */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Type :</span>
-        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
-          {TEMPLATES.map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => setTemplate(t.value)}
-              className={cn(
-                "px-3 py-1 rounded-lg text-sm transition-colors",
-                template === t.value
-                  ? "bg-white dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-50 border border-zinc-300 dark:border-white/25 shadow-card font-medium"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 border border-transparent"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {/* Nature du livrable */}
+      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
+        <button
+          type="button"
+          onClick={() => changeMode("ldm")}
+          aria-pressed={mode === "ldm"}
+          className={cn(onglet, "inline-flex items-center gap-1.5", mode === "ldm" ? ongletActif : ongletInactif)}
+        >
+          <FileType2 className="h-3.5 w-3.5" />
+          Lettres de mission
+        </button>
+        <button
+          type="button"
+          onClick={() => changeMode("mail")}
+          aria-pressed={mode === "mail"}
+          className={cn(onglet, "inline-flex items-center gap-1.5", mode === "mail" ? ongletActif : ongletInactif)}
+        >
+          <MailPlus className="h-3.5 w-3.5" />
+          Mails
+        </button>
       </div>
+
+      {/* Modèle */}
+      {mode === "ldm" ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Type :</span>
+          <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-100/70 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/[0.08]">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTemplate(t.value)}
+                aria-pressed={template === t.value}
+                className={cn(onglet, template === t.value ? ongletActif : ongletInactif)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : mailTemplates.length === 0 ? (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 px-3 py-2.5 text-[13px] text-amber-900 dark:text-amber-200">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">Aucun modèle de mail n&apos;est encore créé.</span>
+          <Link
+            href="/parametrage/emails"
+            className="inline-flex items-center gap-1.5 shrink-0 font-medium hover:underline"
+          >
+            <Settings2 className="h-3 w-3" />
+            Créer un modèle
+          </Link>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <label
+            htmlFor="modele-mail"
+            className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
+          >
+            Modèle :
+          </label>
+          <select
+            id="modele-mail"
+            value={mailTemplateId}
+            onChange={(e) => setMailTemplateId(e.target.value)}
+            className="h-9 px-2.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+          >
+            {mailTemplates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.categorie ? `${t.categorie} — ${t.nom}` : t.nom}
+              </option>
+            ))}
+          </select>
+          {modeleMail && (
+            <span className="text-[12px] text-zinc-500 dark:text-zinc-400 truncate">
+              Objet : {modeleMail.objet}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Filtres */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -143,7 +254,7 @@ export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
               </th>
               <th className="px-3 py-2.5 font-medium">Dossier</th>
               <th className="px-3 py-2.5 font-medium">Forme</th>
-              <th className="px-3 py-2.5 font-medium">Complétude</th>
+              <th className="px-3 py-2.5 font-medium">{mode === "ldm" ? "Complétude" : "Destinataire"}</th>
             </tr>
           </thead>
           <tbody>
@@ -162,15 +273,27 @@ export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
                 <td className="px-3 py-2.5 font-medium">{r.denomination}</td>
                 <td className="px-3 py-2.5 text-zinc-500 dark:text-zinc-400">{r.forme ?? "—"}</td>
                 <td className="px-3 py-2.5">
-                  {r.missing.length === 0 ? (
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Complet</span>
+                  {mode === "ldm" ? (
+                    r.missing.length === 0 ? (
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Complet</span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300"
+                        title={`Manque : ${r.missing.join(", ")}`}
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                        {r.missing.length} champ{r.missing.length > 1 ? "s" : ""} manquant{r.missing.length > 1 ? "s" : ""}
+                      </span>
+                    )
+                  ) : r.email ? (
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{r.email}</span>
                   ) : (
                     <span
                       className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300"
-                      title={`Manque : ${r.missing.join(", ")}`}
+                      title="Le mail sera généré avec un champ « À » vide"
                     >
                       <AlertTriangle className="h-3 w-3" />
-                      {r.missing.length} champ{r.missing.length > 1 ? "s" : ""} manquant{r.missing.length > 1 ? "s" : ""}
+                      Aucune adresse
                     </span>
                   )}
                 </td>
@@ -193,10 +316,10 @@ export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
         <button
           type="button"
           onClick={generate}
-          disabled={!canEdit || busy || selCount === 0}
+          disabled={!canEdit || busy || selCount === 0 || !pretAGenerer}
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
-            canEdit && !busy && selCount > 0
+            canEdit && !busy && selCount > 0 && pretAGenerer
               ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white"
               : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
           )}
@@ -207,8 +330,19 @@ export default function BulkDocuments({ rows }: { rows: DocClient[] }) {
       </div>
 
       <p className="text-[11px] text-zinc-400 flex items-center gap-1.5">
-        <FileType2 className="h-3 w-3" />
-        Les documents sortent en brouillon (.docx). Les champs manquants apparaîtront vides — complète les dossiers signalés avant.
+        {mode === "ldm" ? (
+          <>
+            <FileType2 className="h-3 w-3" />
+            Les documents sortent en brouillon (.docx). Les champs manquants apparaîtront vides —
+            complète les dossiers signalés avant.
+          </>
+        ) : (
+          <>
+            <MailPlus className="h-3 w-3" />
+            Un fichier .eml par dossier : double-clic pour l&apos;ouvrir dans Outlook en brouillon.
+            Rien n&apos;est envoyé automatiquement.
+          </>
+        )}
       </p>
     </div>
   );

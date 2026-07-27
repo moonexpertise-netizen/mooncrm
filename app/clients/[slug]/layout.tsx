@@ -11,6 +11,8 @@ import BackButton from "./back-button";
 import DeleteClientButton from "./delete-button";
 import LDMButton from "./ldm-button";
 import AttestationButton from "./attestation-button";
+import MailButton from "./mail-button";
+import type { MailTemplate } from "@/lib/mail-templates";
 import NavButtons from "./nav-buttons";
 import TallyButton from "./tally-button";
 import FicheTabs from "./fiche-tabs";
@@ -159,15 +161,25 @@ export default async function ClientLayout({
 
   // Modèles d'e-mails (guide) passés au bouton "Envoyer le guide". Repli sur
   // les défauts côté composant si la table n'existe pas encore (migration 0085).
-  const { data: emailTplRows } = await supabase
-    .from("email_templates")
-    .select("key, subject, body");
+  // En parallèle : modèles de mails libres (bouton "Générer mail", migration
+  // 0093) et identité de l'utilisateur pour les variables {mon_prenom}…
+  const [{ data: emailTplRows }, { data: mailTplRows }, { data: authData }] = await Promise.all([
+    supabase.from("email_templates").select("key, subject, body"),
+    supabase
+      .from("mail_templates")
+      .select("id, nom, categorie, objet, corps, actif, ordre")
+      .eq("actif", true)
+      .order("ordre", { ascending: true })
+      .order("nom", { ascending: true }),
+    supabase.auth.getUser(),
+  ]);
   const emailTplByKey = new Map(
     ((emailTplRows ?? []) as { key: string; subject: string; body: string }[]).map((r) => [
       r.key,
       { subject: r.subject, body: r.body },
     ])
   );
+  const mailTemplates = (mailTplRows ?? []) as MailTemplate[];
 
   const idx = clientList.findIndex((c) => c.slug === slug);
   const prev = idx > 0 ? clientList[idx - 1] : null;
@@ -307,6 +319,36 @@ export default async function ClientLayout({
                 }
               />
               <AttestationButton clientId={client.id} />
+              <MailButton
+                clientId={client.id}
+                client={{
+                  denomination: client.denomination,
+                  siren: client.siren,
+                  forme: client.forme,
+                  activite: client.activite,
+                  regime: client.regime,
+                  adresse_siege: client.adresse_siege,
+                  code_postal: client.code_postal,
+                  ville: client.ville,
+                  jour_cloture: client.jour_cloture,
+                  mois_cloture: client.mois_cloture,
+                  email: client.email,
+                  fin_mission_date: client.fin_mission_date,
+                }}
+                dirigeant={
+                  dirigeantContact
+                    ? {
+                        civilite: dirigeantContact.civilite,
+                        prenom: dirigeantContact.prenom,
+                        nom: dirigeantContact.nom,
+                        email: dirigeantContact.email,
+                        telephone: dirigeantContact.telephone,
+                      }
+                    : null
+                }
+                templates={mailTemplates}
+                userEmail={authData?.user?.email ?? null}
+              />
               <DeleteClientButton clientId={client.id} denomination={client.denomination} />
             </div>
           </div>
