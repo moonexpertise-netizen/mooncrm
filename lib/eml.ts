@@ -41,12 +41,30 @@ function echappeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Texte brut -> HTML : lignes vides = nouveau paragraphe, sauts simples = <br>. */
+/** Une ligne de puce : « - texte », « • texte » ou « * texte ». */
+const PUCE = /^\s*[-•*]\s+(.*)$/;
+
+/**
+ * Texte brut -> HTML : lignes vides = nouveau paragraphe, sauts simples = <br>.
+ * Un paragraphe entièrement composé de puces devient une vraie liste <ul> :
+ * les modèles qui énumèrent des pièces à fournir sortent proprement dans
+ * Outlook au lieu d'une suite de tirets.
+ */
 function texteVersHtml(corps: string): string {
   const paragraphes = corps
     .replace(/\r\n/g, "\n")
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 12px 0">${echappeHtml(p).replace(/\n/g, "<br>")}</p>`)
+    .map((p) => {
+      const lignes = p.split("\n").filter((l) => l.trim());
+      const puces = lignes.map((l) => l.match(PUCE)).filter(Boolean);
+      if (lignes.length > 0 && puces.length === lignes.length) {
+        const items = puces
+          .map((m) => `<li style="margin:0 0 4px 0">${echappeHtml(m![1])}</li>`)
+          .join("");
+        return `<ul style="margin:0 0 12px 0;padding-left:22px">${items}</ul>`;
+      }
+      return `<p style="margin:0 0 12px 0">${echappeHtml(p).replace(/\n/g, "<br>")}</p>`;
+    })
     .join("");
   return `<html><body style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000">${paragraphes}</body></html>`;
 }

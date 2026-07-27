@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, ArrowLeft, Loader2, MailPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractRueOnly } from "@/lib/adresse";
+import { buildRepriseMail } from "@/lib/reprise-mail";
+import { toastError, toastSuccess } from "@/lib/toast-helpers";
 
 /**
  * Boîte de dialogue de la lettre de reprise au confrère.
@@ -13,6 +15,11 @@ import { extractRueOnly } from "@/lib/adresse";
  * cabinet dans l'annuaire public (même API que "Nouveau client") pour
  * pré-remplir nom + adresse + CP + ville, tout restant éditable. Le nom du
  * dossier et sa date de clôture viennent du dossier courant (côté serveur).
+ *
+ * En 2 étapes : la lettre (.docx) puis, si la case est cochée, le BROUILLON DE
+ * MAIL au confrère (.eml Outlook), calculé à partir des mêmes champs — on ne
+ * ressaisit ni les dates ni le nom de l'expert. Le texte du mail reste
+ * entièrement modifiable avant téléchargement.
  */
 
 const TYPES_MISSION = [
@@ -75,11 +82,17 @@ function dirigeantName(s: Suggestion): string {
 
 export default function RepriseDialog({
   clientId,
+  denomination,
+  dirigeant,
   open,
   onClose,
   defaultCloture,
 }: {
   clientId: string;
+  /** Nom du dossier repris, cité dans le corps du mail. */
+  denomination: string;
+  /** Dirigeant du dossier : destinataire par défaut des pièces demandées. */
+  dirigeant?: { prenom: string | null; nom: string } | null;
   open: boolean;
   onClose: () => void;
   /** fin_mission_date du dossier (ISO), pour pré-remplir la clôture. */
@@ -96,9 +109,23 @@ export default function RepriseDialog({
   const [dateDebut, setDateDebut] = useState("");
   const [dateReprise, setDateReprise] = useState("");
 
-  // Pré-remplit la clôture avec la date du dossier à l'ouverture.
+  // --- Mail de reprise au confrère (étape 2) ---
+  const nomDirigeant = [dirigeant?.prenom, dirigeant?.nom].filter(Boolean).join(" ");
+  const [preparerMail, setPreparerMail] = useState(true);
+  const [emailConfrere, setEmailConfrere] = useState("");
+  const [destinatairePieces, setDestinatairePieces] = useState(nomDirigeant);
+  const [etape, setEtape] = useState<"lettre" | "mail">("lettre");
+  const [mailObjet, setMailObjet] = useState("");
+  const [mailCorps, setMailCorps] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Pré-remplit la clôture avec la date du dossier à l'ouverture, et repart
+  // toujours de l'étape « lettre ».
   useEffect(() => {
-    if (open) setCloture(defaultCloture ?? "");
+    if (open) {
+      setCloture(defaultCloture ?? "");
+      setEtape("lettre");
+    }
   }, [open, defaultCloture]);
 
   // Autocomplete annuaire
@@ -176,7 +203,61 @@ export default function RepriseDialog({
       date_reprise: frOf(dateReprise),
     });
     window.location.href = `/api/clients/${clientId}/ldm?${qs.toString()}`;
-    onClose();
+
+    if (!preparerMail) {
+      onClose();
+      return;
+    }
+    // Enchaîne sur le brouillon de mail, calculé depuis les champs de la lettre.
+    const { subject, body } = buildRepriseMail({
+      denomination,
+      interlocuteur,
+      expert: expert.trim(),
+      cloture,
+      dateDebut,
+      dateReprise,
+      destinatairePieces: destinatairePieces.trim() || "…",
+    });
+    setMailObjet(subject);
+    setMailCorps(body);
+    setEtape("mail");
+  }
+
+  /** Étape 2 : télécharge le .eml (brouillon Outlook) du mail au confrère. */
+  async function genererMail() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/mail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: emailConfrere.trim(),
+          subject: mailObjet,
+          body: mailCorps,
+          nomModele: "Mail de reprise",
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? `Erreur ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      a.download = cd.match(/filename="([^"]+)"/)?.[1] ?? "mail-reprise.eml";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toastSuccess("Mail généré — ouvre le fichier pour le retrouver dans Outlook");
+      onClose();
+    } catch (e) {
+      toastError(e, "Échec de la génération du mail");
+    } finally {
+      setBusy(false);
+    }
   }
 
   const valid = cabinet.trim() && expert.trim() && cloture && dateDebut && dateReprise;
@@ -192,13 +273,17 @@ export default function RepriseDialog({
       <div className="absolute inset-0 bg-zinc-900/50 dark:bg-[hsl(226_85%_3%_/_0.6)] backdrop-blur-md" onClick={onClose} aria-hidden />
       <div className="relative w-full max-w-lg rounded-xl bg-white dark:bg-[hsl(var(--surface-elevated))] shadow-modal border border-zinc-200/70 dark:border-white/[0.08] overflow-hidden animate-slide-up-fade">
         <div className="px-5 py-4 border-b border-zinc-200 dark:border-white/[0.06] bg-zinc-50 dark:bg-white/[0.03] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Lettre de reprise, paramétrage</h3>
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+            {etape === "lettre" ? "Lettre de reprise, paramétrage" : "Mail de reprise au confrère"}
+          </h3>
           <button type="button" onClick={onClose} className="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors" aria-label="Fermer">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="px-5 py-4 space-y-3.5 max-h-[65vh] overflow-y-auto">
+          {etape === "lettre" ? (
+            <>
           {/* Recherche annuaire pour le cabinet sortant */}
           <div className="relative">
             <label className={labelCls}>Rechercher le cabinet <span className="text-zinc-400 font-normal">(annuaire, optionnel)</span></label>
@@ -307,23 +392,144 @@ export default function RepriseDialog({
               />
             </div>
           </div>
+
+          {/* Brouillon de mail au confrère, préparé dans la foulée. */}
+          <div className="pt-1 border-t border-zinc-200 dark:border-white/[0.06]">
+            <label className="flex items-center gap-2 pt-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={preparerMail}
+                onChange={(e) => setPreparerMail(e.target.checked)}
+                className="accent-[hsl(var(--gold))]"
+              />
+              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Préparer aussi le mail de reprise au confrère
+              </span>
+            </label>
+
+            {preparerMail && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className={labelCls}>
+                    E-mail du confrère{" "}
+                    <span className="text-zinc-400 font-normal">(optionnel)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={emailConfrere}
+                    onChange={(e) => setEmailConfrere(e.target.value)}
+                    placeholder="ex. p.durand@cabinet-durand.fr"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Envoyer les pièces à</label>
+                  <input
+                    type="text"
+                    value={destinatairePieces}
+                    onChange={(e) => setDestinatairePieces(e.target.value)}
+                    placeholder="ex. Jean DUPONT"
+                    className={inputCls}
+                  />
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+                    «&nbsp;bien vouloir transmettre à …&nbsp;». Pré-rempli avec le dirigeant du
+                    dossier.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+            </>
+          ) : (
+            /* ÉTAPE 2 — brouillon de mail, entièrement modifiable. */
+            <>
+              <div className="flex items-start gap-2 rounded-md bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/[0.06] px-3 py-2 text-[12px] text-zinc-600 dark:text-zinc-300">
+                <MailPlus className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  La lettre est en cours de téléchargement. Relis le mail ci-dessous, puis
+                  n&apos;oublie pas d&apos;y joindre la lettre dans Outlook.
+                </span>
+              </div>
+
+              <div>
+                <label className={labelCls}>Destinataire</label>
+                <input
+                  type="email"
+                  value={emailConfrere}
+                  onChange={(e) => setEmailConfrere(e.target.value)}
+                  placeholder="aucune adresse saisie"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Objet</label>
+                <input
+                  type="text"
+                  value={mailObjet}
+                  onChange={(e) => setMailObjet(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Message</label>
+                <textarea
+                  value={mailCorps}
+                  onChange={(e) => setMailCorps(e.target.value)}
+                  rows={18}
+                  className={cn(inputCls, "leading-relaxed resize-y")}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="px-5 py-3 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-200 dark:border-white/[0.06] flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={generate}
-            disabled={!valid}
-            className={cn(
-              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              valid ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white" : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
-            )}
-          >
-            Générer le .docx
-          </button>
+          {etape === "lettre" ? (
+            <>
+              <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={generate}
+                disabled={!valid}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  valid ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white" : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+                )}
+              >
+                {preparerMail ? "Générer le .docx puis le mail" : "Générer le .docx"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setEtape("lettre")}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Retour
+              </button>
+              <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
+                Sans le mail
+              </button>
+              <button
+                type="button"
+                onClick={genererMail}
+                disabled={busy || !mailObjet.trim() || !mailCorps.trim()}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                  !busy && mailObjet.trim() && mailCorps.trim()
+                    ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white"
+                    : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+                )}
+              >
+                {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {busy ? "Génération…" : "Ouvrir dans Outlook"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>,

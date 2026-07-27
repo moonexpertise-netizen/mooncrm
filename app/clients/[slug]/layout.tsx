@@ -292,6 +292,7 @@ export default async function ClientLayout({
               />
               <LDMButton
                 clientId={client.id}
+                denomination={client.denomination}
                 missingFields={missingLdmFields({
                   denomination: client.denomination,
                   adresse: client.adresse_siege,

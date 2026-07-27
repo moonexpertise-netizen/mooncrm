@@ -33,11 +33,14 @@ const AGREGATS = [
  */
 export default function LDMButton({
   clientId,
+  denomination,
   dirigeant,
   missingFields = [],
   finMission = null,
 }: {
   clientId: string;
+  /** Nom du dossier, cité dans le mail de reprise au confrère. */
+  denomination: string;
   dirigeant: {
     civilite: "M." | "Mme" | "Mlle" | null;
     prenom: string | null;
@@ -230,7 +233,14 @@ export default function LDMButton({
         </div>
       )}
 
-      <RepriseDialog clientId={clientId} open={repriseOpen} onClose={() => setRepriseOpen(false)} defaultCloture={finMission} />
+      <RepriseDialog
+        clientId={clientId}
+        denomination={denomination}
+        dirigeant={dirigeant ? { prenom: dirigeant.prenom, nom: dirigeant.nom } : null}
+        open={repriseOpen}
+        onClose={() => setRepriseOpen(false)}
+        defaultCloture={finMission}
+      />
 
       {attOpen &&
         typeof document !== "undefined" &&
