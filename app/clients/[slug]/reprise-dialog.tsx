@@ -118,6 +118,9 @@ export default function RepriseDialog({
   const [preparerMail, setPreparerMail] = useState(true);
   const [emailConfrere, setEmailConfrere] = useState("");
   const [destinatairePieces, setDestinatairePieces] = useState(nomDirigeant);
+  // Format de sortie : PDF signé (celui qui part au confrère) ou .docx
+  // retouchable dans Word. Les deux portent le bloc de signature.
+  const [format, setFormat] = useState<"pdf" | "docx">("pdf");
 
   // Pré-remplit la clôture avec la date du dossier à l'ouverture.
   useEffect(() => {
@@ -197,6 +200,7 @@ export default function RepriseDialog({
       cloture: frOf(cloture),
       date_debut: frOf(dateDebut),
       date_reprise: frOf(dateReprise),
+      format,
     });
     const urlDocx = `/api/clients/${clientId}/ldm?${qs.toString()}`;
 
@@ -364,6 +368,39 @@ export default function RepriseDialog({
             </div>
           </div>
 
+          {/* Format de sortie du courrier. */}
+          <div>
+            <label className={labelCls}>Format du courrier</label>
+            <div className="flex gap-1">
+              {(
+                [
+                  { v: "pdf", label: "PDF signé", aide: "Prêt à envoyer, bloc de signature daté du jour." },
+                  { v: "docx", label: "Word (.docx)", aide: "Retouchable dans Word, signature incluse." },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.v}
+                  type="button"
+                  onClick={() => setFormat(f.v)}
+                  aria-pressed={format === f.v}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-sm border transition",
+                    format === f.v
+                      ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/60 text-[hsl(var(--gold-dark))] dark:text-[hsl(var(--gold))]"
+                      : "bg-white dark:bg-white/[0.04] border-zinc-200 dark:border-white/[0.10] text-zinc-600 dark:text-zinc-300"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+              {format === "pdf"
+                ? "Prêt à envoyer, avec le bloc de signature daté du jour."
+                : "Retouchable dans Word, avec le bloc de signature."}
+            </p>
+          </div>
+
           {/* Brouillon de mail au confrère, préparé dans la foulée. */}
           <div className="pt-1 border-t border-zinc-200 dark:border-white/[0.06]">
             <label className="flex items-center gap-2 pt-3 cursor-pointer select-none">
@@ -409,8 +446,9 @@ export default function RepriseDialog({
                 </div>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   Outlook s&apos;ouvre sur un brouillon prêt à relire. Le texte se modifie dans{" "}
-                  <span className="font-medium">Paramétrage → Modèles d&apos;e-mails</span>. Pense à
-                  y joindre la lettre téléchargée.
+                  <span className="font-medium">Paramétrage, Modèles d&apos;e-mails</span>. Pense à
+                  y joindre le courrier téléchargé : un lien mailto ne peut pas porter de pièce
+                  jointe.
                 </p>
               </div>
             )}
@@ -430,7 +468,9 @@ export default function RepriseDialog({
               valid ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white" : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
             )}
           >
-            {preparerMail ? "Générer la lettre et ouvrir Outlook" : "Générer le .docx"}
+            {preparerMail
+              ? `Générer le ${format === "pdf" ? "PDF" : ".docx"} et ouvrir Outlook`
+              : `Générer le ${format === "pdf" ? "PDF" : ".docx"}`}
           </button>
         </div>
       </div>

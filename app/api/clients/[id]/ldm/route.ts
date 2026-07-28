@@ -8,11 +8,16 @@ import {
   type LDMDirigeantData,
   type AttestationExtra,
 } from "@/lib/ldm-generator";
+import { docxToPdf, DocxToPdfError } from "@/lib/docx-to-pdf";
 
 /**
- * GET /api/clients/:id/ldm?template=presentation|bnc|sociale|attestation
+ * GET /api/clients/:id/ldm?template=presentation|bnc|sociale|attestation|reprise
  * Pour attestation : &type_attestation=..&portant_sur=..&tarif=..
- * Génère la LDM, retourne le .docx en téléchargement.
+ * Génère le document et le retourne en téléchargement.
+ *
+ * &format=pdf convertit la sortie en PDF (ConvertAPI). Utilisé par la lettre
+ * de reprise, dont le gabarit porte le bloc de signature électronique : le PDF
+ * est la version qui part au confrère, le .docx reste la version de travail.
  */
 export async function GET(
   request: NextRequest,
@@ -32,6 +37,7 @@ export async function GET(
 
   // Champs saisis dans la boîte de dialogue (attestation uniquement).
   const sp = request.nextUrl.searchParams;
+  const format = sp.get("format") === "pdf" ? "pdf" : "docx";
   const attestationExtra: AttestationExtra | undefined =
     tpl === "attestation"
       ? {
@@ -142,10 +148,26 @@ export async function GET(
     const annee = client.fin_mission_date
       ? new Date(client.fin_mission_date).getFullYear()
       : new Date().getFullYear();
-    const filename =
+    const base =
       tpl === "reprise"
-        ? `${denomClean} - Lettre de reprise ${annee} Draft.docx`
-        : `${denomClean} - LDM ${tplLabel} ${annee} Draft.docx`;
+        ? `${denomClean} - Lettre de reprise ${annee}`
+        : `${denomClean} - LDM ${tplLabel} ${annee}`;
+
+    // format=pdf : conversion via ConvertAPI. Le PDF n'est pas marqué "Draft"
+    // (c'est la version signée, destinée à partir telle quelle), contrairement
+    // au .docx qui reste une version de travail relisible dans Word.
+    if (format === "pdf") {
+      const pdf = await docxToPdf(buffer, `${base}.docx`);
+      const filename = `${base}.pdf`;
+      return new NextResponse(pdf as unknown as BodyInit, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        },
+      });
+    }
+
+    const filename = `${base} Draft.docx`;
     const encoded = encodeURIComponent(filename);
 
     return new NextResponse(buffer as unknown as BodyInit, {
@@ -157,6 +179,14 @@ export async function GET(
     });
   } catch (e) {
     console.error("LDM generation failed:", e);
+    // La conversion PDF dépend d'un service externe : on distingue son échec
+    // (souvent un token expiré) d'une erreur de génération du document.
+    if (e instanceof DocxToPdfError) {
+      return NextResponse.json(
+        { error: "Conversion PDF impossible", details: e.message },
+        { status: e.status === 401 ? 401 : 500 }
+      );
+    }
     return NextResponse.json(
       { error: "Erreur de génération LDM", details: String(e) },
       { status: 500 }

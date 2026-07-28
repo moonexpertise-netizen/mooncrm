@@ -240,6 +240,18 @@ export function generateLDM(
  * la boîte de dialogue (RepriseExtra) — la clôture y est pré-remplie avec
  * fin_mission_date du dossier mais reste modifiable.
  */
+/**
+ * Date du jour au format du bloc de signature : « 28 juil. 2026 ».
+ * Intl produit « juil. » avec le point abréviatif attendu.
+ */
+function dateSignature(maintenant: Date = new Date()): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(maintenant);
+}
+
 export function generateLettreReprise(
   client: Pick<LDMClientData, "denomination">,
   extra: RepriseExtra
@@ -265,6 +277,9 @@ export function generateLettreReprise(
     Date_reprise: extra.date_reprise,
     Societe: client.denomination,
     Cloture: extra.cloture,
+    // Bloc de signature électronique inséré dans le gabarit
+    // (cf. scripts/add-signature-reprise.ts) : date du jour, format "28 juil. 2026".
+    Date_signature: dateSignature(),
   });
 
   return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
