@@ -10,10 +10,10 @@ import { docxToPdf, DocxToPdfError } from "@/lib/docx-to-pdf";
 
 /**
  * GET /api/clients/:id/ldm-pdf?template=presentation|bnc
- * Génère la LDM en .docx puis convertit en .pdf via ConvertAPI.
+ * Génère la LDM en .docx puis convertit en .pdf via conv2pdf.
  * Retourne le PDF en téléchargement.
  *
- * Pré-requis : CONVERTAPI_SECRET dans .env.local
+ * Pré-requis : CONV2PDF_TOKEN dans .env.local et dans Vercel.
  */
 export async function GET(
   request: NextRequest,

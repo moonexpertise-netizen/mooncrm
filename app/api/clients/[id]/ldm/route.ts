@@ -15,7 +15,7 @@ import { docxToPdf, DocxToPdfError } from "@/lib/docx-to-pdf";
  * Pour attestation : &type_attestation=..&portant_sur=..&tarif=..
  * Génère le document et le retourne en téléchargement.
  *
- * &format=pdf convertit la sortie en PDF (ConvertAPI). Utilisé par la lettre
+ * &format=pdf convertit la sortie en PDF (conv2pdf). Utilisé par la lettre
  * de reprise, dont le gabarit porte le bloc de signature électronique : le PDF
  * est la version qui part au confrère, le .docx reste la version de travail.
  */
@@ -153,7 +153,7 @@ export async function GET(
         ? `${denomClean} - Lettre de reprise ${annee}`
         : `${denomClean} - LDM ${tplLabel} ${annee}`;
 
-    // format=pdf : conversion via ConvertAPI. Le PDF n'est pas marqué "Draft"
+    // format=pdf : conversion via conv2pdf. Le PDF n'est pas marqué "Draft"
     // (c'est la version signée, destinée à partir telle quelle), contrairement
     // au .docx qui reste une version de travail relisible dans Word.
     if (format === "pdf") {

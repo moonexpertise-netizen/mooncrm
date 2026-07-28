@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractRueOnly } from "@/lib/adresse";
 import { buildRepriseMail, lienMailto } from "@/lib/reprise-mail";
+import { toastError } from "@/lib/toast-helpers";
 import type { EmailTemplate } from "@/lib/email-templates-defaults";
 
 /**
@@ -121,6 +122,9 @@ export default function RepriseDialog({
   // Format de sortie : PDF signé (celui qui part au confrère) ou .docx
   // retouchable dans Word. Les deux portent le bloc de signature.
   const [format, setFormat] = useState<"pdf" | "docx">("pdf");
+  // La conversion PDF prend ~2 s : le bouton doit le montrer et empêcher un
+  // second clic pendant ce temps.
+  const [busy, setBusy] = useState(false);
 
   // Pré-remplit la clôture avec la date du dossier à l'ouverture.
   useEffect(() => {
@@ -187,7 +191,7 @@ export default function RepriseDialog({
     return d;
   }
 
-  function generate() {
+  async function generate() {
     const qs = new URLSearchParams({
       template: "reprise",
       cabinet: cabinet.trim(),
@@ -202,23 +206,45 @@ export default function RepriseDialog({
       date_reprise: frOf(dateReprise),
       format,
     });
-    const urlDocx = `/api/clients/${clientId}/ldm?${qs.toString()}`;
+    const url = `/api/clients/${clientId}/ldm?${qs.toString()}`;
+
+    // Le document est récupéré en fetch, PAS via une navigation : en PDF la
+    // conversion prend ~2 s côté serveur, et l'ouverture d'Outlook qui suit
+    // annulerait une navigation encore en vol (le courrier partait, le PDF
+    // jamais). En prime, un échec de conversion devient visible ici au lieu
+    // d'aboutir à une page blanche.
+    setBusy(true);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.details ?? j.error ?? `Erreur ${res.status}`);
+      }
+      const blob = await res.blob();
+      const lien = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = lien;
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      a.download =
+        cd.match(/filename="([^"]+)"/)?.[1] ??
+        `Lettre de reprise.${format === "pdf" ? "pdf" : "docx"}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(lien);
+    } catch (e) {
+      // On n'ouvre pas Outlook : le mail annonce une pièce jointe qui
+      // n'existerait pas.
+      toastError(e, "Génération du courrier impossible");
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
 
     if (!preparerMail) {
-      window.location.href = urlDocx;
       onClose();
       return;
     }
-
-    // Deux actions à la suite : on déclenche le téléchargement via un <a> (qui
-    // ne quitte pas la page, contrairement à window.location) PUIS le mailto,
-    // sinon la seconde navigation annulerait la première.
-    const a = document.createElement("a");
-    a.href = urlDocx;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
 
     const { subject, body } = buildRepriseMail(
       {
@@ -232,10 +258,12 @@ export default function RepriseDialog({
       },
       mailTemplate ?? null
     );
+    // Court délai : le téléchargement vient d'un blob local, déjà abouti, mais
+    // certains navigateurs le traitent de façon asynchrone.
     const lien = lienMailto(emailConfrere.trim(), subject, body);
     window.setTimeout(() => {
       window.location.href = lien;
-    }, 600);
+    }, 200);
     onClose();
   }
 
@@ -462,15 +490,22 @@ export default function RepriseDialog({
           <button
             type="button"
             onClick={generate}
-            disabled={!valid}
+            disabled={!valid || busy}
             className={cn(
-              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              valid ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white" : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+              valid && !busy
+                ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white"
+                : "bg-zinc-200 dark:bg-white/[0.08] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
             )}
           >
-            {preparerMail
-              ? `Générer le ${format === "pdf" ? "PDF" : ".docx"} et ouvrir Outlook`
-              : `Générer le ${format === "pdf" ? "PDF" : ".docx"}`}
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {busy
+              ? format === "pdf"
+                ? "Conversion du PDF…"
+                : "Génération…"
+              : preparerMail
+                ? `Générer le ${format === "pdf" ? "PDF" : ".docx"} et ouvrir Outlook`
+                : `Générer le ${format === "pdf" ? "PDF" : ".docx"}`}
           </button>
         </div>
       </div>
