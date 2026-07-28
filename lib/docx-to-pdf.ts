@@ -17,8 +17,18 @@
  * éventuellement après une phase de traitement, d'où la boucle d'attente.
  */
 
-const BASE = "https://api.conv2pdf.com/v1";
-const OUTIL = "word-to-pdf";
+/**
+ * Hôte SANS le préfixe de version : `download_url` arrive en chemin relatif
+ * déjà préfixé par /v1, le concaténer à une base contenant /v1 produirait un
+ * /v1/v1/ introuvable.
+ */
+const HOTE = "https://api.conv2pdf.com";
+/**
+ * Slug de l'outil. À vérifier via `GET /v1/tools` en cas de 404
+ * `tool_not_found` : la documentation publique mentionne « word-to-pdf », qui
+ * n'existe pas — l'API expose `office-to-pdf` (.doc .docx .docm .odt .rtf).
+ */
+const OUTIL = "office-to-pdf";
 
 /** Attente maximale d'un job de conversion, et pas entre deux vérifications. */
 const ATTENTE_MAX_MS = 60_000;
@@ -43,7 +53,12 @@ function token(): string {
   return t;
 }
 
-/** Réponse de conversion : le nommage exact varie, on accepte les variantes. */
+/**
+ * Réponse observée :
+ *   { job_id, status: "success", download_url: "/v1/download/…",
+ *     size_bytes, quota: { plan, quota, used, … } }
+ * On reste tolérant sur le nommage (camelCase / snake_case).
+ */
 type ReponseConversion = {
   download_url?: string;
   downloadUrl?: string;
@@ -53,13 +68,24 @@ type ReponseConversion = {
   status?: string;
   error?: string;
   message?: string;
+  quota?: { quota?: number; used?: number; plan?: string };
 };
 
 function lienTelechargement(r: ReponseConversion): string | null {
   const direct = r.download_url ?? r.downloadUrl;
-  if (direct) return direct.startsWith("http") ? direct : `${BASE}${direct}`;
+  if (direct) return direct.startsWith("http") ? direct : `${HOTE}${direct}`;
   const job = r.jobId ?? r.job_id ?? r.id;
-  return job ? `${BASE}/download/${job}` : null;
+  return job ? `${HOTE}/v1/download/${job}` : null;
+}
+
+/** Alerte dans les logs serveur quand le quota mensuel s'épuise. */
+function surveilleQuota(q: ReponseConversion["quota"]) {
+  if (!q?.quota || q.used == null) return;
+  if (q.used >= q.quota * 0.8) {
+    console.warn(
+      `[conv2pdf] quota ${q.used}/${q.quota} conversions utilisées ce mois (plan ${q.plan ?? "?"}).`
+    );
+  }
 }
 
 const dors = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -84,7 +110,7 @@ export async function docxToPdf(
     filename
   );
 
-  const r = await fetch(`${BASE}/convert/${OUTIL}`, {
+  const r = await fetch(`${HOTE}/v1/convert/${OUTIL}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${cle}` },
     body: form,
@@ -113,6 +139,7 @@ export async function docxToPdf(
   if (json.error) {
     throw new DocxToPdfError(`conv2pdf : ${json.error} ${json.message ?? ""}`.trim());
   }
+  surveilleQuota(json.quota);
 
   const url = lienTelechargement(json);
   if (!url) {
