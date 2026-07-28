@@ -79,6 +79,14 @@ function texteVersHtml(corps: string): string {
   return `<html><body style="${STYLE_TEXTE}"><div style="${STYLE_TEXTE}">${paragraphes}</div></body></html>`;
 }
 
+export type PieceJointe = {
+  /** Nom affiché dans Outlook ; les accents sont encodés à l'écriture. */
+  nom: string;
+  contenu: Buffer;
+  /** Type MIME ; par défaut binaire générique. */
+  type?: string;
+};
+
 export type EmlInput = {
   /** Destinataire principal ; peut être vide (Outlook ouvrira le champ vierge). */
   to: string;
@@ -86,26 +94,22 @@ export type EmlInput = {
   subject: string;
   /** Corps en TEXTE BRUT (les modèles sont édités en texte simple). */
   body: string;
+  /** Fichiers joints au brouillon (le courrier signé, typiquement). */
+  pieces?: PieceJointe[];
   /** Date du brouillon ; injectable pour les tests. */
   date?: Date;
 };
 
-/** Construit le contenu d'un fichier .eml prêt à être téléchargé. */
-export function buildEml({ to, cc, subject, body, date = new Date() }: EmlInput): Buffer {
-  const frontiere = `----=_MoonCRM_${crypto.randomUUID()}`;
+/** Base64 d'un binaire, replié à 76 colonnes. */
+function base64Binaire(buf: Buffer): string {
+  const b64 = buf.toString("base64");
+  return (b64.match(/.{1,76}/g) ?? []).join(CRLF);
+}
+
+/** Les deux représentations du corps, dans une frontière alternative. */
+function partiesCorps(frontiere: string, body: string): string[] {
   const corpsTexte = body.replace(/\r\n/g, "\n").replace(/\n/g, CRLF);
-
-  const entetes = [
-    `Date: ${date.toUTCString()}`,
-    `To: ${encodeHeader(to)}`,
-    ...(cc ? [`Cc: ${encodeHeader(cc)}`] : []),
-    `Subject: ${encodeHeader(subject)}`,
-    "X-Unsent: 1",
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${frontiere}"`,
-  ];
-
-  const parties = [
+  return [
     `--${frontiere}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
@@ -119,10 +123,74 @@ export function buildEml({ to, cc, subject, body, date = new Date() }: EmlInput)
     base64Plie(texteVersHtml(body)),
     "",
     `--${frontiere}--`,
+  ];
+}
+
+/**
+ * Construit le contenu d'un fichier .eml prêt à être téléchargé.
+ *
+ * Sans pièce jointe : multipart/alternative (texte + HTML).
+ * Avec : multipart/mixed englobant l'alternative puis chaque fichier — c'est
+ * la structure qu'attend Outlook pour afficher les pièces jointes d'un
+ * brouillon.
+ */
+export function buildEml({
+  to,
+  cc,
+  subject,
+  body,
+  pieces = [],
+  date = new Date(),
+}: EmlInput): Buffer {
+  const alt = `----=_MoonCRM_alt_${crypto.randomUUID()}`;
+
+  const entetesCommuns = [
+    `Date: ${date.toUTCString()}`,
+    `To: ${encodeHeader(to)}`,
+    ...(cc ? [`Cc: ${encodeHeader(cc)}`] : []),
+    `Subject: ${encodeHeader(subject)}`,
+    "X-Unsent: 1",
+    "MIME-Version: 1.0",
+  ];
+
+  if (pieces.length === 0) {
+    const lignes = [
+      ...entetesCommuns,
+      `Content-Type: multipart/alternative; boundary="${alt}"`,
+      "",
+      ...partiesCorps(alt, body),
+      "",
+    ];
+    return Buffer.from(lignes.join(CRLF), "utf8");
+  }
+
+  const mixed = `----=_MoonCRM_mix_${crypto.randomUUID()}`;
+  const lignes = [
+    ...entetesCommuns,
+    `Content-Type: multipart/mixed; boundary="${mixed}"`,
+    "",
+    `--${mixed}`,
+    `Content-Type: multipart/alternative; boundary="${alt}"`,
+    "",
+    ...partiesCorps(alt, body),
     "",
   ];
 
-  return Buffer.from([...entetes, "", ...parties].join(CRLF), "utf8");
+  for (const p of pieces) {
+    const nom = encodeHeader(p.nom);
+    lignes.push(
+      `--${mixed}`,
+      `Content-Type: ${p.type ?? "application/octet-stream"}; name="${nom}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${nom}"`,
+      "",
+      base64Binaire(p.contenu),
+      ""
+    );
+  }
+
+  lignes.push(`--${mixed}--`, "");
+  return Buffer.from(lignes.join(CRLF), "utf8");
 }
 
 /** En-tête Content-Disposition avec nom de fichier accentué (RFC 5987). */

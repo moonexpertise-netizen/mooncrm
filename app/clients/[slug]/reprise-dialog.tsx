@@ -6,7 +6,7 @@ import { X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractRueOnly } from "@/lib/adresse";
 import { buildRepriseMail, lienMailto } from "@/lib/reprise-mail";
-import { toastError } from "@/lib/toast-helpers";
+import { toastError, toastSuccess } from "@/lib/toast-helpers";
 import type { EmailTemplate } from "@/lib/email-templates-defaults";
 
 /**
@@ -17,11 +17,17 @@ import type { EmailTemplate } from "@/lib/email-templates-defaults";
  * pré-remplir nom + adresse + CP + ville, tout restant éditable. Le nom du
  * dossier et sa date de clôture viennent du dossier courant (côté serveur).
  *
- * Si la case est cochée, la génération de la lettre ouvre DANS LA FOULÉE un
- * brouillon Outlook (mailto) adressé au confrère, calculé à partir des mêmes
- * champs — on ne ressaisit ni les dates ni le nom de l'expert. Aucune étape
- * intermédiaire dans l'outil : la relecture se fait dans Outlook. Le texte du
- * modèle est éditable dans /parametrage/emails.
+ * Si la case est cochée, on prépare aussi le brouillon Outlook au confrère,
+ * calculé à partir des mêmes champs : on ne ressaisit ni les dates ni le nom
+ * de l'expert. La relecture se fait dans Outlook, pas dans l'outil. Le texte
+ * du modèle est éditable dans /parametrage/emails.
+ *
+ * Deux chemins selon le format, car un lien mailto ne peut porter aucun
+ * fichier :
+ *   - PDF   -> /reprise-mail renvoie un .eml contenant le brouillon ET le
+ *              courrier signé déjà en pièce jointe ;
+ *   - .docx -> téléchargement du document puis mailto, la pièce jointe restant
+ *              à ajouter à la main.
  */
 
 const TYPES_MISSION = [
@@ -191,9 +197,9 @@ export default function RepriseDialog({
     return d;
   }
 
-  async function generate() {
-    const qs = new URLSearchParams({
-      template: "reprise",
+  /** Champs de la lettre, communs aux deux chemins de génération. */
+  function champsLettre() {
+    return {
       cabinet: cabinet.trim(),
       expert: expert.trim(),
       adresse: adresse.trim(),
@@ -204,34 +210,87 @@ export default function RepriseDialog({
       cloture: frOf(cloture),
       date_debut: frOf(dateDebut),
       date_reprise: frOf(dateReprise),
-      format,
-    });
-    const url = `/api/clients/${clientId}/ldm?${qs.toString()}`;
+    };
+  }
 
-    // Le document est récupéré en fetch, PAS via une navigation : en PDF la
-    // conversion prend ~2 s côté serveur, et l'ouverture d'Outlook qui suit
-    // annulerait une navigation encore en vol (le courrier partait, le PDF
-    // jamais). En prime, un échec de conversion devient visible ici au lieu
-    // d'aboutir à une page blanche.
+  /** Déclenche le téléchargement d'une réponse déjà reçue (blob local). */
+  function telecharge(blob: Blob, entete: string, defaut: string) {
+    const lien = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = lien;
+    a.download = entete.match(/filename="([^"]+)"/)?.[1] ?? defaut;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(lien);
+  }
+
+  function texteDuMail() {
+    return buildRepriseMail(
+      {
+        denomination,
+        interlocuteur,
+        expert: expert.trim(),
+        cloture,
+        dateDebut,
+        dateReprise,
+        destinatairePieces: destinatairePieces.trim() || "…",
+      },
+      mailTemplate ?? null
+    );
+  }
+
+  async function generate() {
     setBusy(true);
+
+    // CAS 1 — PDF + mail : un seul appel renvoie le brouillon Outlook avec le
+    // courrier signé DÉJÀ en pièce jointe. Un mailto ne pourrait pas porter de
+    // fichier, d'où le .eml.
+    if (preparerMail && format === "pdf") {
+      try {
+        const { subject, body } = texteDuMail();
+        const res = await fetch(`/api/clients/${clientId}/reprise-mail`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lettre: champsLettre(),
+            mail: { to: emailConfrere.trim(), subject, body },
+          }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.details ?? j.error ?? `Erreur ${res.status}`);
+        }
+        telecharge(
+          await res.blob(),
+          res.headers.get("Content-Disposition") ?? "",
+          "Reprise deontologique.eml"
+        );
+        toastSuccess("Ouvre le fichier : le brouillon Outlook contient déjà le courrier signé");
+        onClose();
+      } catch (e) {
+        toastError(e, "Génération du courrier impossible");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    // CAS 2 — document seul, ou .docx suivi du brouillon Outlook (mailto).
+    // Le document est récupéré en fetch, PAS via une navigation : l'ouverture
+    // d'Outlook qui suit annulerait une navigation encore en vol.
+    const qs = new URLSearchParams({ template: "reprise", ...champsLettre(), format });
     try {
-      const res = await fetch(url);
+      const res = await fetch(`/api/clients/${clientId}/ldm?${qs.toString()}`);
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.details ?? j.error ?? `Erreur ${res.status}`);
       }
-      const blob = await res.blob();
-      const lien = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = lien;
-      const cd = res.headers.get("Content-Disposition") ?? "";
-      a.download =
-        cd.match(/filename="([^"]+)"/)?.[1] ??
-        `Lettre de reprise.${format === "pdf" ? "pdf" : "docx"}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(lien);
+      telecharge(
+        await res.blob(),
+        res.headers.get("Content-Disposition") ?? "",
+        `Lettre de reprise.${format === "pdf" ? "pdf" : "docx"}`
+      );
     } catch (e) {
       // On n'ouvre pas Outlook : le mail annonce une pièce jointe qui
       // n'existerait pas.
@@ -246,18 +305,7 @@ export default function RepriseDialog({
       return;
     }
 
-    const { subject, body } = buildRepriseMail(
-      {
-        denomination,
-        interlocuteur,
-        expert: expert.trim(),
-        cloture,
-        dateDebut,
-        dateReprise,
-        destinatairePieces: destinatairePieces.trim() || "…",
-      },
-      mailTemplate ?? null
-    );
+    const { subject, body } = texteDuMail();
     // Court délai : le téléchargement vient d'un blob local, déjà abouti, mais
     // certains navigateurs le traitent de façon asynchrone.
     const lien = lienMailto(emailConfrere.trim(), subject, body);
