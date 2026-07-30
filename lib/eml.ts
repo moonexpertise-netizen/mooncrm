@@ -41,51 +41,36 @@ function echappeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Une ligne de puce : « - texte », « • texte » ou « * texte ». */
-const PUCE = /^\s*[-•*]\s+(.*)$/;
-
 /**
  * Police et couleur du corps, répétées sur CHAQUE élément de texte.
  *
  * Un style porté par <body> seul ne suffit pas : à l'ouverture d'un brouillon,
  * Outlook renormalise le HTML et retombe sur la couleur par défaut de son
- * éditeur (un gris foncé, pas du noir). La couleur doit donc être inline sur
- * les <p> et les <li> pour survivre.
+ * éditeur (un gris foncé, pas du noir). La couleur doit donc être inline.
  */
 const STYLE_TEXTE = "font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000000";
 
 /**
- * Texte brut -> HTML : lignes vides = nouveau paragraphe, sauts simples = <br>.
- * Un paragraphe entièrement composé de puces devient une vraie liste <ul> :
- * les modèles qui énumèrent des pièces à fournir sortent proprement dans
- * Outlook au lieu d'une suite de tirets.
+ * Texte brut -> HTML, en UN SEUL bloc.
  *
- * STRUCTURE IMPOSÉE PAR OUTLOOK. Le corps est enveloppé dans les balises que
- * Word/Outlook génèrent eux-mêmes : namespaces o:/w:, classes MsoNormal et
- * conteneur `WordSection1`. Sans cela, Outlook ne reconnaît pas le message
- * comme l'un des siens et insère la signature automatique APRÈS LE PREMIER
- * PARAGRAPHE — le reste du message se retrouve alors sous la signature.
- * Avec ce conteneur, la signature est ajoutée à la fin, à sa place.
+ * POURQUOI UN SEUL PARAGRAPHE. À l'ouverture d'un brouillon .eml, Outlook
+ * insère la signature automatique après le PREMIER bloc du corps, pas à la
+ * fin : le message se retrouvait coupé en deux, la signature au milieu.
+ * Habiller le HTML comme le fait Word (namespaces o:/w:, div WordSection1,
+ * classes MsoNormal) n'y change rien — Outlook descend dans le conteneur.
+ *
+ * En n'émettant qu'un seul <p>, il n'existe plus d'interstice où s'intercaler :
+ * la signature ne peut arriver qu'après l'ensemble du message. Les sauts de
+ * ligne et les lignes vides sont donc rendus par des <br>, et les puces
+ * restent des lignes de texte préfixées du caractère « • » du modèle plutôt
+ * qu'une liste <ul>, qui rouvrirait un bloc.
  */
 function texteVersHtml(corps: string): string {
-  const paragraphes = corps
+  const contenu = corps
     .replace(/\r\n/g, "\n")
-    .split(/\n{2,}/)
-    .map((p) => {
-      const lignes = p.split("\n").filter((l) => l.trim());
-      const puces = lignes.map((l) => l.match(PUCE)).filter(Boolean);
-      if (lignes.length > 0 && puces.length === lignes.length) {
-        const items = puces
-          .map(
-            (m) =>
-              `<li class="MsoNormal" style="${STYLE_TEXTE};margin:0 0 4px 0">${echappeHtml(m![1])}</li>`
-          )
-          .join("");
-        return `<ul style="${STYLE_TEXTE};margin:0 0 12px 0;padding-left:22px">${items}</ul>`;
-      }
-      return `<p class="MsoNormal" style="${STYLE_TEXTE};margin:0 0 12px 0">${echappeHtml(p).replace(/\n/g, "<br>")}</p>`;
-    })
-    .join("");
+    .split("\n")
+    .map((l) => echappeHtml(l))
+    .join("<br>");
 
   return (
     '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
@@ -94,8 +79,9 @@ function texteVersHtml(corps: string): string {
     '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">' +
     '<meta name="Generator" content="Microsoft Word 15 (filtered medium)"></head>' +
     `<body lang="FR" style="${STYLE_TEXTE}">` +
-    `<div class="WordSection1">${paragraphes}</div>` +
-    "</body></html>"
+    `<div class="WordSection1">` +
+    `<p class="MsoNormal" style="${STYLE_TEXTE};margin:0">${contenu}</p>` +
+    "</div></body></html>"
   );
 }
 
