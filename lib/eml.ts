@@ -59,6 +59,13 @@ const STYLE_TEXTE = "font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#
  * Un paragraphe entièrement composé de puces devient une vraie liste <ul> :
  * les modèles qui énumèrent des pièces à fournir sortent proprement dans
  * Outlook au lieu d'une suite de tirets.
+ *
+ * STRUCTURE IMPOSÉE PAR OUTLOOK. Le corps est enveloppé dans les balises que
+ * Word/Outlook génèrent eux-mêmes : namespaces o:/w:, classes MsoNormal et
+ * conteneur `WordSection1`. Sans cela, Outlook ne reconnaît pas le message
+ * comme l'un des siens et insère la signature automatique APRÈS LE PREMIER
+ * PARAGRAPHE — le reste du message se retrouve alors sous la signature.
+ * Avec ce conteneur, la signature est ajoutée à la fin, à sa place.
  */
 function texteVersHtml(corps: string): string {
   const paragraphes = corps
@@ -69,14 +76,27 @@ function texteVersHtml(corps: string): string {
       const puces = lignes.map((l) => l.match(PUCE)).filter(Boolean);
       if (lignes.length > 0 && puces.length === lignes.length) {
         const items = puces
-          .map((m) => `<li style="${STYLE_TEXTE};margin:0 0 4px 0">${echappeHtml(m![1])}</li>`)
+          .map(
+            (m) =>
+              `<li class="MsoNormal" style="${STYLE_TEXTE};margin:0 0 4px 0">${echappeHtml(m![1])}</li>`
+          )
           .join("");
         return `<ul style="${STYLE_TEXTE};margin:0 0 12px 0;padding-left:22px">${items}</ul>`;
       }
-      return `<p style="${STYLE_TEXTE};margin:0 0 12px 0">${echappeHtml(p).replace(/\n/g, "<br>")}</p>`;
+      return `<p class="MsoNormal" style="${STYLE_TEXTE};margin:0 0 12px 0">${echappeHtml(p).replace(/\n/g, "<br>")}</p>`;
     })
     .join("");
-  return `<html><body style="${STYLE_TEXTE}"><div style="${STYLE_TEXTE}">${paragraphes}</div></body></html>`;
+
+  return (
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+    'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
+    'xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">' +
+    '<meta name="Generator" content="Microsoft Word 15 (filtered medium)"></head>' +
+    `<body lang="FR" style="${STYLE_TEXTE}">` +
+    `<div class="WordSection1">${paragraphes}</div>` +
+    "</body></html>"
+  );
 }
 
 export type PieceJointe = {
